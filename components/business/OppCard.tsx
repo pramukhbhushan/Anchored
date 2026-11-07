@@ -143,6 +143,7 @@ export function OppCard({
                       request={path.request}
                       className={buttonClass("secondary", "sm")}
                       label={`Choose ${PATH_LABEL[path.kind]}: ${path.label} for ${name}`}
+                      runner={path.label}
                     >
                       Choose
                     </ChooseButton>

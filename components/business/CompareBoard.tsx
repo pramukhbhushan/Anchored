@@ -169,6 +169,7 @@ function ToolRow({
               request={{ workflow: target, path: owned ? "turnon" : "buy", toolId: tool.id }}
               className={buttonClass("secondary", "sm")}
               label={`${verb} ${item.name} for ${WORKFLOWS[target].name.toLowerCase()}`}
+              runner={item.name}
             >
               {verb}
             </ChooseButton>
