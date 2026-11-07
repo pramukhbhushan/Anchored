@@ -9,9 +9,9 @@ import { deferred, json, sentJson, stubFetch } from "@/test/http";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The one-page onboarding form as an owner fills it in: it starts on a sample
-// landscaper, suggests boxes for the kind of business typed, sends the answers
-// and opens the new plan, or says what is missing or what went wrong.
+// The one-page onboarding form as an owner fills it in: it starts empty,
+// suggests boxes for the kind of business typed, sends the answers and opens
+// the new plan, or says what is missing or what went wrong.
 
 function renderForm(aiName: string | null = null) {
   return render(
@@ -29,14 +29,35 @@ const nameField = () => screen.getByRole("textbox", { name: "Business name and t
 const kindField = () => screen.getByRole("textbox", { name: "What kind of business is it?" });
 const submit = () => screen.getByRole("button", { name: "Build my plan" });
 
+/** Type the two answers the form needs before it sends anything. */
+async function fillRequired(): Promise<void> {
+  await userEvent.type(nameField(), "Greenfield Lawn & Landscape, Bowie, MD");
+  await userEvent.type(kindField(), "Landscaping company");
+}
+
 describe("OnboardForm", () => {
-  it("sends the sample answers and opens the new plan", async () => {
+  it("starts empty, with nothing ticked but English", () => {
+    renderForm();
+
+    expect(nameField()).toHaveValue("");
+    expect(kindField()).toHaveValue("");
+    expect(screen.getByRole("checkbox", { name: "English" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Spanish" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Google" })).not.toBeChecked();
+  });
+
+  it("sends the owner's answers, opens the new plan and refreshes the shell to list it", async () => {
     const fetchSpy = stubFetch(() => created());
     renderForm();
 
+    await fillRequired();
+    for (const box of ["Phone calls", "Referrals", "Google", "Spanish"]) {
+      await userEvent.click(screen.getByRole("checkbox", { name: box }));
+    }
     await userEvent.click(submit());
 
     await waitFor(() => expect(router.push).toHaveBeenCalledExactlyOnceWith("/app/b/biz-42"));
+    expect(router.refresh).toHaveBeenCalled();
     const sent = sentJson(fetchSpy, 0);
     expect(sent).toMatchObject({ method: "POST", url: "/api/businesses" });
     expect(sent.body).toEqual({
@@ -45,7 +66,6 @@ describe("OnboardForm", () => {
         name: "Greenfield Lawn & Landscape, Bowie, MD",
         kind: "Landscaping company",
         reach: expect.arrayContaining(["Phone calls", "Referrals", "Google"]),
-        signals: expect.arrayContaining(["quotes", "memberships"]),
         languages: expect.arrayContaining(["English", "Spanish"]),
       }),
     });
@@ -56,7 +76,9 @@ describe("OnboardForm", () => {
     const fetchSpy = stubFetch(() => created());
     renderForm();
 
+    await fillRequired();
     await userEvent.click(screen.getByRole("checkbox", { name: "Korean" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Spanish" }));
     await userEvent.click(screen.getByRole("checkbox", { name: "Spanish" }));
     await userEvent.click(submit());
 
@@ -129,6 +151,7 @@ describe("OnboardForm", () => {
     stubFetch(() => answer.promise);
     renderForm("Claude");
 
+    await fillRequired();
     await userEvent.click(submit());
 
     expect(submit()).toBeDisabled();
@@ -141,6 +164,7 @@ describe("OnboardForm", () => {
     stubFetch(() => json({ error: "Anchored couldn't read those answers. Try shorter ones." }, 422));
     renderForm();
 
+    await fillRequired();
     await userEvent.click(submit());
 
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Anchored couldn't read those answers. Try shorter ones."));

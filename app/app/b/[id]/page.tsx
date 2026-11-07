@@ -1,36 +1,30 @@
-import { Bot, Inbox, MessageSquare } from "lucide-react";
+import { ChevronRight, Inbox, MessageSquare, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { asSentence, skillList } from "@/components/agent-labels";
-import { ProfileSummary } from "@/components/business/ProfileCard";
-import { businessHref } from "@/components/routes";
-import { SampleBadge } from "@/components/business/SampleBadge";
 import { SimulateButton } from "@/components/business/SimulateButton";
-import { Stamp } from "@/components/ui/Stamp";
-import { Badge } from "@/components/ui/Badge";
+import { NEW_BUSINESS_HREF, businessHref, cardAnchor } from "@/components/routes";
 import { ButtonLink } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Stat, StatStrip } from "@/components/ui/Stat";
 import { feedStats, money, placeOf, plannedWorkflows } from "@/components/view-helpers";
-import { morningBrief } from "@/lib/domain/brief";
 import { DEMO_TIME_ZONE } from "@/lib/domain/executor";
 import { activeAgents, chosenSkills, stackCost } from "@/lib/domain/paths";
 import { WORKFLOWS } from "@/lib/domain/workflows";
-import type { ActiveAgent, BusinessProfile } from "@/lib/domain/types";
 import { getBusinessOrNotFound, getChoices, getFeed } from "@/lib/server/data";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The overview, the page an owner opens each day. The main column holds the
-// morning brief on the carbon work-order slip, a KPI strip, workflows new for
-// the business and the agents drafting for it; the rail holds approvals
-// waiting and the profile. On one column, approvals follow the brief.
+// The overview, the page an owner opens each day: one reading column holding
+// the morning brief on the carbon work-order slip. The brief leads with how
+// many approvals wait and links each one, then says what rides on them, what
+// is new, what the stack costs and, once there is any, what the owner has done.
 
 export const metadata: Metadata = { title: "Overview" };
 
-/** Today's date as the brief's header prints it, such as "Friday, Nov 7". */
+// Waiting cards the brief names one per row; the rest are counted.
+const ROWS_SHOWN = 3;
+
+/** Today's date as the brief's header prints it, such as "Saturday, Nov 7". */
 function briefDate(): string {
   return new Date().toLocaleDateString("en-US", {
     timeZone: DEMO_TIME_ZONE,
@@ -40,11 +34,10 @@ function briefDate(): string {
   });
 }
 
-/** Return the sentence saying why a niche agent exists, or `null` for a core agent. */
-function spawnReason(business: BusinessProfile, agent: ActiveAgent): string | null {
-  if (!agent.niche) return null;
-  const niche = business.nicheAgents.find((n) => n.id === agent.id);
-  return niche === undefined ? null : asSentence(niche.spawnedBecause);
+/** Join names as English prose: "A", "A and B", "A, B and C". */
+function joinAnd(names: readonly string[]): string {
+  if (names.length <= 1) return names.join("");
+  return `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
 }
 
 /** Render the overview for the business in the URL. */
@@ -53,160 +46,105 @@ export default async function OverviewPage({ params }: { readonly params: Promis
   const business = await getBusinessOrNotFound(id);
   const [choices, feed] = await Promise.all([getChoices(business), getFeed(business)]);
   const stats = feedStats(feed.cards);
-  const brief = morningBrief(business, choices, feed.cards);
+  const waiting = feed.cards.filter((card) => card.status === "pending");
+  const atStake = waiting.reduce((sum, card) => sum + (card.stake ?? 0), 0);
   const cost = stackCost(business, choices);
-  const agents = activeAgents(business, choices);
-  const agentNames = Object.fromEntries(agents.map((a) => [a.id, a.name]));
-  const fresh = plannedWorkflows(business).filter((w) => w.plan.isNew);
-  const firstUp = feed.cards.find((card) => card.status === "pending");
+  const onQuote = cost.onQuote.length > 0 ? `, plus ${joinAnd(cost.onQuote.map((tool) => tool.name))} on quote` : "";
+  // Same rule as the morning brief in `lib/domain/brief.ts`: new workflows the owner hasn't skipped.
+  const fresh = plannedWorkflows(business).filter((w) => w.plan.isNew && choices[w.id].path !== "skip");
+  const [onlyFresh] = fresh;
+  const freshHref =
+    fresh.length === 1 && onlyFresh !== undefined
+      ? `${businessHref(business.id, "workflows")}#wf-${onlyFresh.id}`
+      : businessHref(business.id, "workflows");
+  const approvalsHref = businessHref(business.id, "approvals");
   const place = placeOf(business);
+  const canSimulate = chosenSkills(business, choices).length > 0;
+  const agentNames = Object.fromEntries(activeAgents(business, choices).map((a) => [a.id, a.name]));
 
   return (
-    <>
+    <div className="ov">
       <PageHeader
         title={business.name}
-        badge={<SampleBadge business={business} />}
-        description={`${business.trade}${place === null ? "" : ` in ${place}`}.`}
+        description={place === null ? business.trade : `${business.trade} in ${place}`}
         actions={
-          <ButtonLink href={businessHref(business.id, "chat")} variant="secondary">
-            <MessageSquare aria-hidden="true" size={16} />
-            Open chat
-          </ButtonLink>
+          // A sample's chat can't change anything, so a sample leads with what a visitor can do next instead.
+          business.kind === "case" ? (
+            <ButtonLink href={NEW_BUSINESS_HREF} variant="secondary">
+              <Plus aria-hidden="true" size={16} />
+              Start your own business
+            </ButtonLink>
+          ) : (
+            <ButtonLink href={businessHref(business.id, "chat")} variant="secondary">
+              <MessageSquare aria-hidden="true" size={16} />
+              Open chat
+            </ButtonLink>
+          )
         }
       />
 
-      <div className="with-rail ov-page">
-        <div className="ov-main">
-          <section className="slip" aria-labelledby="brief-title">
-            <header className="slip-head">
-              <h2 id="brief-title">Morning brief</h2>
-              <span>{briefDate()}</span>
-            </header>
-            <div className="slip-perf" aria-hidden="true" />
-            <ul className="slip-lines">
-              {brief.map((line) => (
-                <li key={line}>{line}</li>
+      <section className="slip" aria-labelledby="brief-title">
+        <header className="slip-head">
+          <h2 id="brief-title">Morning brief</h2>
+          <span>{briefDate()}</span>
+        </header>
+        <div className="slip-perf" aria-hidden="true" />
+        <div className="brief">
+          <div className="brief-top">
+            {waiting.length > 0 ? (
+              <>
+                <p className="brief-count">
+                  <b>{waiting.length}</b> {waiting.length === 1 ? "waits for you" : "wait for you"}
+                </p>
+                <ButtonLink href={approvalsHref}>
+                  <Inbox aria-hidden="true" size={16} />
+                  Review {waiting.length === 1 ? "it" : `all ${waiting.length}`}
+                </ButtonLink>
+              </>
+            ) : (
+              <>
+                <p className="brief-none">Nothing waits for you.</p>
+                {canSimulate && <SimulateButton businessId={business.id} agentNames={agentNames} seeHref={approvalsHref} />}
+              </>
+            )}
+          </div>
+          {waiting.length > 0 && (
+            <ul className="brief-rows" aria-label="Waiting for you">
+              {waiting.slice(0, ROWS_SHOWN).map((card) => (
+                <li key={card.key}>
+                  <Link href={`${approvalsHref}#${cardAnchor(card.key)}`}>
+                    {card.title}
+                    <ChevronRight aria-hidden="true" size={18} />
+                  </Link>
+                </li>
               ))}
             </ul>
-          </section>
+          )}
+          {waiting.length > ROWS_SHOWN && <p className="brief-more">and {waiting.length - ROWS_SHOWN} more</p>}
 
-          <StatStrip label="This business so far">
-            <Stat label="Approved" value={stats.approved} hint="Cards you sent or logged" />
-            <Stat label="Edit rate" value={`${stats.editRate}%`} hint="Approvals you edited first" />
-            <Stat
-              label="Value acted on"
-              value={money(stats.actedOn)}
-              hint="Quotes and invoices on cards you approved"
-            />
-            <Stat
-              label="Stack cost"
-              value={`${money(cost.total)}/mo`}
-              hint={
-                cost.onQuote.length > 0
-                  ? `Plus ${cost.onQuote.length} on quote`
-                  : "Tools you already pay for count as $0"
-              }
-            />
-          </StatStrip>
-
-          <div className="ov-pair">
-            <Card
-              title="New for you"
-              description="Work your answers point to that this business doesn't do today."
-              action={
-                <Link className="btn btn-quiet btn-sm" href={businessHref(business.id, "workflows")}>
-                  All workflows
-                </Link>
-              }
-            >
-              {fresh.length === 0 ? (
-                <p className="muted">
-                  Nothing new right now. Tell Anchored about work you want help with in chat, and it shows up here.
-                </p>
-              ) : (
-                <ul className="ov-list">
-                  {fresh.map((w) => (
-                    <li key={w.id}>
-                      <div>
-                        <Link href={`${businessHref(business.id, "workflows")}#wf-${w.id}`}>
-                          <b>{WORKFLOWS[w.id].name}</b>
-                        </Link>
-                        <p>{w.plan.why}</p>
-                      </div>
-                      <Stamp path={choices[w.id].path} />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Card>
-
-            <Card
-              title="Agents drafting for you"
-              description="Each one drafts cards and waits for your approval."
-              action={
-                <Link className="btn btn-quiet btn-sm" href={businessHref(business.id, "stack")}>
-                  How they work
-                </Link>
-              }
-            >
-              <ul className="agents">
-                {agents.map((agent) => {
-                  const reason = spawnReason(business, agent);
-                  return (
-                    <li key={agent.id} className={agent.niche ? "agent niche" : "agent"}>
-                      <span className="agent-icon" aria-hidden="true">
-                        <Bot size={18} />
-                      </span>
-                      <div>
-                        <p className="agent-name">
-                          <b>{agent.name} agent</b>
-                          {agent.niche && <Badge tone="new">Spawned for you</Badge>}
-                        </p>
-                        <p className="agent-skills">
-                          {agent.skills.length > 0 ? skillList(agent.skills) : "Waiting for a workflow on Build"}
-                        </p>
-                        {reason !== null && <p className="agent-why">{reason}</p>}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </Card>
-          </div>
-        </div>
-
-        <aside className="rail" aria-label="Approvals and profile">
-          <Card className="waiting" title="Approvals" level={2}>
-            <p className="waiting-count">
-              <b>{stats.pending}</b> {stats.pending === 1 ? "waits for you" : "wait for you"}
-            </p>
-            {firstUp !== undefined ? (
-              <p className="waiting-first">
-                First up: <b>{firstUp.title}</b>
-              </p>
-            ) : (
-              <p className="waiting-first">Nothing waits for you. New drafts land here as your agents work.</p>
+          <ul className="brief-lines">
+            {atStake > 0 && <li>{money(atStake)} rides on today&apos;s cards.</li>}
+            {fresh.length > 0 && (
+              <li>
+                <span>New this week: {joinAnd(fresh.map((w) => WORKFLOWS[w.id].name))}.</span>
+                <Link href={freshHref}>{fresh.length === 1 ? "See workflow" : "See workflows"}</Link>
+              </li>
             )}
-            <div className="waiting-acts">
-              {stats.pending > 0 ? (
-                <ButtonLink href={businessHref(business.id, "approvals")}>
-                  <Inbox aria-hidden="true" size={16} />
-                  Review {stats.pending === 1 ? "it" : `all ${stats.pending}`}
-                </ButtonLink>
-              ) : (
-                chosenSkills(business, choices).length > 0 && (
-                  <SimulateButton
-                    businessId={business.id}
-                    agentNames={agentNames}
-                    seeHref={businessHref(business.id, "approvals")}
-                  />
-                )
-              )}
-            </div>
-          </Card>
-          <ProfileSummary business={business} />
-        </aside>
-      </div>
-    </>
+            <li>
+              <span>
+                Your stack costs {money(cost.total)} a month{onQuote}.
+              </span>
+              <Link href={businessHref(business.id, "stack")}>See stack</Link>
+            </li>
+            {stats.approved > 0 && (
+              <li>
+                So far: {stats.approved} approved, {stats.edited} edited
+                {stats.actedOn > 0 ? `, ${money(stats.actedOn)} acted on` : ""}.
+              </li>
+            )}
+          </ul>
+        </div>
+      </section>
+    </div>
   );
 }

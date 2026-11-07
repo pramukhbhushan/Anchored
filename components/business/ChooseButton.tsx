@@ -14,10 +14,12 @@ import { PATH_LABEL, WORKFLOWS } from "@/lib/domain/workflows";
 // page's "Choose for" and "Turn on for". It saves the choice through the
 // choices route, toasts what changed, and refreshes the server-rendered page.
 
-/** Return the toast shown after a choice. */
-function chosenMessage(request: SetChoiceRequest): string {
+/** Return the toast shown after a choice; `runner` names the tool or agent the workflow now runs on, when known. */
+function chosenMessage(request: SetChoiceRequest, runner: string | undefined): string {
   const name = WORKFLOWS[request.workflow].name;
-  return request.path === "skip" ? `${name}: skipped for now` : `${name}: ${PATH_LABEL[request.path].toLowerCase()} chosen`;
+  if (request.path === "skip") return `${name} is skipped for now`;
+  if (runner === undefined) return `${name}: ${PATH_LABEL[request.path]} is your path now`;
+  return request.path === "build" ? `${name} now goes to the ${runner}` : `${name} now runs on ${runner}`;
 }
 
 /** Render a button that saves `request` for `businessId`; `pressed` makes it a toggle, `label` its accessible name. */
@@ -27,6 +29,7 @@ export function ChooseButton({
   className,
   pressed,
   label,
+  runner,
   children,
 }: {
   readonly businessId: string;
@@ -35,6 +38,8 @@ export function ChooseButton({
   readonly pressed?: boolean;
   /** Names the path and workflow for screen readers when the visible text is just "Choose". */
   readonly label?: string;
+  /** The tool or agent this choice hands the workflow to, such as "Certus" or "Front Desk agent", for the toast. */
+  readonly runner?: string;
   readonly children: ReactNode;
 }) {
   const router = useRouter();
@@ -47,7 +52,7 @@ export function ChooseButton({
     setSaving(true);
     try {
       await callApi<SetChoiceResponse>(`/api/businesses/${encodeURIComponent(businessId)}/choices`, "PUT", request);
-      toast(chosenMessage(request));
+      toast(chosenMessage(request, runner));
       startRefresh(() => router.refresh());
     } catch (error) {
       toast(errorText(error));

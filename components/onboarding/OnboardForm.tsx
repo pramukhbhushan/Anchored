@@ -13,8 +13,9 @@ import type { OnboardingAnswers, SignalId } from "@/lib/domain/types";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The one-page onboarding form, the alternative to chat. Sample answers
-// describe a landscaping company. As the owner types the kind of business, `hintFor` suggests boxes
+// The one-page onboarding form, the alternative to chat. It starts empty, with
+// a landscaping company's answers as placeholders to show the kind of answer
+// that helps. As the owner types the kind of business, `hintFor` suggests boxes
 // that businesses like it often tick; a suggestion is a chip the owner taps to
 // tick its box, and nothing is ticked from the trade alone.
 
@@ -22,12 +23,12 @@ import type { OnboardingAnswers, SignalId } from "@/lib/domain/types";
 type Group = "reach" | "tools" | "signals" | "languages";
 type Picked = Readonly<Record<Group, ReadonlySet<string>>>;
 
-/** The landscaping sample's ticked boxes, matching its sample text. */
-const SAMPLE_PICKED: Picked = {
-  reach: new Set(["Phone calls", "Referrals", "Google"]),
-  tools: new Set(["QuickBooks Online", "Paper and phone"]),
-  signals: new Set(["quotes", "memberships"]),
-  languages: new Set(["English", "Spanish"]),
+/** What a fresh form has ticked: nothing but English, which nearly every owner works in. */
+const START_PICKED: Picked = {
+  reach: new Set(),
+  tools: new Set(),
+  signals: new Set(),
+  languages: new Set(["English"]),
 };
 
 /** One pill-shaped checkbox in a `.pick` group. */
@@ -127,8 +128,8 @@ function PickGroup({
 export function OnboardForm({ aiName }: { readonly aiName: string | null }) {
   const router = useRouter();
   const toast = useToast();
-  const [kind, setKind] = useState("Landscaping company");
-  const [picked, setPicked] = useState<Picked>(SAMPLE_PICKED);
+  const [kind, setKind] = useState("");
+  const [picked, setPicked] = useState<Picked>(START_PICKED);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
   const suggestions = useMemo(() => suggestionsFor(kind), [kind]);
@@ -158,6 +159,8 @@ export function OnboardForm({ aiName }: { readonly aiName: string | null }) {
       });
       toast(`Plan built for ${business.name}`);
       router.push(businessHref(id));
+      // The shell's sidebar and switcher were rendered before this business existed; refresh them to list it.
+      router.refresh();
     } catch (error) {
       setProgress(errorText(error));
       setBusy(false);
@@ -168,11 +171,18 @@ export function OnboardForm({ aiName }: { readonly aiName: string | null }) {
     <form className="ob panel" onSubmit={submit}>
       <div className="field">
         <label htmlFor="ob-name">Business name and town</label>
-        <input type="text" id="ob-name" name="name" defaultValue="Greenfield Lawn & Landscape, Bowie, MD" />
+        <input type="text" id="ob-name" name="name" placeholder="Greenfield Lawn & Landscape, Bowie, MD" />
       </div>
       <div className="field">
         <label htmlFor="ob-kind">What kind of business is it?</label>
-        <input type="text" id="ob-kind" name="kind" value={kind} onChange={(event) => setKind(event.target.value)} />
+        <input
+          type="text"
+          id="ob-kind"
+          name="kind"
+          placeholder="Landscaping company"
+          value={kind}
+          onChange={(event) => setKind(event.target.value)}
+        />
         {suggestions.length > 0 && (
           <div role="group" aria-labelledby="ob-hints" style={{ marginTop: 10 }}>
             <p className="exlabel" id="ob-hints">
@@ -199,7 +209,7 @@ export function OnboardForm({ aiName }: { readonly aiName: string | null }) {
         <textarea
           id="ob-what"
           name="what"
-          defaultValue="Weekly mowing at $45 a visit, spring cleanups around $350, and patios and plantings from $2,000. Mostly homeowners, some small offices. Crew of 4 plus me."
+          placeholder="Weekly mowing at $45 a visit, spring cleanups around $350, and patios from $2,000. Mostly homeowners. Crew of 4 plus me."
         />
       </div>
       <fieldset className="field">
@@ -223,7 +233,7 @@ export function OnboardForm({ aiName }: { readonly aiName: string | null }) {
         <textarea
           id="ob-week"
           name="week"
-          defaultValue="Writing up quotes at night, calling people back when I'm on a mower, chasing spring cleanup deposits, and I never post anything online."
+          placeholder="Writing up quotes at night, calling people back when I'm on a mower, chasing deposits."
         />
       </div>
       <div className="field">
@@ -231,7 +241,7 @@ export function OnboardForm({ aiName }: { readonly aiName: string | null }) {
         <textarea
           id="ob-voice"
           name="voice"
-          defaultValue="Hey! Thanks for reaching out. I can swing by Thursday afternoon to take a look and give you a price."
+          placeholder="Hey! Thanks for reaching out. I can swing by Thursday afternoon to take a look and give you a price."
         />
       </div>
       <div className="row">

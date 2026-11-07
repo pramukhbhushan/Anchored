@@ -7,5 +7,5 @@ import { PageSkeleton } from "@/components/ui/Skeleton";
 
 /** Render the placeholder for rated tools. */
 export default function ToolsLoading() {
-  return <PageSkeleton layout="list" label="rated tools" />;
+  return <PageSkeleton layout="rows" label="rated tools" />;
 }

@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { skillList } from "@/components/agent-labels";
 import { APP_HREF } from "@/components/routes";
 import { ButtonLink } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { PageHeader, SectionHeader } from "@/components/ui/PageHeader";
 import { CORE_AGENTS } from "@/lib/domain/agents";
 import { TOOLS } from "@/lib/domain/catalog";
@@ -205,46 +204,45 @@ export default function BuiltPage() {
         actions={<ButtonLink href={APP_HREF}>Open Anchored</ButtonLink>}
       />
 
-      <div className="doc-cards">
+      <dl className="doc-defs">
         {CHALLENGE.map(([title, text]) => (
-          <Card key={title} title={title}>
-            <p className="panel-text">{text}</p>
-          </Card>
+          <div key={title}>
+            <dt>{title}</dt>
+            <dd>{text}</dd>
+          </div>
         ))}
-      </div>
+      </dl>
 
-      <div className="doc-grid">
-        <section className="section" aria-labelledby="layers">
-          <SectionHeader id="layers" title="Five layers" />
-          <PairTable head={["Layer", "In Anchored"]} pairs={LAYERS} />
-        </section>
+      <section className="section" aria-labelledby="layers">
+        <SectionHeader id="layers" title="Five layers" />
+        <PairTable head={["Layer", "In Anchored"]} pairs={LAYERS} />
+      </section>
 
-        <section className="section" aria-labelledby="agents">
-          <SectionHeader
-            id="agents"
-            title="Five agents that run skills"
-            description="Choosing Build on a workflow hands it to one agent as a skill, so quote follow-up is the Follow-up agent's Closer skill. Work only some businesses have, such as a SNAP stocking check, gets a niche agent that onboarding spawns. It reuses the same actions and rules, and it asks before every card."
-          />
-          <table className="rtable">
-            <thead>
-              <tr>
-                <th scope="col">Agent</th>
-                <th scope="col">What it does</th>
-                <th scope="col">Skills</th>
+      <section className="section" aria-labelledby="agents">
+        <SectionHeader
+          id="agents"
+          title="Five agents that run skills"
+          description="Choosing Build on a workflow hands it to one agent as a skill, so quote follow-up is the Follow-up agent's Closer skill. Work only some businesses have, such as a SNAP stocking check, gets a niche agent that onboarding spawns. It reuses the same actions and rules, and it asks before every card."
+        />
+        <table className="rtable">
+          <thead>
+            <tr>
+              <th scope="col">Agent</th>
+              <th scope="col">What it does</th>
+              <th scope="col">Skills</th>
+            </tr>
+          </thead>
+          <tbody>
+            {agents.map((agent) => (
+              <tr key={agent.id}>
+                <th scope="row">{agent.name}</th>
+                <td data-label="What it does">{agent.job}</td>
+                <td data-label="Skills">{skillList(agent.skills)}</td>
               </tr>
-            </thead>
-            <tbody>
-              {agents.map((agent) => (
-                <tr key={agent.id}>
-                  <th scope="row">{agent.name}</th>
-                  <td data-label="What it does">{agent.job}</td>
-                  <td data-label="Skills">{skillList(agent.skills)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      </div>
+            ))}
+          </tbody>
+        </table>
+      </section>
 
       <section className="section" aria-labelledby="architecture">
         <SectionHeader
@@ -281,44 +279,42 @@ export default function BuiltPage() {
         <PairTable head={["Choice", "Why it scales"]} pairs={CHOICES} />
       </section>
 
-      <div className="doc-grid">
-        <section className="section" aria-labelledby="today">
-          <SectionHeader id="today" title="What runs today" />
-          <PairTable head={["Part", "Status"]} pairs={STATUS} />
-        </section>
+      <section className="section" aria-labelledby="today">
+        <SectionHeader id="today" title="What runs today" />
+        <PairTable head={["Part", "Status"]} pairs={STATUS} />
+      </section>
 
-        <section className="section" aria-labelledby="research">
-          <SectionHeader
-            id="research"
-            title="The research behind it"
-            description="Each team member researched one or two trades and wrote a sourced report: how the business runs, how it sells, what it uses, where money leaks, and what Anchored should and shouldn't do. Three became the case studies."
-          />
-          <p className="prose">
-            Three findings shaped the product. First, the right first workflow differs by business, so Anchored maps
-            from how a business works instead of assuming one fix fits all. Second, owners already pay for tools that do
-            part of the job, so &quot;turn on&quot; comes before &quot;buy&quot;. Third, approval fatigue is real, so
-            Anchored tracks edits, skips and dollars instead of claiming hours saved.
-          </p>
-          <table className="rtable">
-            <thead>
-              <tr>
-                <th scope="col">Case study</th>
-                <th scope="col">Researched by</th>
-                <th scope="col">Finding that changed the design</th>
+      <section className="section" aria-labelledby="research">
+        <SectionHeader
+          id="research"
+          title="The research behind it"
+          description="Each team member researched one or two trades and wrote a sourced report: how the business runs, how it sells, what it uses, where money leaks, and what Anchored should and shouldn't do. Three became the case studies."
+        />
+        <p className="prose">
+          Three findings shaped the product. First, the right first workflow differs by business, so Anchored maps
+          from how a business works instead of assuming one fix fits all. Second, owners already pay for tools that do
+          part of the job, so &quot;turn on&quot; comes before &quot;buy&quot;. Third, approval fatigue is real, so
+          Anchored tracks edits, skips and dollars instead of claiming hours saved.
+        </p>
+        <table className="rtable">
+          <thead>
+            <tr>
+              <th scope="col">Case study</th>
+              <th scope="col">Researched by</th>
+              <th scope="col">Finding that changed the design</th>
+            </tr>
+          </thead>
+          <tbody>
+            {RESEARCH.map(([study, by, finding]) => (
+              <tr key={study}>
+                <th scope="row">{study}</th>
+                <td data-label="Researched by">{by}</td>
+                <td data-label="Finding">{finding}</td>
               </tr>
-            </thead>
-            <tbody>
-              {RESEARCH.map(([study, by, finding]) => (
-                <tr key={study}>
-                  <th scope="row">{study}</th>
-                  <td data-label="Researched by">{by}</td>
-                  <td data-label="Finding">{finding}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      </div>
+            ))}
+          </tbody>
+        </table>
+      </section>
 
       <section className="section" aria-labelledby="roadmap">
         <SectionHeader id="roadmap" title="With 16 weeks" />

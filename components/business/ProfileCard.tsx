@@ -3,7 +3,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { asSentence } from "@/components/agent-labels";
 import { businessHref } from "@/components/routes";
-import { Badge } from "@/components/ui/Badge";
 import { placeOf } from "@/components/view-helpers";
 import type { BusinessProfile } from "@/lib/domain/types";
 import { NOT_GIVEN } from "@/lib/domain/workflows";
@@ -31,16 +30,10 @@ function Row({ label, children }: { readonly label: string; readonly children: R
   );
 }
 
-/** Render values as small badges, or "Not given" when there are none. */
-function Chips({ values }: { readonly values: readonly string[] }) {
+/** Render values as a plain comma list, or "Not given" when there are none. */
+function List({ values }: { readonly values: readonly string[] }) {
   if (values.length === 0) return <span className="muted">Not given</span>;
-  return (
-    <span className="badges">
-      {values.map((value) => (
-        <Badge key={value}>{value}</Badge>
-      ))}
-    </span>
-  );
+  return <>{values.join(", ")}</>;
 }
 
 /** Render the business's kind, town and size on one line, each with an icon. */
@@ -92,10 +85,10 @@ export function ProfileSummary({ business }: { readonly business: BusinessProfil
       <dl className="prof-rows">
         {customers !== "" && <Row label="Customers">{customers}</Row>}
         <Row label="Channels">
-          <Chips values={given(business.reach)} />
+          <List values={given(business.reach)} />
         </Row>
         <Row label="Tools">
-          <Chips values={given(business.tools)} />
+          <List values={given(business.tools)} />
         </Row>
       </dl>
     </section>
@@ -126,10 +119,10 @@ export function ProfileCard({
         <dl className="prof-rows">
           <Row label="Customers">{customers === "" ? <span className="muted">Not given</span> : customers}</Row>
           <Row label="Channels">
-            <Chips values={given(business.reach)} />
+            <List values={given(business.reach)} />
           </Row>
           <Row label="Tools">
-            <Chips values={given(business.tools)} />
+            <List values={given(business.tools)} />
           </Row>
           <Row label="Languages">{languages.length > 0 ? languages.join(", ") : <span className="muted">English</span>}</Row>
         </dl>

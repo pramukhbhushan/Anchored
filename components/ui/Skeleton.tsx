@@ -6,7 +6,7 @@
 // real content lands where the placeholder was and nothing jumps.
 
 /** The page shapes a `loading.tsx` can ask for. */
-export type SkeletonLayout = "overview" | "cards" | "list" | "stack" | "chat" | "profile";
+export type SkeletonLayout = "overview" | "order" | "feed" | "rows" | "list" | "stack" | "chat" | "profile";
 
 /** Render one placeholder block of `width` by `height`. */
 function Skeleton({
@@ -43,29 +43,61 @@ function CardGrid({ count, height }: { readonly count: number; readonly height: 
   );
 }
 
+/** Render `count` ruled rows of text, the shape of a work order's lines or the tools ranking. */
+function SkeletonRows({ count }: { readonly count: number }) {
+  return (
+    <div className="skel-rows">
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} className="skel-row">
+          <Skeleton width="38%" height={16} />
+          <Skeleton width="62%" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** Render the body for one `layout`. */
 function SkeletonBody({ layout }: { readonly layout: SkeletonLayout }) {
   switch (layout) {
     case "overview":
+      // The morning brief: one slip in the reading column.
+      return (
+        <div className="ov">
+          <SkeletonCard height={380} />
+        </div>
+      );
+    case "order":
+      // The workflows work order: one sheet of ruled lines.
+      return (
+        <div className="panel wf-order">
+          <SkeletonRows count={8} />
+        </div>
+      );
+    case "feed":
+      // The approvals feed in the reading column, with the outbox beside it on wide screens.
       return (
         <div className="with-rail">
-          <div className="ov-main">
-            <SkeletonCard height={220} />
-            <Skeleton height={84} />
-            <CardGrid count={2} height={200} />
+          <div className="feed feed-list">
+            <SkeletonCard height={260} />
+            <SkeletonCard height={260} />
           </div>
           <div className="rail">
-            <SkeletonCard height={220} />
-            <SkeletonCard height={200} />
+            <SkeletonCard height={420} />
           </div>
         </div>
       );
-    case "cards":
-      return <CardGrid count={6} height={260} />;
+    case "rows":
+      // The tools ranking: ruled rows on paper.
+      return (
+        <div className="trows">
+          <SkeletonRows count={8} />
+        </div>
+      );
     case "list":
       return <CardGrid count={6} height={180} />;
     case "stack":
-      // The monthly bill with free help beside it, then the "How work moves" lanes.
+      // The monthly bill with free help beside it, then the "How work moves" diagram.
       return (
         <>
           <div className="with-rail">
@@ -76,7 +108,7 @@ function SkeletonBody({ layout }: { readonly layout: SkeletonLayout }) {
             <div className="section-head">
               <Skeleton width={180} height={22} />
             </div>
-            <CardGrid count={3} height={220} />
+            <SkeletonCard height={320} />
           </div>
         </>
       );
@@ -91,7 +123,6 @@ function SkeletonBody({ layout }: { readonly layout: SkeletonLayout }) {
     case "profile":
       return (
         <div className="prof-page">
-          <SkeletonCard height={460} />
           <SkeletonCard height={460} />
         </div>
       );

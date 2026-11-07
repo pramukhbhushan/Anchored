@@ -92,12 +92,14 @@ export default async function BusinessesPage() {
     <>
       <PageHeader
         title="Your businesses"
-        description="Open a business to see what needs you today, or map a new one in a few minutes of chat."
+        // With no business yet, the empty state below holds the one way to start, so the header doesn't repeat it.
         actions={
-          <ButtonLink href={NEW_BUSINESS_HREF}>
-            <Plus aria-hidden="true" size={16} />
-            Start a new business
-          </ButtonLink>
+          own.length === 0 ? undefined : (
+            <ButtonLink href={NEW_BUSINESS_HREF}>
+              <Plus aria-hidden="true" size={16} />
+              Start a new business
+            </ButtonLink>
+          )
         }
       />
 
@@ -105,17 +107,9 @@ export default async function BusinessesPage() {
         <EmptyState
           icon={<Store size={22} />}
           title="Map your first business"
-          actions={
-            <>
-              <ButtonLink href={NEW_BUSINESS_HREF}>Start a new business</ButtonLink>
-              <ButtonLink href={businessHref("hvac")} variant="secondary">
-                Explore a sample business
-              </ButtonLink>
-            </>
-          }
+          actions={<ButtonLink href={NEW_BUSINESS_HREF}>Start a new business</ButtonLink>}
         >
-          Answer a few questions in chat. Anchored finds the work AI can take on, compares real tools against the ones
-          you already use, and sets up agents that ask before they act.
+          Answer a few questions in chat, and Anchored maps where AI can help.
         </EmptyState>
       ) : (
         <ul className="biz-list" aria-label="Your businesses">
@@ -129,7 +123,7 @@ export default async function BusinessesPage() {
         <SectionHeader
           id="samples"
           title="Sample businesses"
-          description="Three businesses we researched in depth. Explore freely: what you change stays in your session."
+          description="Pick paths and approve cards freely. Your picks stay in this session."
         />
         <div className="cases">
           {CASE_STUDIES.map((business) => (

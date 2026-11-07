@@ -4,6 +4,7 @@ import { Menu, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { SampleBadge } from "@/components/business/SampleBadge";
 import { AnchorMark } from "@/components/ui/AnchorMark";
 import { ResizeHandle } from "@/components/resize/ResizeHandle";
 import { useResizableWidth, widthVar } from "@/components/resize/use-resizable-width";
@@ -33,8 +34,8 @@ const COLLAPSED_SIDE_W = 64;
 // How long after `g` the second key of a shortcut still counts.
 const CHORD_MS = 1200;
 
-// Every chat box the `/` shortcut can focus: onboarding, the business chat and the one on the profile page.
-const CHAT_INPUT = ".chat-stage textarea, .prof-chat textarea";
+// Every chat box the `/` shortcut can focus: onboarding and the business chat.
+const CHAT_INPUT = ".chat-stage textarea";
 
 /** Report whether a key press is going into a text field, where shortcuts must not fire. */
 function isTyping(target: EventTarget | null): boolean {
@@ -188,9 +189,10 @@ export function AppShell({
           <Link href={APP_HREF} className="topbar-mark" aria-label="Anchored, all businesses">
             <AnchorMark size={20} />
           </Link>
-          {/* At phone width the switcher gives way to this title; the drawer lists every business instead */}
+          {/* At phone width the switcher gives way to this title; the drawer's "All businesses" link is the way to switch */}
           <span className="topbar-title">{titleOf(location, current)}</span>
           <BusinessSwitcher businesses={businesses} location={location} />
+          {current !== undefined && <SampleBadge business={current} />}
           <button type="button" className="palette-open" onClick={() => setPaletteOpen(true)}>
             <Search aria-hidden="true" size={16} />
             Jump to

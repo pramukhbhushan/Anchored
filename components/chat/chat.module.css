@@ -36,7 +36,8 @@
    ============================================================================= */
 
 .thread{grid-area:thread;display:flex;flex-direction:column;min-height:0;background:var(--sheet);border:1px solid var(--line);border-bottom:0;border-radius:var(--r) var(--r) 0 0}
-.scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:28px clamp(16px,3cqi,40px) 16px}
+/* Positioned, so the visually hidden labels inside it scroll with it instead of stretching the whole page */
+.scroll{position:relative;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:28px clamp(16px,3cqi,40px) 16px}
 .messages{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
 
 .theirs,.mine{display:flex;gap:10px;align-items:flex-start;min-width:0}
@@ -47,13 +48,13 @@
 .avatar{flex:none;display:grid;place-items:center;width:28px;height:28px;margin-top:2px;border-radius:50%;background:var(--carbon-soft);color:var(--ink)}
 
 /* Squared corner points at the speaker, like a slip torn off toward them. */
-.bubble{margin:0;padding:10px 14px;border-radius:2px var(--r) var(--r) var(--r);background:var(--paper);color:var(--ink);font-size:15.5px;line-height:1.5;white-space:pre-line;overflow-wrap:anywhere}
+.bubble{margin:0;padding:10px 14px;border-radius:2px var(--r) var(--r) var(--r);background:var(--paper);color:var(--ink);font-size:var(--fs-md);line-height:1.5;white-space:pre-line;overflow-wrap:anywhere}
 .mine .bubble{background:var(--ink);color:var(--paper);border-radius:var(--r) 2px var(--r) var(--r)}
 .mine[data-state="sending"] .bubble{opacity:.62}
 .mine[data-state="failed"] .bubble{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--ink-2)}
-.notSent{font-size:12.5px;font-weight:600;color:var(--muted)}
+.notSent{font-size:var(--fs-fine);font-weight:600;color:var(--muted)}
 
-.typing{margin:0;display:inline-flex;align-items:center;gap:10px;padding:13px 14px;border-radius:2px var(--r) var(--r) var(--r);background:var(--paper);color:var(--ink-2);font-size:14.5px;font-weight:600}
+.typing{margin:0;display:inline-flex;align-items:center;gap:10px;padding:13px 14px;border-radius:2px var(--r) var(--r) var(--r);background:var(--paper);color:var(--ink-2);font-size:var(--fs-sm);font-weight:600}
 .dots{display:inline-flex;gap:4px}
 .dots i{width:6px;height:6px;border-radius:50%;background:var(--muted)}
 @media (prefers-reduced-motion:no-preference){
@@ -64,8 +65,8 @@
 }
 
 /* ---------- what a business chat reply changed ---------- */
-.changes{padding:10px 14px 12px;border:1px solid var(--line);border-top:3px solid var(--carbon);border-radius:var(--r);background:var(--sheet);font-size:14px}
-.changesTitle{margin:0 0 6px;font-family:var(--display);font-stretch:100%;font-weight:800;font-size:14px}
+.changes{padding:10px 14px 12px;border:1px solid var(--line);border-top:3px solid var(--carbon);border-radius:var(--r);background:var(--sheet);font-size:var(--fs-sm)}
+.changesTitle{margin:0 0 6px;font-family:var(--display);font-stretch:100%;font-weight:800;font-size:var(--fs-sm)}
 .changes ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .changes li{display:flex;align-items:baseline;gap:8px;color:var(--ink)}
 .changes li svg{flex:none;align-self:center;color:var(--ink-2)}
@@ -78,32 +79,32 @@
 .composer{grid-area:composer;display:flex;flex-direction:column;gap:12px;padding:12px clamp(12px,2cqi,24px) 16px;background:var(--sheet);border:1px solid var(--line);border-top:1px dashed var(--line);border-radius:0 0 var(--r) var(--r)}
 
 .chips{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.chip,.done{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:6px 14px;border:1.5px solid var(--line);border-radius:999px;background:var(--sheet);color:var(--ink);font-size:14.5px;font-weight:600;line-height:1.2;cursor:pointer}
+.chip,.done{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:6px 14px;border:1.5px solid var(--line);border-radius:999px;background:var(--sheet);color:var(--ink);font-size:var(--fs-sm);font-weight:600;line-height:1.2;cursor:pointer}
 .chip:hover:not(:disabled),.done:hover:not(:disabled){border-color:var(--ink)}
 .chip[data-suggested]{background:var(--carbon-soft);border-color:var(--carbon)}
 .chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper)}
-.done{border-color:var(--ink);background:transparent;font-weight:750}
-.skip{padding:6px 4px;border:0;background:none;color:var(--muted);font-size:14px;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.done{border-color:var(--ink);background:transparent;font-weight:600}
+.skip{padding:6px 4px;border:0;background:none;color:var(--muted);font-size:var(--fs-sm);font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .skip:hover:not(:disabled){color:var(--ink)}
 .chip:disabled,.done:disabled,.skip:disabled{opacity:.5;cursor:not-allowed}
-.hint{margin:-4px 0 0;font-size:13px;color:var(--muted)}
+.hint{margin:-4px 0 0;font-size:var(--fs-fine);color:var(--muted)}
 
 .form{display:flex;align-items:flex-end;gap:10px}
 /* 16px text keeps phones from zooming into the box on focus. */
-.input{flex:1;min-width:0;min-height:46px;max-height:168px;padding:11px 14px;resize:none;field-sizing:content;border:1.5px solid var(--line);border-radius:var(--r);background:var(--paper);color:var(--ink);font:inherit;font-size:16px;line-height:1.45}
+.input{flex:1;min-width:0;min-height:46px;max-height:168px;padding:11px 14px;resize:none;field-sizing:content;border:1.5px solid var(--line);border-radius:var(--r);background:var(--paper);color:var(--ink);font:inherit;font-size:var(--fs-md);line-height:1.45}
 .input:focus{border-color:var(--ink)}
 .input::placeholder{color:var(--muted)}
 .input:disabled{opacity:.6}
 .send{flex:none;display:grid;place-items:center;width:46px;height:46px;border:0;border-radius:var(--r);background:var(--ink);color:var(--paper);cursor:pointer}
 .send:disabled{background:var(--line);color:var(--muted);cursor:not-allowed}
 
-.fail{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 12px;border-left:4px solid var(--carbon);border-radius:0 var(--r) var(--r) 0;background:var(--carbon-soft);color:var(--ink);font-size:14.5px}
+.fail{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 12px;border-left:4px solid var(--carbon);border-radius:0 var(--r) var(--r) 0;background:var(--carbon-soft);color:var(--ink);font-size:var(--fs-sm)}
 .fail svg{flex:none}
 .fail p{flex:1 1 200px;margin:0}
-.retry{padding:6px 12px;border:1.5px solid var(--ink);border-radius:var(--r);background:var(--sheet);color:var(--ink);font-weight:650;cursor:pointer}
+.retry{padding:6px 12px;border:1.5px solid var(--ink);border-radius:var(--r);background:var(--sheet);color:var(--ink);font-weight:600;cursor:pointer}
 
 .ready,.readOnly{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
-.ready p,.readOnly p{margin:0;font-weight:650}
+.ready p,.readOnly p{margin:0;font-weight:600}
 .readOnly p{color:var(--ink-2);font-weight:600}
 
 /* =============================================================================
@@ -117,8 +118,8 @@
 .knows::before{content:"";flex:none;display:block;height:8px;background:var(--carbon)}
 /* Scallops under the carbon band, as on a torn-off work order. */
 .knowsHead{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:16px 20px 4px;background:radial-gradient(circle at 6px -1px,var(--carbon) 4px,transparent 4.5px) 0 0/12px 10px repeat-x}
-.knowsHead h2{margin:0;font-family:var(--display);font-stretch:100%;font-weight:850;font-size:17px;letter-spacing:-.01em}
-.count{font-size:13.5px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.knowsHead h2{margin:0;font-family:var(--display);font-stretch:100%;font-weight:850;font-size:var(--fs-lg);letter-spacing:-.01em}
+.count{font-size:var(--fs-fine);font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .knowsToggle{display:none}
 
 /* One tick per question: ink once answered, faded once skipped. */
@@ -130,9 +131,9 @@
 /* One line per fact, label beside value, so an empty slip reads as a short list rather than a blank form. */
 .facts{flex:1 1 auto;min-height:0;overflow-y:auto;margin:0;padding:6px 20px 10px}
 .fact{display:grid;grid-template-columns:minmax(92px,38%) minmax(0,1fr);gap:12px;align-items:baseline;margin:0 -8px;padding:6px 8px;border-radius:var(--r)}
-.fact dt{font-size:13px;font-weight:600;color:var(--muted)}
+.fact dt{font-size:var(--fs-fine);font-weight:600;color:var(--muted)}
 /* Long answers arrive already cut at a word boundary by `summarize`, so no line clamp cuts a word here. */
-.fact dd{margin:0;font-size:14.5px;line-height:1.4;color:var(--ink);overflow-wrap:anywhere}
+.fact dd{margin:0;font-size:var(--fs-sm);line-height:1.4;color:var(--ink);overflow-wrap:anywhere}
 .fact[data-state="skipped"] dd{color:var(--muted)}
 .placeholder{display:inline-block;width:14px;height:2px;border-radius:1px;background:var(--line);vertical-align:middle}
 @media (prefers-reduced-motion:no-preference){
@@ -141,12 +142,12 @@
 }
 
 .knowsFoot{flex:none;padding:10px 20px 14px;border-top:1px dashed var(--line)}
-.startOver{display:inline-flex;align-items:center;gap:6px;padding:4px 0;border:0;background:none;color:var(--muted);font-size:13.5px;font-weight:600;cursor:pointer}
+.startOver{display:inline-flex;align-items:center;gap:6px;padding:4px 0;border:0;background:none;color:var(--muted);font-size:var(--fs-fine);font-weight:600;cursor:pointer}
 .startOver:hover:not(:disabled){color:var(--ink)}
 .startOver:disabled{opacity:.5;cursor:not-allowed}
 
 /* The rubber stamp from the work order, pressed once when the plan exists. */
-.stamp{flex:none;width:max-content;margin:8px 20px 22px auto;padding:3px 10px 2px;border:2px solid currentColor;border-radius:3px;background:var(--carbon-soft);color:var(--ink);font-family:var(--display);font-stretch:72%;font-weight:850;font-size:15px;letter-spacing:.07em;text-transform:uppercase;transform:rotate(-4deg)}
+.stamp{flex:none;width:max-content;margin:8px 20px 22px auto;padding:3px 10px 2px;border:2px solid currentColor;border-radius:3px;background:var(--carbon-soft);color:var(--ink);font-family:var(--display);font-stretch:72%;font-weight:850;font-size:var(--fs-md);letter-spacing:.07em;text-transform:uppercase;transform:rotate(-4deg)}
 @media (prefers-reduced-motion:no-preference){
   .stamp{animation:thunk .32s cubic-bezier(.3,1.6,.5,1) both}
   @keyframes thunk{from{opacity:0;transform:rotate(-12deg) scale(1.5)}to{opacity:1;transform:rotate(-4deg) scale(1)}}
@@ -166,7 +167,7 @@
   .knowsPanel [data-resize-handle]{display:none}
   .knows{overflow:visible;border-bottom:0;border-top:3px solid var(--carbon);border-radius:0;box-shadow:none}
   .knows::before,.knowsHead{display:none}
-  .knowsToggle{display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px 6px;border:0;background:var(--sheet);color:var(--ink);font-size:14.5px;font-weight:750;text-align:left;cursor:pointer}
+  .knowsToggle{display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px 6px;border:0;background:var(--sheet);color:var(--ink);font-size:var(--fs-sm);font-weight:600;text-align:left;cursor:pointer}
   .knowsToggle span:first-child{flex:1}
   .knowsToggle[aria-expanded="true"] svg{transform:rotate(180deg)}
   .meter{margin:2px 16px 10px}

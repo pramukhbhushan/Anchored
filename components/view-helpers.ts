@@ -19,14 +19,18 @@ export interface PlannedWorkflow {
 /** What the views read from each card in a feed. */
 export interface FeedCard {
   readonly status: "pending" | "approved" | "skipped";
+  readonly channel: "sms" | "email" | "list" | "locked";
   readonly edited: boolean;
   readonly stake?: number;
 }
 
-/** Counts behind the overview's KPI strip and the approvals summary. */
+/** Counts behind the morning brief and the Stack page's approval step. */
 export interface FeedStats {
   readonly pending: number;
+  /** Drafts the owner approved; "I'll handle it" on a locked card is not an approval. */
   readonly approved: number;
+  /** Approved drafts the owner edited first. */
+  readonly edited: number;
   /** Share of approved cards the owner edited first, 0 to 100. */
   readonly editRate: number;
   /** Dollars riding on the cards the owner approved. */
@@ -50,13 +54,16 @@ export function topWorkflows(business: BusinessProfile, count: number): PlannedW
     .slice(0, count);
 }
 
-/** Count the feed: waiting, approved, the edit rate and the dollars on approved cards. */
+/** Count the feed: waiting, approved, edited, the edit rate and the dollars on approved cards. */
 export function feedStats(cards: readonly FeedCard[]): FeedStats {
-  const approved = cards.filter((c) => c.status === "approved");
+  // A locked card is decided by "I'll handle it", which takes the work back rather than approving a draft.
+  const approved = cards.filter((c) => c.status === "approved" && c.channel !== "locked");
+  const edited = approved.filter((c) => c.edited).length;
   return {
     pending: cards.filter((c) => c.status === "pending").length,
     approved: approved.length,
-    editRate: approved.length > 0 ? Math.round((approved.filter((c) => c.edited).length / approved.length) * 100) : 0,
+    edited,
+    editRate: approved.length > 0 ? Math.round((edited / approved.length) * 100) : 0,
     actedOn: approved.reduce((sum, c) => sum + (c.stake ?? 0), 0),
   };
 }
@@ -78,4 +85,10 @@ export function placeOf(business: Pick<BusinessProfile, "place">): string | null
 /** Format dollars as `$1,248` or `$29.5`, never more than two decimals. */
 export function money(amount: number): string {
   return "$" + (Math.round(amount * 100) / 100).toLocaleString("en-US", { maximumFractionDigits: 2 });
+}
+
+/** Return research text in an owner's words: the case-study data says "modeled" where an owner says "estimated". */
+export function ownerWords(text: string): string {
+  // The research strings live in `lib/domain/cases.ts`, which the views don't own; until they change there, translate here.
+  return text.replace(/\bmodeled on\b/g, "estimated from").replace(/\bmodeled\b/g, "estimated");
 }

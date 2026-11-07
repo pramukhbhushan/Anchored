@@ -1,10 +1,11 @@
 "use client";
 
+import { Check, CircleAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useId, useState, useTransition, type ReactNode } from "react";
 import { ApiCallError, callApi, errorText } from "@/components/api";
+import { cardAnchor } from "@/components/routes";
 import { useToast, type ToastLink } from "@/components/ui/Toast";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import type { CardRecord, DecideCardRequest, DecideCardResponse, RewriteResponse } from "@/lib/api/contract";
 
@@ -25,8 +26,44 @@ function massAudience(card: CardRecord): string | null {
   return /^send to (.+)$/i.exec(card.action.trim())?.[1] ?? null;
 }
 
-/** Return the toast after an approval that went through. */
-function approvedMessage(card: CardRecord): string {
+/** Return what a "Copy post" or "Copy reply" card copies, such as "post", or `null` for a card that sends. */
+function copiedThing(card: CardRecord): string | null {
+  return /^copy (.+)$/i.exec(card.action.trim())?.[1]?.toLowerCase() ?? null;
+}
+
+/** Copy `text` to the clipboard, falling back to a hidden text box where the async API is missing or refused. */
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // No async clipboard (an insecure origin or an older browser), or permission refused; try the old way below.
+  }
+  try {
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.setAttribute("readonly", "");
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.append(area);
+    area.select();
+    const copied = document.execCommand("copy");
+    area.remove();
+    return copied;
+  } catch {
+    // Nothing left to try; the toast tells the owner where the text still is.
+    return false;
+  }
+}
+
+/** Return the toast after an approval that went through; `copied` says whether a copy card's text reached the clipboard. */
+function approvedMessage(card: CardRecord, copied: boolean | null): string {
+  const thing = copiedThing(card);
+  if (thing !== null && copied !== null) {
+    return copied
+      ? `Approved. The ${thing} is on your clipboard, ready to paste.`
+      : `Approved. Your browser blocked the clipboard, so copy the ${thing} from the outbox.`;
+  }
   if (card.channel === "locked") return "Marked as yours";
   if (card.channel === "sms") return "Approved. Text added to the demo outbox.";
   if (card.channel === "email") return "Approved. Email added to the demo outbox.";
@@ -40,7 +77,14 @@ function decidedLabel(card: CardRecord): string {
   return card.edited ? "Approved with your edits" : "Approved";
 }
 
-/** Render one feed card; `source` names who drafted it, such as "Follow-up agent, Closer skill". */
+/** Return the line above a card's title: who drafted it and, when it has one, who it goes to. */
+function whoLine(card: CardRecord, source: string): string {
+  if (card.to === undefined || card.to === "") return source;
+  const to = card.channel === "sms" ? `text to ${card.to}` : card.channel === "email" ? `email to ${card.to}` : `for ${card.to}`;
+  return `${source}, ${to}`;
+}
+
+/** Render one feed card; `source` names who drafted it, such as "Follow-up agent". */
 export function AgentCard({
   card,
   source,
@@ -66,7 +110,8 @@ export function AgentCard({
   const pending = card.status === "pending";
   const audience = massAudience(card);
 
-  async function decide(request: DecideCardRequest) {
+  /** Send the decision; `copied` is whether a copy card's text reached the clipboard, `null` for any other card. */
+  async function decide(request: DecideCardRequest, copied: boolean | null = null) {
     setBusy(true);
     setNote("");
     setStale(false);
@@ -78,16 +123,17 @@ export function AgentCard({
       } else if (request.decision === "skip") {
         toast("Skipped");
       } else {
-        toast(approvedMessage(card), locked ? undefined : SEE_OUTBOX);
+        toast(approvedMessage(card, copied), locked ? undefined : SEE_OUTBOX);
       }
       setEditing(false);
       setConfirming(null);
       startRefresh(() => router.refresh());
     } catch (error) {
-      // 409: the stored draft no longer matches the text on screen, so approving it would send something unseen.
+      // 409: the card moved on since the owner saw it, so a reload shows its real state. The route says how it moved:
+      // a changed draft, a card already decided, or a workflow that no longer uses the agent.
       const isStale = error instanceof ApiCallError && error.status === 409;
       setStale(isStale);
-      setNote(isStale ? STALE_DRAFT : errorText(error));
+      setNote(isStale && error.message === "" ? STALE_DRAFT : errorText(error));
     } finally {
       setBusy(false);
     }
@@ -99,7 +145,12 @@ export function AgentCard({
       setConfirming(body);
       return;
     }
-    void decide({ decision: "approve", body });
+    if (copiedThing(card) === null) {
+      void decide({ decision: "approve", body });
+      return;
+    }
+    // Copy inside the click, while the browser still counts it as the owner's gesture, then record the approval.
+    void copyText(body).then((copied) => decide({ decision: "approve", body }, copied));
   }
 
   function approveEdited() {
@@ -134,13 +185,7 @@ export function AgentCard({
   const disabled = busy || refreshing;
   const head = (
     <>
-      <p className="card-who">
-        <span>
-          {locked ? "Locked for you by " : "Drafted by "}
-          <b>{source}</b>
-        </span>
-        {card.to && <span>To {card.to}</span>}
-      </p>
+      <p className="card-who">{whoLine(card, source)}</p>
       <h3>{card.title}</h3>
     </>
   );
@@ -156,10 +201,10 @@ export function AgentCard({
   );
 
   if (!pending) {
+    // A decided card is one row: the owner already read its draft, so only the outcome is new.
     return (
-      <article className="card done">
-        {head}
-        <p className="draft">{card.body}</p>
+      <article className="card-done">
+        <h3>{card.title}</h3>
         <p className="card-status">{decidedLabel(card)}</p>
         {noteLine}
       </article>
@@ -217,7 +262,7 @@ export function AgentCard({
           Approve: {card.action}
         </Button>
         <Button
-          variant="secondary"
+          variant="quiet"
           size="sm"
           aria-label={`Edit: ${card.title}`}
           onClick={() => {
@@ -229,7 +274,7 @@ export function AgentCard({
           Edit
         </Button>
         <Button
-          variant="secondary"
+          variant="quiet"
           size="sm"
           aria-label={`Skip: ${card.title}`}
           onClick={() => decide({ decision: "skip" })}
@@ -247,28 +292,30 @@ export function AgentCard({
   }
 
   return (
-    <article className={`card${locked ? " locked" : ""}`}>
-      {head}
+    <article className={`card${locked ? " locked" : ""}`} id={cardAnchor(card.key)}>
+      <div className="card-top">
+        {head}
+        <p className="card-why">{card.reason}</p>
+      </div>
       {editing ? (
-        <>
+        <div className="card-edit">
           <label className="fine" htmlFor={editId}>
             Edit the draft
           </label>
           <textarea id={editId} value={draft} onChange={(event) => setDraft(event.target.value)} autoFocus />
-        </>
+        </div>
       ) : (
         <p className="draft">{card.body}</p>
       )}
-      <p className="card-why">
-        <b>Why now:</b> {card.reason}
-      </p>
-      <div className="badges">
-        {card.checks.map((check) => (
-          <Badge tone={locked ? "warn" : "good"} key={check}>
-            {check}
-          </Badge>
-        ))}
-      </div>
+      {card.checks.length > 0 && (
+        <p className={`card-checks${locked ? " is-warn" : ""}`}>
+          {locked ? <CircleAlert aria-hidden="true" size={16} /> : <Check aria-hidden="true" size={16} />}
+          <span>
+            {locked ? "" : "Checked: "}
+            {card.checks.join(", ")}
+          </span>
+        </p>
+      )}
       {actions}
       {noteLine}
     </article>

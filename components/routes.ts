@@ -43,3 +43,9 @@ export function toolsHref(id: string, workflow?: WorkflowId): string {
   const base = businessHref(id, "tools");
   return workflow === undefined ? base : `${base}?workflow=${workflow}`;
 }
+
+/** Return the element id of a card on the approvals page, built from its stable `key` so links survive a decision. */
+export function cardAnchor(key: string): string {
+  // Keys hold colons, such as "restaurant:posts"; a plain id needs no escaping in a URL or a selector.
+  return `card-${key.replace(/[^\w-]/g, "-")}`;
+}
