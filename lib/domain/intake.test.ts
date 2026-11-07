@@ -138,6 +138,33 @@ describe("reading answers", () => {
     expect(draft.settled).toContain("tools");
   });
 
+  describe("a list question the owner already answered in passing", () => {
+    // The first answer named how customers get in touch, so the reach question only confirms it.
+    const heard: IntakeDraft = {
+      ...newDraft(),
+      settled: ["name", "kind", "what"],
+      facts: { ...newDraft().facts, name: "Paws on Wheels", kind: "Mobile dog grooming", what: "Grooming", reach: ["Phone calls", "Instagram or Facebook"] },
+    };
+
+    it("says what it heard instead of asking from scratch", () => {
+      expect(question(heard).field).toBe("reach");
+      expect(question(heard).text).toBe("Customers reach you by: Phone calls and Instagram or Facebook. Tap to add or remove any, or say that's right.");
+    });
+
+    it.each(["that's right", "yes", "no", "nope"])("keeps the list and moves on when the owner says %s", (reply) => {
+      const next = answer(heard, text(reply));
+      expect(next.facts.reach).toEqual(["Phone calls", "Instagram or Facebook"]);
+      expect(next.settled).toContain("reach");
+      expect(question(next).field).toBe("tools");
+    });
+
+    it("still records none for a list it knew nothing about", () => {
+      const tools = answer(answer(heard, text("yes")), text("none"));
+      expect(tools.facts.tools).toEqual([]);
+      expect(tools.settled).toContain("tools");
+    });
+  });
+
   it("asks once more when a typed answer matches no option, then moves on", () => {
     const start: IntakeDraft = { ...newDraft(), settled: ["name", "kind", "what"], facts: { ...newDraft().facts, name: "X", kind: "Y", what: "Z" } };
     const once = answer(start, text("my cousin tells people"));
