@@ -34,8 +34,8 @@ const COLLAPSED_SIDE_W = 64;
 // How long after `g` the second key of a shortcut still counts.
 const CHORD_MS = 1200;
 
-// Every chat box the `/` shortcut can focus: onboarding, the business chat and the one on the profile page.
-const CHAT_INPUT = ".chat-stage textarea, .prof-chat textarea";
+// Every chat box the `/` shortcut can focus: onboarding and the business chat.
+const CHAT_INPUT = ".chat-stage textarea";
 
 /** Report whether a key press is going into a text field, where shortcuts must not fire. */
 function isTyping(target: EventTarget | null): boolean {

@@ -487,13 +487,13 @@ html[data-dev] .side-foot{padding-bottom:64px}
 
 /* ---------- profile ---------- */
 .prof{padding:0;overflow:hidden}
-.prof-head{padding:20px 24px 16px;border-bottom:1px solid var(--line)}
+.prof-head{padding:var(--s-5) var(--pad) var(--s-4);border-bottom:1px solid var(--line)}
 .prof-head h2{font-size:var(--fs-xl);font-weight:800}
 .prof-line{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:8px;color:var(--ink-2);font-size:var(--fs-md)}
 .prof-line span{display:inline-flex;align-items:center;gap:6px}
 .prof-line svg{color:var(--muted);flex:none}
 .prof-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))}
-.prof-cols > .prof-rows{padding:6px 24px 14px;border-top:1px solid var(--line);margin-top:-1px}
+.prof-cols > .prof-rows{padding:var(--s-1) var(--pad) var(--s-3);border-top:1px solid var(--line);margin-top:-1px}
 .prof-cols > .prof-rows + .prof-rows{border-left:1px solid var(--line);margin-left:-1px}
 .prof-rows{margin:0}
 .prof-row{display:grid;grid-template-columns:104px minmax(0,1fr);gap:12px;padding:10px 0;border-bottom:1px dashed var(--line)}
@@ -506,16 +506,14 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .prof-agents{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:var(--fs-sm)}
 .prof-agents li{display:flex;flex-direction:column}
 .prof-agents span{font-size:var(--fs-fine);color:var(--muted)}
-.prof-foot{padding:12px 24px;border-top:1px solid var(--line);background:var(--paper);font-size:var(--fs-fine);color:var(--muted)}
-.prof-compact{padding:20px}
+.prof-foot{padding:var(--s-3) var(--pad);border-top:1px solid var(--line);background:var(--paper);font-size:var(--fs-fine);color:var(--muted)}
+.prof-compact{padding:var(--pad)}
 .prof-compact .prof-line{margin:0 0 6px}
 .prof-compact .prof-row{grid-template-columns:84px minmax(0,1fr)}
-@media (max-width:640px){.prof-head,.prof-cols > .prof-rows,.prof-foot{padding-left:16px;padding-right:16px}}
-/* Profile page: facts on the left, the chat that changes them on the right */
-.prof-page{display:grid;gap:20px;grid-template-columns:minmax(0,1fr);align-items:start}
-@container app (min-width:900px){.prof-page{grid-template-columns:minmax(0,1fr) minmax(380px,44%)}}
-.prof-side{display:flex;flex-direction:column;gap:16px;min-width:0}
-.prof-chat{display:flex;flex-direction:column;height:clamp(440px,calc(100dvh - var(--top-h) - 330px),760px)}
+
+/* Profile page: one reading column, the facts card then the recent changes */
+.prof-page{max-width:var(--read-w)}
+
 .changes-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 .changes-list li{display:flex;align-items:baseline;gap:10px;padding:8px 0;border-top:1px dashed var(--line);font-size:var(--fs-sm)}
 .changes-list li:first-child{border-top:0;padding-top:0}
