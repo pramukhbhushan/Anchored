@@ -26,8 +26,44 @@ function massAudience(card: CardRecord): string | null {
   return /^send to (.+)$/i.exec(card.action.trim())?.[1] ?? null;
 }
 
-/** Return the toast after an approval that went through. */
-function approvedMessage(card: CardRecord): string {
+/** Return what a "Copy post" or "Copy reply" card copies, such as "post", or `null` for a card that sends. */
+function copiedThing(card: CardRecord): string | null {
+  return /^copy (.+)$/i.exec(card.action.trim())?.[1]?.toLowerCase() ?? null;
+}
+
+/** Copy `text` to the clipboard, falling back to a hidden text box where the async API is missing or refused. */
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // No async clipboard (an insecure origin or an older browser), or permission refused; try the old way below.
+  }
+  try {
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.setAttribute("readonly", "");
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.append(area);
+    area.select();
+    const copied = document.execCommand("copy");
+    area.remove();
+    return copied;
+  } catch {
+    // Nothing left to try; the toast tells the owner where the text still is.
+    return false;
+  }
+}
+
+/** Return the toast after an approval that went through; `copied` says whether a copy card's text reached the clipboard. */
+function approvedMessage(card: CardRecord, copied: boolean | null): string {
+  const thing = copiedThing(card);
+  if (thing !== null && copied !== null) {
+    return copied
+      ? `Approved. The ${thing} is on your clipboard, ready to paste.`
+      : `Approved. Your browser blocked the clipboard, so copy the ${thing} from the outbox.`;
+  }
   if (card.channel === "locked") return "Marked as yours";
   if (card.channel === "sms") return "Approved. Text added to the demo outbox.";
   if (card.channel === "email") return "Approved. Email added to the demo outbox.";
@@ -74,7 +110,8 @@ export function AgentCard({
   const pending = card.status === "pending";
   const audience = massAudience(card);
 
-  async function decide(request: DecideCardRequest) {
+  /** Send the decision; `copied` is whether a copy card's text reached the clipboard, `null` for any other card. */
+  async function decide(request: DecideCardRequest, copied: boolean | null = null) {
     setBusy(true);
     setNote("");
     setStale(false);
@@ -86,7 +123,7 @@ export function AgentCard({
       } else if (request.decision === "skip") {
         toast("Skipped");
       } else {
-        toast(approvedMessage(card), locked ? undefined : SEE_OUTBOX);
+        toast(approvedMessage(card, copied), locked ? undefined : SEE_OUTBOX);
       }
       setEditing(false);
       setConfirming(null);
@@ -108,7 +145,12 @@ export function AgentCard({
       setConfirming(body);
       return;
     }
-    void decide({ decision: "approve", body });
+    if (copiedThing(card) === null) {
+      void decide({ decision: "approve", body });
+      return;
+    }
+    // Copy inside the click, while the browser still counts it as the owner's gesture, then record the approval.
+    void copyText(body).then((copied) => decide({ decision: "approve", body }, copied));
   }
 
   function approveEdited() {
