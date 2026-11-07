@@ -13,11 +13,11 @@ import type { BusinessSummary } from "@/components/shell/shell-data";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The app sidebar: the open business's pages with the approvals count, then
-// every business the viewer can open, then "How it's built", "Reset demo" and
-// the collapse toggle, with a drag handle on its right edge. Collapsed, it is
-// a 64px icon rail whose names move into tooltips. At phone width `AppShell`
-// slides it in as a drawer instead.
+// The app sidebar: inside a business, that business's pages with the
+// approvals count; elsewhere, every business the viewer can open. Then "How
+// it's built", "Reset demo" and the collapse toggle, with a drag handle on its
+// right edge. Collapsed, it is a 64px icon rail whose names move into
+// tooltips. At phone width `AppShell` slides it in as a drawer instead.
 
 // Breathing room left above or below the active link after it is scrolled into view.
 const REVEAL_MARGIN = 12;
@@ -184,8 +184,13 @@ export function Sidebar({
             </ul>
           </div>
         )}
-        <BusinessGroup label="Your businesses" businesses={own} openId={openId} />
-        <BusinessGroup label="Sample businesses" businesses={samples} openId={openId} />
+        {/* Inside a business the top bar's switcher and "All businesses" do the switching, so a list would repeat them */}
+        {current === null && (
+          <>
+            <BusinessGroup label="Your businesses" businesses={own} openId={openId} />
+            <BusinessGroup label="Sample businesses" businesses={samples} openId={openId} />
+          </>
+        )}
         <ul className="side-list side-new">
           <li>
             <SideLink

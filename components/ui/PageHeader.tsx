@@ -4,8 +4,8 @@ import type { ReactNode } from "react";
 // Module Overview
 // =============================================================================
 // `PageHeader` opens every page in the app the same way: the page's one `h1`,
-// an optional badge beside it, a line of description, and actions on the right
-// that wrap below the title at phone width.
+// an optional badge beside it, at most one short line of description, and
+// actions on the right that wrap below the title at phone width.
 
 /** Render the page title row; `compact` puts the title and description on one line for pages that fill the window. */
 export function PageHeader({
@@ -28,7 +28,8 @@ export function PageHeader({
           <h1 className="page-title">{title}</h1>
           {badge}
         </div>
-        {description !== undefined && <p className="page-desc">{description}</p>}
+        {/* A `div`, not a `p`, so a description can carry a disclosure such as "How we score" */}
+        {description !== undefined && <div className="page-desc">{description}</div>}
       </div>
       {actions !== undefined && <div className="page-actions">{actions}</div>}
     </header>

@@ -97,6 +97,8 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .btn-quiet:hover{filter:none;color:var(--ink);background:var(--hover)}
 .btn-sm,.btn.sm{min-height:34px;padding:6px 12px;font-size:var(--fs-sm)}
 .btn-quiet.btn-sm{padding:4px 8px;min-height:30px}
+/* A quiet link on its own in a header pulls back by its padding, so its text lines up with the text edge */
+.page-actions > .btn-quiet:only-child,.section-head > .btn-quiet,.panel-head > .btn-quiet{margin-inline:-8px}
 .btn[disabled]{opacity:.5;cursor:not-allowed;filter:none}
 .linkbtn{background:none;border:0;padding:0;color:var(--link);text-decoration:underline;text-underline-offset:3px;cursor:pointer;font-weight:600}
 .linkbtn:hover{color:var(--ink)}
@@ -367,6 +369,7 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .switcher select:hover{border-color:var(--ink)}
 .switcher-icon,.switcher-caret{position:absolute;pointer-events:none;color:var(--muted)}
 .switcher-icon{left:11px} .switcher-caret{right:10px}
+.sample-pill{flex:none}
 .palette-open{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:6px 10px 6px 12px;border:1.5px solid var(--line);border-radius:var(--r);background:var(--sheet);color:var(--muted);font-size:var(--fs-sm);font-weight:600;cursor:pointer}
 .palette-open:hover{border-color:var(--ink);color:var(--ink)}
 .palette-hint{display:inline-flex;gap:3px;margin-left:4px}
@@ -407,13 +410,14 @@ html[data-dev] .side-foot{padding-bottom:64px}
   .shell[data-drawer="open"] .side{transition:transform .2s ease}
 }
 @media (max-width:640px){
-  .switcher,.palette-open{display:none}
+  /* The title says "(sample)" at this width, so the pill would repeat it */
+  .switcher,.palette-open,.sample-pill{display:none}
   .topbar-mark{display:inline-flex;color:var(--ink)}
   .topbar-title{display:block;min-width:0;flex:1;font-weight:600;font-size:var(--fs-md);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .demo-text{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .demo summary{padding:3px 8px}
   .content{padding-top:var(--s-5);padding-bottom:var(--s-7)}
-  .page-head{margin-bottom:20px}
+  .page-head{margin-bottom:var(--s-5)}
 }
 
 /* ---------- command palette ---------- */

@@ -4,6 +4,7 @@ import { Menu, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { SampleBadge } from "@/components/business/SampleBadge";
 import { AnchorMark } from "@/components/ui/AnchorMark";
 import { ResizeHandle } from "@/components/resize/ResizeHandle";
 import { useResizableWidth, widthVar } from "@/components/resize/use-resizable-width";
@@ -188,9 +189,10 @@ export function AppShell({
           <Link href={APP_HREF} className="topbar-mark" aria-label="Anchored, all businesses">
             <AnchorMark size={20} />
           </Link>
-          {/* At phone width the switcher gives way to this title; the drawer lists every business instead */}
+          {/* At phone width the switcher gives way to this title; the drawer's "All businesses" link is the way to switch */}
           <span className="topbar-title">{titleOf(location, current)}</span>
           <BusinessSwitcher businesses={businesses} location={location} />
+          {current !== undefined && <SampleBadge business={current} />}
           <button type="button" className="palette-open" onClick={() => setPaletteOpen(true)}>
             <Search aria-hidden="true" size={16} />
             Jump to

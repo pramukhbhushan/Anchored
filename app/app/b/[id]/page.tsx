@@ -4,7 +4,6 @@ import Link from "next/link";
 import { asSentence, skillList } from "@/components/agent-labels";
 import { ProfileSummary } from "@/components/business/ProfileCard";
 import { businessHref } from "@/components/routes";
-import { SampleBadge } from "@/components/business/SampleBadge";
 import { SimulateButton } from "@/components/business/SimulateButton";
 import { Stamp } from "@/components/ui/Stamp";
 import { Badge } from "@/components/ui/Badge";
@@ -65,7 +64,6 @@ export default async function OverviewPage({ params }: { readonly params: Promis
     <>
       <PageHeader
         title={business.name}
-        badge={<SampleBadge business={business} />}
         description={`${business.trade}${place === null ? "" : ` in ${place}`}.`}
         actions={
           <ButtonLink href={businessHref(business.id, "chat")} variant="secondary">

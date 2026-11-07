@@ -4,7 +4,6 @@ import { ChatWindow } from "@/components/chat/ChatWindow";
 import { ProfileCard } from "@/components/business/ProfileCard";
 import { RecentChanges } from "@/components/business/RecentChanges";
 import { NEW_BUSINESS_HREF } from "@/components/routes";
-import { SampleBadge } from "@/components/business/SampleBadge";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -42,7 +41,6 @@ export default async function ProfilePage({ params }: { readonly params: Promise
     <>
       <PageHeader
         title="Profile"
-        badge={<SampleBadge business={business} />}
         description={
           isSample
             ? "What every agent knows about this sample business. Start your own to get a profile you can change."

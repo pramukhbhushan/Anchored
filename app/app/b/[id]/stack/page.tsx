@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { businessHref } from "@/components/routes";
-import { SampleBadge } from "@/components/business/SampleBadge";
 import { monthlyBill } from "@/components/stack/bill";
 import { FreeHelp } from "@/components/stack/FreeHelp";
 import { workFlow } from "@/components/stack/flow";
@@ -35,7 +34,6 @@ export default async function StackPage({ params }: { readonly params: Promise<{
     <>
       <PageHeader
         title="Stack"
-        badge={<SampleBadge business={business} />}
         description="What you pay each month, what each piece does for you, and how a customer's call or message turns into a booked job or a paid invoice."
         actions={
           <ButtonLink href={businessHref(business.id, "workflows")} variant="secondary">

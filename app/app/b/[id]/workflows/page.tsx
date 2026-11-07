@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { OppCard } from "@/components/business/OppCard";
 import { businessHref } from "@/components/routes";
-import { SampleBadge } from "@/components/business/SampleBadge";
 import { Stamp } from "@/components/ui/Stamp";
 import { ButtonLink } from "@/components/ui/Button";
 import { PageHeader, SectionHeader } from "@/components/ui/PageHeader";
@@ -54,7 +53,6 @@ export default async function WorkflowsPage({ params }: { readonly params: Promi
     <>
       <PageHeader
         title="Workflows"
-        badge={<SampleBadge business={business} />}
         description="Work AI can take on for this business. Each workflow has three paths. The stamp shows the one you're on; change it any time and your stack updates."
         actions={
           <ButtonLink href={businessHref(business.id, "stack")} variant="secondary">

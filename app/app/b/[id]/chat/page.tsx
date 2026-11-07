@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { ProfileSummary } from "@/components/business/ProfileCard";
 import { NEW_BUSINESS_HREF } from "@/components/routes";
-import { SampleBadge } from "@/components/business/SampleBadge";
 import { ButtonLink } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { getBusinessOrNotFound } from "@/lib/server/data";
@@ -28,7 +27,6 @@ export default async function ChatPage({ params }: { readonly params: Promise<{ 
       <PageHeader
         compact
         title="Chat"
-        badge={<SampleBadge business={business} />}
         description={
           isSample
             ? "Sample businesses are read-only, so this chat can't change the plan."

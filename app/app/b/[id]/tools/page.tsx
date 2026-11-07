@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { CompareBoard, type CompareItem } from "@/components/business/CompareBoard";
 import { businessHref } from "@/components/routes";
-import { SampleBadge } from "@/components/business/SampleBadge";
 import { ScoreExplainer } from "@/components/business/ScoreExplainer";
 import { Badge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
@@ -74,7 +73,6 @@ export default async function ToolsPage({
     <>
       <PageHeader
         title="Tools"
-        badge={<SampleBadge business={business} />}
         description="Tools rated for this business on seven checks: price, setup, your software, data use, control, languages and track record. Code computes every score. Anchored doesn't score its own agents."
         actions={
           <ButtonLink href={businessHref(business.id, "stack")} variant="secondary">
