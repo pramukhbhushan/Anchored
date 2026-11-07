@@ -86,9 +86,3 @@ export function placeOf(business: Pick<BusinessProfile, "place">): string | null
 export function money(amount: number): string {
   return "$" + (Math.round(amount * 100) / 100).toLocaleString("en-US", { maximumFractionDigits: 2 });
 }
-
-/** Return research text in an owner's words: the case-study data says "modeled" where an owner says "estimated". */
-export function ownerWords(text: string): string {
-  // The research strings live in `lib/domain/cases.ts`, which the views don't own; until they change there, translate here.
-  return text.replace(/\bmodeled on\b/g, "estimated from").replace(/\bmodeled\b/g, "estimated");
-}

@@ -71,10 +71,19 @@ describe("case studies", () => {
 
   it("carries the researched text and cards", () => {
     const hvac = caseStudy("hvac");
-    expect(hvac.workflows.quotes?.stake).toBe("$14K to $30K a month in sales if 2 more of 10 quotes close, modeled");
+    expect(hvac.workflows.quotes?.stake).toBe("$14K to $30K a month in sales if 2 more of 10 quotes close, estimated");
     expect(hvac.cards?.closer?.stake).toBe(11400);
     expect(caseStudy("restaurant").lockedCards?.[0]?.skill).toBe("catering");
   });
+
+  it.each(CASE_STUDIES.map((business) => [business.id, business] as const))(
+    "%s calls its worked-out numbers estimates, as an owner would",
+    (_id, business) => {
+      for (const [workflow, plan] of Object.entries(business.workflows)) {
+        expect(`${plan.why} ${plan.stake}`, workflow).not.toMatch(/\bmodel(?:ed|ing)\b/i);
+      }
+    },
+  );
 });
 
 describe("examples", () => {

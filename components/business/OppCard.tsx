@@ -5,7 +5,7 @@ import { toolsHref } from "@/components/routes";
 import { Badge } from "@/components/ui/Badge";
 import { buttonClass } from "@/components/ui/Button";
 import { Stamp } from "@/components/ui/Stamp";
-import { money, ownerWords } from "@/components/view-helpers";
+import { money } from "@/components/view-helpers";
 import type { SetChoiceRequest } from "@/lib/api/contract";
 import { SKILLS } from "@/lib/domain/agents";
 import { toolById, toolName } from "@/lib/domain/catalog";
@@ -94,8 +94,7 @@ export function OppCard({
         : choice.path === "build" && build
           ? `${build.agentName} agent`
           : "";
-  const stake = ownerWords(plan.stake);
-  const why = ownerWords(plan.why);
+  const { stake, why } = plan;
 
   return (
     <details className={`wf${choice.path === "skip" ? " is-skipped" : ""}`} id={`wf-${id}`}>

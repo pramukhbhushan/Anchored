@@ -81,7 +81,7 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
       calls: {
         isNew: false,
         why: "64% of contractors rely mainly on phone calls. A missed call from a paid ad is money already spent.",
-        stake: "About $1,600 a month, modeled on 10 missed calls",
+        stake: "About $1,600 a month, estimated from 10 missed calls",
       },
       books: { isNew: false, why: "You already pay for QuickBooks. Use what it does before you buy more.", stake: "" },
       leads: {
@@ -98,7 +98,7 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
       quotes: {
         isNew: false,
         why: "A replacement quote runs $7K to $15K, and about 20% close before anyone follows up.",
-        stake: "$14K to $30K a month in sales if 2 more of 10 quotes close, modeled",
+        stake: "$14K to $30K a month in sales if 2 more of 10 quotes close, estimated",
         override: { skills: ["closer", "debrief"] },
       },
       reviews: {
@@ -221,7 +221,7 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
       },
       books: {
         isNew: false,
-        why: "Card fees are the big line here, $9,400 to $19,900 a year modeled, and no tool recovers much of them.",
+        why: "Card fees are the big line here, $9,400 to $19,900 a year by our estimate, and no tool recovers much of them.",
         stake: "",
         override: { rec: "skip" },
       },
@@ -244,7 +244,7 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
       invoices: {
         isNew: false,
         why: "Median full-service margin is 2.8%. One point of food cost is about $6,700 a year here.",
-        stake: "About $6,700 a year per point of food cost, modeled",
+        stake: "About $6,700 a year per point of food cost, estimated",
       },
       disputes: {
         isNew: false,
@@ -254,7 +254,7 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
       noshows: {
         isNew: false,
         why: "Reservation no-shows leave seats empty on your busiest nights. You already pay for OpenTable, so turn on its confirmations and reminders first.",
-        stake: "About $16,600 a year in sales before refills, modeled",
+        stake: "About $16,600 a year in sales before refills, estimated",
       },
       scheduling: {
         isNew: false,
@@ -269,7 +269,7 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
       catering: {
         isNew: false,
         why: "Catering orders average $360 to $420, and requests scatter across email, forms and DMs.",
-        stake: "About $4,700 a year if one request a month slips, modeled",
+        stake: "About $4,700 a year if one request a month slips, estimated",
       },
     },
     cards: {
