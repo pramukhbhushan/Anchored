@@ -1,9 +1,9 @@
 import { Plus } from "lucide-react";
 import type { Metadata } from "next";
 import { ChatWindow } from "@/components/chat/ChatWindow";
-import { ProfileSummary } from "@/components/ProfileCard";
+import { ProfileSummary } from "@/components/business/ProfileCard";
 import { NEW_BUSINESS_HREF } from "@/components/routes";
-import { SampleBadge } from "@/components/SampleBadge";
+import { SampleBadge } from "@/components/business/SampleBadge";
 import { ButtonLink } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { getBusinessOrNotFound } from "@/lib/server/data";

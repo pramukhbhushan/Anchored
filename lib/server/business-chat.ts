@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
-import type { ChatMessage } from "@/lib/api/contract";
-import { allowedLists, applyChanges, changeReply, readChanges, type FactChanges, type ProfileChange } from "@/lib/domain/intake";
+import type { BusinessChatResponse, ChatMessage } from "@/lib/api/contract";
+import { allowedLists, applyChanges, changeReply, readChanges, type FactChanges } from "@/lib/domain/intake";
 import type { BusinessProfile } from "@/lib/domain/types";
 import { LANGUAGE_OPTIONS, REACH_OPTIONS, SIGNALS, TOOL_OPTIONS } from "@/lib/domain/workflows";
 import type { LlmProvider } from "@/lib/llm";
@@ -20,12 +20,6 @@ import type { ChatThread, NewChatMessage } from "@/lib/store/types";
 
 /** Most messages a chat returns; older ones stay stored. */
 const THREAD_LIMIT = 100;
-
-/** A chat's messages, and what the latest owner message changed. */
-export interface BusinessChat {
-  readonly messages: readonly ChatMessage[];
-  readonly changes: readonly ProfileChange[];
-}
 
 function threadOf(business: BusinessProfile): ChatThread {
   return { kind: "business", id: business.id };
@@ -48,13 +42,13 @@ function unsaved(id: string, role: ChatMessage["role"], text: string): ChatMessa
 // =============================================================================
 
 /** Return the business's chat, or its welcome line when nothing has been said yet. */
-export async function listBusinessChat(session: string, business: BusinessProfile): Promise<BusinessChat> {
+export async function listBusinessChat(session: string, business: BusinessProfile): Promise<BusinessChatResponse> {
   const stored = business.kind === "case" ? [] : await getStore().listMessages(session, threadOf(business), THREAD_LIMIT);
   return { messages: stored.length > 0 ? stored : [unsaved("welcome", "anchored", welcomeText(business))], changes: [] };
 }
 
 /** Apply what the owner says changed, save the rebuilt profile, and return the chat with Anchored's reply. */
-export async function sendBusinessChat(session: string, business: BusinessProfile, text: string): Promise<BusinessChat> {
+export async function sendBusinessChat(session: string, business: BusinessProfile, text: string): Promise<BusinessChatResponse> {
   if (business.kind === "case") {
     return {
       messages: [unsaved("welcome", "anchored", welcomeText(business)), unsaved("owner", "owner", text), unsaved("reply", "anchored", `${business.name} is a sample business, so Anchored can't change it. Start your own business and tell me about it there.`)],

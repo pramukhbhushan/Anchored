@@ -7,5 +7,5 @@ import { PageSkeleton } from "@/components/ui/Skeleton";
 
 /** Render the placeholder for your stack. */
 export default function StackLoading() {
-  return <PageSkeleton layout="table" label="your stack" />;
+  return <PageSkeleton layout="stack" label="your stack" />;
 }

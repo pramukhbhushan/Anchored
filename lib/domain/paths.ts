@@ -184,6 +184,13 @@ export function chosenTools(business: BusinessProfile, choices: ChoiceMap): Chos
   });
 }
 
+/** Return what `tool` typically costs this business a month, or `null` when the vendor only quotes. */
+export function monthlyCost(tool: Tool, business: Pick<BusinessProfile, "seats">): number | null {
+  if (tool.monthly === null) return null;
+  // A zero seat count still bills one user.
+  return tool.perUser ? tool.monthly * (business.seats || 1) : tool.monthly;
+}
+
 /** Monthly cost of the picks: bought tools, plus Anchored's plan once any build skill is chosen. */
 export function stackCost(business: BusinessProfile, choices: ChoiceMap): StackCost {
   const counted = new Set<string>();
@@ -217,11 +224,4 @@ function picks(business: BusinessProfile, choices: ChoiceMap): { workflow: Workf
 function activeCore(id: CoreAgentId, skills: readonly SkillId[]): ActiveAgent {
   const agent = CORE_AGENTS[id];
   return { id, name: agent.name, job: agent.job, skills, niche: false, approval: "every-card" };
-}
-
-/** A tool's typical monthly cost here, or `null` when it is only quoted. */
-function monthlyCost(tool: Tool, business: Pick<BusinessProfile, "seats">): number | null {
-  if (tool.monthly === null) return null;
-  // A zero seat count still bills one user.
-  return tool.perUser ? tool.monthly * (business.seats || 1) : tool.monthly;
 }

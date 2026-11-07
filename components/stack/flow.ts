@@ -1,8 +1,8 @@
 import { SKILL_STEPS, TOOL_STEPS, TRADE_TRIGGERS } from "@/components/stack/copy";
-import { monthlyCost, money } from "@/components/view-helpers";
+import { money } from "@/components/view-helpers";
 import { STANDING_SKILLS } from "@/lib/domain/agents";
 import { toolName } from "@/lib/domain/catalog";
-import { activeAgents, chosenTools, resolveChoices, stackCost, workflowIdsOf } from "@/lib/domain/paths";
+import { activeAgents, chosenTools, monthlyCost, resolveChoices, stackCost, workflowIdsOf } from "@/lib/domain/paths";
 import type { AgentRef, BusinessProfile, ChoiceMap, SkillId, Tool } from "@/lib/domain/types";
 
 // =============================================================================
