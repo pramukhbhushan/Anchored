@@ -1,0 +1,969 @@
+<title>Anchored</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Public+Sans:ital,wght@0,400..700;1,400&display=swap">
+<style>
+/* Layout: a work-order pad. Quiet paper and navy ink everywhere, with one loud device: the carbon-yellow work order and its rubber-stamp verdicts. */
+:root{
+  --paper:#EDF0EF; --sheet:#FFFFFF; --ink:#17233B; --ink-2:#3B475D; --muted:#636E80; --line:#D2D8DB;
+  --carbon:#F4CF48; --carbon-soft:#FBF0BF; --on-carbon:#2A2300;
+  --link:#2347B5; --good:#1C7A4C; --good-soft:#DCF0E4; --buy:#2347B5; --buy-soft:#E0E7FA;
+  --skip:#788193; --skip-soft:#E9ECEF; --warn:#A4500B; --warn-soft:#FAE8D6; --bad:#B42318;
+  --shadow:0 1px 0 rgba(23,35,59,.06), 0 10px 28px -16px rgba(23,35,59,.35);
+  --display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --r:6px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --paper:#0E131B; --sheet:#151C27; --ink:#E6EBF3; --ink-2:#C2CAD7; --muted:#93A0B3; --line:#283345;
+  --carbon:#E7C33F; --carbon-soft:#332D14; --on-carbon:#221C00;
+  --link:#9AB2FF; --good:#5DC08E; --good-soft:#15301F; --buy:#9AB2FF; --buy-soft:#1A2547;
+  --skip:#8D97A8; --skip-soft:#222A36; --warn:#F0A35A; --warn-soft:#382614; --bad:#FF8A7A;
+  --shadow:0 1px 0 rgba(0,0,0,.4), 0 12px 30px -16px rgba(0,0,0,.8); color-scheme:dark }}
+:root[data-theme="dark"]{
+  --paper:#0E131B; --sheet:#151C27; --ink:#E6EBF3; --ink-2:#C2CAD7; --muted:#93A0B3; --line:#283345;
+  --carbon:#E7C33F; --carbon-soft:#332D14; --on-carbon:#221C00;
+  --link:#9AB2FF; --good:#5DC08E; --good-soft:#15301F; --buy:#9AB2FF; --buy-soft:#1A2547;
+  --skip:#8D97A8; --skip-soft:#222A36; --warn:#F0A35A; --warn-soft:#382614; --bad:#FF8A7A;
+  --shadow:0 1px 0 rgba(0,0,0,.4), 0 12px 30px -16px rgba(0,0,0,.8); color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:var(--link)}
+h1,h2,h3{font-family:var(--display);font-stretch:112%;line-height:1.08;margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:clamp(34px,5.4vw,58px);font-weight:850}
+h2{font-size:clamp(24px,3vw,32px);font-weight:800}
+h3{font-size:19px;font-weight:750}
+p{margin:0}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--carbon);outline-offset:2px;border-radius:4px}
+.wrap{max-width:1140px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.muted{color:var(--muted)}
+.small{font-size:14px}
+.tiny{font-size:12.5px}
+.num{font-variant-numeric:tabular-nums}
+.stack-y{display:flex;flex-direction:column;gap:12px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+/* top bar */
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--paper)}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--paper);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:20px;min-height:60px;flex-wrap:wrap;padding-block:8px}
+.mark{font-family:var(--display);font-stretch:125%;font-weight:900;font-size:22px;letter-spacing:-.02em;text-decoration:none;color:var(--ink);display:flex;align-items:center;gap:8px}
+.mark svg{width:22px;height:22px}
+.nav{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+.nav a{padding:6px 10px;border-radius:var(--r);text-decoration:none;color:var(--ink-2);font-weight:600;font-size:15px}
+.nav a[aria-current="page"],.nav a:hover{background:var(--sheet);color:var(--ink)}
+
+.btn{display:inline-flex;align-items:center;gap:8px;border:1.5px solid var(--ink);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:var(--r);font-weight:650;cursor:pointer;text-decoration:none;line-height:1.2}
+.btn:hover{filter:brightness(1.12)}
+.btn.ghost{background:transparent;color:var(--ink)}
+.btn.ghost:hover{background:var(--sheet)}
+.btn.sm{padding:6px 11px;font-size:14px}
+.btn.carbon{background:var(--carbon);border-color:var(--carbon);color:var(--on-carbon)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.linkbtn{background:none;border:0;padding:0;color:var(--link);text-decoration:underline;cursor:pointer;font-weight:600}
+
+/* hero */
+.hero{padding-block:56px 40px}
+.hero .grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:48px;align-items:start}
+.hero .lede{font-size:19px;color:var(--ink-2);max-width:36em;margin-top:18px}
+.hero .ctas{margin-top:26px}
+.hero .fine{margin-top:16px;font-size:14px;color:var(--muted)}
+@media (max-width:900px){.hero .grid{grid-template-columns:1fr;gap:32px}.hero{padding-block:32px 24px}}
+
+/* work order: the one loud device */
+.wo{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);position:relative;overflow:hidden}
+.wo-head{background:var(--carbon);color:var(--on-carbon);padding:12px 18px 16px;display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap}
+.wo-head b{font-family:var(--display);font-stretch:100%;font-weight:850;font-size:17px}
+.wo-head span{font-size:13px;font-variant-numeric:tabular-nums}
+.wo-perf{height:10px;background:radial-gradient(circle at 6px -1px,var(--paper) 4px,transparent 4.5px) 0 0/12px 10px repeat-x,var(--sheet);margin-top:-1px}
+.wo-body{padding:6px 18px 18px}
+.wo-meta{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px;padding:10px 0 12px;border-bottom:1px dashed var(--line)}
+.wo-meta dt{color:var(--muted)}
+.wo-meta dd{margin:0;min-width:0}
+.wo-line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 0;border-bottom:1px dashed var(--line)}
+.wo-line:last-child{border-bottom:0}
+.wo-line b{display:block;font-size:15.5px}
+.wo-line p{font-size:13.5px;color:var(--muted);margin-top:2px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.tab{border:1.5px solid var(--line);background:var(--sheet);padding:6px 12px;border-radius:999px;cursor:pointer;font-weight:600;font-size:14px}
+.tab[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+
+.stamp{display:inline-block;font-family:var(--display);font-stretch:72%;font-weight:850;text-transform:uppercase;letter-spacing:.07em;font-size:13px;border:2px solid currentColor;border-radius:3px;padding:2px 8px 1px;transform:rotate(-4deg);white-space:nowrap;line-height:1.3}
+.stamp.turnon{color:var(--good)}
+.stamp.buy{color:var(--buy)}
+.stamp.build{color:var(--ink);background:var(--carbon-soft)}
+.stamp.skip{color:var(--skip)}
+@media (prefers-reduced-motion:no-preference){
+  .stamp.fresh{animation:thunk .32s cubic-bezier(.3,1.6,.5,1) both}
+  @keyframes thunk{from{transform:rotate(-12deg) scale(1.5);opacity:0}to{transform:rotate(-4deg) scale(1);opacity:1}}
+}
+
+/* sections */
+section.band{padding-block:44px;border-top:1px solid var(--line)}
+.steps4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:28px;margin-top:26px;counter-reset:s}
+.steps4 li{list-style:none;counter-increment:s}
+.steps4 li::before{content:counter(s);font-family:var(--display);font-stretch:125%;font-weight:900;font-size:30px;color:var(--ink);display:block;line-height:1;margin-bottom:10px;-webkit-text-stroke:0}
+.steps4 h3{margin-bottom:6px}
+.steps4 p{color:var(--ink-2);font-size:15px}
+.steps4{padding:0;margin-bottom:0}
+@media (max-width:860px){.steps4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:520px){.steps4{grid-template-columns:1fr}}
+.facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin-top:22px;border:1px solid var(--line);border-radius:var(--r);background:var(--sheet)}
+.facts div{padding:16px 18px;border-right:1px solid var(--line);min-width:0}
+.facts div:last-child{border-right:0}
+.facts b{display:block;font-family:var(--display);font-stretch:100%;font-weight:800;font-size:26px;font-variant-numeric:tabular-nums}
+.facts span{font-size:14px;color:var(--ink-2);display:block;margin-top:4px}
+.facts em{font-style:normal;font-size:12.5px;color:var(--muted);display:block;margin-top:6px}
+@media (max-width:860px){.facts{grid-template-columns:repeat(2,minmax(0,1fr))}.facts div:nth-child(2){border-right:0}.facts div:nth-child(-n+2){border-bottom:1px solid var(--line)}}
+@media (max-width:480px){.facts{grid-template-columns:1fr}.facts div{border-right:0;border-bottom:1px solid var(--line)}.facts div:last-child{border-bottom:0}}
+footer{padding-block:28px 40px;border-top:1px solid var(--line);color:var(--muted);font-size:13.5px}
+
+/* app chrome */
+.appbar{padding-block:22px 6px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.appbar label{font-size:13px;color:var(--muted);display:block;margin-bottom:4px}
+.appbar select{padding:8px 10px;border:1.5px solid var(--line);border-radius:var(--r);background:var(--sheet);font-weight:650;max-width:100%}
+.stepbar{overflow-x:auto;margin-top:10px;border-bottom:1px solid var(--line)}
+.stepbar ol{display:flex;gap:2px;margin:0;padding:0;list-style:none;min-width:max-content}
+.stepbar a{display:flex;gap:8px;align-items:center;padding:10px 14px;text-decoration:none;color:var(--muted);font-weight:650;border-bottom:3px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.stepbar a i{font-style:normal;font-family:var(--display);font-stretch:112%;font-weight:850;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;border:1.5px solid currentColor;font-size:12px}
+.stepbar a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--carbon)}
+.stepbar a[aria-current="page"] i{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.view{padding-block:26px 56px}
+.viewhead{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;flex-wrap:wrap;margin-bottom:20px}
+.viewhead p{color:var(--ink-2);max-width:44em;margin-top:8px}
+.panel{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:20px}
+.cols{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.cols{grid-template-columns:1fr}}
+.kv{display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px 18px}
+.kv dt{color:var(--muted);font-size:14px}
+.kv dd{margin:0}
+@media (max-width:520px){.kv{grid-template-columns:1fr;gap:2px}.kv dd{margin-bottom:10px}}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:var(--skip-soft);font-size:13.5px;font-weight:600}
+.chip.new{background:var(--carbon-soft)}
+.chip.ok{background:var(--good-soft);color:var(--good)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.notice{border-left:4px solid var(--carbon);background:var(--carbon-soft);padding:10px 14px;border-radius:0 var(--r) var(--r) 0;font-size:14.5px}
+
+/* map */
+.mapgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:960px){.mapgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:600px){.mapgrid{grid-template-columns:1fr}}
+.opp{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.opp.fit-none,.opp.fit-low{background:transparent}
+.opp header{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.opp h3{font-size:17px}
+.fitbar{display:flex;gap:3px;margin-top:6px}
+.fitbar span{width:18px;height:5px;border-radius:2px;background:var(--line)}
+.fitbar span.on{background:var(--ink)}
+.opp .why{font-size:14.5px;color:var(--ink-2)}
+.opp .stake{font-size:13.5px;font-weight:650}
+.opp footer{all:unset;display:flex;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:4px}
+.legend{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:16px;font-size:14px;color:var(--ink-2)}
+.legend span{display:flex;gap:8px;align-items:center}
+
+/* compare */
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.tools{display:flex;flex-direction:column;gap:10px}
+.tool{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);display:grid;grid-template-columns:76px minmax(0,1fr) auto;gap:16px;padding:14px 16px;align-items:start}
+.score{font-family:var(--display);font-stretch:100%;font-weight:850;font-size:30px;line-height:1;font-variant-numeric:tabular-nums;text-align:center;padding-top:4px}
+.score small{display:block;font-family:var(--body);font-weight:600;font-size:11.5px;color:var(--muted);margin-top:4px;letter-spacing:0}
+.tool h3{font-size:17px}
+.tool .meta{font-size:14px;color:var(--ink-2);margin-top:2px}
+.tool details{margin-top:8px}
+.tool summary{cursor:pointer;font-size:14px;font-weight:650;color:var(--link)}
+.factors{display:grid;grid-template-columns:minmax(110px,170px) minmax(0,1fr) 44px;gap:6px 12px;margin-top:10px;font-size:13.5px;align-items:center}
+.factors .bar{height:8px;background:var(--skip-soft);border-radius:4px;overflow:hidden}
+.factors .bar i{display:block;height:100%;background:var(--ink)}
+.factors .why{grid-column:2 / 4;color:var(--muted);font-size:12.5px;margin-top:-4px;margin-bottom:4px}
+.tool .acts{display:flex;flex-direction:column;gap:6px;align-items:stretch;min-width:130px}
+@media (max-width:640px){.tool{grid-template-columns:56px minmax(0,1fr)}.tool .acts{grid-column:1 / -1;flex-direction:row;flex-wrap:wrap;min-width:0}.score{font-size:24px}}
+.cmp{overflow-x:auto;margin-bottom:18px}
+.cmp table{border-collapse:collapse;width:100%;min-width:560px;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);font-size:14px}
+.cmp th,.cmp td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+.cmp th{font-family:var(--display);font-stretch:100%;font-weight:800}
+.cmp td.num,.cmp th.num{font-variant-numeric:tabular-nums}
+.disc{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:10px}
+.disc div{border:1px dashed var(--line);border-radius:var(--r);padding:12px;font-size:14px;min-width:0}
+@media (max-width:760px){.disc{grid-template-columns:1fr}}
+
+/* stack */
+.flow{display:grid;grid-template-columns:minmax(0,1fr) 28px minmax(0,1.05fr) 28px minmax(0,1.3fr) 28px minmax(0,.9fr);align-items:stretch;gap:0}
+.flow .col{display:flex;flex-direction:column;gap:8px;min-width:0}
+.flow .col h3{font-size:14px;font-family:var(--body);font-weight:700;color:var(--muted);margin-bottom:2px}
+.flow .arrow{display:grid;place-items:center;color:var(--muted)}
+.node{border:1px solid var(--line);background:var(--sheet);border-radius:var(--r);padding:8px 10px;font-size:14px;font-weight:600;min-width:0;overflow-wrap:anywhere}
+.node.core{background:var(--carbon);border-color:var(--carbon);color:var(--on-carbon)}
+.node.helper{border-left:4px solid var(--ink)}
+.node.tool{border-left:4px solid var(--buy)}
+.node small{display:block;font-weight:500;color:var(--muted);font-size:12.5px}
+.node.core small{color:var(--on-carbon);opacity:.8}
+@media (max-width:900px){.flow{grid-template-columns:1fr}.flow .arrow{transform:rotate(90deg);height:26px}}
+.hood{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:18px}
+@media (max-width:760px){.hood{grid-template-columns:1fr}}
+.hood article{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+.hood dl{display:grid;grid-template-columns:96px minmax(0,1fr);gap:6px 12px;font-size:14px;margin:10px 0 0}
+.hood dt{color:var(--muted)}
+.hood dd{margin:0}
+.hood ul{margin:0;padding-left:18px}
+.total{display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap;padding:14px 0 0;margin-top:14px;border-top:1px solid var(--line)}
+.total b{font-family:var(--display);font-stretch:100%;font-weight:850;font-size:26px;font-variant-numeric:tabular-nums}
+
+/* agents */
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);border-radius:var(--r);background:var(--sheet);margin-bottom:18px}
+.kpis div{padding:12px 16px;border-right:1px solid var(--line);min-width:0}
+.kpis div:last-child{border-right:0}
+.kpis b{display:block;font-family:var(--display);font-stretch:100%;font-weight:850;font-size:24px;font-variant-numeric:tabular-nums}
+.kpis span{font-size:13px;color:var(--muted)}
+@media (max-width:640px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.kpis div:nth-child(2){border-right:0}.kpis div:nth-child(-n+2){border-bottom:1px solid var(--line)}}
+.feed{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px}
+.card.done{opacity:.62}
+.card .who{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;color:var(--muted);flex-wrap:wrap}
+.card .who b{color:var(--ink)}
+.card h3{font-size:17px}
+.draft{border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;background:var(--paper);font-size:15px;white-space:pre-wrap}
+.card textarea{width:100%;min-height:96px;border:1.5px solid var(--ink);border-radius:var(--r);padding:10px 12px;background:var(--paper);resize:vertical}
+.checks{display:flex;flex-wrap:wrap;gap:6px}
+.card .acts{display:flex;gap:8px;flex-wrap:wrap}
+.status{font-weight:700;font-size:14px}
+.phone{background:var(--ink);color:var(--paper);border-radius:22px;padding:14px;min-height:340px;display:flex;flex-direction:column;gap:8px}
+.phone .bar{display:flex;justify-content:space-between;font-size:12.5px;opacity:.8;padding:0 4px 6px;border-bottom:1px solid rgba(127,127,127,.35)}
+.bubble{align-self:flex-end;background:var(--carbon);color:var(--on-carbon);padding:8px 12px;border-radius:14px 14px 4px 14px;font-size:14px;max-width:92%;white-space:pre-wrap}
+.bubble small{display:block;font-size:11.5px;opacity:.75;margin-bottom:2px}
+.logline{font-size:13.5px;padding:6px 10px;border-radius:8px;background:rgba(127,127,127,.18)}
+.phone .empty{opacity:.7;font-size:14px;margin:auto;text-align:center;max-width:24em}
+
+/* onboarding */
+form.ob{display:flex;flex-direction:column;gap:18px}
+.field label{display:block;font-weight:700;margin-bottom:4px}
+.field .hint{font-size:13.5px;color:var(--muted);margin-bottom:6px}
+.field input[type=text],.field textarea{width:100%;border:1.5px solid var(--line);border-radius:var(--r);padding:10px 12px;background:var(--sheet)}
+.field textarea{min-height:76px;resize:vertical}
+.field input:focus,.field textarea:focus{border-color:var(--ink);outline:none}
+.pick{display:flex;gap:6px;flex-wrap:wrap}
+.pick label{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--line);border-radius:999px;padding:5px 12px;cursor:pointer;font-weight:600;font-size:14px;background:var(--sheet)}
+.pick input{accent-color:var(--ink)}
+.pick label:has(input:checked){border-color:var(--ink)}
+.progress{font-size:15px;font-weight:650}
+
+/* judges */
+.cols3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+@media (max-width:860px){.cols3{grid-template-columns:1fr}}
+.prose{max-width:46em;color:var(--ink-2)}
+.prose p+p{margin-top:10px}
+table.plain{border-collapse:collapse;width:100%;font-size:14.5px}
+table.plain th,table.plain td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+table.plain th{font-weight:700;color:var(--muted);font-size:13.5px}
+.scroll{overflow-x:auto}
+.scroll table{min-width:620px}
+.roadmap{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+@media (max-width:860px){.roadmap{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:520px){.roadmap{grid-template-columns:1fr}}
+.roadmap article{border-top:4px solid var(--ink);background:var(--sheet);padding:14px;border-radius:0 0 var(--r) var(--r)}
+.roadmap h3{font-size:16px;margin-bottom:6px}
+.roadmap ul{margin:0;padding-left:18px;font-size:14px;color:var(--ink-2)}
+.lanes{display:flex;flex-direction:column;gap:14px;margin-top:16px}
+.lane{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.lane h3{font-size:14px;font-family:var(--body);font-weight:700;color:var(--muted);margin-bottom:8px}
+.lane ol{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.lane li{display:flex;align-items:center;gap:8px;min-width:0}
+.lane li+li::before{content:"\2192";color:var(--muted)}
+.lane .node{font-weight:600}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:var(--r);font-weight:650;box-shadow:var(--shadow);z-index:40;max-width:calc(100% - 32px)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <a class="mark" href="#home" aria-label="Anchored home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="5" r="2.4"/><path d="M12 7.5V21M7 11h10M4 14c0 4 3.6 7 8 7s8-3 8-7"/></svg>
+      Anchored
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="#home" data-nav="home">How it works</a>
+      <a href="#profile" data-nav="app">Try it</a>
+      <a href="#built" data-nav="built">How it's built</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main"></main>
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script>
+/* ------------------------------------------------------------------ data */
+const OPPS = [
+  {id:"calls", name:"Answer and return calls", five:true},
+  {id:"books", name:"Bookkeeping and invoices", five:true},
+  {id:"followup", name:"Follow up on leads and quotes", five:true},
+  {id:"marketing", name:"Marketing and posts", five:true},
+  {id:"quotes", name:"Quotes and estimates", five:true},
+  {id:"reviews", name:"Reviews and referrals"},
+  {id:"schedule", name:"Scheduling and staff"},
+  {id:"supplies", name:"Suppliers and stock"},
+  {id:"compliance", name:"Licenses and rules"}
+];
+const VERDICT = {turnon:"Turn on", buy:"Buy", build:"Build", skip:"Skip for now"};
+const VERDICT_LONG = {
+  turnon:"Use a tool you already pay for",
+  buy:"A product on the market does this well",
+  build:"Anchored sets up a helper for you",
+  skip:"Small for your business today"
+};
+const TIERS = {
+  quick:{model:"Claude Haiku 5.5", why:"Short, routine text. The fastest and cheapest model is enough."},
+  default:{model:"Claude Sonnet 5.5", why:"Writes in your voice about a specific job. A balanced model."},
+  complex:{model:"Claude Opus 5.5", why:"Plans across many records. The most capable model."}
+};
+
+const HELPERS = {
+  callback:{name:"Callback", job:"Texts a caller back after a missed call", reads:["Missed-call alerts from your forwarded line","Your hours and service area"], does:["Drafts one text with two open time slots"], never:["Sends without your tap","Texts between 8 p.m. and 8 a.m.","Quotes a price"], tier:"quick"},
+  closer:{name:"Closer", job:"Chases quotes that went quiet", reads:["Open quotes from Jobber or a spreadsheet","Your allowed offers"], does:["Drafts touches on day 1, 5 and 10","Marks the quote won or lost"], never:["Offers anything outside your rules","Sends a fourth touch"], tier:"default"},
+  debrief:{name:"Debrief", job:"Turns a tech's voice note into a quote follow-up", reads:["Voice notes texted to your Anchored number"], does:["Pulls out the job, price and next step","Hands the follow-up to Closer"], never:["Contacts a customer by itself"], tier:"default"},
+  reviewer:{name:"Reviewer", job:"Asks for a review after a job is paid", reads:["Paid jobs","Your Google review link"], does:["Drafts one review request"], never:["Offers a reward for a rating","Writes a review"], tier:"quick"},
+  reactivator:{name:"Reactivator", job:"Brings past customers back in the slow season", reads:["Past customers who have a consent record"], does:["Drafts a batch you approve once"], never:["Texts anyone without written consent","Sends a promotion after 8 p.m."], tier:"default"},
+  pricewatch:{name:"Price Watch", job:"Checks supplier invoices against the last price you paid", reads:["Photos of paper invoices"], does:["Checks the invoice math in code","Flags price rises","Adds them to your rep list"], never:["Contacts a customer","Changes a shelf price"], tier:"default"},
+  stockcheck:{name:"Stock Check", job:"Counts SNAP staple varieties against the rule text", reads:["Your taps, category by category"], does:["Lists gaps for the next wholesale run"], never:["Calls its count a USDA determination"], tier:"quick"},
+  license:{name:"License Clerk", job:"Keeps every license and renewal on one calendar", reads:["A photo of each license"], does:["Warns you 30 days before a renewal"], never:["Files anything for you"], tier:"quick"},
+  catering:{name:"Catering Responder", job:"Answers catering and party requests", reads:["Your catering form and forwarded email","Your packages and kitchen limits"], does:["Drafts a reply with three packages","Follows up on day 1, day 3 and week 1, then stops"], never:["Answers allergy questions","Texts without consent"], tier:"default"},
+  reviewdrafter:{name:"Review Drafter", job:"Drafts replies to reviews you paste in", reads:["Reviews you paste"], does:["Drafts a reply that cites one detail"], never:["Posts for you","Argues with a reviewer"], tier:"quick"},
+  listing:{name:"Listing Keeper", job:"Keeps your Google listing and menu current", reads:["Your menu, hours and specials"], does:["Drafts updates and posts for you to publish"], never:["Edits your listing without you"], tier:"quick"},
+  inquiry:{name:"Inquiry Responder", job:"Replies to new leads with two call times", reads:["Your form, forwarded email and pasted DMs","Your booking link"], does:["Drafts a reply in your voice"], never:["Sends without your tap","Puts a price in a first reply"], tier:"default"},
+  showup:{name:"Show-up Keeper", job:"Cuts no-shows on discovery calls", reads:["Calendly bookings"], does:["Drafts reminders 24 hours and 1 hour before"], never:["Texts without consent"], tier:"quick"},
+  callfollow:{name:"Call Follow-up", job:"Checks in after 'let me think about it'", reads:["Calls you mark as undecided"], does:["Drafts check-ins on day 1, 3 and 7"], never:["Sends a fourth check-in"], tier:"default"},
+  nudger:{name:"Payment Nudger", job:"Reminds clients about late invoices", reads:["Stripe invoices"], does:["Drafts a friendly reminder"], never:["Charges a card"], tier:"quick"},
+  referral:{name:"Referral Ask", job:"Asks finishing clients for a testimonial and a referral", reads:["Program end dates"], does:["Drafts the ask two weeks before the end"], never:["Ties a reward to a rating"], tier:"quick"}
+};
+
+/* contract: none|annual|multi|unknown  data: stated|unknown  control: approve|auto|unknown|na  evidence: independent|thirdparty|vendor  ai: yes|unknown */
+const TOOLS = [
+  {id:"jobber-ai", name:"AI Receptionist", maker:"Jobber", platform:"Jobber", cats:["calls"], trades:["hvac","home"], price:"$29 a month, add-on to a Jobber plan", monthly:29, contract:"none", data:"unknown", control:"auto", evidence:"thirdparty", ai:"yes", works:["Jobber"], note:"Answers calls inside Jobber. Billed monthly.", src:"Third-party price summary"},
+  {id:"servicetitan", name:"ServiceTitan", maker:"ServiceTitan", cats:["calls","followup","schedule"], trades:["hvac"], price:"$250 to $498 per user a month, 2-year minimum", monthly:250, perUser:true, contract:"multi", data:"unknown", control:"auto", evidence:"thirdparty", ai:"unknown", works:[], note:"Built for shops near $3M and up. Early exit fees of $22K to $29K reported.", src:"Costbench"},
+  {id:"housecall", name:"Housecall Pro", maker:"Housecall Pro", cats:["followup","schedule"], trades:["hvac","home"], price:"Quote-based, varies by team size", monthly:null, contract:"unknown", data:"unknown", control:"auto", evidence:"thirdparty", ai:"unknown", works:[], note:"Outside tools get its webhooks only on the MAX plan.", src:"Housecall Pro help center"},
+  {id:"agency", name:"Done-for-you AI follow-up", maker:"AI agencies", cats:["followup"], trades:["hvac","home"], price:"About $45 per booked appointment, plus setup", monthly:null, contract:"unknown", data:"unknown", control:"auto", evidence:"vendor", ai:"yes", works:[], note:"Priced per booking, so cost rises with success.", src:"Agency sales video"},
+  {id:"maple", name:"Maple", maker:"Maple", cats:["calls"], trades:["restaurant"], price:"$85 to $150 a month", monthly:85, contract:"unknown", data:"unknown", control:"auto", evidence:"vendor", ai:"yes", works:[], note:"AI phone answering for restaurants. Buy only if your call log shows volume.", src:"Vendor pricing page"},
+  {id:"certus", name:"Certus", maker:"Certus", cats:["calls"], trades:["restaurant"], price:"$250 a month", monthly:250, contract:"published", data:"unknown", control:"auto", evidence:"vendor", ai:"yes", works:[], note:"The one phone tool that publishes both price and cancel terms.", src:"Vendor page"},
+  {id:"squaremates", name:"Squaremates", maker:"Square", platform:"Square", cats:["marketing","schedule","supplies"], trades:["restaurant","store"], price:"Agent price not published. Square plans run $0, $49 or $149 a month", monthly:null, contract:"unknown", data:"stated", control:"approve", evidence:"vendor", ai:"yes", works:["Square"], note:"Square says its agent proposes an action and the seller approves.", src:"Block Q3 2026 letter, Square release"},
+  {id:"toastiq", name:"Toast IQ agents", maker:"Toast", platform:"Toast", cats:["reviews","marketing","schedule"], trades:["restaurant"], price:"Grow plan at $499 or $699 a month, sources conflict", monthly:499, contract:"unknown", data:"unknown", control:"unknown", evidence:"vendor", ai:"yes", works:["Toast"], note:"Agents for SEO, reviews, offers and scheduling. About 40,000 of 171,000 locations used Toast IQ weekly.", src:"Toast 8-K, NRN"},
+  {id:"marqii", name:"Marqii", maker:"Marqii", cats:["reviews"], trades:["restaurant"], price:"$180 a month on an annual contract", monthly:180, contract:"annual", data:"unknown", control:"approve", evidence:"vendor", ai:"yes", works:[], note:"Has an approve-first tier for review replies.", src:"Vendor pricing page"},
+  {id:"owner", name:"Owner", maker:"Owner.com", cats:["marketing","followup"], trades:["restaurant"], price:"$249 to $499 a month", monthly:249, contract:"unknown", data:"unknown", control:"unknown", evidence:"vendor", ai:"yes", works:[], note:"Restaurant platform sold with AI agents.", src:"Vendor page"},
+  {id:"homebase", name:"Homebase", maker:"Homebase", cats:["schedule"], trades:["restaurant","store"], price:"$0 to $120 a month, with a free tier", monthly:0, contract:"unknown", data:"unknown", control:"na", evidence:"vendor", ai:"unknown", works:[], note:"Schedules and timesheets. Anchored will not rebuild this.", src:"Vendor pricing page"},
+  {id:"ordersco", name:"Dispute assistant", maker:"Orders.co", cats:["books"], trades:["restaurant"], price:"$29 a month", monthly:29, contract:"unknown", data:"unknown", control:"unknown", evidence:"vendor", ai:"unknown", works:["DoorDash","Uber Eats"], note:"Recovers delivery app refunds and disputes for one location.", src:"Vendor page"},
+  {id:"marginedge", name:"MarginEdge", maker:"MarginEdge", cats:["supplies","books"], trades:["restaurant"], price:"$350 a month per location", monthly:350, contract:"unknown", data:"unknown", control:"na", evidence:"vendor", ai:"unknown", works:[], note:"Invoice capture with CSV export.", src:"Vendor pricing page"},
+  {id:"marketman", name:"MarketMan", maker:"MarketMan", cats:["supplies"], trades:["restaurant"], price:"From $249 a month, 50 invoice scans", monthly:249, contract:"unknown", data:"unknown", control:"na", evidence:"vendor", ai:"unknown", works:[], note:"Inventory and invoices for higher-volume kitchens.", src:"Vendor pricing page"},
+  {id:"hisably", name:"Hisably", maker:"Hisably", cats:["books","supplies"], trades:["store"], price:"$30 a month, plus $15 for AI invoice capture", monthly:45, contract:"unknown", data:"unknown", control:"na", evidence:"vendor", ai:"yes", works:["Email"], note:"Lottery and payables. Daily reports arrive by email.", src:"Vendor pricing page"},
+  {id:"retail360", name:"Retail360", maker:"Petrosoft", cats:["supplies"], trades:["store"], price:"Free", monthly:0, contract:"unknown", data:"unknown", control:"na", evidence:"vendor", ai:"unknown", works:[], note:"Store back office with invoice tools.", src:"Vendor blog"},
+  {id:"gohighlevel", name:"GoHighLevel", maker:"HighLevel", cats:["followup","marketing","schedule"], trades:["coach"], price:"$97 to $497 a month, plus usage", monthly:97, contract:"unknown", data:"unknown", control:"auto", evidence:"thirdparty", ai:"unknown", works:[], note:"All-in-one CRM. Reviewers report workflows that break when a tag or form name changes.", src:"Learning Revolution review"},
+  {id:"paperbell", name:"Paperbell", maker:"Paperbell", cats:["books","schedule"], trades:["coach"], price:"Free to $97 a month", monthly:0, contract:"unknown", data:"unknown", control:"na", evidence:"thirdparty", ai:"unknown", works:[], note:"Packages, booking and checkout for solo coaches.", src:"Agiled comparison"},
+  {id:"honeybook", name:"HoneyBook", maker:"HoneyBook", cats:["followup","books"], trades:["coach"], price:"$36 to $129 a month", monthly:36, contract:"unknown", data:"unknown", control:"na", evidence:"thirdparty", ai:"unknown", works:[], note:"Inquiries, proposals and invoices in one flow.", src:"Agiled comparison"},
+  {id:"dubsado", name:"Dubsado", maker:"Dubsado", cats:["followup"], trades:["coach"], price:"$40 to $70 a month", monthly:40, contract:"unknown", data:"unknown", control:"na", evidence:"thirdparty", ai:"unknown", works:[], note:"Forms, contracts and invoices with conditional workflows.", src:"Agiled comparison"},
+  {id:"calendly", name:"Calendly", maker:"Calendly", platform:"Calendly", cats:["schedule"], trades:["coach","any"], price:"$12 a month", monthly:12, contract:"unknown", data:"unknown", control:"na", evidence:"thirdparty", ai:"unknown", works:["Calendly"], note:"Booking, cancels and no-shows. Anchored reads its events.", src:"Agiled comparison"},
+  {id:"quickbooks", name:"QuickBooks Online", maker:"Intuit", platform:"QuickBooks Online", cats:["books"], trades:["any"], price:"$38 to $340 a month", monthly:38, contract:"unknown", data:"unknown", control:"na", evidence:"vendor", ai:"unknown", works:["QuickBooks Online","Jobber"], note:"Most shops already pay for it. Check what it automates first.", src:"Vendor pricing page"}
+];
+const DISCOVERED = [
+  {name:"CoreVue", what:"Free invoice capture app for stores", status:"Found in an app store listing. Waiting for a person to open the page and confirm the price."},
+  {name:"xtraCHEF", what:"Restaurant invoice automation", status:"Price not confirmed. Held back from scoring until a person checks it."},
+  {name:"General 'AI employee' apps", what:"Assistants sold from $15.60 to $48.50 a month", status:"Usage evidence is thin. Needs a 30-day retention check."}
+];
+
+const SAMPLES = [
+ {id:"hvac", tradeKey:"hvac", label:"HVAC shop", name:"College Park Heating & Air", trade:"HVAC contractor", place:"College Park, MD", size:"6 people, 4 trucks", seats:6, revenue:"About $1M a year", customers:"Homeowners within 20 miles", reach:["Phone calls","Google Local Services Ads","Referrals"], tools:["Jobber","QuickBooks Online","Google Business Profile","Cell phone"], tasks:["Return missed calls between jobs","Chase replacement quotes","Ask for reviews","Reshuffle the board on hot days","Invoices at night"], voice:"Sorry we missed you, this is Dana at College Park Heating & Air.",
+  opps:{
+   calls:{fit:3, verdict:"build", helpers:["callback"], alt:"jobber-ai", why:"64% of contractors rely mainly on phone calls. A missed call from a paid ad is money already spent.", stake:"About $1,600 a month, modeled on 10 missed calls"},
+   followup:{fit:3, verdict:"build", helpers:["closer"], why:"A replacement quote runs $7K to $15K, and about 20% close before anyone follows up.", stake:"$14K to $30K a month in sales if 2 more of 10 quotes close, modeled"},
+   quotes:{fit:2, verdict:"build", helpers:["debrief"], why:"Techs give verbal estimates on site that never get written down.", stake:"Recovers quotes nobody logged"},
+   reviews:{fit:2, verdict:"build", helpers:["reviewer"], why:"Reviews and fast replies feed your Local Services Ads ranking.", stake:"Lowers what each future lead costs"},
+   marketing:{fit:2, verdict:"build", helpers:["reactivator"], isNew:true, why:"Repeat customers bring 39% of revenue, and few shops reach out in the slow season.", stake:"Fills shoulder-season slots"},
+   books:{fit:2, verdict:"turnon", tool:"quickbooks", why:"You already pay for QuickBooks. Use what it automates before you buy more.", stake:""},
+   schedule:{fit:2, verdict:"skip", why:"Jobber already runs your board. Heat-wave triage rules come later.", stake:""},
+   supplies:{fit:1, verdict:"skip", why:"Parts ordering is small next to quotes and calls.", stake:""},
+   compliance:{fit:1, verdict:"skip", why:"Texting rules already run inside every Anchored helper.", stake:""}
+  },
+  cards:[
+   {helper:"callback", title:"Missed call at 7:42 p.m. from (301) 555-0192", body:"Sorry we missed you, this is College Park Heating & Air. Is your system fully off, or running but not cooling? We can come tomorrow at 8 or 10 a.m. Reply STOP to opt out.", reason:"Callers who wait often book the next shop on Google.", checks:["Before 8 p.m. Maryland quiet hours","The caller reached out first","No price in the text"], action:"Send text", channel:"sms", to:"(301) 555-0192"},
+   {helper:"closer", title:"$11,400 heat pump quote to the Okafors, 5 days quiet", body:"Hi James, it's Dana at College Park Heating & Air. I can hold Thursday's install slot until Friday. Want me to send the 0% financing option?", reason:"Touch 2 of 3 in your day 1, 5 and 10 plan.", checks:["Financing is on your allowed offers","Customer has a consent record","Touch 2 of 3"], action:"Send text", channel:"sms", to:"James Okafor", stake:11400},
+   {helper:"debrief", title:"Mike's voice note from the Henderson job", body:"Recommended a new coil, about $1,800. Customer wants to think it over. Create a follow-up for Closer?", reason:"Verbal estimates get lost when nobody writes them down.", checks:["Price came from Mike's note, not the model"], action:"Create follow-up", channel:"list", stake:1800},
+   {helper:"reviewer", title:"Patel job paid this afternoon", body:"Thanks for having us out, Priya. If we did right by you, a Google review helps your neighbors find us: [your review link]. Reply STOP to opt out.", reason:"Reviews feed your Local Services Ads ranking.", checks:["No reward offered for a rating","Existing customer with consent"], action:"Send text", channel:"sms", to:"Priya Patel"}
+  ],
+  events:[{helper:"callback", title:"Missed call at 2:15 p.m. from (240) 555-0144", body:"Sorry we missed you, this is College Park Heating & Air. Is your heat fully off, or running but weak? We can come today at 4 p.m. or tomorrow at 9 a.m. Reply STOP to opt out.", reason:"A no-heat call in November books fast elsewhere.", checks:["Inside 8 a.m. to 8 p.m.","The caller reached out first","No price in the text"], action:"Send text", channel:"sms", to:"(240) 555-0144"}]
+ },
+ {id:"store", tradeKey:"store", label:"Corner store", name:"Harbor Mini Mart", trade:"Corner store, no fuel", place:"Baltimore, MD", size:"Owner and 2 relatives on shifts", seats:3, revenue:"About $750K a year", customers:"Neighbors who come in daily", reach:["Walk-in","Regulars"], tools:["Cash register","Paper invoices","Cell phone"], tasks:["Monday wholesale run","Check invoices","Reprice shelves","License renewals","SNAP stocking"], voice:"Hi, this is Mr. Kim at Harbor Mini Mart.",
+  opps:{
+   compliance:{fit:3, verdict:"build", helpers:["stockcheck","license"], isNew:true, why:"USDA's new SNAP stocking rule took effect Nov 4, 2026. USDA estimated 73% of convenience stores fell short.", stake:"Losing SNAP for a year: $6,750 to $37,500 in gross profit, modeled"},
+   supplies:{fit:3, verdict:"build", helpers:["pricewatch"], why:"You price from wholesaler cost. Rises pass unseen until the shelf label changes.", stake:"About $7,500 a year in price creep, modeled"},
+   books:{fit:2, verdict:"buy", tool:"hisably", why:"Lottery settlement and payables pile up. Hisably reads the daily reports by email.", stake:""},
+   calls:{fit:0, verdict:"skip", why:"Your trade is walk-in. No study measures calls to stores like yours.", stake:""},
+   followup:{fit:0, verdict:"skip", why:"A corner store has no lead queue to chase.", stake:""},
+   marketing:{fit:1, verdict:"skip", why:"In one Bronx study, 52% of shoppers picked their store because it was near home.", stake:""},
+   quotes:{fit:0, verdict:"skip", why:"Nothing to quote in this trade.", stake:""},
+   reviews:{fit:1, verdict:"skip", why:"Your regulars already know you. Revisit if you add delivery.", stake:""},
+   schedule:{fit:1, verdict:"skip", why:"Family shifts hand over in person. A tool adds little here.", stake:""}
+  },
+  cards:[
+   {helper:"pricewatch", title:"Whole milk up $2.10 a case", body:"Your Nov 3 invoice charges $38.40 a case. On Oct 28 it was $36.30. Add this to your list for the rep?", reason:"Your shelf price still reflects the old cost.", checks:["Invoice lines add up to the total","Compared with your last invoice on file"], action:"Add to rep list", channel:"list", stake:2.1},
+   {helper:"stockcheck", title:"Dairy: 5 of 7 varieties by your count", body:"Add plain yogurt and cheddar to Monday's run to close the gap. This count is not a USDA determination. Rule text checked Nov 7, 2026.", reason:"The SNAP stocking rule took effect Nov 4.", checks:["Counted from your taps","Rule text checked Nov 7, 2026"], action:"Add to run list", channel:"list"},
+   {helper:"license", title:"Tobacco license renews in 30 days", body:"Last year's license photo is on file. Add a renewal reminder for Monday morning?", reason:"A lapse risks a suspension.", checks:["Date read from your license photo"], action:"Add to calendar", channel:"list"}
+  ],
+  events:[{helper:"pricewatch", title:"White bread up $0.40 a loaf", body:"Your Nov 6 invoice charges $2.65 a loaf. Two weeks ago it was $2.25. Add this to your rep list?", reason:"Bread turns daily, so the gap adds up.", checks:["Invoice lines add up to the total","Compared with your last invoice on file"], action:"Add to rep list", channel:"list"}]
+ },
+ {id:"restaurant", tradeKey:"restaurant", label:"Restaurant", name:"Linden Street Kitchen", trade:"Counter-service restaurant", place:"Silver Spring, MD", size:"7 staff", seats:7, revenue:"About $580K a year", customers:"Lunch crowd, families, office orders", reach:["Walk-ins","Google","DoorDash","Catering form"], tools:["Clover","DoorDash","Google Business Profile","Gmail"], tasks:["Check invoices","Answer catering asks","Reply to reviews","Update hours and menu","Delivery disputes"], voice:"Thanks for thinking of Linden Street Kitchen!",
+  opps:{
+   supplies:{fit:3, verdict:"build", helpers:["pricewatch"], why:"Median limited-service margin is 4%. One point of food cost is about $5,800 a year here.", stake:"About $5,800 a year per point of food cost, modeled"},
+   followup:{fit:3, verdict:"build", helpers:["catering"], why:"Catering orders average $360 to $420, and requests scatter across email, forms and DMs.", stake:"About $4,700 a year if one request a month slips, modeled"},
+   reviews:{fit:3, verdict:"build", helpers:["reviewdrafter"], why:"Single-location restaurants reply to about 15% of reviews. One more star brought independents 5 to 9% more revenue.", stake:""},
+   marketing:{fit:2, verdict:"build", helpers:["listing"], isNew:true, why:"In one survey, 59% of diners skipped ordering because basic information was missing.", stake:""},
+   calls:{fit:2, verdict:"buy", tool:"maple", why:"Buy only if your call log shows volume. A live call cannot wait for a tap.", stake:""},
+   books:{fit:2, verdict:"buy", tool:"ordersco", why:"On delivery apps, a $29 dispute tool recovers refunds you would otherwise eat.", stake:"$1,700 to $2,000 a year in disputes, chain data"},
+   schedule:{fit:2, verdict:"buy", tool:"homebase", why:"Homebase's free tier covers schedules. Anchored will not rebuild it.", stake:""},
+   compliance:{fit:2, verdict:"build", helpers:["license"], why:"Health permits and licenses renew on different calendars.", stake:""},
+   quotes:{fit:1, verdict:"skip", why:"Catering quotes come from your menu and headcount, inside follow-up.", stake:""}
+  },
+  cards:[
+   {helper:"catering", title:"Party of 40 on Dec 12, from your catering form", body:"Hi Marcus, thanks for thinking of Linden Street Kitchen! For 40 people we offer three packages: a taco bar, bowls with sides, or family-style platters. Which sounds closest? I can send a quote today.", reason:"Catering orders average $360 to $420.", checks:["Within your kitchen limit of 60","No allergy claims","Sent by email, not text"], action:"Send email", channel:"email", to:"Marcus Reed"},
+   {helper:"reviewdrafter", title:"New 3-star review mentions cold soup", body:"Thanks for coming in, Elena. You're right about the soup, and that's on us. We've changed how we hold it during lunch. We hope you'll give us another try.", reason:"Half of diners dislike generic replies, so the draft cites her detail.", checks:["Cites one detail from the review","No discount offered"], action:"Copy reply", channel:"list"},
+   {helper:"pricewatch", title:"Avocados up $6 a case", body:"Your Nov 5 produce invoice charges $48 a case against $42 on Oct 29. At 4 cases a week that's $24 a week. Add to your rep list?", reason:"Guacamole is priced from the old cost.", checks:["Invoice lines add up to the total","Compared with your last invoice on file"], action:"Add to rep list", channel:"list"},
+   {helper:null, locked:true, title:"Allergy question from Ana", body:"Ana asked whether the mole has peanuts. Anchored does not draft answers to allergy questions. Call her or reply yourself.", reason:"An approved guess would become the restaurant's statement.", checks:["Thread locked until you write the reply"], action:"I'll handle it", channel:"locked"}
+  ],
+  events:[{helper:"catering", title:"Office lunch for 25 on Nov 20", body:"Hi Jordan, thanks for reaching out! For 25 people our bowls-and-sides package works well for an office lunch. Want me to send a quote with two delivery times?", reason:"Office orders often repeat monthly.", checks:["Within your kitchen limit of 60","Sent by email, not text"], action:"Send email", channel:"email", to:"Jordan Lee"}]
+ },
+ {id:"coach", tradeKey:"coach", label:"Career coach", name:"Northpoint Career Coaching", trade:"Career coach", place:"Remote, based in Rockville, MD", size:"Solo", seats:1, revenue:"$1,800 per 3-month package", customers:"Mid-career professionals changing fields", reach:["LinkedIn","Instagram DMs","Referrals"], tools:["Calendly","Stripe","Google Sheets","Gmail"], tasks:["Reply to DMs between sessions","Chase 'let me think' calls","Discovery call no-shows","Late invoices","Ask for referrals"], voice:"Hi! Thanks so much for reaching out.",
+  opps:{
+   followup:{fit:3, verdict:"build", helpers:["inquiry","callfollow"], why:"Replying within an hour made a lead nearly 7 times as likely to qualify (HBR, 2011).", stake:"Each client saved is $1,800"},
+   schedule:{fit:3, verdict:"build", helpers:["showup"], alt:"calendly", why:"Discovery calls booked from cold traffic can no-show about half the time.", stake:""},
+   books:{fit:2, verdict:"build", helpers:["nudger"], why:"Coaches rank invoicing as their top admin task (ICF).", stake:""},
+   reviews:{fit:2, verdict:"build", helpers:["referral"], isNew:true, why:"98% of coaching clients referred at least one person in one survey. Programs often end with no referral ask.", stake:""},
+   marketing:{fit:2, verdict:"skip", why:"You already post. A post drafter is a later helper.", stake:""},
+   calls:{fit:0, verdict:"skip", why:"Leads reach you in DMs and forms, not calls.", stake:""},
+   quotes:{fit:0, verdict:"skip", why:"Fixed packages, no custom quotes.", stake:""},
+   supplies:{fit:0, verdict:"skip", why:"Nothing to stock.", stake:""},
+   compliance:{fit:1, verdict:"skip", why:"Consent and opt-outs run inside every helper.", stake:""}
+  },
+  cards:[
+   {helper:"inquiry", title:"New lead from Instagram: Priya, career change", body:"Hi Priya! Thanks so much for reaching out. A move out of finance is exactly what I help with. Could you do a 20-minute call Tuesday at 10 a.m. or Wednesday at 4 p.m.?", reason:"Replies within the hour qualify far more often.", checks:["Times match your Calendly","No price in a first reply"], action:"Send email", channel:"email", to:"Priya S."},
+   {helper:"callfollow", title:"Sam said 'let me think' on Tuesday", body:"Hi Sam, I enjoyed our call. Here's the 3-month plan we talked about: $1,800, starting with a session in two weeks. Any questions I can answer?", reason:"Check-in 2 of 3. Most clients decide over weeks.", checks:["Price matches your package list","Check-in 2 of 3"], action:"Send email", channel:"email", to:"Sam Ortiz", stake:1800},
+   {helper:"nudger", title:"Jordan's invoice is 9 days late", body:"Hi Jordan, a quick nudge on invoice 1042 for $600. Here's the link if it's easier: [Stripe link]. Thanks!", reason:"A friendly reminder now beats an awkward one later.", checks:["Amount read from Stripe"], action:"Send email", channel:"email", to:"Jordan Kim", stake:600}
+  ],
+  events:[{helper:"inquiry", title:"New lead from LinkedIn: Alex, wants a promotion", body:"Hi Alex! Thanks so much for reaching out. Going for a promotion this cycle is a great time to start. Could you do a 20-minute call Thursday at 9 a.m. or Friday at 1 p.m.?", reason:"LinkedIn leads cool off within days.", checks:["Times match your Calendly","No price in a first reply"], action:"Send email", channel:"email", to:"Alex R."}]
+ }
+];
+
+/* ------------------------------------------------------------------ state */
+const STORE_KEY = "anchored.mvp.v1";
+const state = {view:"home", biz:"hvac", heroBiz:"hvac", custom:[], stacks:{}, cards:{}, filter:"all", compare:[], log:{}, sample:null, ai:"checking"};
+function load(){ try{ const s = JSON.parse(localStorage.getItem(STORE_KEY)||"{}"); if(Array.isArray(s.custom)) state.custom = s.custom; if(s.stacks) state.stacks = s.stacks; if(s.biz) state.biz = s.biz; }catch(e){} }
+function save(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify({custom:state.custom, stacks:state.stacks, biz:state.biz})); }catch(e){} }
+load();
+const allBiz = () => [...SAMPLES, ...state.custom];
+const curBiz = () => allBiz().find(b => b.id === state.biz) || SAMPLES[0];
+
+/* ------------------------------------------------------------------ helpers */
+const $ = (s, r=document) => r.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const norm = s => String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+const money = n => "$" + Math.round(n).toLocaleString("en-US");
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(()=>t.hidden=true,2600); }
+const stamp = (v, fresh) => `<span class="stamp ${v}${fresh?" fresh":""}">${esc(VERDICT[v]||v)}</span>`;
+const fitBar = n => `<span class="fitbar" aria-label="Fit ${n} of 3">${[1,2,3].map(i=>`<span class="${i<=n?"on":""}"></span>`).join("")}</span>`;
+
+/* Fit Score: computed in code from published facts, never by the model. */
+const FACTORS = [
+  {key:"stack", label:"Fits your tools", max:30},
+  {key:"trade", label:"Fits your trade", max:20},
+  {key:"cost", label:"Cost for your size", max:15},
+  {key:"contract", label:"Easy to leave", max:10},
+  {key:"data", label:"States data use", max:10},
+  {key:"control", label:"You stay in control", max:10},
+  {key:"evidence", label:"Evidence", max:5}
+];
+function fitScore(t, b){
+  const mine = (b.tools||[]).map(norm);
+  const has = x => mine.some(m => m && (m.includes(norm(x)) || norm(x).includes(m)));
+  const f = {};
+  if (t.platform && has(t.platform)) f.stack = [30, "Part of " + t.platform + ", which you already use"];
+  else { const w = (t.works||[]).find(has); f.stack = w ? [20, "Works with " + w + ", which you use"] : [5, "Does not connect to the tools you listed"]; }
+  f.trade = t.trades.includes(b.tradeKey) ? [20, "Built for shops like yours"] : (t.trades.includes("any") || (b.tradeKey==="home" && t.trades.includes("home"))) ? [12, "General purpose"] : [0, "Built for a different kind of business"];
+  const cost = t.monthly == null ? null : t.monthly * (t.perUser ? (b.seats||1) : 1);
+  f.cost = cost == null ? [4, "Price only on a sales call or per use"] : cost <= 50 ? [15, money(cost) + " a month"] : cost <= 150 ? [10, money(cost) + " a month"] : cost <= 350 ? [6, money(cost) + " a month"] : [2, money(cost) + " a month for a shop your size"];
+  f.contract = {none:[10,"Billed monthly, no contract found"], published:[8,"Cancel terms published"], annual:[5,"Annual contract"], multi:[0,"Multi-year contract"], unknown:[4,"Contract terms not published"]}[t.contract];
+  f.data = t.data === "stated" ? [10, "Says whether your data trains its models"] : [3, "Data terms not published or not found"];
+  f.control = {approve:[10,"You approve before it acts"], auto:[4,"Acts on its own"], unknown:[5,"Not stated whether you approve first"], na:[6,"Software you operate yourself"]}[t.control];
+  f.evidence = {independent:[5,"Independent study"], thirdparty:[3,"Third-party review"], vendor:[2,"Vendor's own claims only"]}[t.evidence];
+  const total = FACTORS.reduce((s,x)=>s+f[x.key][0],0);
+  return {total, f};
+}
+
+/* ------------------------------------------------------------------ stack */
+function defaultStack(b){
+  const s = {helpers:[], tools:[]};
+  for (const o of OPPS){ const x = b.opps?.[o.id]; if(!x) continue;
+    if (x.verdict==="build") (x.helpers||[]).forEach(h=>{ if(HELPERS[h] && !s.helpers.includes(h)) s.helpers.push(h); });
+    if ((x.verdict==="turnon"||x.verdict==="buy") && x.tool && !s.tools.includes(x.tool)) s.tools.push(x.tool);
+  }
+  return s;
+}
+function stackOf(b){ if(!state.stacks[b.id]) state.stacks[b.id] = defaultStack(b); return state.stacks[b.id]; }
+function toggleTool(id){ const s=stackOf(curBiz()); const i=s.tools.indexOf(id); i<0?s.tools.push(id):s.tools.splice(i,1); save(); toast(i<0?"Added to your stack":"Removed from your stack"); render(); }
+function toggleHelper(id){ const s=stackOf(curBiz()); const i=s.helpers.indexOf(id); i<0?s.helpers.push(id):s.helpers.splice(i,1); save(); toast(i<0?HELPERS[id].name+" added to your stack":HELPERS[id].name+" removed"); render(); }
+
+/* ------------------------------------------------------------------ cards */
+let cardSeq = 0;
+function cardsOf(b){
+  if(!state.cards[b.id]) state.cards[b.id] = (b.cards||[]).map(c=>({...c, id:"c"+(++cardSeq), status:"pending", created:Date.now(), edited:false}));
+  return state.cards[b.id];
+}
+function logOf(b){ return state.log[b.id] ||= []; }
+
+/* ------------------------------------------------------------------ views */
+const VIEWS = ["home","onboard","profile","map","compare","stack","agents","built"];
+const STEPS = [["profile","Your business"],["map","Where AI fits"],["compare","Compare tools"],["stack","Your stack"],["agents","Helpers at work"]];
+
+function render(){
+  const v = state.view, main = $("#main");
+  document.querySelectorAll(".nav a").forEach(a=>{
+    const n=a.dataset.nav; const on = (n==="home"&&v==="home")||(n==="built"&&v==="built")||(n==="app"&&!["home","built"].includes(v));
+    on ? a.setAttribute("aria-current","page") : a.removeAttribute("aria-current");
+  });
+  if (v==="home") main.innerHTML = viewHome();
+  else if (v==="built") main.innerHTML = viewBuilt();
+  else main.innerHTML = appChrome() + `<div class="wrap view">${({onboard:viewOnboard, profile:viewProfile, map:viewMap, compare:viewCompare, stack:viewStack, agents:viewAgents})[v]()}</div>`;
+}
+
+function workOrder(b){
+  const top = OPPS.map(o=>({o, x:b.opps[o.id]})).filter(r=>r.x && r.x.verdict!=="skip").sort((a,z)=>z.x.fit-a.x.fit).slice(0,4);
+  return `<div class="wo" aria-live="polite">
+    <div class="wo-head"><b>Work order for ${esc(b.name)}</b><span>${esc(b.place)}</span></div>
+    <div class="wo-perf" aria-hidden="true"></div>
+    <div class="wo-body">
+      <dl class="wo-meta"><dt>Trade</dt><dd>${esc(b.trade)}</dd><dt>Runs on</dt><dd>${esc(b.tools.join(", "))}</dd></dl>
+      ${top.map(({o,x})=>`<div class="wo-line"><div><b>${esc(o.name)}</b><p>${esc(x.why)}</p></div>${stamp(x.verdict,true)}</div>`).join("")}
+    </div></div>`;
+}
+
+function viewHome(){
+  const b = SAMPLES.find(s=>s.id===state.heroBiz);
+  return `<div class="wrap hero"><div class="grid">
+    <div>
+      <h1>AI that starts from how your business already runs.</h1>
+      <p class="lede">Tell Anchored how you work. It maps where AI can help, rates real tools against the ones you already use, and sets up the first helpers. Nothing reaches a customer until you tap Approve.</p>
+      <div class="row ctas"><a class="btn" href="#profile">Try it with a sample business</a><a class="btn ghost" href="#onboard">Describe your business</a></div>
+      <p class="fine">Built for owners who run the counter, the truck or the session themselves. Works with a cash register and paper invoices too.</p>
+    </div>
+    <div>
+      <div class="tabs" role="group" aria-label="Sample businesses">${SAMPLES.map(s=>`<button class="tab" data-hero="${s.id}" aria-pressed="${s.id===state.heroBiz}">${esc(s.label)}</button>`).join("")}</div>
+      ${workOrder(b)}
+    </div>
+  </div></div>
+  <section class="band"><div class="wrap">
+    <h2>Four steps from first question to first helper</h2>
+    <ol class="steps4">
+      <li><h3>Tell us how you work</h3><p>Answer five questions or paste your website. Anchored writes a one-page profile that you confirm.</p></li>
+      <li><h3>See where AI fits</h3><p>Nine jobs every small business has, ranked for yours, with what each one costs you today.</p></li>
+      <li><h3>Compare tools rated for you</h3><p>Real prices, contracts and data terms, scored against the tools you already use. Star ratings can't tell you that.</p></li>
+      <li><h3>Turn it on and stay in charge</h3><p>Use what you already pay for, buy a tool, or let Anchored build a helper. Every message waits for your tap.</p></li>
+    </ol>
+  </div></section>
+  <section class="band"><div class="wrap">
+    <h2>Built on research into four kinds of shops</h2>
+    <p class="prose" style="margin-top:8px">We studied HVAC shops, corner stores, restaurants and coaches before writing a line of code. Each number below changed what Anchored recommends.</p>
+    <div class="facts">
+      <div><b>64%</b><span>of contractors rely mainly on phone calls, so missed calls come first for HVAC.</span><em>ServiceTitan 2025 report, vendor</em></div>
+      <div><b>73%</b><span>of convenience stores lacked the new SNAP stocking varieties, by USDA's estimate for the proposed rule.</span><em>USDA impact analysis, 2026</em></div>
+      <div><b>4.0%</b><span>median pre-tax margin at limited-service restaurants. Food cost is where money hides.</span><em>National Restaurant Association, 2026</em></div>
+      <div><b>44%</b><span>of coaches say their practice is profitable, while 72% feel successful.</span><em>Onwards Consulting, 2025</em></div>
+    </div>
+  </div></section>
+  <footer><div class="wrap">A prototype for the University of Maryland AI for Small Business Hack-a-thon, Fall 2026. Sample businesses are fictional. Tool prices were gathered Nov 6 and 7, 2026, and can change.</div></footer>`;
+}
+
+function appChrome(){
+  const b = curBiz();
+  return `<div class="wrap">
+    <div class="appbar">
+      <div><h2 style="font-size:26px">${esc(b.name)}</h2><p class="muted small">${esc(b.trade)} in ${esc(b.place)}${b.sample===false?"":""}${b.custom?" (your business)":" (sample business)"}</p></div>
+      <div><label for="biz-select">Business</label>
+        <select id="biz-select">${allBiz().map(x=>`<option value="${esc(x.id)}" ${x.id===b.id?"selected":""}>${esc(x.name)}${x.custom?" (yours)":""}</option>`).join("")}<option value="__new">Add your business...</option></select></div>
+    </div>
+    <nav class="stepbar" aria-label="Steps"><ol>${STEPS.map(([id,l],i)=>`<li><a href="#${id}" ${state.view===id?'aria-current="page"':""}><i>${i+1}</i>${l}</a></li>`).join("")}</ol></nav>
+  </div>`;
+}
+
+function viewProfile(){
+  const b = curBiz(), s = stackOf(b);
+  const opps = OPPS.filter(o=>b.opps[o.id]?.verdict!=="skip").length;
+  return `<div class="viewhead"><div><h2>Here's your business</h2><p>Anchored keeps one profile per business. Every helper reads it, so nobody re-explains the shop. ${b.custom?"Edit anything that's wrong before it counts.":"This is a sample. Add your own to see Anchored build one from your answers."}</p></div>
+    <div class="row"><a class="btn ghost" href="#onboard">${b.custom?"Add another business":"Add your business"}</a><a class="btn" href="#map">See where AI fits</a></div></div>
+  <div class="cols">
+    <div class="panel"><dl class="kv">
+      <dt>Trade</dt><dd>${esc(b.trade)}</dd>
+      <dt>Where</dt><dd>${esc(b.place)}</dd>
+      <dt>Size</dt><dd>${esc(b.size)}</dd>
+      <dt>Revenue</dt><dd>${esc(b.revenue||"Not given")}</dd>
+      <dt>Customers</dt><dd>${esc(b.customers)}</dd>
+      <dt>How they reach you</dt><dd><div class="chips">${b.reach.map(r=>`<span class="chip">${esc(r)}</span>`).join("")}</div></dd>
+      <dt>Tools you use</dt><dd><div class="chips">${b.tools.map(r=>`<span class="chip">${esc(r)}</span>`).join("")}</div></dd>
+      <dt>What eats your week</dt><dd><ul style="margin:0;padding-left:18px">${b.tasks.map(t=>`<li>${esc(t)}</li>`).join("")}</ul></dd>
+      <dt>How you sound</dt><dd><span class="draft" style="display:block">${esc(b.voice)}</span></dd>
+    </dl></div>
+    <div class="stack-y">
+      <div class="panel"><h3>What Anchored found</h3>
+        <p class="small" style="margin-top:6px;color:var(--ink-2)">${opps} of 9 jobs are worth acting on. ${OPPS.filter(o=>b.opps[o.id]?.isNew).length} of them you don't do today.</p>
+        <div class="chips" style="margin-top:10px">${OPPS.filter(o=>b.opps[o.id]?.verdict!=="skip").map(o=>`<span class="chip ${b.opps[o.id].isNew?"new":""}">${esc(o.name)}${b.opps[o.id].isNew?" (new for you)":""}</span>`).join("")}</div>
+        <p class="small" style="margin-top:12px"><b>${s.helpers.length}</b> Anchored helpers and <b>${s.tools.length}</b> outside tools in your starting stack.</p>
+      </div>
+      <div class="notice">${b.custom && b.builtBy==="template" ? "Built without Claude, from the closest template. Open this page in Claude to have it read your answers." : b.custom ? "Built by Claude from your answers. Check each line before you rely on it." : "Sample profile written from our research. Numbers marked modeled are arithmetic on research ranges, not measurements."}</div>
+    </div>
+  </div>`;
+}
+
+function viewMap(){
+  const b = curBiz(), s = stackOf(b);
+  const rows = OPPS.map(o=>({o, x:b.opps[o.id]||{fit:0,verdict:"skip",why:"",stake:""}})).sort((a,z)=> (z.x.verdict!=="skip")-(a.x.verdict!=="skip") || z.x.fit-a.x.fit);
+  return `<div class="viewhead"><div><h2>Where AI fits ${esc(b.name)}</h2><p>Nine jobs every small business has. The first five are the uses most often pitched to small businesses. The other four came out of our research. Each gets an honest verdict, including skip.</p></div><a class="btn" href="#compare">Compare tools</a></div>
+  <div class="legend">${Object.keys(VERDICT).map(v=>`<span>${stamp(v)} ${esc(VERDICT_LONG[v])}</span>`).join("")}</div>
+  <div class="mapgrid">${rows.map(({o,x})=>{
+    const tool = x.tool && TOOLS.find(t=>t.id===x.tool), alt = x.alt && TOOLS.find(t=>t.id===x.alt);
+    const btns = [];
+    if (x.verdict==="build") (x.helpers||[]).forEach(h=>{ if(!HELPERS[h]) return; const on=s.helpers.includes(h); btns.push(`<button class="btn sm ${on?"ghost":""}" data-helper="${h}">${on?"In your stack: "+esc(HELPERS[h].name):"Add "+esc(HELPERS[h].name)}</button>`); });
+    if (tool){ const on=s.tools.includes(tool.id); btns.push(`<button class="btn sm ${on?"ghost":""}" data-tool="${tool.id}">${on?"In your stack: ":"Add "}${esc(tool.maker===tool.name?tool.name:tool.maker+" "+tool.name)}</button>`); }
+    if (x.verdict!=="skip") btns.push(`<button class="linkbtn small" data-filter="${o.id}">See tools for this job</button>`);
+    return `<article class="opp fit-${["none","low","mid","high"][x.fit]||"none"}">
+      <header><div><h3>${esc(o.name)}</h3>${fitBar(x.fit)}</div>${stamp(x.verdict)}</header>
+      ${x.isNew?`<span class="chip new" style="align-self:flex-start">Something you don't do yet</span>`:""}
+      <p class="why">${esc(x.why)}</p>
+      ${x.stake?`<p class="stake">${esc(x.stake)}</p>`:""}
+      ${alt?`<p class="small muted">Or turn on ${esc(alt.maker)} ${esc(alt.name)} (${esc(alt.price)}).</p>`:""}
+      ${btns.length?`<footer>${btns.join("")}</footer>`:""}
+    </article>`;}).join("")}</div>`;
+}
+
+function viewCompare(){
+  const b = curBiz(), s = stackOf(b);
+  let list = TOOLS.filter(t=> state.filter==="all" || t.cats.includes(state.filter)).map(t=>({t, sc:fitScore(t,b)})).sort((a,z)=>z.sc.total-a.sc.total);
+  const cmp = state.compare.map(id=>TOOLS.find(t=>t.id===id)).filter(Boolean);
+  const table = cmp.length>=2 ? `<div class="cmp"><table><thead><tr><th>Side by side</th>${cmp.map(t=>`<th>${esc(t.maker)} ${t.maker===t.name?"":esc(t.name)}</th>`).join("")}</tr></thead><tbody>
+    <tr><td>Fit for you</td>${cmp.map(t=>`<td class="num"><b>${fitScore(t,b).total}</b> / 100</td>`).join("")}</tr>
+    <tr><td>Price</td>${cmp.map(t=>`<td>${esc(t.price)}</td>`).join("")}</tr>
+    ${FACTORS.map(F=>`<tr><td>${esc(F.label)}</td>${cmp.map(t=>{const x=fitScore(t,b).f[F.key];return `<td><span class="num">${x[0]}/${F.max}</span> <span class="muted tiny">${esc(x[1])}</span></td>`}).join("")}</tr>`).join("")}
+    <tr><td>AI on the job</td>${cmp.map(t=>`<td>${t.ai==="yes"?"Yes":"Not stated"}</td>`).join("")}</tr>
+  </tbody></table></div>` : "";
+  return `<div class="viewhead"><div><h2>Compare tools, rated for ${esc(b.name)}</h2><p>The Fit Score goes past star ratings. Code computes it from facts we can check: what you already use, your trade and size, contract terms, data terms, who stays in control, and how good the evidence is. Anchored doesn't score its own helpers.</p></div><a class="btn" href="#stack">See your stack</a></div>
+  <div class="filters" role="group" aria-label="Filter by job"><button class="tab" data-filter="all" aria-pressed="${state.filter==="all"}">All jobs</button>${OPPS.map(o=>`<button class="tab" data-filter="${o.id}" aria-pressed="${state.filter===o.id}">${esc(o.name)}</button>`).join("")}</div>
+  ${cmp.length===1?`<p class="notice" style="margin-bottom:14px">Pick one more tool to compare side by side.</p>`:""}
+  ${table}
+  <div class="tools">${list.length?list.map(({t,sc})=>{const on=s.tools.includes(t.id), inCmp=state.compare.includes(t.id); return `<article class="tool">
+    <div class="score">${sc.total}<small>fit for you</small></div>
+    <div style="min-width:0">
+      <h3>${esc(t.maker===t.name?t.name:t.maker+" "+t.name)}</h3>
+      <p class="meta">${esc(t.price)}</p>
+      <div class="chips" style="margin-top:6px">${t.cats.map(c=>`<span class="chip">${esc(OPPS.find(o=>o.id===c).name)}</span>`).join("")}${t.ai==="yes"?`<span class="chip ok">AI on the job</span>`:`<span class="chip">AI not stated</span>`}${t.control==="approve"?`<span class="chip ok">Approve first</span>`:""}</div>
+      <p class="small" style="margin-top:8px;color:var(--ink-2)">${esc(t.note)}</p>
+      <details><summary>Why ${sc.total}?</summary><div class="factors">${FACTORS.map(F=>{const x=sc.f[F.key];return `<span>${esc(F.label)}</span><span class="bar"><i style="width:${x[0]/F.max*100}%"></i></span><span class="num">${x[0]}/${F.max}</span><span class="why">${esc(x[1])}</span>`}).join("")}</div><p class="tiny muted" style="margin-top:6px">Price source: ${esc(t.src)}, gathered Nov 2026.</p></details>
+    </div>
+    <div class="acts"><button class="btn sm ${on?"ghost":""}" data-tool="${t.id}">${on?"In your stack":"Add to stack"}</button><button class="btn sm ghost" data-cmp="${t.id}" aria-pressed="${inCmp}">${inCmp?"Comparing":"Compare"}</button></div>
+  </article>`}).join(""):`<p class="panel">No tools in the catalog for this job yet. That's a gap Anchored can build a helper for.</p>`}</div>
+  <div class="panel" style="margin-top:22px"><h3>Found by Anchored this week</h3><p class="small" style="margin-top:4px;color:var(--ink-2)">A discovery agent scans for new tools every week. Nothing gets a score until a person opens the vendor's page and checks the price, contract and data terms.</p>
+    <div class="disc">${DISCOVERED.map(d=>`<div><b>${esc(d.name)}</b><p>${esc(d.what)}</p><p class="tiny muted" style="margin-top:6px">${esc(d.status)}</p></div>`).join("")}</div></div>`;
+}
+
+function viewStack(){
+  const b = curBiz(), s = stackOf(b);
+  const tools = s.tools.map(id=>TOOLS.find(t=>t.id===id)).filter(Boolean);
+  const helpers = s.helpers.filter(h=>HELPERS[h]);
+  const toolCost = tools.reduce((sum,t)=>sum + (t.monthly==null?0:t.monthly*(t.perUser?(b.seats||1):1)),0);
+  const unpriced = tools.filter(t=>t.monthly==null);
+  const plan = helpers.length ? 29 : 0;
+  const reachesCustomers = helpers.some(h=>["callback","closer","reviewer","reactivator","catering","inquiry","showup","callfollow","nudger","referral"].includes(h));
+  return `<div class="viewhead"><div><h2>Your stack, under the hood</h2><p>How the pieces connect, what each one reads, what it can do, and what it will never do. Change anything from the map or the compare page.</p></div><a class="btn" href="#agents">Watch the helpers work</a></div>
+  <div class="panel"><div class="flow">
+    <div class="col"><h3>What you already use</h3>${b.tools.map(t=>`<div class="node">${esc(t)}</div>`).join("")}</div>
+    <div class="arrow" aria-hidden="true">&#8594;</div>
+    <div class="col"><h3>Anchored</h3><div class="node core">Business profile<small>Your prices, rules and voice</small></div><div class="node core">Your rules<small>Quiet hours, consent, allowed offers</small></div></div>
+    <div class="arrow" aria-hidden="true">&#8594;</div>
+    <div class="col"><h3>Helpers and tools</h3>${helpers.map(h=>`<div class="node helper">${esc(HELPERS[h].name)}<small>${esc(HELPERS[h].job)}</small></div>`).join("")}${tools.map(t=>`<div class="node tool">${esc(t.maker===t.name?t.name:t.maker+" "+t.name)}<small>${esc(t.price)}</small></div>`).join("")}${!helpers.length&&!tools.length?`<p class="small muted">Nothing yet. Add helpers from the map.</p>`:""}</div>
+    <div class="arrow" aria-hidden="true">&#8594;</div>
+    <div class="col"><h3>Who it reaches</h3><div class="node">You first<small>Every draft waits for your tap</small></div>${reachesCustomers?`<div class="node">Your customers<small>From your number, after approval</small></div>`:""}<div class="node">Your suppliers and lists<small>Rep lists, calendars, sheets</small></div></div>
+  </div>
+  <div class="total"><span>Monthly cost of this stack${unpriced.length?`, plus ${unpriced.map(t=>esc(t.name)).join(" and ")} on quote`:""}</span><b>${money(toolCost+plan)}</b></div>
+  <p class="tiny muted" style="margin-top:4px">${helpers.length?"Includes Anchored at a proposed $29 a month. ":""}Tool prices come from vendor and third-party pages gathered Nov 2026.</p></div>
+  <div class="hood">${helpers.map(h=>{const x=HELPERS[h], tier=TIERS[x.tier]; return `<article><div class="row" style="justify-content:space-between"><h3>${esc(x.name)}</h3><button class="linkbtn small" data-helper="${h}">Remove</button></div><p class="small" style="color:var(--ink-2);margin-top:4px">${esc(x.job)}</p>
+    <dl><dt>Reads</dt><dd><ul>${x.reads.map(r=>`<li>${esc(r)}</li>`).join("")}</ul></dd><dt>Can do</dt><dd><ul>${x.does.map(r=>`<li>${esc(r)}</li>`).join("")}</ul></dd><dt>Never</dt><dd><ul>${x.never.map(r=>`<li>${esc(r)}</li>`).join("")}</ul></dd><dt>Model</dt><dd>${esc(tier.model)}. <span class="muted">${esc(tier.why)} Anchored picks it for you.</span></dd></dl></article>`}).join("")}
+  ${tools.map(t=>`<article><div class="row" style="justify-content:space-between"><h3>${esc(t.maker===t.name?t.name:t.maker+" "+t.name)}</h3><button class="linkbtn small" data-tool="${t.id}">Remove</button></div><p class="small" style="color:var(--ink-2);margin-top:4px">${esc(t.note)}</p>
+    <dl><dt>Cost</dt><dd>${esc(t.price)}</dd><dt>Connects</dt><dd>${t.works.length?esc(t.works.join(", ")):"Through its own app. Anchored links to it and reads exports."}</dd><dt>Control</dt><dd>${esc(fitScore(t,b).f.control[1])}</dd><dt>Your data</dt><dd>${esc(fitScore(t,b).f.data[1])}</dd></dl></article>`).join("")}</div>
+  <div class="panel" style="margin-top:18px"><h3>Rather have a person help you set this up?</h3><p class="small" style="margin-top:6px;color:var(--ink-2)">The SBA's resource partners give free, one-on-one advice. Bring this page to the meeting.</p>
+    <div class="row" style="margin-top:12px"><a class="btn sm ghost" href="https://www.marylandsbdc.org/" target="_blank" rel="noopener">Maryland Small Business Development Center</a><a class="btn sm ghost" href="https://www.score.org/find-mentor" target="_blank" rel="noopener">Find a SCORE mentor</a><a class="btn sm ghost" href="https://www.sba.gov/local-assistance" target="_blank" rel="noopener">SBA local assistance</a></div></div>`;
+}
+
+function viewAgents(){
+  const b = curBiz(), cards = cardsOf(b), log = logOf(b);
+  const decided = cards.filter(c=>c.status!=="pending"), approved = decided.filter(c=>c.status==="approved"), edited = approved.filter(c=>c.edited);
+  const fastest = approved.length ? Math.min(...approved.map(c=>c.decidedAt-c.created)) : null;
+  const pending = cards.filter(c=>c.status==="pending");
+  const order = [...pending, ...decided];
+  return `<div class="viewhead"><div><h2>Helpers at work</h2><p>Each helper drafts a card. You approve, edit or skip it. Code, not the model, sends only what you approved, and checks your rules first.</p></div>
+    <div class="row">${(b.events||[]).length?`<button class="btn ghost" data-sim="1">Simulate a new ${esc(simLabel(b))}</button>`:""}</div></div>
+  <div class="kpis">
+    <div><b>${pending.length}</b><span>Waiting on you</span></div>
+    <div><b>${approved.length}</b><span>Approved</span></div>
+    <div><b>${approved.length?Math.round(edited.length/approved.length*100)+"%":"0%"}</b><span>Edited before approval</span></div>
+    <div><b>${fastest==null?"None yet":fmtDur(fastest)}</b><span>Fastest decision</span></div>
+  </div>
+  <div class="cols">
+    <div class="feed">${order.length?order.map(c=>cardHTML(c,b)).join(""):`<p class="panel">No cards yet. Add helpers from the map.</p>`}</div>
+    <aside class="stack-y">
+      <div class="phone" aria-label="Simulated outbox"><div class="bar"><span>Simulated outbox</span><span>Nothing is really sent</span></div>
+        ${log.length?log.map(l=> l.channel==="sms"?`<div class="bubble"><small>Text to ${esc(l.to)}</small>${esc(l.body)}</div>`:`<div class="logline">${esc(l.text)}</div>`).join(""):`<p class="empty">Approve a card and its message lands here. In a real account it goes out from your own business number or email.</p>`}
+      </div>
+      <p class="tiny muted">We count edits and skips, not "hours saved". A count of taps can't prove anyone saved time.</p>
+    </aside>
+  </div>`;
+}
+function simLabel(b){ const h=b.events?.[0]?.helper; return h==="callback"?"missed call":h==="pricewatch"?"invoice":h==="catering"?"catering request":h==="inquiry"?"lead":"event"; }
+function fmtDur(ms){ const s=Math.max(1,Math.round(ms/1000)); return s<60? s+" sec" : Math.round(s/60)+" min"; }
+
+function cardHTML(c, b){
+  const h = c.helper && HELPERS[c.helper];
+  const head = `<div class="who"><span><b>${esc(h?h.name:"Anchored")}</b>${h?" drafted this":" flagged this"}</span><span>${c.to?"To "+esc(c.to):""}</span></div><h3>${esc(c.title)}</h3>`;
+  if (c.status!=="pending"){
+    const label = {approved: c.channel==="locked"?"Marked as yours to handle":c.edited?"Approved with your edits":"Approved", skipped:"Skipped"}[c.status];
+    return `<article class="card done">${head}<p class="draft">${esc(c.body)}</p><p class="status">${esc(label)}</p></article>`;
+  }
+  const editing = c.editing;
+  return `<article class="card" data-card="${c.id}">${head}
+    ${editing?`<label class="tiny muted" for="ed-${c.id}">Edit the draft</label><textarea id="ed-${c.id}">${esc(c.body)}</textarea>`:`<p class="draft">${esc(c.body)}</p>`}
+    <p class="small" style="color:var(--ink-2)"><b>Why now:</b> ${esc(c.reason)}</p>
+    <div class="checks">${(c.checks||[]).map(x=>`<span class="chip ${c.channel==="locked"?"warn":"ok"}">${esc(x)}</span>`).join("")}</div>
+    <div class="acts">${c.channel==="locked"
+      ? `<button class="btn sm" data-act="approve" data-id="${c.id}">I'll handle it</button>`
+      : editing
+        ? `<button class="btn sm" data-act="save" data-id="${c.id}">Approve edited version</button><button class="btn sm ghost" data-act="cancel" data-id="${c.id}">Cancel</button>`
+        : `<button class="btn sm" data-act="approve" data-id="${c.id}">Approve: ${esc(c.action)}</button><button class="btn sm ghost" data-act="edit" data-id="${c.id}">Edit</button><button class="btn sm ghost" data-act="skip" data-id="${c.id}">Skip</button>${state.ai==="on"&&c.channel!=="list"?`<button class="linkbtn small" data-act="voice" data-id="${c.id}">Rewrite in my voice</button>`:""}`}
+    </div><p class="tiny muted" data-note="${c.id}"></p></article>`;
+}
+
+function decide(id, status, body){
+  const b = curBiz(), c = cardsOf(b).find(x=>x.id===id); if(!c) return;
+  if (body!=null && body.trim() && body.trim()!==c.body){ c.body = body.trim(); c.edited = true; }
+  c.status = status; c.decidedAt = Date.now(); c.editing = false;
+  if (status==="approved" && c.channel!=="locked"){
+    const log = logOf(b);
+    if (c.channel==="sms") log.unshift({channel:"sms", to:c.to||"customer", body:c.body});
+    else if (c.channel==="email") log.unshift({channel:"email", text:"Email to "+(c.to||"customer")+": "+c.title});
+    else log.unshift({channel:"list", text:c.action+": "+c.title});
+  }
+  toast(status==="approved" ? (c.channel==="locked"?"Marked as yours":"Approved. "+(c.channel==="sms"?"Text sent to the simulated phone.":"Logged in the outbox.")) : "Skipped");
+  render();
+}
+
+/* ------------------------------------------------------------------ onboarding */
+const OB_REACH = ["Phone calls","Walk-ins","Website form","Google","Instagram or Facebook","Referrals","Delivery apps","Email"];
+const OB_TOOLS = ["Paper and phone","QuickBooks Online","Square","Clover","Toast","Jobber","Housecall Pro","Calendly","Stripe","Google Sheets","Gmail"];
+function viewOnboard(){
+  return `<div class="viewhead"><div><h2>Tell Anchored about your business</h2><p>Five questions. Type or paste, and skip what you don't know. The example answers describe a landscaping company. Replace them with yours.</p></div></div>
+  <div class="cols">
+  <form class="ob panel" id="ob">
+    <div class="field"><label for="ob-name">Business name and town</label><input type="text" id="ob-name" value="Greenfield Lawn & Landscape, Bowie, MD"></div>
+    <div class="field"><label for="ob-what">What do you sell, to whom, and for how much?</label><textarea id="ob-what">Weekly mowing at $45 a visit, spring cleanups around $350, and patios and plantings from $2,000. Mostly homeowners, some small offices. Crew of 4 plus me.</textarea></div>
+    <fieldset class="field" style="border:0;padding:0;margin:0"><legend style="font-weight:700;margin-bottom:6px">How do customers reach you?</legend><div class="pick">${OB_REACH.map((r,i)=>`<label><input type="checkbox" name="reach" value="${esc(r)}" ${["Phone calls","Referrals","Google"].includes(r)?"checked":""}>${esc(r)}</label>`).join("")}</div></fieldset>
+    <fieldset class="field" style="border:0;padding:0;margin:0"><legend style="font-weight:700;margin-bottom:6px">What do you use today?</legend><div class="pick">${OB_TOOLS.map(r=>`<label><input type="checkbox" name="tools" value="${esc(r)}" ${["QuickBooks Online","Paper and phone"].includes(r)?"checked":""}>${esc(r)}</label>`).join("")}</div></fieldset>
+    <div class="field"><label for="ob-week">What do you do every week that you wish someone else did?</label><textarea id="ob-week">Writing up quotes at night, calling people back when I'm on a mower, chasing spring cleanup deposits, and I never post anything online.</textarea></div>
+    <div class="field"><label for="ob-voice">Paste or type a reply you've sent a customer</label><textarea id="ob-voice">Hey! Thanks for reaching out. I can swing by Thursday afternoon to take a look and give you a price.</textarea></div>
+    <div class="row"><button class="btn" type="submit" id="ob-go">Build my profile</button><span class="progress" id="ob-progress" role="status"></span></div>
+    <p class="tiny muted">${state.ai==="on"?"Claude reads your answers on your own Claude account. The first time, you'll be asked to allow it.":state.ai==="checking"?"Checking whether Claude is available here...":"Claude isn't available in this view, so Anchored matches your answers to the closest template."}</p>
+  </form>
+  <div class="stack-y"><div class="panel"><h3>What happens next</h3><ol style="margin:10px 0 0;padding-left:20px;color:var(--ink-2)"><li>Anchored writes a one-page profile you confirm.</li><li>It ranks nine jobs for your business, with a verdict on each.</li><li>It scores real tools against what you already use.</li><li>It drafts first cards from your own details.</li></ol></div>
+  <div class="notice">Nothing you type leaves this page except to Claude, and nothing is texted to anyone. This is a prototype.</div></div>
+  </div>`;
+}
+
+function detectTrade(text){
+  const t = text.toLowerCase();
+  if (/hvac|heating|plumb|electric|roof|landscap|lawn|mow|clean|handyman|pest|paint|contractor/.test(t)) return "home";
+  if (/restaurant|cafe|coffee|bakery|food|kitchen|diner|pizza|taco|catering/.test(t)) return "restaurant";
+  if (/store|market|bodega|deli|mart|grocery|shop/.test(t)) return "store";
+  if (/coach|consult|tutor|trainer|therap|counsel|teacher/.test(t)) return "coach";
+  return "other";
+}
+function fromTemplate(ans){
+  const trade = detectTrade(ans.name+" "+ans.what);
+  const base = SAMPLES.find(s=>s.tradeKey===({home:"hvac",restaurant:"restaurant",store:"store",coach:"coach"}[trade]||"hvac"));
+  const [name, ...placeParts] = ans.name.split(",");
+  const opps = JSON.parse(JSON.stringify(base.opps));
+  if (/never post|no marketing|don't post|dont post/i.test(ans.week) && opps.marketing){ opps.marketing.isNew = true; if(opps.marketing.verdict==="skip"){opps.marketing.verdict="build"; opps.marketing.helpers=["listing"]; opps.marketing.fit=2; opps.marketing.why="You said you never post. Short updates keep your Google listing current.";} }
+  return {
+    id:"my-"+Date.now(), custom:true, builtBy:"template", tradeKey:trade==="other"?"any":trade, label:"Yours",
+    name:name.trim()||"Your business", trade: trade==="home"?"Home services":trade==="other"?"Small business":base.trade, place:placeParts.join(",").trim()||"Not given",
+    size:(ans.what.match(/crew of \d+[^,.]*|\d+ (people|staff|employees)/i)||["Not given"])[0], seats:4, revenue:"Not given",
+    customers:"From your answers: "+ans.what.slice(0,90), reach:ans.reach.length?ans.reach:["Not given"], tools:ans.tools.length?ans.tools:["Paper and phone"],
+    tasks:ans.week.split(/,|\band\b/).map(s=>s.trim()).filter(s=>s.length>3).slice(0,5), voice:ans.voice||base.voice,
+    opps, cards: base.cards.map(c=>({...c, body:c.body.replace(new RegExp(base.name,"g"), name.trim())})), events: base.events
+  };
+}
+async function buildWithClaude(ans){
+  const helperList = Object.entries(HELPERS).map(([id,h])=>id+": "+h.job).join("\n");
+  const prompt = `You set up Anchored, which helps a small business adopt AI. Read the owner's answers and reply with only one JSON object, no other text, in exactly this shape:
+{"name":string,"trade":string (2 to 4 words),"tradeKey":"hvac"|"home"|"restaurant"|"store"|"coach"|"any","place":string,"size":string,"seats":number,"revenue":string,"customers":string,"reach":[string],"tools":[string],"tasks":[string, at most 5],"voice":string (one sentence in the owner's voice),
+"opps":{"calls":OPP,"books":OPP,"followup":OPP,"marketing":OPP,"quotes":OPP,"reviews":OPP,"schedule":OPP,"supplies":OPP,"compliance":OPP},
+"cards":[CARD, CARD, CARD]}
+OPP = {"fit":0|1|2|3,"verdict":"turnon"|"buy"|"build"|"skip","helpers":[helper ids, only when verdict is build],"tool":tool id or "","why":string under 22 words,"stake":string under 12 words or "","isNew":boolean}
+CARD = {"helper":helper id,"title":string under 12 words,"body":the draft message or note,"reason":string under 14 words,"checks":[2 short strings],"action":"Send text"|"Send email"|"Add to list","channel":"sms"|"email"|"list","to":string}
+Rules: "turnon" only when a tool the owner already uses covers the job, and set "tool" to its id. "buy" when a tool in the catalog fits better than building, and set "tool". "build" when an Anchored helper fits. "skip" when the job is small for this business. isNew is true for a job they don't do today but could, especially marketing they have never done. Never invent statistics or prices; write "" for stake when you have no number from the answers. Card drafts never quote a price unless the owner gave it, never answer allergy questions, and customer texts end with "Reply STOP to opt out." Use names that sound like real customers.
+Anchored helpers:
+${helperList}
+Tool catalog ids: ${TOOLS.map(t=>t.id+" ("+t.maker+" "+t.name+", "+t.cats.join("/")+")").join("; ")}
+
+Owner's answers:
+Business: ${ans.name}
+What they sell: ${ans.what}
+How customers reach them: ${ans.reach.join(", ")}
+Tools today: ${ans.tools.join(", ")}
+What eats their week: ${ans.week}
+A reply in their voice: ${ans.voice}`;
+  const r = await state.sample.json(prompt, {modelTier:"default"});
+  return cleanProfile(r, ans);
+}
+function cleanProfile(r, ans){
+  const str = (v, d="") => typeof v==="string" && v.trim() ? v.trim().slice(0,300) : d;
+  const arr = (v, d=[]) => Array.isArray(v) ? v.filter(x=>typeof x==="string" && x.trim()).map(x=>x.trim().slice(0,80)).slice(0,6) : d;
+  const fb = fromTemplate(ans);
+  const opps = {};
+  for (const o of OPPS){ const x = r?.opps?.[o.id] || {};
+    const verdict = ["turnon","buy","build","skip"].includes(x.verdict) ? x.verdict : "skip";
+    opps[o.id] = {fit: Math.max(0,Math.min(3, Number(x.fit)||0)), verdict, helpers: arr(x.helpers).filter(h=>HELPERS[h]), tool: TOOLS.some(t=>t.id===x.tool) ? x.tool : "", why: str(x.why,"No detail given."), stake: str(x.stake), isNew: !!x.isNew};
+    if (verdict==="build" && !opps[o.id].helpers.length) opps[o.id].verdict = "skip";
+    if ((verdict==="buy"||verdict==="turnon") && !opps[o.id].tool) opps[o.id].verdict = verdict==="turnon" ? "turnon" : "skip";
+  }
+  const cards = (Array.isArray(r?.cards)?r.cards:[]).slice(0,4).map(c=>({helper: HELPERS[c?.helper]?c.helper:null, title:str(c?.title,"New card"), body:str(c?.body,""), reason:str(c?.reason,""), checks:arr(c?.checks).slice(0,3), action:str(c?.action,"Approve"), channel:["sms","email","list"].includes(c?.channel)?c.channel:"list", to:str(c?.to)})).filter(c=>c.body && c.helper);
+  return {...fb, builtBy:"claude", name:str(r?.name, fb.name), trade:str(r?.trade, fb.trade), tradeKey:["hvac","home","restaurant","store","coach","any"].includes(r?.tradeKey)?r.tradeKey:fb.tradeKey, place:str(r?.place, fb.place), size:str(r?.size, fb.size), seats:Math.max(1,Math.min(200,Number(r?.seats)||fb.seats)), revenue:str(r?.revenue,"Not given"), customers:str(r?.customers, fb.customers), reach:arr(r?.reach, fb.reach), tools:arr(r?.tools, fb.tools), tasks:arr(r?.tasks, fb.tasks), voice:str(r?.voice, fb.voice), opps, cards: cards.length?cards:fb.cards, events: cards.length?[{...cards[0], title:"Another "+cards[0].title.toLowerCase()}]:fb.events};
+}
+async function submitOnboard(form){
+  const ans = {
+    name: $("#ob-name").value.trim(), what: $("#ob-what").value.trim(), week: $("#ob-week").value.trim(), voice: $("#ob-voice").value.trim(),
+    reach: [...form.querySelectorAll('input[name="reach"]:checked')].map(i=>i.value), tools: [...form.querySelectorAll('input[name="tools"]:checked')].map(i=>i.value)
+  };
+  if (!ans.name || !ans.what){ $("#ob-progress").textContent = "Add your business name and what you sell, then try again."; return; }
+  const go = $("#ob-go"); go.disabled = true;
+  let biz;
+  if (state.ai==="on"){
+    $("#ob-progress").textContent = "Claude is reading your answers. This can take up to a minute.";
+    try { biz = await buildWithClaude(ans); }
+    catch(e){
+      if (e && (e.code==="not_granted"||e.code==="sampling_disabled")) state.ai = "off";
+      $("#ob-progress").textContent = e?.code==="rate_limited" ? "Claude is busy for your account right now. Using the closest template instead." : "Claude couldn't finish, so Anchored used the closest template.";
+      biz = fromTemplate(ans);
+    }
+  } else biz = fromTemplate(ans);
+  state.custom.push(biz); state.biz = biz.id; save();
+  location.hash = "#profile"; toast("Profile built for "+biz.name);
+}
+
+async function rewriteVoice(id){
+  const b = curBiz(), c = cardsOf(b).find(x=>x.id===id); if(!c || !state.sample) return;
+  const note = document.querySelector(`[data-note="${id}"]`); if(note) note.textContent = "Rewriting in your voice...";
+  try{
+    const {text} = await state.sample(`Rewrite this message so it sounds like the owner of ${b.name}, a ${b.trade}. Their voice sample: "${b.voice}". Keep every fact, time and amount exactly. Do not add prices, offers or promises. Keep it under 60 words. If the original ends with "Reply STOP to opt out." keep that ending. Reply with only the rewritten message.\n\nMessage:\n${c.body}`, {modelTier:"quick", cache:false});
+    c.body = text.trim().replace(/^"|"$/g,""); c.edited = true; render();
+  }catch(e){ if(note) note.textContent = e?.code==="not_granted" ? "Claude isn't allowed for this page, so the draft stays as written." : "Couldn't rewrite right now. The draft is unchanged."; if(e?.code==="not_granted"){state.ai="off";} }
+}
+
+/* ------------------------------------------------------------------ judges */
+function viewBuilt(){
+  return `<div class="wrap view">
+  <div class="viewhead"><div><h2>How Anchored is built</h2><p>The challenge asks for a platform that helps small businesses discover, compare and adopt AI tools. Here is how each part maps, what is real in this prototype, and what 16 weeks would add.</p></div><a class="btn" href="#profile">Open the prototype</a></div>
+  <div class="cols3">
+    <div class="panel"><h3>Discover</h3><p class="small" style="margin-top:6px;color:var(--ink-2)">Onboarding builds one business profile. A map ranks nine jobs for that business, flags jobs the owner has never done, such as marketing, and gives each a verdict: turn on, buy, build or skip. A weekly discovery agent finds new tools, and a person checks each one before it gets a score.</p></div>
+    <div class="panel"><h3>Compare</h3><p class="small" style="margin-top:6px;color:var(--ink-2)">The Fit Score rates every tool for this business, not in general. Code computes it from seven checkable facts: fit with the tools they already use, trade, cost at their size, contract, data terms, human control, and evidence quality. The model never sets a score.</p></div>
+    <div class="panel"><h3>Adopt</h3><p class="small" style="margin-top:6px;color:var(--ink-2)">The stack view shows how chosen tools and Anchored helpers connect, what each reads and can do, and what it costs. Helpers draft cards in the owner's voice. Plain code sends only what the owner approved.</p></div>
+  </div>
+
+  <section class="band" style="margin-top:36px"><h2>Architecture</h2>
+    <p class="prose" style="margin-top:8px">One Next.js app on Vercel, Supabase Postgres for every business's data, and the Claude API for reading and drafting. New trades and new tools are rows of data, so growth doesn't need new code.</p>
+    <div class="lanes">
+      <div class="lane"><h3>Every event, such as a missed call or a new invoice</h3><ol>
+        <li><span class="node">Owner's phone</span></li><li><span class="node">Next.js on Vercel</span></li><li><span class="node">Supabase Postgres, row-level security per business</span></li><li><span class="node">Helper worker with Claude: Haiku, Sonnet or Opus by task</span></li><li><span class="node">Card</span></li><li><span class="node core">Owner approves</span></li><li><span class="node">Executor in code checks rules, then sends</span></li><li><span class="node">SMS, email, sheets</span></li></ol></div>
+      <div class="lane"><h3>Every week, for the tool catalog</h3><ol>
+        <li><span class="node">Discovery agent scans for new tools</span></li><li><span class="node">A person checks price, contract and data terms</span></li><li><span class="node">Tool catalog with evidence tags</span></li><li><span class="node core">Fit Score, computed in code</span></li><li><span class="node">Compare page</span></li></ol></div>
+    </div>
+    <div class="scroll" style="margin-top:16px"><table class="plain"><thead><tr><th>Choice</th><th>Why it scales</th></tr></thead><tbody>
+      <tr><td>Trade templates as data</td><td>A new kind of business is a template row: interview questions, default jobs, sample cards. HVAC, stores, restaurants and coaches share every line of code.</td></tr>
+      <tr><td>One ingest path</td><td>Every source becomes an event with a source tag. A new connector is a mapping, not a new pipeline.</td></tr>
+      <tr><td>Row-level security</td><td>Each business sees only its own rows, enforced in the database.</td></tr>
+      <tr><td>Model by task</td><td>Short replies run on the fastest model and planning runs on the most capable one. The owner never has to choose.</td></tr>
+      <tr><td>Executor in code</td><td>Quiet hours, consent, allowed offers and the allergy lock are checks in code, so a tap can't approve a rule break.</td></tr>
+      <tr><td>Catalog with evidence tags</td><td>Each tool fact records where it came from and when. Scores update when a fact changes.</td></tr>
+    </tbody></table></div>
+  </section>
+
+  <section class="band"><h2>What's real in this prototype</h2>
+    <div class="scroll" style="margin-top:12px"><table class="plain"><thead><tr><th>Part</th><th>Status</th></tr></thead><tbody>
+      <tr><td>Onboarding for any business</td><td>Real when opened in Claude: Claude reads the answers and builds the profile, map and first cards. Elsewhere it falls back to the closest template.</td></tr>
+      <tr><td>Fit Score and comparisons</td><td>Real. Computed in the page from ${TOOLS.length} tools with prices gathered Nov 6 and 7, 2026.</td></tr>
+      <tr><td>Rewrite in my voice</td><td>Real when opened in Claude.</td></tr>
+      <tr><td>Texts and emails</td><td>Simulated. A Twilio trial can't send custom messages, and carrier registration takes longer than a weekend.</td></tr>
+      <tr><td>Connectors to Jobber, Clover, QuickBooks, Calendly</td><td>Designed, not built. CSV, photos and forwarded email come first.</td></tr>
+    </tbody></table></div>
+  </section>
+
+  <section class="band"><h2>The research behind it</h2>
+    <div class="prose" style="margin-top:8px"><p>Each team member took one or two trades and wrote a sourced report: how the business runs, how it sells, what it uses, where money leaks, and what Anchored should and shouldn't do.</p>
+    <p>Three findings shaped the product. First, the right first job differs by trade: missed calls for HVAC, supplier invoices and the SNAP rule for corner stores, catering and food cost for restaurants, lead replies for coaches. Second, owners already pay for tools that do part of the job, so "turn on what you have" has to come before "buy". Third, approval fatigue is real, so Anchored caps requests at a few a day and tracks edits and skips instead of claiming hours saved.</p></div>
+    <div class="scroll" style="margin-top:14px"><table class="plain"><thead><tr><th>Trade</th><th>Researched by</th><th>Finding that changed the design</th></tr></thead><tbody>
+      <tr><td>HVAC shops</td><td>Eric</td><td>Replacement quotes of $7K to $15K close about 20% of the time before follow-up, so the second helper chases quotes.</td></tr>
+      <tr><td>Coaching</td><td>Pramukh Bhushan</td><td>First contact happens in Instagram and LinkedIn DMs that no tool captures, so onboarding accepts pasted DMs.</td></tr>
+      <tr><td>Corner stores and restaurants</td><td>Ricky Chen</td><td>A corner store has no lead queue. Its value is in invoices, the SNAP rule and license dates, which also avoid texting law.</td></tr>
+    </tbody></table></div>
+  </section>
+
+  <section class="band"><h2>With 16 weeks</h2>
+    <div class="roadmap" style="margin-top:16px">
+      <article><h3>Weeks 1 to 4: pilot</h3><ul><li>10 Maryland owners through the Maryland SBDC and trade groups</li><li>Time onboarding with a stopwatch</li><li>Register real business texting</li></ul></article>
+      <article><h3>Weeks 5 to 8: connectors</h3><ul><li>Jobber, Square, Clover and QuickBooks</li><li>Invoice photo accuracy on 100 real invoices</li><li>Spanish and Korean screens</li></ul></article>
+      <article><h3>Weeks 9 to 12: catalog</h3><ul><li>200 tools with checked facts</li><li>Discovery agent with a review queue</li><li>Fit Score v2 adds "still in use after 30 days"</li></ul></article>
+      <article><h3>Weeks 13 to 16: proof</h3><ul><li>Dollars recovered per shop, measured</li><li>Pricing test at $29 a month</li><li>Security review and audit log</li></ul></article>
+    </div>
+  </section>
+  </div>`;
+}
+
+/* ------------------------------------------------------------------ events */
+document.addEventListener("click", e=>{
+  const t = e.target.closest("button, a"); if(!t) return;
+  if (t.dataset.hero){ state.heroBiz = t.dataset.hero; render(); return; }
+  if (t.dataset.helper){ toggleHelper(t.dataset.helper); return; }
+  if (t.dataset.tool){ toggleTool(t.dataset.tool); return; }
+  if (t.dataset.filter){ state.filter = t.dataset.filter; if(state.view!=="compare") location.hash="#compare"; else render(); return; }
+  if (t.dataset.cmp){ const id=t.dataset.cmp, i=state.compare.indexOf(id); if(i<0){ state.compare.push(id); if(state.compare.length>3) state.compare.shift(); } else state.compare.splice(i,1); render(); if(state.compare.length>=2) $(".cmp")?.scrollIntoView({block:"nearest"}); return; }
+  if (t.dataset.sim){ const b=curBiz(), ev=b.events?.[0]; if(ev){ cardsOf(b).unshift({...ev, id:"c"+(++cardSeq), status:"pending", created:Date.now(), edited:false}); toast("New card from "+(HELPERS[ev.helper]?.name||"Anchored")); render(); } return; }
+  const act = t.dataset.act, id = t.dataset.id;
+  if (act){
+    const c = cardsOf(curBiz()).find(x=>x.id===id);
+    if (act==="approve") decide(id,"approved");
+    else if (act==="skip") decide(id,"skipped");
+    else if (act==="edit"){ c.editing = true; render(); $("#ed-"+id)?.focus(); }
+    else if (act==="cancel"){ c.editing = false; render(); }
+    else if (act==="save") decide(id,"approved", $("#ed-"+id)?.value);
+    else if (act==="voice") rewriteVoice(id);
+  }
+});
+document.addEventListener("change", e=>{
+  if (e.target.id==="biz-select"){ const v=e.target.value; if(v==="__new"){ location.hash="#onboard"; return; } state.biz=v; state.compare=[]; save(); render(); }
+});
+document.addEventListener("submit", e=>{ if(e.target.id==="ob"){ e.preventDefault(); submitOnboard(e.target); } });
+
+function route(){
+  const h = (location.hash||"#home").slice(1);
+  state.view = VIEWS.includes(h) ? h : "home";
+  render(); window.scrollTo(0,0);
+}
+window.addEventListener("hashchange", route);
+route();
+
+(async()=>{
+  try{ const s = window.claude && await window.claude.use("sample"); state.sample = s || null; state.ai = s ? "on" : "off"; }
+  catch(e){ state.ai = "off"; }
+  if (["onboard","agents"].includes(state.view)) render();
+})();
+</script>
