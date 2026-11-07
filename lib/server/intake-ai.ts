@@ -23,7 +23,8 @@ import {
   type IntakeStep,
 } from "@/lib/domain/intake";
 import { LANGUAGE_OPTIONS, REACH_OPTIONS, SIGNALS, TOOL_OPTIONS } from "@/lib/domain/workflows";
-import { getLlm, type LlmProvider } from "@/lib/llm";
+import type { LlmProvider } from "@/lib/llm";
+import { getBudgetedLlm } from "@/lib/server/ai-budget";
 import type { ChatThread, IntakeRecord } from "@/lib/store/types";
 
 // =============================================================================
@@ -67,7 +68,7 @@ export function intakeState(intake: IntakeRecord, messages: readonly ChatMessage
 export async function takeIntakeTurn(draft: IntakeDraft, question: IntakeQuestion, answer: IntakeAnswer, transcript: readonly ChatMessage[]): Promise<IntakeTurn> {
   const step = question.field;
   const rules = readAnswer(answer.text ?? "", step);
-  const llm = getLlm();
+  const llm = getBudgetedLlm();
   // Chips, skips and the review are exact already; a voice sample is kept whole, so there is nothing to read.
   if (llm === null || !isPlanField(step) || step === "voice" || rules.intent !== "answer" || rules.text === "") {
     return rulesTurn(draft, step, answer, rules);

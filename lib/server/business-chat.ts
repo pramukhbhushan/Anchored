@@ -4,7 +4,8 @@ import type { ChatMessage } from "@/lib/api/contract";
 import { allowedLists, applyChanges, changeReply, readChanges, type FactChanges, type ProfileChange } from "@/lib/domain/intake";
 import type { BusinessProfile } from "@/lib/domain/types";
 import { LANGUAGE_OPTIONS, REACH_OPTIONS, SIGNALS, TOOL_OPTIONS } from "@/lib/domain/workflows";
-import { getLlm, type LlmProvider } from "@/lib/llm";
+import type { LlmProvider } from "@/lib/llm";
+import { getBudgetedLlm } from "@/lib/server/ai-budget";
 import { quoted, shortPhrase } from "@/lib/server/intake-ai";
 import { getStore } from "@/lib/store";
 import type { ChatThread, NewChatMessage } from "@/lib/store/types";
@@ -79,7 +80,7 @@ export async function sendBusinessChat(session: string, business: BusinessProfil
 
 /** Read the changes in an owner's message with the model when one is set up, and with the rules otherwise or on failure. */
 async function readOwnerChanges(business: BusinessProfile, text: string, transcript: readonly ChatMessage[]): Promise<FactChanges> {
-  const llm = getLlm();
+  const llm = getBudgetedLlm();
   if (llm === null) return readChanges(text);
   try {
     return await readChangesWithModel(llm, business, text, transcript);

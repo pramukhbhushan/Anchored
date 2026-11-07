@@ -1,6 +1,7 @@
 import type { RewriteResponse } from "@/lib/api/contract";
 import { LlmRefusalError, LlmResponseError } from "@/lib/llm";
 import { isAiConfigured, rewriteInVoice } from "@/lib/server/ai";
+import { AiBudgetError } from "@/lib/server/ai-budget";
 import { findBusiness, isCardId, isCardLive, materializeCard } from "@/lib/server/data";
 import { fail, handleError, json } from "@/lib/server/http";
 import { getSessionId } from "@/lib/server/session";
@@ -35,6 +36,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     if (!updated) return fail(409, "This card was decided while it was being rewritten. Nothing changed.");
     return json<RewriteResponse>({ card: updated });
   } catch (error) {
+    if (error instanceof AiBudgetError) return fail(429, "Anchored has used today's AI rewrites. Edit the draft yourself, or try again tomorrow.");
     if (error instanceof LlmRefusalError) return fail(422, "The AI model couldn't rewrite this one. Edit it yourself instead.");
     if (error instanceof LlmResponseError) return fail(422, "The rewrite changed facts in the draft, so it was thrown away. Edit it yourself instead.");
     return handleError(error, "POST /api/cards/[id]/rewrite");

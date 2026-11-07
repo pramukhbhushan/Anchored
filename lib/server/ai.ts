@@ -3,7 +3,8 @@ import { z } from "zod";
 import { workflowIdsOf } from "@/lib/domain/paths";
 import type { BusinessProfile, OnboardingAnswers, WorkflowId, WorkflowPlan } from "@/lib/domain/types";
 import { PATH_LABEL, SIGNALS, WORKFLOWS } from "@/lib/domain/workflows";
-import { getLlm, LlmConfigError, LlmResponseError } from "@/lib/llm";
+import { LlmConfigError, LlmResponseError } from "@/lib/llm";
+import { getBudgetedLlm } from "@/lib/server/ai-budget";
 
 // =============================================================================
 // Module Overview
@@ -19,7 +20,7 @@ const STOP_LINE = "Reply STOP to opt out.";
 
 /** Return the configured provider, or throw when AI is off. */
 function requireLlm() {
-  const llm = getLlm();
+  const llm = getBudgetedLlm();
   if (!llm) throw new LlmConfigError("No AI provider is set up on this server. Set `AI_PROVIDER` and its key.");
   return llm;
 }
