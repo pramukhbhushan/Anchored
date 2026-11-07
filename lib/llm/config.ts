@@ -6,15 +6,16 @@ import { LlmConfigError, type ProviderName } from "./types";
 // Module Overview
 // =============================================================================
 // Reads which model provider to use from environment variables and checks the
-// settings once, at the boundary. `readProviderConfig` returns `null` when no
-// provider is configured, so Anchored runs on its rules alone.
+// settings once, at the boundary. Every provider takes the same three settings:
+// `AI_PROVIDER`, one `AI_API_KEY`, and an optional `AI_BASE_URL`. `readProviderConfig`
+// returns `null` when no provider is configured, so Anchored runs on its rules alone.
 
 /** Validated settings for one provider. */
 export interface ProviderConfig {
   readonly name: ProviderName;
   readonly label: string;
   readonly apiKey: string;
-  /** OpenAI-compatible endpoint root, ending before `/chat/completions`. Unused for Anthropic. */
+  /** Endpoint root: before `/chat/completions` for OpenAI-compatible providers, or the API host for Anthropic; `null` uses the SDK default. */
   readonly baseUrl: string | null;
   readonly models: Readonly<Record<ModelTier, string>>;
   /** Public URL of this deployment, sent as an attribution header where a provider asks for one. */
@@ -31,15 +32,8 @@ const LABELS: Readonly<Record<ProviderName, string>> = {
   "openai-compatible": "your AI provider",
 };
 
-const KEY_VARS: Readonly<Record<ProviderName, string>> = {
-  anthropic: "ANTHROPIC_API_KEY",
-  openai: "OPENAI_API_KEY",
-  openrouter: "OPENROUTER_API_KEY",
-  featherless: "FEATHERLESS_API_KEY",
-  "openai-compatible": "AI_API_KEY",
-};
-
-// Base URLs from each provider's docs: OpenRouter and Featherless checked Nov 2026.
+// Default endpoints from each provider's docs, checked Nov 2026. `AI_BASE_URL` overrides them.
+// Anthropic has none here because its SDK carries its own; `openai-compatible` must set one.
 const BASE_URLS: Readonly<Partial<Record<ProviderName, string>>> = {
   openai: "https://api.openai.com/v1",
   openrouter: "https://openrouter.ai/api/v1",
@@ -100,21 +94,20 @@ function resolveModels(env: Env, name: ProviderName): Record<ModelTier, string> 
 
 /** Return the configured provider, or `null` when none is set up. */
 export function readProviderConfig(env: Env): ProviderConfig | null {
-  const requested = read(env, "AI_PROVIDER")?.toLowerCase();
-  // With no `AI_PROVIDER`, an Anthropic key alone turns on Claude, matching earlier setups.
-  const name: string | null = requested ?? (read(env, "ANTHROPIC_API_KEY") ? "anthropic" : null);
-  if (name === null) return null;
-  if (!isProviderName(name)) throw new LlmConfigError(`\`AI_PROVIDER\` "${name}" isn't supported. Use one of: ${PROVIDERS.join(", ")}.`);
-
-  const apiKey = read(env, KEY_VARS[name]);
-  if (!apiKey) throw new LlmConfigError(`\`AI_PROVIDER\` is ${name}, but \`${KEY_VARS[name]}\` is unset.`);
-
-  let baseUrl: string | null = BASE_URLS[name] ?? null;
-  if (name === "openai-compatible") {
-    const raw = read(env, "AI_BASE_URL");
-    if (!raw) throw new LlmConfigError("`AI_PROVIDER` is openai-compatible, so set `AI_BASE_URL` to the endpoint root, such as https://example.com/v1.");
-    baseUrl = checkBaseUrl(raw);
+  const name = read(env, "AI_PROVIDER")?.toLowerCase();
+  const apiKey = read(env, "AI_API_KEY");
+  if (name === undefined) {
+    if (apiKey) throw new LlmConfigError(`\`AI_API_KEY\` is set but \`AI_PROVIDER\` is not. Set it to one of: ${PROVIDERS.join(", ")}.`);
+    return null;
   }
+  if (!isProviderName(name)) throw new LlmConfigError(`\`AI_PROVIDER\` "${name}" isn't supported. Use one of: ${PROVIDERS.join(", ")}.`);
+  if (!apiKey) throw new LlmConfigError(`\`AI_PROVIDER\` is ${name}, but \`AI_API_KEY\` is unset.`);
+
+  const rawBaseUrl = read(env, "AI_BASE_URL");
+  if (name === "openai-compatible" && !rawBaseUrl) {
+    throw new LlmConfigError("`AI_PROVIDER` is openai-compatible, so set `AI_BASE_URL` to the endpoint root, such as https://example.com/v1.");
+  }
+  const baseUrl = rawBaseUrl ? checkBaseUrl(rawBaseUrl) : (BASE_URLS[name] ?? null);
 
   return { name, label: LABELS[name], apiKey, baseUrl, models: resolveModels(env, name), appUrl: read(env, "APP_URL") ?? null };
 }

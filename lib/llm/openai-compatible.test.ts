@@ -71,9 +71,9 @@ async function rejectionOf(promise: Promise<unknown>): Promise<unknown> {
 }
 
 const MODELS = { AI_MODEL_QUICK: "quick-model", AI_MODEL_DEFAULT: "default-model", AI_MODEL_COMPLEX: "complex-model" };
-const OPENAI = { AI_PROVIDER: "openai", OPENAI_API_KEY: "test-openai-key", ...MODELS };
-const OPENROUTER = { AI_PROVIDER: "openrouter", OPENROUTER_API_KEY: "test-openrouter-key", ...MODELS };
-const FEATHERLESS = { AI_PROVIDER: "featherless", FEATHERLESS_API_KEY: "test-featherless-key", ...MODELS };
+const OPENAI = { AI_PROVIDER: "openai", AI_API_KEY: "test-openai-key", ...MODELS };
+const OPENROUTER = { AI_PROVIDER: "openrouter", AI_API_KEY: "test-openrouter-key", ...MODELS };
+const FEATHERLESS = { AI_PROVIDER: "featherless", AI_API_KEY: "test-featherless-key", ...MODELS };
 const CUSTOM = { AI_PROVIDER: "openai-compatible", AI_API_KEY: "test-custom-key", AI_BASE_URL: "https://models.example.com/v1", ...MODELS };
 
 // =============================================================================

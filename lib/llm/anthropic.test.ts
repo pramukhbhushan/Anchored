@@ -60,7 +60,7 @@ function recordingFetch(reply: () => Response) {
 
 /** Build Claude from an environment, wired to `fetchImpl`. */
 function claudeFor(env: Record<string, string>, fetchImpl: typeof fetch): AnthropicProvider {
-  const config = readProviderConfig({ ANTHROPIC_API_KEY: "test-anthropic-key", ...env });
+  const config = readProviderConfig({ AI_PROVIDER: "anthropic", AI_API_KEY: "test-anthropic-key", ...env });
   if (!config) throw new Error("test environment selects no provider");
   return new AnthropicProvider(config, fetchImpl);
 }

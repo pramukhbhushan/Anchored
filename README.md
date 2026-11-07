@@ -67,13 +67,9 @@ With no AI settings, Anchored maps businesses and drafts cards with its own rule
 
 | Variable | What it does |
 | --- | --- |
-| `AI_PROVIDER` | One of `anthropic`, `openai`, `openrouter`, `featherless`, or `openai-compatible`. When it is unset, `ANTHROPIC_API_KEY` alone selects `anthropic` |
-| `ANTHROPIC_API_KEY` | The key for `anthropic` |
-| `OPENAI_API_KEY` | The key for `openai` |
-| `OPENROUTER_API_KEY` | The key for `openrouter` |
-| `FEATHERLESS_API_KEY` | The key for `featherless` |
-| `AI_API_KEY` | The key for `openai-compatible` |
-| `AI_BASE_URL` | The endpoint root for `openai-compatible`, which is the part before `/chat/completions`, such as `https://example.com/v1`. It must use https, except for a model on `localhost` |
+| `AI_PROVIDER` | One of `anthropic`, `openai`, `openrouter`, `featherless`, or `openai-compatible` |
+| `AI_API_KEY` | The API key for the provider in `AI_PROVIDER`, whichever it is |
+| `AI_BASE_URL` | The endpoint root, which is the part before `/chat/completions`, such as `https://api.featherless.ai/v1`. Optional for the named providers, which each have a default; required for `openai-compatible`. It must use https, except for a model on `localhost` |
 | `AI_MODEL` | The model for every tier. Every provider except `anthropic` needs it, unless all three tier variables are set |
 | `AI_MODEL_QUICK`, `AI_MODEL_DEFAULT`, `AI_MODEL_COMPLEX` | The model for one tier. Each one overrides `AI_MODEL` |
 | `AI_DAILY_CALL_CAP` | Model calls allowed per UTC day across every visitor, counted in Supabase. Default 2000; `0` turns model calls off |

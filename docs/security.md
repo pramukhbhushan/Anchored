@@ -96,7 +96,7 @@ The migrations revoke `EXECUTE` on the function from `public`, `anon` and `authe
 Secrets come only from environment variables:
 
 - `SUPABASE_SERVICE_ROLE_KEY`, read in `lib/store/index.ts`.
-- The AI provider key that `lib/llm/config.ts` reads for the configured `AI_PROVIDER`, such as `ANTHROPIC_API_KEY`.
+- `AI_API_KEY`, the key for the configured `AI_PROVIDER`, read in `lib/llm/config.ts`.
 
 Neither name has the `NEXT_PUBLIC_` prefix, so Next.js never puts them in the browser bundle. `NEXT_PUBLIC_SUPABASE_ANON_KEY` is public by design, and row-level security limits what it reaches. `.gitignore` excludes `.env` and `.env*.local`, and `.env.example` lists the names with empty values. The modules in `lib/server/` and `lib/llm/` import `server-only`, so a client component that imports one fails the build.
 
