@@ -34,7 +34,6 @@ export default async function StackPage({ params }: { readonly params: Promise<{
     <>
       <PageHeader
         title="Stack"
-        description="What you pay each month, what each piece does for you, and how a customer's call or message turns into a booked job or a paid invoice."
         actions={
           <ButtonLink href={businessHref(business.id, "workflows")} variant="secondary">
             Change paths
@@ -48,11 +47,7 @@ export default async function StackPage({ params }: { readonly params: Promise<{
       </div>
 
       <section className="section" aria-labelledby="flow-title">
-        <SectionHeader
-          id="flow-title"
-          title="How work moves"
-          description="Each row follows one kind of work from start to finish. Anchored's agents draft, and nothing goes out until you OK it."
-        />
+        <SectionHeader id="flow-title" title="How work moves" />
         <WorkFlow
           lanes={workFlow(business, choices)}
           approvalsHref={businessHref(business.id, "approvals")}

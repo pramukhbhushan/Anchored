@@ -77,9 +77,13 @@
    Free help rail
    ============================================================================= */
 
-/* One button per line in the rail; a row of three once the rail drops under the bill and gets the full width */
-.helpLinks{display:flex;flex-wrap:wrap;gap:8px}
-.helpLinks > a{flex:1 1 220px}
+.help{min-width:0;padding-top:var(--s-2)}
+.helpTitle{font-size:var(--fs-lg);font-weight:800}
+.helpText{margin-top:var(--s-1);font-size:var(--fs-sm);color:var(--ink-2);max-width:40ch}
+.helpLinks{list-style:none;margin:var(--s-3) 0 0;padding:0}
+.helpLinks li+li{border-top:1px dashed var(--line)}
+.helpLinks a{display:flex;align-items:center;justify-content:space-between;gap:var(--s-2);min-height:40px;padding:var(--s-2) 0;font-weight:600}
+.helpLinks svg{flex:none;color:var(--muted)}
 
 /* =============================================================================
    Flow diagram
@@ -169,7 +173,7 @@
    Under the hood
    ============================================================================= */
 
-.hood{margin-top:40px;border-top:1px solid var(--line)}
+.hood{margin-top:var(--s-7);border-top:1px solid var(--line)}
 .hoodSummary{display:flex;align-items:center;gap:10px;min-height:56px;padding:12px 0;list-style:none}
 .hoodSummary::-webkit-details-marker{display:none}
 .hoodSummary:hover .hoodTitle{text-decoration:underline;text-underline-offset:4px}

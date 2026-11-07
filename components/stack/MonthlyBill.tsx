@@ -23,18 +23,9 @@ const GROUP_COPY: Readonly<Record<BillGroupId, { readonly title: string; readonl
   skip: { title: "Skipped for now", none: "Nothing skipped." },
 };
 
-/** Return the line under a group's title; the agents' line depends on whether the plan is charged at all. */
-function groupHint(id: BillGroupId, plan: number): string {
-  switch (id) {
-    case "buy":
-      return "Tools you'd sign up for.";
-    case "build":
-      return plan > 0 ? `One ${money(plan)} plan covers every agent. Each asks before it sends.` : "Free until you pick work for an agent.";
-    case "turnon":
-      return "Turn these on. Nothing extra to pay.";
-    case "skip":
-      return "Nothing to pay. Change paths any time.";
-  }
+/** Return the agents' price line, the one group hint that says something the amounts don't. */
+function agentsHint(plan: number): string {
+  return plan > 0 ? `One ${money(plan)} plan covers every agent.` : "Free until you pick work for an agent.";
 }
 
 /** Render the monthly total, the stacked bar and the four groups, with the pricing fine print. */
@@ -43,7 +34,6 @@ export function MonthlyBill({ bill }: { readonly bill: Bill }) {
   return (
     <Card
       title="Your monthly bill"
-      description="Everything in your stack, grouped by what you'd pay for it."
       className={styles.bill}
       action={
         <p className={styles.total}>
@@ -94,7 +84,7 @@ function Group({ group, plan }: { readonly group: BillGroup; readonly plan: numb
         {copy.title}
         <span className={styles.groupAmount}>{money(group.amount)}</span>
       </h3>
-      <p className={styles.hint}>{groupHint(group.id, plan)}</p>
+      {group.id === "build" && <p className={styles.hint}>{agentsHint(plan)}</p>}
       {group.lines.length === 0 ? (
         <p className={styles.none}>{copy.none}</p>
       ) : (
