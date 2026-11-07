@@ -634,7 +634,8 @@ html[data-dev] .side-foot{padding-bottom:64px}
 @container app (min-width:820px){
   .with-rail:has(> .outbox-panel){grid-template-columns:minmax(0,1fr) auto}
   .outbox-panel{width:var(--panel-w,var(--rail-w));position:sticky;top:calc(var(--top-h) + 16px);--resize-line:transparent}
-  .phone{max-height:calc(100dvh - var(--top-h) - 40px);overflow-y:auto}
+  /* Fill the window below the top bar, so an empty outbox doesn't sit as a short box beside a long feed */
+  .phone{height:calc(100dvh - var(--top-h) - 40px);overflow-y:auto}
   .only-narrow{display:none}
 }
 @container app (max-width:819px){.outbox-panel [data-resize-handle]{display:none}}
