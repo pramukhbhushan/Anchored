@@ -589,9 +589,27 @@ function needsAsking(draft: IntakeDraft, field: IntakeField): boolean {
   return isListStep(field) || !draft.facts[field];
 }
 
+// Lead-ins for confirming a list the owner already named in an earlier answer.
+const HEARD_LEAD: Readonly<Record<ListKey, (name: string) => string>> = {
+  reach: () => "Customers reach you by",
+  tools: () => "You run things on",
+  signals: (name) => `True for ${name}`,
+  languages: () => "Languages",
+};
+
+/** Confirm a list the owner already named, or `null` when the list is still empty. */
+function heardText(step: ListKey, draft: IntakeDraft): string | null {
+  const values = draft.facts[step];
+  if (values.length === 0) return null;
+  const labels = step === "signals" ? values.map((id) => SIGNALS.find((signal) => signal.id === id)?.label ?? id) : values;
+  return `${HEARD_LEAD[step](draft.facts.name ?? "you")}: ${listText(labels)}. Tap to add or remove any, or say that's right.`;
+}
+
 /** The wording of one step's question, using what the draft already knows. */
 function questionText(step: IntakeStep, draft: IntakeDraft): string {
   const name = draft.facts.name;
+  const heard = isListStep(step) ? heardText(step, draft) : null;
+  if (heard) return heard;
   switch (step) {
     case "name":
       return "What's your business called, and what town is it in?";
@@ -670,6 +688,9 @@ export function withFollowUp(draft: IntakeDraft, field: IntakeField, text: strin
 function applyFieldAnswer(draft: IntakeDraft, field: IntakeField, picks: readonly string[] | undefined, reading: AnswerReading): IntakeDraft {
   const answeringFollowUp = draft.followUp?.field === field;
   const revisiting = draft.review.stage === "revisiting" && draft.review.field === field;
+  // A list question that opened by repeating what the owner said reads "yes" and "no, that's all" as keep it.
+  const confirmingHeard = isListStep(field) && picks === undefined && draft.facts[field].length > 0 && (reading.intent === "none" || AFFIRM.test(reading.text));
+  if (confirmingHeard) return { ...draft, followUp: null, settled: unique([...draft.settled, field]), review: revisiting ? { stage: "asking" } : draft.review };
   let facts = draft.facts;
   if (picks !== undefined) facts = withPicks(facts, field, picks);
   if (reading.intent === "none" && isListStep(field)) facts = withList(facts, field, []);

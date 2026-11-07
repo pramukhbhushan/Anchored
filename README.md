@@ -1,23 +1,48 @@
 # Anchored
 
-Anchored helps any small business discover, compare and adopt AI tools. An owner describes how the business runs. Anchored maps the work AI can take on into workflows, offers three paths for each one, and rates real tools against the software the owner already uses. Where no tool fits, an approve-first agent drafts the work and waits for the owner's tap.
+Anchored shows a small business owner where AI can save them time, which tools fit, and what it all costs. Where no tool fits, Anchored's own AI agents draft the work. Nothing reaches a customer until the owner taps Approve.
 
-Built for the University of Maryland AI for Small Business Hack-a-thon, Fall 2026. The research behind it is in `docs/research/`: HVAC, coaching, and corner stores and restaurants.
+Built for the University of Maryland AI for Small Business Hack-a-thon, Fall 2026. The research behind it is in [`docs/research/`](docs/research/).
 
-## How the product is organized
+## How it works
 
-- **Workflows are the what.** Five are shared by every business: answer and return calls, bookkeeping and invoicing, lead follow-up, social posts, and quotes. Onboarding answers add others, such as a supplier price check, delivery disputes or a SNAP stocking check.
-- **Each workflow has three paths.** Turn on a tool the owner already pays for, buy one from the catalog, or have Anchored build it.
-- **Five agents run the build path.** Front Desk, Follow-up, Bookkeeping and Invoicing, Content and Social, and Internal Communications. Each agent runs skills, such as Closer or Price Watch. Internal Communications always runs the daily brief and forwarded-email triage.
-- **Onboarding can spawn a niche agent** for work only some businesses have, such as SNAP Stock Check. A niche agent reuses the same actions and rules, and asks for approval on every card.
-- **Tools are rated on seven checks**, personalized by onboarding: price and cancel terms, easy to start, connects to your software, states data use, you stay in charge, names your languages, and proven in similar businesses. Each check shows its evidence level. Code computes every score; the model never sets one.
-- **Plain code sends.** The executor checks quiet hours, consent and the allergy lock before anything goes out. In this build, texts and emails go to a simulated outbox.
+To look around without typing anything, open the app and pick a sample business, such as College Park Heating & Air.
 
-Trade templates are hints. Onboarding suggests answers that businesses like yours often give, and the owner confirms each one.
+### 1. Describe your business
+
+Anchored asks one question at a time: what you sell, how customers reach you, and what software you already use. Skip anything you don't know.
+
+![Chat that asks about the business, with a checklist of what Anchored knows so far](docs/screenshots/1-describe.png)
+
+### 2. See where AI can help
+
+Anchored lists the jobs AI can take off your plate, such as returning missed calls or chasing quotes. Each job has three options: turn on a tool you already pay for, buy a new one, or let an Anchored agent do it. Anchored marks its pick.
+
+![Workflows page with the three options for each job](docs/screenshots/2-workflows.png)
+
+### 3. Compare tools
+
+Each tool gets a score out of 100 for your business. The score comes from seven checks, such as price, setup effort and whether it works with your software.
+
+![Tools page with scored tool cards](docs/screenshots/3-tools.png)
+
+### 4. Approve before anything goes out
+
+Agents write each text or email as a card. You approve, edit or skip it. Anchored also holds texts during quiet hours and texts only customers who agreed to get them. In this demo, approved messages land in a demo outbox and nothing is sent.
+
+![Approvals page with draft cards and the demo outbox](docs/screenshots/4-approve.png)
+
+### 5. See what it costs
+
+One page shows the monthly bill and what each piece does. Tools you already pay for count as $0.
+
+![Stack page with the monthly bill](docs/screenshots/5-stack.png)
+
+For how the code fits together, see [`docs/architecture.md`](docs/architecture.md).
 
 ## Run it locally
 
-You need Node.js 20 or later.
+You need Node.js 26, the version in `.nvmrc`.
 
 1. Install dependencies:
 
@@ -77,6 +102,8 @@ With no AI settings, Anchored maps businesses and drafts cards with its own rule
 
 Each model call names a tier: `quick` for "Rewrite in my voice" and chat turns, and `default` for onboarding text. With `anthropic` and no model variables, the `quick`, `default`, and `complex` tiers run `claude-haiku-5-5`, `claude-sonnet-5-5`, and `claude-opus-5-5`.
 
+On `featherless`, set `AI_MODEL=Qwen/Qwen3.6-35B-A3B`. In tests on Nov 7, 2026, it answered a chat turn in 1.4 to 2.8 seconds for about $0.0004, where `google/gemma-4-31B-it` took 3 to 26 seconds. Anchored turns Qwen's thinking off on every Featherless request.
+
 Past `AI_DAILY_CALL_CAP`, chats and onboarding fall back to the rules and rewrites return 429. Before a public deploy, also set a hard spend cap in your AI provider's billing settings, as the backstop.
 
 ## Set up Supabase
@@ -115,7 +142,7 @@ The server reads and writes with the service role key, which bypasses row-level 
 
 1. Set up Supabase as described above, with every migration run.
 2. Import the repository in Vercel. The default Next.js settings work.
-3. Under **Settings > Environment Variables**, add `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`. For AI, add `AI_PROVIDER`, its key, `AI_DAILY_CALL_CAP` and `APP_URL`.
+3. Under **Settings > Environment Variables**, add `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`. For AI, add `AI_PROVIDER`, `AI_API_KEY`, `AI_DAILY_CALL_CAP` and `APP_URL`.
 4. Deploy, then add the deployment's address to Supabase's **Site URL** and **Redirect URLs**.
 
 Judges can test without an account through **Continue as guest**, and each one sees only their own businesses and cards. **Reset demo** clears a session.
@@ -125,8 +152,12 @@ Judges can test without an account through **Continue as guest**, and each one s
 | Path | Contents |
 | --- | --- |
 | `app/` | Pages and API routes |
+| `components/` | React components, grouped by feature: `ui/` primitives, `shell/` app chrome, and folders such as `business/` and `stack/` |
 | `lib/domain/` | Workflows, agents and skills, the catalog, ratings, the rules engine, case studies, card templates and the executor. Pure TypeScript with tests |
-| `lib/server/` | Session, data access, Claude calls and card decisions |
+| `lib/api/` | The request and response types of every API route, and the Zod schema for every request body |
+| `lib/llm/` | The model layer: the `LlmProvider` interface and one adapter per provider |
+| `lib/auth/` | Supabase Auth clients, the sign-in paths and the `Viewer` type |
+| `lib/server/` | Session, data access, model calls under the daily budget, and card decisions |
 | `lib/store/` | The `Store` interface with Supabase and in-memory versions |
 | `supabase/migrations/` | Database schema |
 | `docs/architecture.md` | How the layers fit together |
@@ -135,10 +166,18 @@ Judges can test without an account through **Continue as guest**, and each one s
 
 ## Test
 
-```bash
-npm test
-```
+You need Node.js 26, the version in `.nvmrc`. Run every check CI runs, in order: the type check, the tests and a production build.
 
 ```bash
-npm run typecheck
+npm run check
 ```
+
+No `.env` is needed. Each step also runs alone:
+
+```bash
+npm run typecheck   # generates Next route types, then runs tsc
+npm test
+npm run build
+```
+
+CI runs the same steps on every pull request and on every push to `main`.

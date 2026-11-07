@@ -58,7 +58,7 @@ Past the cap, onboarding, the intake chat and the business chat fall back to the
 
 ## Cross-site request check
 
-For the same requests, `middleware.ts` compares the host in the `Origin` header with the request's `Host`. A different host, or an `Origin` of `null`, gets a 403. A request with no `Origin` passes. Browsers send `Origin` on a cross-site POST, and a client that is not a browser has no visitor's cookie to send. The cookies' `SameSite=Lax` setting also stops browsers from sending them on a cross-site POST.
+For the same requests, `middleware.ts` compares the host in the `Origin` header with the request's `Host`. The check is `isAllowedOrigin` in `lib/server/origin.ts`, which the sign-out route in `app/auth/signout/route.ts` also runs. A different host, or an `Origin` of `null`, gets a 403. A request with no `Origin` passes. Browsers send `Origin` on a cross-site POST, and a client that is not a browser has no visitor's cookie to send. The cookies' `SameSite=Lax` setting also stops browsers from sending them on a cross-site POST.
 
 ## Security headers
 
@@ -98,7 +98,7 @@ Secrets come only from environment variables:
 - `SUPABASE_SERVICE_ROLE_KEY`, read in `lib/store/index.ts`.
 - `AI_API_KEY`, the key for the configured `AI_PROVIDER`, read in `lib/llm/config.ts`.
 
-Neither name has the `NEXT_PUBLIC_` prefix, so Next.js never puts them in the browser bundle. `NEXT_PUBLIC_SUPABASE_ANON_KEY` is public by design, and row-level security limits what it reaches. `.gitignore` excludes `.env` and `.env*.local`, and `.env.example` lists the names with empty values. The modules in `lib/server/` and `lib/llm/` import `server-only`, so a client component that imports one fails the build.
+Neither name has the `NEXT_PUBLIC_` prefix, so Next.js never puts them in the browser bundle. `NEXT_PUBLIC_SUPABASE_ANON_KEY` is public by design, and row-level security limits what it reaches. `.gitignore` excludes `.env` and `.env*.local`, and `.env.example` lists the names with empty values. Each module in `lib/server/` and `lib/llm/` that reads a secret or calls the store or a model provider imports `server-only`, so a client component that imports one fails the build. The helpers that the edge middleware shares with the server and the browser import nothing, `server-only` included: `lib/server/origin.ts`, `lib/server/rate-limit.ts`, `lib/session-cookie.ts`, and `config.ts`, `paths.ts`, `session-id.ts` and `viewer.ts` in `lib/auth/`. `lib/architecture.test.ts` enforces that list, and also fails any `"use client"` file that imports `lib/server`, `lib/store`, `lib/llm` or `server-only`.
 
 ## Model calls
 

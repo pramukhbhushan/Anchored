@@ -1,3 +1,4 @@
+import "server-only";
 import { MemoryStore } from "./memory";
 import { SupabaseStore } from "./supabase";
 import type { Store } from "./types";
