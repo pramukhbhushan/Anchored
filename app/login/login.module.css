@@ -10,15 +10,15 @@
 @media (max-width:520px){.page{padding-top:28px;gap:22px}}
 
 .title{font-size:clamp(30px,7vw,40px)}
-.lede{margin-top:10px;color:var(--ink-2);font-size:17px;max-width:30em}
+.lede{margin-top:10px;color:var(--ink-2);font-size:var(--fs-lg);max-width:30em}
 
 .slipBody{padding:6px 20px 20px;display:flex;flex-direction:column;gap:14px}
 @media (max-width:400px){.slipBody{padding-inline:16px}}
 
 .form{display:flex;flex-direction:column;gap:10px}
-.label{font-weight:700}
+.label{font-weight:600}
 /* 16px text stops iOS Safari from zooming the page when the field takes focus */
-.input{width:100%;font-size:16px;border:1.5px solid var(--line);border-radius:var(--r);padding:11px 12px;background:var(--paper)}
+.input{width:100%;font-size:var(--fs-md);border:1.5px solid var(--line);border-radius:var(--r);padding:11px 12px;background:var(--paper)}
 .input:focus{border-color:var(--ink)}
 .input::placeholder{color:var(--muted)}
 .input:disabled{opacity:.6}
@@ -27,18 +27,18 @@
 .mark{width:18px;height:18px;flex:none}
 
 /* Dashed rules match the line items on the work order */
-.or{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13.5px}
+.or{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:var(--fs-fine)}
 .or::before,.or::after{content:"";flex:1;border-top:1px dashed var(--line)}
 
-.error{border-left:4px solid var(--warn);background:var(--warn-soft);padding:10px 14px;border-radius:0 var(--r) var(--r) 0;font-size:14.5px}
-.note{border-left:4px solid var(--carbon);background:var(--carbon-soft);padding:10px 14px;border-radius:0 var(--r) var(--r) 0;font-size:14.5px}
+.error{border-left:4px solid var(--warn);background:var(--warn-soft);padding:10px 14px;border-radius:0 var(--r) var(--r) 0;font-size:var(--fs-sm)}
+.note{border-left:4px solid var(--carbon);background:var(--carbon-soft);padding:10px 14px;border-radius:0 var(--r) var(--r) 0;font-size:var(--fs-sm)}
 
 .sent{display:flex;flex-direction:column;gap:8px;align-items:flex-start;padding-top:8px}
 /* Focus lands here only so screen readers read the confirmation; it is not a control */
 .sent:focus{outline:none}
 .sent :global(.stamp){margin-bottom:6px}
-.fine{font-size:14px;color:var(--ink-2)}
+.fine{font-size:var(--fs-sm);color:var(--ink-2)}
 
 .guest{display:flex;flex-direction:column;gap:10px;align-items:flex-start;padding-top:22px;border-top:1px solid var(--line)}
-.guestTitle{font-size:19px;font-weight:750}
-.guest p{color:var(--ink-2);font-size:15px}
+.guestTitle{font-size:var(--fs-lg);font-weight:800}
+.guest p{color:var(--ink-2);font-size:var(--fs-md)}

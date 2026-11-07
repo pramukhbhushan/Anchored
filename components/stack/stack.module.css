@@ -28,18 +28,18 @@
 /* The total sits in the card's action slot, right-aligned like the last line of a bill */
 .total{margin:0;display:flex;flex-direction:column;align-items:flex-end;text-align:right;flex:none}
 .total b{font-family:var(--display);font-stretch:100%;font-weight:850;font-size:clamp(32px,4.2vw,46px);line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.total span{margin-top:4px;font-size:13.5px;color:var(--muted)}
+.total span{margin-top:4px;font-size:var(--fs-fine);color:var(--muted)}
 
 /* ---------- the stacked bar: one segment per paid piece, sized by dollars ---------- */
 .bar{display:flex;gap:3px;height:52px}
-.seg{flex:1 1 0;min-width:46px;display:flex;align-items:center;gap:6px;padding:0 12px;background:var(--tone);color:var(--on-tone);font-size:14px;white-space:nowrap;overflow:hidden}
+.seg{flex:1 1 0;min-width:46px;display:flex;align-items:center;gap:6px;padding:0 12px;background:var(--tone);color:var(--on-tone);font-size:var(--fs-sm);white-space:nowrap;overflow:hidden}
 .seg:first-child{border-radius:var(--r) 0 0 var(--r)}
 .seg:last-child{border-radius:0 var(--r) var(--r) 0}
 .seg:only-child{border-radius:var(--r)}
-.seg b{flex:none;font-variant-numeric:tabular-nums;font-weight:750}
+.seg b{flex:none;font-variant-numeric:tabular-nums;font-weight:600}
 /* The name gives way first, so a narrow segment still shows its price */
 .segName{min-width:0;overflow:hidden;text-overflow:ellipsis}
-.barEmpty{display:grid;place-items:center;height:52px;border:1.5px dashed var(--line);border-radius:var(--r);color:var(--muted);font-size:14px}
+.barEmpty{display:grid;place-items:center;height:52px;border:1.5px dashed var(--line);border-radius:var(--r);color:var(--muted);font-size:var(--fs-sm)}
 
 /* The one moment of motion on the page: the bill fills once from the left */
 @media (prefers-reduced-motion:no-preference){
@@ -61,17 +61,17 @@
   .group,.group[data-group="build"]{grid-column:auto;grid-row:auto}
 }
 .group{min-width:0;border-top:4px solid var(--tone);padding-top:10px}
-.groupHead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:16px;font-weight:750;font-stretch:106%}
+.groupHead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:var(--fs-md);font-weight:800;font-stretch:106%}
 .groupAmount{font-family:var(--display);font-stretch:100%;font-weight:850;font-variant-numeric:tabular-nums}
-.hint{margin-top:2px;font-size:13px;color:var(--muted)}
+.hint{margin-top:2px;font-size:var(--fs-fine);color:var(--muted)}
 .lines{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:12px}
-.line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 10px;font-size:14.5px;line-height:1.4}
-.lineName{font-weight:650;overflow-wrap:anywhere}
-.linePrice{font-size:14px;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
-.lineDoes{grid-column:1 / -1;list-style:none;margin:3px 0 0;padding:0;font-size:13.5px;color:var(--ink-2)}
+.line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 10px;font-size:var(--fs-sm);line-height:1.4}
+.lineName{font-weight:600;overflow-wrap:anywhere}
+.linePrice{font-size:var(--fs-sm);color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.lineDoes{grid-column:1 / -1;list-style:none;margin:3px 0 0;padding:0;font-size:var(--fs-fine);color:var(--ink-2)}
 .lineDoes li+li{margin-top:3px}
-.none{margin-top:12px;font-size:14px;color:var(--muted)}
-.finePrint{margin-top:20px;padding-top:12px;border-top:1px solid var(--line);font-size:13px;color:var(--muted);max-width:90ch}
+.none{margin-top:12px;font-size:var(--fs-sm);color:var(--muted)}
+.finePrint{margin-top:20px;padding-top:12px;border-top:1px solid var(--line);font-size:var(--fs-fine);color:var(--muted);max-width:90ch}
 
 /* =============================================================================
    Free help rail
@@ -101,30 +101,30 @@
 .node{display:flex;gap:10px;align-items:flex-start;padding:2px 0 2px 10px;border-left:4px solid var(--tone)}
 .nodeIcon{flex:none;margin-top:2px;color:var(--ink-2)}
 .nodeText{display:flex;flex-direction:column;min-width:0}
-.nodeName{font-family:var(--display);font-stretch:106%;font-weight:750;font-size:16.5px;line-height:1.2}
-.nodeNote{font-size:13px;color:var(--muted);margin-top:2px}
+.nodeName{font-family:var(--display);font-stretch:106%;font-weight:800;font-size:var(--fs-md);line-height:1.2}
+.nodeNote{font-size:var(--fs-fine);color:var(--muted);margin-top:2px}
 
 .routes{display:flex;flex-direction:column;gap:14px;margin-top:14px}
 .route{display:flex;flex-direction:column;align-items:stretch;min-width:0}
 .route+.route{border-top:1px dashed var(--line);padding-top:14px}
 
-.trigger{padding:9px 12px;background:var(--paper);border-radius:var(--r);font-size:14.5px;line-height:1.4}
+.trigger{padding:9px 12px;background:var(--paper);border-radius:var(--r);font-size:var(--fs-sm);line-height:1.4}
 
 .wire{position:relative;align-self:flex-start;width:2px;height:20px;margin-left:20px;background:var(--muted)}
 .wire::after{content:"";position:absolute;left:50%;bottom:-2px;transform:translateX(-50%);border-style:solid;border-width:7px 5px 0;border-color:var(--muted) transparent transparent}
 /* Narrow cards name the agent in their header, so the wire into it is dropped */
 .wireIn{display:none}
 
-.ok{padding:9px 12px;border-radius:var(--r);background:var(--carbon-soft);font-size:14.5px;line-height:1.4}
-.okTag{display:block;font-size:12.5px;font-weight:700;color:var(--ink-2)}
+.ok{padding:9px 12px;border-radius:var(--r);background:var(--carbon-soft);font-size:var(--fs-sm);line-height:1.4}
+.okTag{display:block;font-size:var(--fs-fine);font-weight:600;color:var(--ink-2)}
 .ok[data-kind="tool"]{background:transparent;border:1.5px dashed var(--line);color:var(--ink-2)}
 
-.result{display:flex;gap:8px;align-items:flex-start;font-size:14.5px;line-height:1.4;font-weight:650}
+.result{display:flex;gap:8px;align-items:flex-start;font-size:var(--fs-sm);line-height:1.4;font-weight:600}
 .resultIcon{flex:none;margin-top:2px;color:var(--good)}
-.stake{display:block;margin-top:2px;font-size:13px;font-weight:400;color:var(--muted)}
+.stake{display:block;margin-top:2px;font-size:var(--fs-fine);font-weight:400;color:var(--muted)}
 
-.foot{font-size:14px;color:var(--ink-2)}
-.divider{margin:6px 0 0;font-size:14px;font-weight:700;color:var(--ink-2)}
+.foot{font-size:var(--fs-sm);color:var(--ink-2)}
+.divider{margin:6px 0 0;font-size:var(--fs-sm);font-weight:600;color:var(--ink-2)}
 
 @container (min-width:760px){
   .flow{
@@ -132,7 +132,7 @@
     grid-template-columns:minmax(0,1fr) 40px minmax(150px,.72fr) 40px minmax(0,1.1fr) 40px minmax(0,1fr);
     padding:20px 22px 22px;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r)
   }
-  .colHead{display:block;grid-row:1;align-self:end;padding-bottom:4px;font-size:13.5px;font-weight:700;color:var(--muted)}
+  .colHead{display:block;grid-row:1;align-self:end;padding-bottom:4px;font-size:var(--fs-fine);font-weight:600;color:var(--muted)}
   .colHead[data-col="trigger"]{grid-column:1}
   .colHead[data-col="node"]{grid-column:3}
   .colHead[data-col="ok"]{grid-column:5;position:relative;z-index:1;padding-inline:14px;color:var(--ink)}
@@ -161,7 +161,7 @@
   .ok[data-kind="agent"] .okTag{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .result{grid-column:7;padding-left:8px}
 
-  .foot{grid-column:5;position:relative;z-index:1;padding:4px 14px 0;font-size:13px}
+  .foot{grid-column:5;position:relative;z-index:1;padding:4px 14px 0;font-size:var(--fs-fine)}
   .divider{grid-column:1 / -1;margin:14px 0 0;padding-top:14px;border-top:1px solid var(--line)}
 }
 
@@ -176,14 +176,14 @@
 .chev{flex:none;color:var(--ink-2)}
 @media (prefers-reduced-motion:no-preference){.chev{transition:transform var(--ease)}}
 .hood[open] .chev{transform:rotate(90deg)}
-.hoodTitle{font-family:var(--display);font-stretch:112%;font-size:20px;font-weight:750;line-height:1.2}
-.hoodSub{display:block;font-size:14px;color:var(--muted)}
+.hoodTitle{font-family:var(--display);font-stretch:112%;font-size:var(--fs-xl);font-weight:800;line-height:1.2}
+.hoodSub{display:block;font-size:var(--fs-sm);color:var(--muted)}
 .hoodBody{display:flex;flex-direction:column;gap:16px;padding-bottom:8px}
 
 .hoodGrid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(min(100%,380px),1fr));align-items:stretch}
-.hoodPanel{min-width:0;padding:18px 20px;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);font-size:14px}
-.hoodPanel h3{font-size:17px}
-.hoodPanel h4{font-stretch:100%;font-weight:750;font-size:15px}
+.hoodPanel{min-width:0;padding:18px 20px;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);font-size:var(--fs-sm)}
+.hoodPanel h3{font-size:var(--fs-lg)}
+.hoodPanel h4{font-stretch:100%;font-weight:800;font-size:var(--fs-md)}
 .hoodJob{margin-top:4px;color:var(--ink-2);max-width:70ch}
 .hoodWhy{margin-top:8px}
 .hoodSkill{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
