@@ -48,7 +48,7 @@ export default async function NewBusinessPage({
       <>
         <PageHeader
           title="Start a new business"
-          description="Answer what you can on one page. Skip what you don't know; you can tell Anchored more later."
+          description="Answer what you can. Skip what you don't know."
           actions={
             <ButtonLink variant="secondary" href={NEW_BUSINESS_HREF}>
               Use chat instead
@@ -77,7 +77,6 @@ export default async function NewBusinessPage({
       <PageHeader
         compact
         title="Start a new business"
-        description="Anchored asks one question at a time, then builds your plan."
         actions={
           <ButtonLink variant="quiet" href={`${NEW_BUSINESS_HREF}?form=1`}>
             Prefer a form?
