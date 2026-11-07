@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { callApi, errorText } from "@/components/api";
 import { APP_HREF } from "@/components/routes";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ui/Toast";
 import { Button } from "@/components/ui/Button";
 
 // =============================================================================

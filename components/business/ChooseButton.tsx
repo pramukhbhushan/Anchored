@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
 import { callApi, errorText } from "@/components/api";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ui/Toast";
 import type { SetChoiceRequest, SetChoiceResponse } from "@/lib/api/contract";
 import { PATH_LABEL, WORKFLOWS } from "@/lib/domain/workflows";
 

@@ -13,7 +13,7 @@ import type {
   WorkflowId,
   WorkflowPlan,
 } from "@/lib/domain/types";
-import { TOOL_OPTIONS, WORKFLOW_IDS } from "@/lib/domain/workflows";
+import { NOT_GIVEN, TOOL_OPTIONS, WORKFLOW_IDS } from "@/lib/domain/workflows";
 
 // =============================================================================
 // Module Overview
@@ -177,13 +177,13 @@ export function profileFromFacts(facts: BusinessFacts, builtBy: EngineAuthor = "
     name: facts.name || "Your business",
     trade: facts.trade || "Small business",
     tradeKey: facts.tradeKey,
-    place: facts.place || "Not given",
-    size: facts.size || "Not given",
+    place: facts.place || NOT_GIVEN,
+    size: facts.size || NOT_GIVEN,
     seats: facts.seats || 3,
-    revenue: facts.revenue || "Not given",
-    customers: facts.customers || "Not given",
+    revenue: facts.revenue || NOT_GIVEN,
+    customers: facts.customers || NOT_GIVEN,
     languages: orDefault(facts.languages, ["English"]),
-    reach: orDefault(facts.reach, ["Not given"]),
+    reach: orDefault(facts.reach, [NOT_GIVEN]),
     tools: orDefault(facts.tools, ["Paper and phone"]),
     signals: facts.signals,
     tasks: orDefault(facts.tasks, tasksFrom(facts)),
@@ -204,7 +204,7 @@ export function profileFromAnswers(answers: OnboardingAnswers): BusinessProfile 
     place: place.join(",").trim(),
     trade: answers.kind || "Small business",
     tradeKey: detectTradeKey(`${answers.kind} ${answers.what}`),
-    size: answers.what.match(SIZE_PATTERN)?.[0] ?? "Not given",
+    size: answers.what.match(SIZE_PATTERN)?.[0] ?? NOT_GIVEN,
     seats: 4,
     customers: answers.what.trim() === "" ? undefined : `From your answers: ${clipAtWord(answers.what.trim(), 90)}`,
     reach: answers.reach,

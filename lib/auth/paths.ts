@@ -6,13 +6,13 @@
 // `loginHref` and `callbackUrl` build the links. Pure, so the edge can use it.
 
 /** The sign-in page. */
-export const LOGIN_PATH = "/login";
+const LOGIN_PATH = "/login";
 
 /** Where a visitor lands after signing in when no `next` path was given. */
-export const DEFAULT_NEXT = "/app";
+const DEFAULT_NEXT = "/app";
 
 /** The route that finishes a magic-link or Google sign-in. */
-export const CALLBACK_PATH = "/auth/callback";
+const CALLBACK_PATH = "/auth/callback";
 
 /** The route that signs the visitor out. It takes POST only. */
 export const SIGN_OUT_PATH = "/auth/signout";

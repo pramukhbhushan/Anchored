@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, type FormEvent } from "react";
 import { callApi, errorText } from "@/components/api";
 import { businessHref } from "@/components/routes";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ui/Toast";
 import type { CreateBusinessResponse } from "@/lib/api/contract";
 import { hintFor } from "@/lib/domain/engine";
 import { LANGUAGE_OPTIONS, REACH_OPTIONS, SIGNALS, TOOL_OPTIONS } from "@/lib/domain/workflows";

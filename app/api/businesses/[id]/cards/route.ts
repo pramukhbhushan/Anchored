@@ -1,4 +1,4 @@
-import type { CardsResponse } from "@/lib/api/contract";
+import type { CardsResponse, EventCardResponse } from "@/lib/api/contract";
 import { simulateSchema } from "@/lib/api/schemas";
 import { simulateCard } from "@/lib/domain/cards";
 import { chosenSkills } from "@/lib/domain/paths";
@@ -38,7 +38,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const turn = await nextSimulationTurn(business.id);
     const card = simulateCard(business, skill ? choicesForSkill(business, choices, skill) : choices, turn);
     if (!card) return fail(409, "None of the chosen skills has an event to simulate yet.");
-    return json<CardsResponse>(await addEventCard(business, card), 201);
+    return json<EventCardResponse>(await addEventCard(business, card), 201);
   } catch (error) {
     return handleError(error, "POST /api/businesses/[id]/cards");
   }

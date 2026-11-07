@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo, Public_Sans } from "next/font/google";
 import type { ReactNode } from "react";
-import { SiteFrame } from "@/components/SiteFrame";
-import { ToastProvider } from "@/components/Toast";
+import { SiteFrame } from "@/components/site/SiteFrame";
+import { ToastProvider } from "@/components/ui/Toast";
 import { isAuthEnabled } from "@/lib/auth/config";
 import "./globals.css";
 

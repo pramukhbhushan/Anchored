@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, type FormEvent } from "react";
 import { callApi, errorText } from "@/components/api";
 import { businessHref } from "@/components/routes";
-import { WorkOrder } from "@/components/WorkOrder";
+import { WorkOrder } from "@/components/site/WorkOrder";
 import type { CreateBusinessRequest, CreateBusinessResponse } from "@/lib/api/contract";
 import { EXAMPLES, exampleProfile } from "@/lib/domain/cases";
 import { profileFromSentence } from "@/lib/domain/engine";

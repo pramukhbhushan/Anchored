@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { ChatWindow } from "@/components/chat/ChatWindow";
-import { OnboardForm } from "@/components/OnboardForm";
+import { OnboardForm } from "@/components/onboarding/OnboardForm";
 import { NEW_BUSINESS_HREF } from "@/components/routes";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";

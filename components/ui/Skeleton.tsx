@@ -6,10 +6,10 @@
 // real content lands where the placeholder was and nothing jumps.
 
 /** The page shapes a `loading.tsx` can ask for. */
-export type SkeletonLayout = "overview" | "cards" | "list" | "table" | "chat" | "profile";
+export type SkeletonLayout = "overview" | "cards" | "list" | "stack" | "chat" | "profile";
 
 /** Render one placeholder block of `width` by `height`. */
-export function Skeleton({
+function Skeleton({
   width = "100%",
   height = 14,
   className,
@@ -64,16 +64,21 @@ function SkeletonBody({ layout }: { readonly layout: SkeletonLayout }) {
       return <CardGrid count={6} height={260} />;
     case "list":
       return <CardGrid count={6} height={180} />;
-    case "table":
+    case "stack":
+      // The monthly bill with free help beside it, then the "How work moves" lanes.
       return (
-        <div className="with-rail">
-          <div className="panel skel-card">
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <Skeleton key={i} height={18} />
-            ))}
+        <>
+          <div className="with-rail">
+            <SkeletonCard height={240} />
+            <SkeletonCard height={200} />
           </div>
-          <SkeletonCard height={200} />
-        </div>
+          <div className="section">
+            <div className="section-head">
+              <Skeleton width={180} height={22} />
+            </div>
+            <CardGrid count={3} height={220} />
+          </div>
+        </>
       );
     case "chat":
       return (

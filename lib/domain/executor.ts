@@ -3,10 +3,10 @@ import type { CardDraft } from "@/lib/domain/types";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The rules plain code enforces before anything reaches a customer.
-// `checkSend` runs after the owner taps Approve and refuses a card that breaks
-// a rule, whatever the model drafted: locked threads, allergy talk, unfilled
-// `[placeholders]`, texts without `OPT_OUT_LINE`, consent, or in quiet hours.
+// The rules plain code enforces before anything reaches a customer. `checkSend`
+// refuses a locked thread, allergy talk, an unfilled `[placeholder]`, or a text
+// without `OPT_OUT_LINE`, consent, or daytime in `DEMO_TIME_ZONE`, whatever the
+// model drafted. `sendTimeText` prints send times in that zone for the views.
 
 /** When and for whom a card would be sent. */
 export interface SendContext {
@@ -22,6 +22,10 @@ export type SendCheck = { readonly ok: true } | { readonly ok: false; readonly r
 
 /** The line every text must end with, so the customer can always opt out. */
 export const OPT_OUT_LINE = "Reply STOP to opt out.";
+
+// Every demo business is in Maryland. A real account would store its own time zone.
+/** The time zone quiet hours are checked in, and the one the views print dates and send times in. */
+export const DEMO_TIME_ZONE = "America/New_York";
 
 // Texts wait from 8 p.m. until 8 a.m. local time.
 const QUIET_FROM_HOUR = 20;
@@ -63,6 +67,11 @@ export function ensureOptOut(body: string): string {
   if (body.trimEnd().endsWith(OPT_OUT_LINE)) return body;
   const rest = body.replace(OPT_OUT_PHRASE, "").trim();
   return rest === "" ? OPT_OUT_LINE : `${rest} ${OPT_OUT_LINE}`;
+}
+
+/** Return a send time as the owner reads it in `DEMO_TIME_ZONE`, such as "Mon 8:00 AM". */
+export function sendTimeText(date: Date): string {
+  return new Intl.DateTimeFormat("en-US", { timeZone: DEMO_TIME_ZONE, weekday: "short", hour: "numeric", minute: "2-digit" }).format(date);
 }
 
 /** The first square-bracketed blank in `body`, such as "[your review link]", or `null` when there is none. */

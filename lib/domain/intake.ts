@@ -1,6 +1,6 @@
 import { detectTradeKey, hintFor, planWorkflows, profileFromFacts, TRADE_HINTS } from "@/lib/domain/engine";
 import type { BusinessFacts, BusinessProfile, OnboardingAnswers, SignalId, TradeKey, WorkflowId, WorkflowPlan } from "@/lib/domain/types";
-import { LANGUAGE_OPTIONS, PATH_LABEL, REACH_OPTIONS, SIGNALS, TOOL_OPTIONS, WORKFLOW_IDS, WORKFLOWS } from "@/lib/domain/workflows";
+import { LANGUAGE_OPTIONS, NOT_GIVEN, PATH_LABEL, REACH_OPTIONS, SIGNALS, TOOL_OPTIONS, WORKFLOW_IDS, WORKFLOWS } from "@/lib/domain/workflows";
 
 // =============================================================================
 // Module Overview
@@ -156,7 +156,7 @@ function capitalize(text: string): string {
 }
 
 /** Join items as "a, b and c". */
-export function listText(items: readonly string[]): string {
+function listText(items: readonly string[]): string {
   if (items.length <= 1) return items[0] ?? "";
   return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
@@ -501,14 +501,14 @@ const FIELD_LABELS: Readonly<Record<IntakeField, { readonly change: string; read
 };
 
 /** Keep only values that name a real option for `key`, spelled as the option list spells it. Signals match by id, label or short label. */
-export function allowedValues(key: Exclude<ListKey, "signals">, values: readonly string[]): string[] {
+function allowedValues(key: Exclude<ListKey, "signals">, values: readonly string[]): string[] {
   const wanted = values.map((value) => value.trim().toLowerCase());
   const options = key === "reach" ? REACH_OPTIONS : key === "tools" ? TOOL_OPTIONS : LANGUAGE_OPTIONS;
   return options.filter((option) => wanted.includes(option.toLowerCase()));
 }
 
 /** Keep only values that name a signal, by id, label or short label. */
-export function allowedSignals(values: readonly string[]): SignalId[] {
+function allowedSignals(values: readonly string[]): SignalId[] {
   const wanted = values.map((value) => value.trim().toLowerCase());
   return SIGNALS.filter((signal) => [signal.id, signal.label.toLowerCase(), signal.short.toLowerCase()].some((name) => wanted.includes(name))).map((signal) => signal.id);
 }
@@ -911,6 +911,20 @@ export interface FactChanges {
 /** What part of a profile one change touched. */
 export type ChangeArea = "workflow" | "path" | "reach" | "tool" | "signal" | "language" | "name" | "place" | "kind" | "voice";
 
+/** The word each `ChangeArea` shows under a chat reply and in the profile's recent changes. */
+export const CHANGE_AREA_LABEL: Readonly<Record<ChangeArea, string>> = {
+  workflow: "Workflow",
+  path: "Path",
+  reach: "Reach",
+  tool: "Tool",
+  signal: "Fact",
+  language: "Language",
+  name: "Name",
+  place: "Town",
+  kind: "Kind",
+  voice: "Voice",
+};
+
 /** One visible change to a business profile, as the chat reports it. */
 export interface ProfileChange {
   readonly op: "added" | "removed" | "changed";
@@ -921,7 +935,7 @@ export interface ProfileChange {
 }
 
 /** A change set that changes nothing. */
-export const NO_CHANGES: FactChanges = { add: NO_LISTS, remove: NO_LISTS, texts: {} };
+const NO_CHANGES: FactChanges = { add: NO_LISTS, remove: NO_LISTS, texts: {} };
 
 const RENAME =
   /\b(?:renamed|rename)\s+(?:it|us|the (?:business|shop|store|company|restaurant|truck)|our (?:business|shop|store|company|restaurant|truck))\s+(?:to\s+)?["']?(.+?)["']?(?=[.!?]|$)|\b(?:new name is|now called|changed (?:our|the) name to|we're (?:now )?called|we are (?:now )?called)\s+["']?(.+?)["']?(?=[.!?,]|$)/i;
@@ -948,10 +962,8 @@ export function readChanges(text: string): FactChanges {
   };
 }
 
-const NOT_GIVEN = "Not given";
-
 /** The facts a profile was built from, with the engine's "Not given" placeholders taken out. */
-export function factsFromProfile(business: BusinessProfile): BusinessFacts {
+function factsFromProfile(business: BusinessProfile): BusinessFacts {
   const given = (value: string): string | undefined => (value === NOT_GIVEN ? undefined : value);
   return {
     id: business.id,
@@ -1028,7 +1040,7 @@ function listChanges<T extends string>(area: ChangeArea, before: readonly T[], a
 }
 
 /** List what changed between two versions of a profile: workflows, then facts, then new paths. */
-export function describeChanges(before: BusinessProfile, after: BusinessProfile): ProfileChange[] {
+function describeChanges(before: BusinessProfile, after: BusinessProfile): ProfileChange[] {
   const changes: ProfileChange[] = [];
   const paths: ProfileChange[] = [];
   for (const id of WORKFLOW_IDS) {

@@ -1,8 +1,8 @@
 import { TOOL_STEPS } from "@/components/stack/copy";
-import { monthlyCost, money } from "@/components/view-helpers";
+import { money } from "@/components/view-helpers";
 import { SKILLS } from "@/lib/domain/agents";
 import { toolName } from "@/lib/domain/catalog";
-import { activeAgents, chosenTools, resolveChoices, stackCost, workflowIdsOf } from "@/lib/domain/paths";
+import { activeAgents, chosenTools, monthlyCost, resolveChoices, stackCost, workflowIdsOf } from "@/lib/domain/paths";
 import type { BusinessProfile, ChoiceMap, Tool, WorkflowId } from "@/lib/domain/types";
 import { WORKFLOWS } from "@/lib/domain/workflows";
 

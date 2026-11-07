@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { CompareBoard, type CompareItem } from "@/components/CompareBoard";
+import { CompareBoard, type CompareItem } from "@/components/business/CompareBoard";
 import { businessHref } from "@/components/routes";
-import { SampleBadge } from "@/components/SampleBadge";
-import { ScoreExplainer } from "@/components/ScoreExplainer";
+import { SampleBadge } from "@/components/business/SampleBadge";
+import { ScoreExplainer } from "@/components/business/ScoreExplainer";
 import { Badge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { WorkflowFilter } from "@/components/WorkflowFilter";
+import { WorkflowFilter } from "@/components/business/WorkflowFilter";
 import { DISCOVERY_QUEUE, TOOLS, fitsTrade, toolName } from "@/lib/domain/catalog";
 import { workflowIdsOf } from "@/lib/domain/paths";
 import { rateTool, usesSoftware } from "@/lib/domain/rating";

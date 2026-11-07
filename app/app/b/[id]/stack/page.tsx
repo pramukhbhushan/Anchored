@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { businessHref } from "@/components/routes";
-import { SampleBadge } from "@/components/SampleBadge";
+import { SampleBadge } from "@/components/business/SampleBadge";
 import { monthlyBill } from "@/components/stack/bill";
 import { FreeHelp } from "@/components/stack/FreeHelp";
 import { workFlow } from "@/components/stack/flow";

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { skillList } from "@/components/agent-labels";
-import { ChooseButton } from "@/components/ChooseButton";
+import { ChooseButton } from "@/components/business/ChooseButton";
 import { toolsHref } from "@/components/routes";
-import { FitBar, Stamp } from "@/components/Stamp";
+import { FitBar, Stamp } from "@/components/ui/Stamp";
 import { Badge } from "@/components/ui/Badge";
 import { buttonClass } from "@/components/ui/Button";
 import type { SetChoiceRequest } from "@/lib/api/contract";
