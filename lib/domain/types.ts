@@ -81,7 +81,7 @@ export type ModelTier = "quick" | "default" | "complex";
 export type Channel = "sms" | "email" | "list" | "locked";
 
 // =============================================================================
-// Rating: the seven checks from tools_by_job.md
+// Rating: the seven checks from docs/research/corner-stores-and-restaurants-notes/tools_by_job.md
 // =============================================================================
 
 export type CheckKey = "connects" | "price" | "charge" | "data" | "start" | "langs" | "proven";

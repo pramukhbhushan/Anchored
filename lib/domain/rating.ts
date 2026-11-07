@@ -5,7 +5,7 @@ import type { BusinessProfile, Check, CheckKey, CheckStatus, Evidence, Rating, T
 // Module Overview
 // =============================================================================
 // Rates a catalog tool for one business on the seven checks from
-// tools_by_job.md. `rateTool` personalizes the connects, languages and proven
+// docs/research/corner-stores-and-restaurants-notes/tools_by_job.md. `rateTool` personalizes the connects, languages and proven
 // checks from the business's software, languages and trade, then weighs all
 // seven into a 0 to 100 `total`. `usesSoftware` is the shared name match.
 
