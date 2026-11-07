@@ -81,6 +81,26 @@ const CUSTOM = { AI_PROVIDER: "openai-compatible", AI_API_KEY: "test-custom-key"
 // =============================================================================
 
 describe("OpenAICompatibleProvider requests", () => {
+  it("asks Featherless models not to think, on text and on JSON requests", async () => {
+    const { fetchImpl, sent } = recordingFetch(() => completion({ content: JSON.stringify(PROFILE) }));
+    const provider = providerFor(FEATHERLESS, fetchImpl);
+    await provider.generateText(TEXT_REQUEST);
+    await provider.generateObject(OBJECT_REQUEST);
+
+    expect(sent).toHaveLength(2);
+    for (const request of sent) expect(request.body).toMatchObject({ chat_template_kwargs: { enable_thinking: false } });
+  });
+
+  it.each([
+    { provider: "openai", env: OPENAI },
+    { provider: "openrouter", env: OPENROUTER },
+    { provider: "openai-compatible", env: CUSTOM },
+  ])("sends no thinking switch to $provider", async ({ env }) => {
+    const { fetchImpl, sent } = recordingFetch(() => completion({ content: "Welcome!" }));
+    await providerFor(env, fetchImpl).generateText(TEXT_REQUEST);
+    expect(sent[0]?.body).not.toHaveProperty("chat_template_kwargs");
+  });
+
   it.each([
     { provider: "openai", env: OPENAI, url: "https://api.openai.com/v1/chat/completions", key: "test-openai-key", tokenParam: "max_completion_tokens" },
     { provider: "openrouter", env: OPENROUTER, url: "https://openrouter.ai/api/v1/chat/completions", key: "test-openrouter-key", tokenParam: "max_tokens" },
