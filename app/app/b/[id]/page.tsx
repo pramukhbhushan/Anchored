@@ -1,8 +1,8 @@
-import { ChevronRight, Inbox, MessageSquare } from "lucide-react";
+import { ChevronRight, Inbox, MessageSquare, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SimulateButton } from "@/components/business/SimulateButton";
-import { businessHref, cardAnchor } from "@/components/routes";
+import { NEW_BUSINESS_HREF, businessHref, cardAnchor } from "@/components/routes";
 import { ButtonLink } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { feedStats, money, placeOf, plannedWorkflows } from "@/components/view-helpers";
@@ -68,10 +68,18 @@ export default async function OverviewPage({ params }: { readonly params: Promis
         title={business.name}
         description={place === null ? business.trade : `${business.trade} in ${place}`}
         actions={
-          <ButtonLink href={businessHref(business.id, "chat")} variant="secondary">
-            <MessageSquare aria-hidden="true" size={16} />
-            Open chat
-          </ButtonLink>
+          // A sample's chat can't change anything, so a sample leads with what a visitor can do next instead.
+          business.kind === "case" ? (
+            <ButtonLink href={NEW_BUSINESS_HREF} variant="secondary">
+              <Plus aria-hidden="true" size={16} />
+              Start your own business
+            </ButtonLink>
+          ) : (
+            <ButtonLink href={businessHref(business.id, "chat")} variant="secondary">
+              <MessageSquare aria-hidden="true" size={16} />
+              Open chat
+            </ButtonLink>
+          )
         }
       />
 

@@ -129,7 +129,7 @@ export default async function BusinessesPage() {
         <SectionHeader
           id="samples"
           title="Sample businesses"
-          description="Three businesses we researched in depth. Explore freely: what you change stays in your session."
+          description="Pick paths and approve cards freely. Your picks stay in this session."
         />
         <div className="cases">
           {CASE_STUDIES.map((business) => (
