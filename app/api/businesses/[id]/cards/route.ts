@@ -2,10 +2,8 @@ import type { CardsResponse } from "@/lib/api/contract";
 import { simulateSchema } from "@/lib/api/schemas";
 import { simulateCard } from "@/lib/domain/cards";
 import { chosenSkills } from "@/lib/domain/paths";
-import { choicesForSkill, findBusiness, getChoices, getFeed, nextSimulationTurn } from "@/lib/server/data";
+import { addEventCard, choicesForSkill, findBusiness, getChoices, getFeed, nextSimulationTurn } from "@/lib/server/data";
 import { fail, handleError, json, readBody } from "@/lib/server/http";
-import { getSessionId } from "@/lib/server/session";
-import { getStore } from "@/lib/store";
 
 // =============================================================================
 // Module Overview
@@ -40,8 +38,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const turn = await nextSimulationTurn(business.id);
     const card = simulateCard(business, skill ? choicesForSkill(business, choices, skill) : choices, turn);
     if (!card) return fail(409, "None of the chosen skills has an event to simulate yet.");
-    await getStore().ensureCards(await getSessionId(), business.id, [card]);
-    return json<CardsResponse>(await getFeed(business), 201);
+    return json<CardsResponse>(await addEventCard(business, card), 201);
   } catch (error) {
     return handleError(error, "POST /api/businesses/[id]/cards");
   }

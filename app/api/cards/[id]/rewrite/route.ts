@@ -1,7 +1,7 @@
 import type { RewriteResponse } from "@/lib/api/contract";
 import { LlmRefusalError, LlmResponseError } from "@/lib/llm";
 import { isAiConfigured, rewriteInVoice } from "@/lib/server/ai";
-import { findBusiness, isCardId, materializeCard } from "@/lib/server/data";
+import { findBusiness, isCardId, isCardLive, materializeCard } from "@/lib/server/data";
 import { fail, handleError, json } from "@/lib/server/http";
 import { getSessionId } from "@/lib/server/session";
 import { getStore } from "@/lib/store";
@@ -22,6 +22,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     const card = await materializeCard(id);
     if (!card) return fail(404, "Card not found. It may have been reset.");
     if (card.status !== "pending") return fail(409, "This card was already decided.");
+    if (!(await isCardLive(card))) return fail(409, "This workflow no longer uses that agent. Reload to see your current cards.");
     if (card.channel !== "sms" && card.channel !== "email") return fail(400, "Only texts and emails can be rewritten.");
     const business = await findBusiness(card.businessId);
     if (!business) return fail(404, "Business not found. It may have been reset.");

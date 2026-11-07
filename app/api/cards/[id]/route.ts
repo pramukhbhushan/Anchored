@@ -1,5 +1,5 @@
 import { decideCardSchema } from "@/lib/api/schemas";
-import { isCardId, materializeCard } from "@/lib/server/data";
+import { isCardId, isCardLive, materializeCard } from "@/lib/server/data";
 import { decideCard } from "@/lib/server/decide";
 import { fail, handleError, json, readBody } from "@/lib/server/http";
 import { getSessionId } from "@/lib/server/session";
@@ -21,6 +21,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!isCardId(id)) return fail(404, "Card not found. It may have been reset.");
     const card = await materializeCard(id);
     if (!card) return fail(404, "Card not found. It may have been reset.");
+    // A stale tab can hold a card whose workflow the owner has since moved off Build; its agent isn't working.
+    if (card.status === "pending" && !(await isCardLive(card))) return fail(409, "This workflow no longer uses that agent, so its card can't be sent. Reload to see your current cards.");
     const result = await decideCard(getStore(), await getSessionId(), card, parsed.data);
     return result.ok ? json(result.response) : fail(result.status, result.error);
   } catch (error) {

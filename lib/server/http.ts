@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import type { z } from "zod";
 import type { ApiError } from "@/lib/api/contract";
 import { NotFoundError } from "@/lib/store";
+import { SignInRequiredError } from "./session";
 
 // =============================================================================
 // Module Overview
@@ -70,6 +71,7 @@ export async function readBody<T>(request: Request, schema: z.ZodType<T>): Promi
 /** Turn an unexpected error into a logged 500, or a 404 for a missing record. */
 export function handleError(error: unknown, route: string): NextResponse<ApiError> {
   if (error instanceof NotFoundError) return fail(404, error.message);
+  if (error instanceof SignInRequiredError) return fail(401, error.message);
   console.error(`[API ${route}] Unexpected error:`, error);
   return fail(500, "Something went wrong on our side. Try again in a moment.");
 }

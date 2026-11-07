@@ -1,10 +1,11 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { notFound } from "next/navigation";
 import type { CardRecord, OutboxEntry } from "@/lib/api/contract";
 import { draftFeed } from "@/lib/domain/cards";
 import { CASE_STUDIES, caseStudyById } from "@/lib/domain/cases";
 import { chosenSkills, resolveChoices, workflowIdsOf } from "@/lib/domain/paths";
-import type { BusinessProfile, Choice, SkillId, WorkflowId } from "@/lib/domain/types";
+import type { BusinessProfile, Choice, KeyedCard, SkillId, WorkflowId } from "@/lib/domain/types";
 import { getStore } from "@/lib/store";
 import { getSessionId } from "./session";
 
@@ -51,10 +52,26 @@ export function choicesForSkill(business: BusinessProfile, choices: Record<Workf
   return narrowed;
 }
 
-/** Return the next simulation number for a business, so each simulated card gets a fresh, stable key. */
+/** Return the next simulation number for a business, which picks the template variant and agent rotation. */
 export async function nextSimulationTurn(businessId: string): Promise<number> {
   const cards = await getStore().listCards(await getSessionId(), businessId);
   return cards.filter((card) => card.key.includes(":sim:")).length + 1;
+}
+
+/** Give a new event card a key no other request can share, so two events arriving together both land. */
+export function uniqueEventKey(card: KeyedCard): KeyedCard {
+  // The turn number alone can collide when a simulate and an ingest race; the random suffix can't.
+  return { ...card, key: `${card.key}-${randomUUID().slice(0, 8)}` };
+}
+
+/** Store a new event card and return the feed along with the stored card. */
+export async function addEventCard(business: BusinessProfile, card: KeyedCard): Promise<{ cards: CardRecord[]; outbox: OutboxEntry[]; added: CardRecord | null }> {
+  const session = await getSessionId();
+  const store = getStore();
+  const unique = uniqueEventKey(card);
+  await store.ensureCards(session, business.id, [unique]);
+  const feed = await getFeed(business);
+  return { ...feed, added: feed.cards.find((stored) => stored.key === unique.key) ?? null };
 }
 
 /** Order a feed: pending cards first, newest first, then decided cards, latest decision first. */
@@ -112,13 +129,27 @@ export async function getFeed(business: BusinessProfile): Promise<{ cards: CardR
   const choices = await getChoices(business);
   const stored = await store.listCards(session, business.id);
   const storedKeys = new Set(stored.map((card) => card.key));
-  const now = new Date().toISOString();
   const virtual: CardRecord[] = draftFeed(business, choices)
     .filter((draft) => !storedKeys.has(draft.key))
-    .map((draft) => ({ ...draft, id: virtualCardId(draft.key), businessId: business.id, status: "pending", edited: false, createdAt: now, decidedAt: null }));
-  // Internal Communications' triage runs for every business; other skills only while chosen.
-  const live = new Set<SkillId>([...chosenSkills(business, choices), "triage"]);
-  // Cards stay stored when an owner switches a workflow away from Build; hide them until it switches back.
-  const cards = [...stored, ...virtual].filter((card) => card.skill !== null && live.has(card.skill));
+    .map((draft) => ({ ...draft, id: virtualCardId(draft.key), businessId: business.id, status: "pending", edited: false, createdAt: STANDING_DRAFT_TIME, decidedAt: null }));
+  const live = liveSkills(business, choices);
+  // A pending card for a skill the owner switched away from is hidden until it switches back;
+  // decided cards stay, so the history and its counts don't change with the owner's paths.
+  const cards = [...stored, ...virtual].filter((card) => card.status !== "pending" || (card.skill !== null && live.has(card.skill)));
   return { cards: cards.sort(feedOrder), outbox: await store.listOutbox(session, business.id) };
+}
+
+// Standing drafts sort below every real event: new calls, leads and invoices should lead the feed.
+const STANDING_DRAFT_TIME = new Date(0).toISOString();
+
+/** Skills whose cards can be acted on now: the chosen build skills, plus triage, which always runs. */
+function liveSkills(business: BusinessProfile, choices: Record<WorkflowId, Choice>): Set<SkillId> {
+  return new Set<SkillId>([...chosenSkills(business, choices), "triage"]);
+}
+
+/** Report whether `card` can still be decided: its skill is chosen now, so its agent is working. */
+export async function isCardLive(card: CardRecord): Promise<boolean> {
+  const business = await findBusiness(card.businessId);
+  if (!business || card.skill === null) return false;
+  return liveSkills(business, await getChoices(business)).has(card.skill);
 }

@@ -59,6 +59,8 @@ export interface SetChoiceResponse {
 export interface CardsResponse {
   readonly cards: readonly CardRecord[];
   readonly outbox: readonly OutboxEntry[];
+  /** The card a simulate or ingest request just created, when it made one. */
+  readonly added?: CardRecord | null;
 }
 export interface SimulateRequest {
   readonly skill?: SkillId;
