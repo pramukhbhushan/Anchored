@@ -2,7 +2,7 @@
 
 Nov 7, 2026 · @Ricky Chen
 
-Four research docs feed Anchored: Eric's [design doc](Backroom%20Design%20Document.pdf) and [HVAC research](Backroom%20HVAC%20Research.pdf), Pramukh's [coaching research](Coaching%20Businesses%20Operations,%20Pain%20Points%20&%20Backroom%20Ingestion.md), and the [corner store and restaurant research](Corner%20Stores%20and%20Restaurants%20Operations,%20Pain%20Points%20&%20Backroom%20Ingestion.md) with its nine notes. We wrote them in parallel, so they disagree in places. Each item below names a conflict and proposes a call. The first three need an answer before the Nov 8 demo.
+Four research docs feed Anchored: Eric's [design doc](design-document.pdf) and [HVAC research](hvac-research.pdf), Pramukh's [coaching research](coaching-operations.md), and the [corner store and restaurant research](corner-stores-and-restaurants.md) with its nine notes. We wrote them in parallel, so they disagree in places. Each item below names a conflict and proposes a call. The first three need an answer before the Nov 8 demo.
 
 All four docs still say Backroom, and this note uses Anchored. The coaching and store docs build on a blueprint artifact that I could not open, so anything this note says about the blueprint comes from what those two docs quote.
 
