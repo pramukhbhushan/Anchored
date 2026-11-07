@@ -630,32 +630,44 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .queue .rtable{margin-top:var(--s-3);font-size:var(--fs-sm)}
 .queue .rtable td{overflow-wrap:anywhere}
 
-/* ---------- approvals: a wide feed and the outbox as a sticky right rail ---------- */
-.agent-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-bottom:22px;font-size:var(--fs-sm);color:var(--muted)}
-.feed{min-width:0}
-.feed .section-head{margin-top:28px}
-.feed .section-head:first-child{margin-top:0}
-.feed-list{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(min(100%,400px),1fr));align-items:stretch}
-.card{display:flex;flex-direction:column;gap:10px;padding:18px;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);min-width:0}
+/* ---------- approvals: one reading column of cards and the outbox as a sticky right rail ---------- */
+.feed{min-width:0;max-width:var(--read-w)}
+.feed-list{display:flex;flex-direction:column;gap:var(--s-4)}
+/* Inside a card 12, between cards 16, a card's padding 24: the tiers read as separate things */
+.card{display:flex;flex-direction:column;gap:var(--s-3);padding:var(--pad);background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);min-width:0;scroll-margin-top:calc(var(--top-h) + var(--s-4))}
+.card:target{border-color:var(--ink)}
 .card.locked{border-left:4px solid var(--warn)}
-.card.done{background:transparent}
-.card.done .draft{color:var(--ink-2)}
-.card-who{display:flex;justify-content:space-between;gap:4px 10px;flex-wrap:wrap;font-size:var(--fs-fine);color:var(--muted)}
-.card-who b{color:var(--ink)}
+.card-top{display:flex;flex-direction:column;gap:var(--s-1)}
+.card-who{font-size:var(--fs-fine);color:var(--muted)}
 .card h3{font-size:var(--fs-lg)}
-.card textarea{width:100%;min-height:110px;padding:10px 12px;border:1.5px solid var(--ink);border-radius:var(--r);background:var(--paper);font-size:var(--fs-md);resize:vertical}
-.card-why{font-size:var(--fs-sm);color:var(--ink-2)}
-/* Actions sink to the bottom so cards side by side line up their buttons */
-.card > .card-acts,.card > .confirm,.card > .card-status{margin-top:auto}
-.card-acts{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.card-status{font-weight:600;font-size:var(--fs-sm)}
+.card-why{font-size:var(--fs-sm);color:var(--muted);max-width:65ch}
+/* The draft is what the owner judges: body size, set off by a rule rather than a box inside the card */
+.card .draft{margin:0;padding:2px 0 2px var(--s-4);border:0;border-left:3px solid var(--line);border-radius:0;background:none;font-size:var(--fs-md);color:var(--ink)}
+.card-edit{display:flex;flex-direction:column;gap:var(--s-1)}
+.card textarea{width:100%;min-height:120px;padding:10px 12px;border:1.5px solid var(--ink);border-radius:var(--r);background:var(--paper);font-size:var(--fs-md);resize:vertical}
+.card-checks{display:flex;align-items:flex-start;gap:var(--s-2);font-size:var(--fs-fine);color:var(--muted)}
+.card-checks svg{flex:none;margin-top:1px;color:var(--good)}
+.card-checks.is-warn{color:var(--warn)}
+.card-checks.is-warn svg{color:var(--warn)}
+.card-acts{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-2)}
 /* Kept in the DOM as a live region; an empty one cancels the gap so it takes no room */
 .card-note{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:var(--fs-fine);color:var(--ink-2)}
-.card-note:empty{margin-top:-10px}
+.card .card-note:empty{margin-top:calc(-1 * var(--s-3))}
 .card-note.has-note{padding:8px 12px;border-radius:var(--r);background:var(--warn-soft);color:var(--ink)}
 .confirm{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:var(--r);background:var(--warn-soft);font-size:var(--fs-sm)}
+.decided{margin-top:var(--s-6)}
+.decided summary{display:inline-flex;align-items:center;min-height:40px;font-weight:600;color:var(--link);text-decoration:underline;text-underline-offset:3px}
+.decided summary:hover{color:var(--ink)}
+.decided-list{margin-top:var(--s-2)}
+/* A decided card is one ruled row: its title and how it ended */
+.card-done{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--s-1) var(--s-4);align-items:baseline;padding:var(--s-3) 0;border-top:1px dashed var(--line)}
+.card-done h3{font-family:var(--body);font-stretch:100%;font-size:var(--fs-md);font-weight:400;letter-spacing:0;color:var(--ink-2)}
+.card-done .card-status{font-size:var(--fs-sm);font-weight:600;color:var(--ink-2)}
+.card-done .card-note{grid-column:1 / -1}
+.card-done .card-note:empty{display:none}
 .outbox,.outbox-panel{scroll-margin-top:calc(var(--top-h) + 16px)}
-.phone{display:flex;flex-direction:column;gap:8px;min-height:360px;padding:14px;border-radius:22px;background:var(--device);color:var(--on-device)}
+/* The 1px line keeps the near-black device from melting into dark paper */
+.phone{display:flex;flex-direction:column;gap:8px;min-height:360px;padding:14px;border:1px solid var(--line);border-radius:22px;background:var(--device);color:var(--on-device)}
 /* The resizable wrapper, not the outbox inside it, is the sticky element: `.with-rail` sizes it to its content */
 @container app (min-width:820px){
   .with-rail:has(> .outbox-panel){grid-template-columns:minmax(0,1fr) auto}
@@ -665,6 +677,7 @@ html[data-dev] .side-foot{padding-bottom:64px}
   .only-narrow{display:none}
 }
 @container app (max-width:819px){.outbox-panel [data-resize-handle]{display:none}}
+
 .phone-bar{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:0 4px 8px;border-bottom:1px solid rgba(255,255,255,.18)}
 .phone-bar h2{font-size:var(--fs-md);font-weight:800;color:var(--on-device)}
 .phone-bar span{font-size:var(--fs-fine);opacity:.8}

@@ -5,7 +5,7 @@ import type { SkillId } from "@/lib/domain/types";
 // Module Overview
 // =============================================================================
 // How the views name agents and skills in prose: `skillList` for "Closer and
-// Debrief skills", `cardSource` for "Follow-up agent, Closer skill", and
+// Debrief skills", `cardSource` for "Follow-up agent", and
 // `asSentence` for agent text written elsewhere that may lack a full stop.
 
 /** Join names as English prose: "A", "A and B", "A, B and C". */
@@ -20,11 +20,9 @@ export function skillList(skills: readonly SkillId[]): string {
   return `${joinAnd(names)} skill${names.length === 1 ? "" : "s"}`;
 }
 
-/** Name who drafted a card, such as "Follow-up agent, Closer skill"; `null` agent means Anchored itself. */
-export function cardSource(agentName: string | null, skill: SkillId | null): string {
-  if (agentName === null) return "Anchored";
-  const agent = `${agentName} agent`;
-  return skill === null ? agent : `${agent}, ${SKILLS[skill].name} skill`;
+/** Name who drafted a card for the owner, such as "Follow-up agent"; `null` means Anchored itself. Skills stay under the hood. */
+export function cardSource(agentName: string | null): string {
+  return agentName === null ? "Anchored" : `${agentName} agent`;
 }
 
 /** Return `text` trimmed and ending in sentence punctuation, so it can sit before another sentence. */

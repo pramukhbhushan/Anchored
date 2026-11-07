@@ -45,7 +45,7 @@ export function SimulateButton({
       toast(
         added === null
           ? "New card added"
-          : `New card from ${cardSource(added.agent === null ? null : (agentNames[added.agent] ?? null), added.skill)}`,
+          : `New card from ${cardSource(added.agent === null ? null : (agentNames[added.agent] ?? null))}`,
         { label: "See it", href: seeHref },
       );
       startRefresh(() => router.refresh());

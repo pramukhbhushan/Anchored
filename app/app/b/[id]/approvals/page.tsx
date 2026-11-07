@@ -4,7 +4,6 @@ import { AgentCard } from "@/components/business/AgentCard";
 import { cardSource } from "@/components/agent-labels";
 import { ResizablePanel } from "@/components/resize/ResizablePanel";
 import { SimulateButton } from "@/components/business/SimulateButton";
-import { Badge } from "@/components/ui/Badge";
 import { buttonClass } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader, SectionHeader } from "@/components/ui/PageHeader";
@@ -17,10 +16,10 @@ import { getBusinessOrNotFound, getChoices, getFeed } from "@/lib/server/data";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Approvals: the cards agents drafted, waiting ones first, each with approve,
-// edit and skip, then the decided ones; the feed adds columns as width grows.
-// In the right rail, pinned on wide screens, the demo outbox shows what was
-// sent and what quiet hours are holding.
+// Approvals: one reading column of the cards agents drafted, each with
+// approve, edit and skip, then the decided ones as rows in a closed
+// disclosure. In the right rail, pinned on wide screens, the demo outbox shows
+// what was sent and what quiet hours are holding.
 
 export const metadata: Metadata = { title: "Approvals" };
 
@@ -89,7 +88,7 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
     <AgentCard
       key={c.key}
       card={c}
-      source={cardSource(c.agent === null ? null : agentName(business, c.agent), c.skill)}
+      source={cardSource(c.agent === null ? null : agentName(business, c.agent))}
       canRewrite={canRewrite}
     />
   );
@@ -98,7 +97,6 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
     <>
       <PageHeader
         title="Approvals"
-        description="Your agents draft, you decide. Nothing goes out until you approve it, and Anchored checks your rules, such as quiet hours, before anything is sent."
         actions={
           <>
             <a className={buttonClass("secondary", "md", "only-narrow")} href="#outbox">
@@ -109,20 +107,9 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
         }
       />
 
-      <div className="agent-row">
-        <span>Drafting for you:</span>
-        <span className="badges">
-          {agents.map((agent) => (
-            <Badge tone={agent.niche ? "new" : "neutral"} key={agent.id}>
-              {agent.name}
-            </Badge>
-          ))}
-        </span>
-      </div>
-
       <div className="with-rail">
         <div className="feed">
-          <SectionHeader id="waiting" title={`Waiting on you (${waiting.length})`} />
+          <SectionHeader id="waiting" title={`${waiting.length} waiting`} />
           {waiting.length > 0 ? (
             <div className="feed-list">{waiting.map(renderCard)}</div>
           ) : (
@@ -133,10 +120,10 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
             </EmptyState>
           )}
           {decided.length > 0 && (
-            <>
-              <SectionHeader id="decided" title={`Decided (${decided.length})`} />
-              <div className="feed-list">{decided.map(renderCard)}</div>
-            </>
+            <details className="decided" id="decided">
+              <summary>Decided ({decided.length})</summary>
+              <div className="decided-list">{decided.map(renderCard)}</div>
+            </details>
           )}
         </div>
 

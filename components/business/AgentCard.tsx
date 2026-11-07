@@ -1,11 +1,11 @@
 "use client";
 
+import { Check, CircleAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useId, useState, useTransition, type ReactNode } from "react";
 import { ApiCallError, callApi, errorText } from "@/components/api";
 import { cardAnchor } from "@/components/routes";
 import { useToast, type ToastLink } from "@/components/ui/Toast";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import type { CardRecord, DecideCardRequest, DecideCardResponse, RewriteResponse } from "@/lib/api/contract";
 
@@ -41,7 +41,14 @@ function decidedLabel(card: CardRecord): string {
   return card.edited ? "Approved with your edits" : "Approved";
 }
 
-/** Render one feed card; `source` names who drafted it, such as "Follow-up agent, Closer skill". */
+/** Return the line above a card's title: who drafted it and, when it has one, who it goes to. */
+function whoLine(card: CardRecord, source: string): string {
+  if (card.to === undefined || card.to === "") return source;
+  const to = card.channel === "sms" ? `text to ${card.to}` : card.channel === "email" ? `email to ${card.to}` : `for ${card.to}`;
+  return `${source}, ${to}`;
+}
+
+/** Render one feed card; `source` names who drafted it, such as "Follow-up agent". */
 export function AgentCard({
   card,
   source,
@@ -135,13 +142,7 @@ export function AgentCard({
   const disabled = busy || refreshing;
   const head = (
     <>
-      <p className="card-who">
-        <span>
-          {locked ? "Locked for you by " : "Drafted by "}
-          <b>{source}</b>
-        </span>
-        {card.to && <span>To {card.to}</span>}
-      </p>
+      <p className="card-who">{whoLine(card, source)}</p>
       <h3>{card.title}</h3>
     </>
   );
@@ -157,10 +158,10 @@ export function AgentCard({
   );
 
   if (!pending) {
+    // A decided card is one row: the owner already read its draft, so only the outcome is new.
     return (
-      <article className="card done">
-        {head}
-        <p className="draft">{card.body}</p>
+      <article className="card-done">
+        <h3>{card.title}</h3>
         <p className="card-status">{decidedLabel(card)}</p>
         {noteLine}
       </article>
@@ -218,7 +219,7 @@ export function AgentCard({
           Approve: {card.action}
         </Button>
         <Button
-          variant="secondary"
+          variant="quiet"
           size="sm"
           aria-label={`Edit: ${card.title}`}
           onClick={() => {
@@ -230,7 +231,7 @@ export function AgentCard({
           Edit
         </Button>
         <Button
-          variant="secondary"
+          variant="quiet"
           size="sm"
           aria-label={`Skip: ${card.title}`}
           onClick={() => decide({ decision: "skip" })}
@@ -249,27 +250,29 @@ export function AgentCard({
 
   return (
     <article className={`card${locked ? " locked" : ""}`} id={cardAnchor(card.key)}>
-      {head}
+      <div className="card-top">
+        {head}
+        <p className="card-why">{card.reason}</p>
+      </div>
       {editing ? (
-        <>
+        <div className="card-edit">
           <label className="fine" htmlFor={editId}>
             Edit the draft
           </label>
           <textarea id={editId} value={draft} onChange={(event) => setDraft(event.target.value)} autoFocus />
-        </>
+        </div>
       ) : (
         <p className="draft">{card.body}</p>
       )}
-      <p className="card-why">
-        <b>Why now:</b> {card.reason}
-      </p>
-      <div className="badges">
-        {card.checks.map((check) => (
-          <Badge tone={locked ? "warn" : "good"} key={check}>
-            {check}
-          </Badge>
-        ))}
-      </div>
+      {card.checks.length > 0 && (
+        <p className={`card-checks${locked ? " is-warn" : ""}`}>
+          {locked ? <CircleAlert aria-hidden="true" size={16} /> : <Check aria-hidden="true" size={16} />}
+          <span>
+            {locked ? "" : "Checked: "}
+            {card.checks.join(", ")}
+          </span>
+        </p>
+      )}
       {actions}
       {noteLine}
     </article>
