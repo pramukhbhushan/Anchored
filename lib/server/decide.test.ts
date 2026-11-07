@@ -75,6 +75,26 @@ describe("decideCard", () => {
     expect((await store.getCard(SESSION, card.id))?.edited).toBe(true);
   });
 
+  it("logs the owner's edited post text when a copy-post card is approved", async () => {
+    const card = await addCard({
+      key: `${BUSINESS}:posts`,
+      agent: "content",
+      skill: "posts",
+      title: "Your Google listing hasn't changed in 3 months",
+      body: 'Draft post for Linden Street Kitchen: "Stop by this week."',
+      reason: "Customers skip a business when basic details are missing.",
+      checks: ["You post it yourself"],
+      action: "Copy post",
+      channel: "list",
+    });
+    const edited = 'Draft post for Linden Street Kitchen: "Tamales are back on Thursdays."';
+    await decideCard(store, SESSION, card, { decision: "approve", body: edited }, TEN_AM_EASTERN);
+
+    const [entry] = await store.listOutbox(SESSION, BUSINESS);
+    expect(entry?.body).toContain("Tamales are back on Thursdays.");
+    expect(entry?.body).not.toContain("hasn't changed in 3 months");
+  });
+
   it("refuses an email that answers an allergy question and leaves it pending", async () => {
     const card = await addCard({ ...missedCallText, key: `${BUSINESS}:catering`, skill: "catering", channel: "email", body: "Yes, the mole is safe for a peanut allergy." });
     const result = await decideCard(store, SESSION, card, { decision: "approve" }, TEN_AM_EASTERN);
