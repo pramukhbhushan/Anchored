@@ -83,11 +83,20 @@ function matchWorkflows(facts: BusinessFacts): Partial<Record<WorkflowId, Matche
   w.calls = reaches("Phone calls")
     ? { fit: 3, why: "Customers reach you by phone. A missed call often turns into a call to someone else." }
     : { fit: 0, why: "Phone calls weren't mentioned. Add them if customers call you." };
-  w.books = runs("QuickBooks")
-    ? { fit: 2, why: "You already pay for QuickBooks. Use what it does before you buy more." }
-    : bookedOrQuoted
-      ? { fit: 2, why: "You bill after the work is done, and late invoices need a polite nudge." }
-      : { fit: 1, why: "Quotes and bookings weren't mentioned, so there may be little to bill later." };
+  const billingTool = ["QuickBooks", "Stripe"].find(runs);
+  w.books =
+    billingTool !== undefined
+      ? { fit: 2, why: `You already pay for ${billingTool}. Use what it does before you buy more.` }
+      : bookedOrQuoted
+        ? {
+            fit: 2,
+            // Billing after the job is how quoted work and home services get paid; a booking alone may be paid on the spot.
+            why:
+              says("quotes") || facts.tradeKey === "home"
+                ? "You bill after the work is done, and late invoices need a polite nudge."
+                : "Bookings bring deposits and invoices to track, and late ones need a polite nudge.",
+          }
+        : { fit: 1, why: "Quotes and bookings weren't mentioned, so there may be little to bill later." };
   w.leads =
     leadsArriveInWriting || says("quotes")
       ? {

@@ -76,6 +76,15 @@ describe("workflows from facts", () => {
     expect(restaurant.signals).toEqual([]);
   });
 
+  it("gives a bookkeeping reason that fits the trade", () => {
+    const taqueria = profileFromFacts({ ...BLANK_FACTS, trade: "Taqueria", signals: ["appointments"] });
+    expect(taqueria.workflows.books?.why).not.toContain("after the work is done");
+    const painter = profileFromFacts({ ...BLANK_FACTS, trade: "Painter", tradeKey: "home", signals: ["quotes"] });
+    expect(painter.workflows.books?.why).toContain("after the work is done");
+    const coach = profileFromFacts({ ...BLANK_FACTS, trade: "Coach", tradeKey: "coach", tools: ["Stripe"], signals: ["appointments"] });
+    expect(coach.workflows.books?.why).toContain("Stripe");
+  });
+
   it("skips workflows that fit too little to act on", () => {
     const counterOnly = exampleProfile("corner");
     expect(counterOnly.workflows.calls).toMatchObject({ fit: 0, rec: "skip" });
