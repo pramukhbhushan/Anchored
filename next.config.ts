@@ -16,15 +16,27 @@ const SECURITY_HEADERS: readonly Header[] = [
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
 ];
 
+/** Return the Supabase project's origin, which the browser calls for sign-in, or `null` when accounts are off. */
+function supabaseOrigin(): string | null {
+  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!raw) return null;
+  try {
+    return new URL(raw).origin;
+  } catch {
+    throw new Error("`NEXT_PUBLIC_SUPABASE_URL` is not a valid URL, such as https://abcd.supabase.co.");
+  }
+}
+
 // Next's inline hydration scripts and inline styles need 'unsafe-inline'.
 // `next/font/google` self-hosts the fonts at build time, so `font-src 'self'` covers them.
+// The browser talks to Supabase directly for magic links, guest sign-in and "Save your work".
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
   "font-src 'self'",
-  "connect-src 'self'",
+  ["connect-src 'self'", supabaseOrigin()].filter(Boolean).join(" "),
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
