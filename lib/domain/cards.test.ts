@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CORE_AGENTS } from "@/lib/domain/agents";
+import { CORE_AGENTS, SKILLS } from "@/lib/domain/agents";
 import { CARD_TEMPLATES, type CardBody, type CardSkill, draftFeed, simulateCard } from "@/lib/domain/cards";
 import { CASE_STUDIES, caseStudyById, EXAMPLES, exampleProfile } from "@/lib/domain/cases";
 import { checkSend, QUIET_HOURS_RULE } from "@/lib/domain/executor";
@@ -162,6 +162,16 @@ describe("triage", () => {
     if (card.action !== "Add it to your list") expect(atWork).toContain(card.action.replace(/^Route to /, ""));
     for (const agent of Object.values(CORE_AGENTS)) {
       if (!atWork.includes(agent.name)) expect(card.body).not.toContain(agent.name);
+    }
+  });
+});
+
+describe("callback cards", () => {
+  it("offer two open times, as the Callback skill promises", () => {
+    expect(SKILLS.callback.does).toContain("Drafts one text with two open times");
+    const dental = exampleProfile("dental");
+    for (const variant of VARIANTS) {
+      expect(CARD_TEMPLATES.callback(dental, variant).body, `variant ${variant}`).toMatch(/\d{1,2}(?::\d\d)? [ap]\.m\. or \d{1,2}(?::\d\d)? [ap]\.m\./);
     }
   });
 });

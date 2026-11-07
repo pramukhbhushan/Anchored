@@ -53,7 +53,7 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
     const caller = pick(v, "(410) 555-0137", "(443) 555-0182", "(240) 555-0164");
     return {
       title: `Missed call at ${pick(v, "2:15 p.m.", "4:40 p.m.", "11:05 a.m.")} from ${caller}`,
-      body: `Sorry we missed you, this is ${b.name}. What can we help with? We can call you back at ${pick(v, "4 p.m. today", "9 a.m. tomorrow", "1 p.m. today")}, or reply with a better time. Reply STOP to opt out.`,
+      body: `Sorry we missed you, this is ${b.name}. What can we help with? We can call you back at ${pick(v, "4 p.m. or 5:30 p.m. today", "9 a.m. or 11 a.m. tomorrow", "1 p.m. or 3 p.m. today")}, or reply with a better time. Reply STOP to opt out.`,
       reason: "Callers who wait often try someone else.",
       checks: [QUIET_HOURS_RULE, "The caller reached out first", "No price in the text"],
       action: "Send text",
