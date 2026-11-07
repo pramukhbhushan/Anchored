@@ -6,47 +6,49 @@ The users are small business owners, such as an HVAC contractor or a corner stor
 
 ## Commands
 
+Use Node.js 26, the version in `.nvmrc`.
+
 | Command | Runs |
 | --- | --- |
 | `npm run dev` | The dev server on port 3000, which belongs to the lead. Check your own work as in [Working in parallel](#working-in-parallel) |
 | `npm test` | Vitest, over the `*.test.ts` files beside the code |
-| `npm run typecheck` | `tsc --noEmit` |
+| `npm run typecheck` | `next typegen` for the route types, then `tsc --noEmit` |
 | `npm run build` | `next build` |
-| `npm run check` | The type check, the tests, then the build. CI in `.github/workflows/ci.yml` runs the same steps on every PR |
+| `npm run check` | The type check, the tests, then the build. CI in `.github/workflows/ci.yml` runs the same steps on every PR and every push to `main` |
 
-A fresh worktree has no `.env.local`, so it runs with AI off and data in memory, and the rules draft every profile and card. The tests and the build need no keys. A production server with no Supabase settings throws on its first data read; `ANCHORED_ALLOW_MEMORY_STORE=1` lets it run on the in-memory store instead.
+A fresh worktree has no `.env.local`, so it runs with AI off and data in memory, and the rules draft every profile and card. The tests and the build need no keys. AI turns on with `AI_PROVIDER`, one `AI_API_KEY` and an optional `AI_BASE_URL`, the same names for every provider. The README's AI provider table lists the model settings. A production server with no Supabase settings throws on its first data read; `ANCHORED_ALLOW_MEMORY_STORE=1` lets it run on the in-memory store instead.
 
 ## Where things live
 
-[`docs/architecture.md`](docs/architecture.md) defines the layers and which may import which, and a test in `lib/` fails when an import breaks a rule. Read it before you add a module or an import that crosses folders.
+Each layer imports only the layers below it: `lib/domain` at the bottom with `zod` alone, then `lib/api`, `lib/llm`, `lib/store`, `lib/auth` and `lib/server`, with `components/` and `app/` on top. [`lib/architecture.test.ts`](lib/architecture.test.ts) fails `npm test` on any import that breaks a rule. [`docs/architecture.md`](docs/architecture.md) holds the full rule table and a "Where to add things" table; read it before you add a module, a cross-folder import, or a new workflow, skill, tool, provider, page, route or migration.
 
 | Path | Holds |
 | --- | --- |
-| `lib/domain/` | Pure rules: workflows, agents, the catalog, ratings, cards, the executor. It imports only other `lib/domain` files |
+| `lib/domain/` | Pure rules: workflows, agents, the catalog, ratings, cards, the executor |
 | `lib/llm/` | The provider-agnostic model layer, one adapter per provider |
 | `lib/store/` | Persistence behind the `Store` interface, with a Supabase and an in-memory backend |
 | `lib/server/` | Server-only orchestration: sessions, model calls, card decisions, route helpers |
 | `lib/api/` | API request and response types, and the Zod schema for every request body |
-| `lib/auth/` | Supabase Auth clients and the sign-in paths |
+| `lib/auth/` | Supabase Auth clients, the sign-in paths and the `Viewer` type |
 | `app/` | Routes. The product is under `app/app/`, served at `/app`. The API is under `app/api/` |
-| `components/` | `ui/` primitives, `shell/` app chrome, and one folder per feature |
+| `components/` | `ui/` primitives, `shell/` app chrome, `site/` marketing pages, `business/` business pages, `stack/` the Stack page, and `onboarding/`, `chat/`, `account/` and `resize/`. The root holds only `api.ts`, `routes.ts`, `view-helpers.ts` and `agent-labels.ts` |
 | `supabase/migrations/` | The database schema, one SQL file per change |
 | `docs/security.md` | Each security control and the file that holds it |
-| `docs/research/` | The team's research on the businesses Anchored serves |
+| `docs/research/` | The team's research by trade. Its `README.md` lists every file |
 | `docs/prototype/` | The single-page prototype the app was ported from |
 
 ## Invariants
 
-Each rule protects an owner's customers or data, and breaking one can pass every test. Before you change code a rule names, read its section in [`docs/security.md`](docs/security.md).
+Each rule protects an owner's customers or data, and breaking one can pass every other test. Before you change code a rule names, read its section in [`docs/architecture.md`](docs/architecture.md#the-invariants) or [`docs/security.md`](docs/security.md).
 
 - **The model writes text only.** Code decides every workflow, path, score and send, and validates each model reply before using it. `lib/server/ai.ts`, `intake-ai.ts` and `business-chat.ts` hold the model features.
 - **`checkSend` gates every send.** `checkSend` in `lib/domain/executor.ts` enforces quiet hours, the allergy lock, the opt-out line, unfilled `[placeholders]` and consent. `decideCard` in `lib/server/decide.ts` runs it, and is the one code path that writes to the outbox.
 - **Card decisions and rewrites go through `Store.updatePendingCard`.** It writes only while the card is still pending, so a double tap decides and sends once.
 - **Every `Store` method filters by session.** Each one takes the session id and filters on it. Callers get the id from `getSessionId` in `lib/server/session.ts`, not from request input. `useAiCall`, the daily model call counter, is the one deployment-wide method. A new method lands in `lib/store/types.ts`, `memory.ts` and `supabase.ts` together, and `reset` clears any table it adds.
 - **Every model call goes through `getBudgetedLlm`** in `lib/server/ai-budget.ts`, which counts it against `AI_DAILY_CALL_CAP`. `getLlm` from `lib/llm` has that one caller.
-- **`lib/server` and `lib/llm` modules import `server-only`** on their first line, so a client component that imports one fails the build.
+- **Server code imports `server-only`.** Each `lib/server` and `lib/llm` module that reads a secret or calls the store or a provider starts with `import "server-only"`, so a client component that imports it fails the build. The edge middleware's helpers import nothing at all: `lib/server/origin.ts`, `lib/server/rate-limit.ts`, `lib/session-cookie.ts` and `lib/auth/{config,paths,session-id,viewer}.ts`. The layer test enforces that list.
 - **Migrations are append-only.** Name a new one `YYYYMMDDHHMMSS_name.sql`, with a timestamp after the newest file on `main`. Once merged, a migration is frozen; change the schema with a new file.
-- **A new API mutation gets a rate limit bucket** in `middleware.ts`: an entry in `LIMITS` and a match in `limitFor`. Any unmatched route shares the general `mutation` bucket. The route reads its body through `readBody` in `lib/server/http.ts` with a schema from `lib/api/schemas.ts`.
+- **Rate-limit each new API mutation in `middleware.ts`.** A route that calls a model or creates rows gets its own entry in `LIMITS` and a match in `limitFor`; any other falls into the shared `mutation` bucket. The route reads its body through `readBody` in `lib/server/http.ts` with a schema from `lib/api/schemas.ts`.
 
 ## Working in parallel
 
@@ -63,7 +65,7 @@ Several agents work at once, each in its own git worktree on its own branch.
    ```
 
    Pick a port no other agent is using.
-5. Run `npm run check`, and push only once it passes.
+5. Run `npm run check`, and push only once it passes. When the type check fails inside `.next/types` after a merge or a branch switch, an old build left those files: delete `.next` and run it again.
 6. Push your branch. Work reaches `main` only through a PR, merged with a merge commit, so each of your commits stays in `main`'s history.
 
 ## Conventions
