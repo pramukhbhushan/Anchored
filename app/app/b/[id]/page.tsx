@@ -5,6 +5,7 @@ import { SimulateButton } from "@/components/business/SimulateButton";
 import { NEW_BUSINESS_HREF, businessHref, cardAnchor } from "@/components/routes";
 import { ButtonLink } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Stamp } from "@/components/ui/Stamp";
 import { feedStats, money, placeOf, plannedWorkflows } from "@/components/view-helpers";
 import { DEMO_TIME_ZONE } from "@/lib/domain/executor";
 import { activeAgents, chosenSkills, stackCost } from "@/lib/domain/paths";
@@ -14,15 +15,15 @@ import { getBusinessOrNotFound, getChoices, getFeed } from "@/lib/server/data";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The overview, the page an owner opens each day: one reading column holding
-// the morning brief on the carbon work-order slip. The brief leads with how
+// The overview, the page an owner opens each day: the morning brief on the
+// carbon work-order slip, then a ledger of every workflow and its path. The brief leads with how
 // many approvals wait and links each one, then says what rides on them, what
 // is new, what the stack costs and, once there is any, what the owner has done.
 
 export const metadata: Metadata = { title: "Overview" };
 
 // Waiting cards the brief names one per row; the rest are counted.
-const ROWS_SHOWN = 3;
+const ROWS_SHOWN = 5;
 
 /** Today's date as the brief's header prints it, such as "Saturday, Nov 7". */
 function briefDate(): string {
@@ -58,6 +59,7 @@ export default async function OverviewPage({ params }: { readonly params: Promis
       ? `${businessHref(business.id, "workflows")}#wf-${onlyFresh.id}`
       : businessHref(business.id, "workflows");
   const approvalsHref = businessHref(business.id, "approvals");
+  const workflowsHref = businessHref(business.id, "workflows");
   const place = placeOf(business);
   const canSimulate = chosenSkills(business, choices).length > 0;
   const agentNames = Object.fromEntries(activeAgents(business, choices).map((a) => [a.id, a.name]));
@@ -144,6 +146,23 @@ export default async function OverviewPage({ params }: { readonly params: Promis
             )}
           </ul>
         </div>
+      </section>
+
+      <section className="ov-wf" aria-labelledby="ov-wf-title">
+        <div className="ov-wf-head">
+          <h2 id="ov-wf-title">Your workflows</h2>
+          <Link href={workflowsHref}>Change paths</Link>
+        </div>
+        <ul className="ov-wf-list">
+          {plannedWorkflows(business).map((w) => (
+            <li key={w.id}>
+              <Link href={`${workflowsHref}#wf-${w.id}`}>
+                <span>{WORKFLOWS[w.id].name}</span>
+                <Stamp path={choices[w.id].path} />
+              </Link>
+            </li>
+          ))}
+        </ul>
       </section>
     </div>
   );
