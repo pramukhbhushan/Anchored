@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CompareBoard, type CompareItem } from "@/components/business/CompareBoard";
+import { OpenFromHash } from "@/components/business/OpenFromHash";
 import { ScoreExplainer } from "@/components/business/ScoreExplainer";
 import { WorkflowFilter } from "@/components/business/WorkflowFilter";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -110,6 +111,8 @@ export default async function ToolsPage({
           </table>
         </details>
       )}
+      {/* A link to `#how-we-score` should open the explainer, not only scroll to its closed summary */}
+      <OpenFromHash />
     </>
   );
 }
