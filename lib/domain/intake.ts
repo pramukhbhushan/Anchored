@@ -964,6 +964,8 @@ const RENAME =
   /\b(?:renamed|rename)\s+(?:it|us|the (?:business|shop|store|company|restaurant|truck)|our (?:business|shop|store|company|restaurant|truck))\s+(?:to\s+)?["']?(.+?)["']?(?=[.!?]|$)|\b(?:new name is|now called|changed (?:our|the) name to|we're (?:now )?called|we are (?:now )?called)\s+["']?(.+?)["']?(?=[.!?,]|$)/i;
 const MOVED = /\b(?:moved|relocated|moving)\s+(?:(?:the|our) (?:shop|store|business|truck|office|restaurant)\s+)?to\s+(.+?)(?=[.!?;]|\s+(?:and|but|so)\b|$)|\b(?:we're|we are)\s+now\s+in\s+(.+?)(?=[.!?;]|\s+(?:and|but|so)\b|$)/i;
 const NOW_A = /\b(?:we're|we are|now we're|we became)\s+(?:now\s+)?(?:a|an)\s+/i;
+// Words that end a rename sentence without being part of the name: "we're called Brightpath now".
+const RENAME_FILLER = /(?:\s+(?:now|these days|instead|going forward|from now on|anymore|officially))+["']?$/i;
 
 /** Read the changes an owner describes, such as "we started doing catering" or "we switched from Clover to Square". */
 export function readChanges(text: string): FactChanges {
@@ -971,7 +973,7 @@ export function readChanges(text: string): FactChanges {
   if (clean === "") return NO_CHANGES;
   const { found, dropped } = scanLists(clean, false);
   const rename = RENAME.exec(clean);
-  const name = rename?.[1] ?? rename?.[2];
+  const name = (rename?.[1] ?? rename?.[2])?.replace(RENAME_FILLER, "").replace(/^["']+|["']+$/g, "");
   const moved = MOVED.exec(clean);
   const movedTo = (moved?.[1] ?? moved?.[2] ?? "").trim();
   // "Moved to Square" is a tool change, read above, not a new town.

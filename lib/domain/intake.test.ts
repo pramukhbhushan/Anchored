@@ -281,6 +281,15 @@ describe("business chat changes", () => {
     voice: "Thanks, see you soon!",
   });
 
+  it.each([
+    ["Also we're called Brightpath Credit now", "Brightpath Credit"],
+    ["We renamed the business to Brightpath Credit these days.", "Brightpath Credit"],
+    ["Our new name is Brightpath Credit instead", "Brightpath Credit"],
+    ["We're now called Brightpath Credit from now on!", "Brightpath Credit"],
+  ])("drops trailing filler from a new name: %s", (message, name) => {
+    expect(readChanges(message).texts.name).toBe(name);
+  });
+
   it("reads additions, removals and switches", () => {
     expect(readChanges("We started doing catering").add.signals).toEqual(["catering"]);
     expect(readChanges("We stopped taking EBT").remove.signals).toEqual(["snap"]);
