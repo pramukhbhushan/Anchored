@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import type { CardRecord, OutboxEntry } from "@/lib/api/contract";
+import type { CardRecord, ChatMessage, OutboxEntry } from "@/lib/api/contract";
 import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, WorkflowId } from "@/lib/domain/types";
-import { NotFoundError, type CardPatch, type NewOutboxEntry, type Store } from "./types";
+import { NotFoundError, type CardPatch, type ChatThread, type IntakeRecord, type NewChatMessage, type NewOutboxEntry, type Store } from "./types";
 
 // =============================================================================
 // Module Overview
@@ -16,6 +16,13 @@ interface SessionData {
   readonly cards: Map<string, CardRecord>;
   readonly outbox: OutboxEntry[];
   readonly events: { businessId: string; source: string; payload: Readonly<Record<string, unknown>>; receivedAt: string }[];
+  /** Chat messages by thread, keyed `${kind}:${id}`. */
+  readonly threads: Map<string, ChatMessage[]>;
+  readonly intakes: Map<string, IntakeRecord>;
+}
+
+function threadKey(thread: ChatThread): string {
+  return `${thread.kind}:${thread.id}`;
 }
 
 /** In-process `Store` for local runs and keyless demos. */
@@ -26,7 +33,7 @@ export class MemoryStore implements Store {
   private data(session: string): SessionData {
     let found = this.sessions.get(session);
     if (!found) {
-      found = { businesses: new Map(), choices: new Map(), cards: new Map(), outbox: [], events: [] };
+      found = { businesses: new Map(), choices: new Map(), cards: new Map(), outbox: [], events: [], threads: new Map(), intakes: new Map() };
       this.sessions.set(session, found);
     }
     return found;
@@ -94,6 +101,26 @@ export class MemoryStore implements Store {
 
   async recordEvent(session: string, businessId: string, source: string, payload: Readonly<Record<string, unknown>>): Promise<void> {
     this.data(session).events.push({ businessId, source, payload, receivedAt: new Date().toISOString() });
+  }
+
+  async listMessages(session: string, thread: ChatThread, limit: number): Promise<ChatMessage[]> {
+    return (this.data(session).threads.get(threadKey(thread)) ?? []).slice(-limit);
+  }
+
+  async addMessages(session: string, thread: ChatThread, messages: readonly NewChatMessage[]): Promise<ChatMessage[]> {
+    const threads = this.data(session).threads;
+    const at = new Date().toISOString();
+    const saved = messages.map((message) => ({ ...message, id: randomUUID(), at }));
+    threads.set(threadKey(thread), [...(threads.get(threadKey(thread)) ?? []), ...saved]);
+    return saved;
+  }
+
+  async getIntake(session: string, id: string): Promise<IntakeRecord | null> {
+    return this.data(session).intakes.get(id) ?? null;
+  }
+
+  async saveIntake(session: string, intake: IntakeRecord): Promise<void> {
+    this.data(session).intakes.set(intake.id, intake);
   }
 
   async reset(session: string): Promise<void> {

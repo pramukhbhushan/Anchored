@@ -64,3 +64,17 @@ export const ingestSchema = z.object({
   businessId: z.string().min(1).max(80),
   payload: z.record(z.string(), z.unknown()),
 });
+
+// -----------------------------------------------------------------
+// Chat
+// -----------------------------------------------------------------
+
+const CHAT_TEXT_MAX = 2000;
+const chatText = z.string().trim().max(CHAT_TEXT_MAX, "Keep a message under 2,000 characters.");
+
+// Chip values are option labels or ids from `lib/domain/intake.ts`; the domain drops any it doesn't know.
+export const intakeAnswerSchema = z
+  .object({ text: chatText.optional(), picks: z.array(z.string().trim().min(1).max(80)).max(20).optional() })
+  .refine((answer) => (answer.text ?? "") !== "" || answer.picks !== undefined, { message: "Type an answer or tap an option." });
+
+export const businessChatSchema = z.object({ text: chatText.min(1, "Type a message.") });

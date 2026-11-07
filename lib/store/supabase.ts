@@ -1,7 +1,8 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { CardRecord, CardStatus, OutboxEntry } from "@/lib/api/contract";
+import type { CardRecord, CardStatus, ChatMessage, OutboxEntry } from "@/lib/api/contract";
+import type { IntakeDraft, ProfileChange } from "@/lib/domain/intake";
 import type { BusinessProfile, CardDraft, Choice, ChoiceMap, KeyedCard, WorkflowId } from "@/lib/domain/types";
-import { NotFoundError, type CardPatch, type NewOutboxEntry, type Store } from "./types";
+import { NotFoundError, type CardPatch, type ChatThread, type IntakeRecord, type NewChatMessage, type NewOutboxEntry, type Store } from "./types";
 
 // =============================================================================
 // Module Overview
@@ -35,8 +36,23 @@ interface OutboxRow {
   sent_at: string;
 }
 
+interface ChatMessageRow {
+  id: number;
+  role: ChatMessage["role"];
+  body: string;
+  changes: readonly ProfileChange[] | null;
+  created_at: string;
+}
+
+interface IntakeRow {
+  id: string;
+  draft: IntakeDraft;
+  business_id: string | null;
+}
+
 const CARD_COLUMNS = "id, business_id, key, draft, status, edited, created_at, decided_at";
 const OUTBOX_COLUMNS = "id, business_id, card_id, channel, recipient, body, sent_at";
+const MESSAGE_COLUMNS = "id, role, body, changes, created_at";
 
 function toCard(row: CardRow): CardRecord {
   return { ...row.draft, id: row.id, key: row.key, businessId: row.business_id, status: row.status, edited: row.edited, createdAt: row.created_at, decidedAt: row.decided_at };
@@ -44,6 +60,10 @@ function toCard(row: CardRow): CardRecord {
 
 function toOutbox(row: OutboxRow): OutboxEntry {
   return { id: row.id, businessId: row.business_id, cardId: row.card_id, channel: row.channel, to: row.recipient, body: row.body, sentAt: row.sent_at };
+}
+
+function toMessage(row: ChatMessageRow): ChatMessage {
+  return { id: String(row.id), role: row.role, text: row.body, at: row.created_at, ...(row.changes ? { changes: row.changes } : {}) };
 }
 
 /** Throw a store error that names the operation and keeps Supabase's error as the cause. */
@@ -150,9 +170,48 @@ export class SupabaseStore implements Store {
     if (error) fail("recordEvent", error);
   }
 
+  async listMessages(session: string, thread: ChatThread, limit: number): Promise<ChatMessage[]> {
+    // Newest first so `limit` keeps the latest messages, then reversed to read oldest first.
+    const { data, error } = await this.db
+      .from("chat_messages")
+      .select(MESSAGE_COLUMNS)
+      .eq("session_id", session)
+      .eq("thread_kind", thread.kind)
+      .eq("thread_id", thread.id)
+      .order("id", { ascending: false })
+      .limit(limit);
+    if (error) fail("listMessages", error);
+    return (data ?? []).map((row) => toMessage(row as ChatMessageRow)).reverse();
+  }
+
+  async addMessages(session: string, thread: ChatThread, messages: readonly NewChatMessage[]): Promise<ChatMessage[]> {
+    if (messages.length === 0) return [];
+    const rows = messages.map((message) => ({ session_id: session, thread_kind: thread.kind, thread_id: thread.id, role: message.role, body: message.text, changes: message.changes ?? null }));
+    const { data, error } = await this.db.from("chat_messages").insert(rows).select(MESSAGE_COLUMNS);
+    if (error) fail("addMessages", error);
+    // Identity ids follow insert order; sorting by them keeps the returned rows in that order too.
+    const saved = (data ?? []).map((row) => row as ChatMessageRow).sort((a, b) => a.id - b.id);
+    return saved.map(toMessage);
+  }
+
+  async getIntake(session: string, id: string): Promise<IntakeRecord | null> {
+    const { data, error } = await this.db.from("intake_drafts").select("id, draft, business_id").eq("session_id", session).eq("id", id).maybeSingle();
+    if (error) fail("getIntake", error);
+    // `draft` is written only by `saveIntake` from a typed `IntakeDraft`.
+    const row = data as IntakeRow | null;
+    return row ? { id: row.id, draft: row.draft, businessId: row.business_id } : null;
+  }
+
+  async saveIntake(session: string, intake: IntakeRecord): Promise<void> {
+    const { error } = await this.db
+      .from("intake_drafts")
+      .upsert({ id: intake.id, session_id: session, draft: intake.draft, business_id: intake.businessId, updated_at: new Date().toISOString() });
+    if (error) fail("saveIntake", error);
+  }
+
   async reset(session: string): Promise<void> {
     // Outbox rows cascade from cards; the other tables are cleared one by one.
-    for (const table of ["cards", "workflow_choices", "events", "businesses"] as const) {
+    for (const table of ["cards", "workflow_choices", "events", "chat_messages", "intake_drafts", "businesses"] as const) {
       const { error } = await this.db.from(table).delete().eq("session_id", session);
       if (error) fail(`reset ${table}`, error);
     }
