@@ -143,7 +143,7 @@ describe("limitFor", () => {
     const start = limitFor("POST", "/api/intake");
     const answer = limitFor("POST", "/api/intake/abc-123");
     const chat = limitFor("POST", "/api/businesses/b_1/chat");
-    expect(start).toMatchObject({ perSession: 40, perIp: 200 });
+    expect(start.perIp).toBeGreaterThan(start.perSession);
     expect(answer.bucket).toBe(start.bucket);
     expect(chat.bucket).toBe(start.bucket);
   });
@@ -210,6 +210,20 @@ describe("middleware with accounts off", () => {
     expect(refused.status).toBe(429);
     expect(Number(refused.headers.get("retry-after"))).toBeGreaterThan(0);
     expect(await refused.json()).toEqual({ error: expect.stringContaining("Too many requests") });
+  });
+
+  it("fits three onboardings and a dozen chat messages in one session, then holds it to a ceiling", async () => {
+    const cookie = `${SESSION_COOKIE}=${crypto.randomUUID()}`;
+    const ip = "198.51.100.40";
+    const turn = async (path: string) => (await middleware(request(path, { method: "POST", ip, headers: { cookie } }))).status;
+    // One onboarding runs 11 to 14 chat calls, and Reset demo keeps the session.
+    for (let onboarding = 0; onboarding < 3; onboarding += 1) {
+      for (let call = 0; call < 14; call += 1) expect(await turn("/api/intake/abc-123"), `onboarding ${onboarding + 1}`).toBe(200);
+    }
+    for (let message = 0; message < 12; message += 1) expect(await turn("/api/businesses/b_1/chat"), `message ${message + 1}`).toBe(200);
+    const statuses: number[] = [];
+    for (let call = 0; call < 200; call += 1) statuses.push(await turn("/api/businesses/b_1/chat"));
+    expect(statuses).toContain(429);
   });
 
   it("keeps a limited session's other routes working", async () => {
