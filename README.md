@@ -2,7 +2,7 @@
 
 Anchored helps any small business discover, compare and adopt AI tools. An owner describes how the business runs. Anchored maps the work AI can take on into workflows, offers three paths for each one, and rates real tools against the software the owner already uses. Where no tool fits, an approve-first agent drafts the work and waits for the owner's tap.
 
-Built for the University of Maryland AI for Small Business Hack-a-thon, Fall 2026. The research behind it sits in the repository root: HVAC, coaching, and corner stores and restaurants.
+Built for the University of Maryland AI for Small Business Hack-a-thon, Fall 2026. The research behind it is in `docs/research/`: HVAC, coaching, and corner stores and restaurants.
 
 ## How the product is organized
 

@@ -8,7 +8,7 @@ How to read the tags:
 - **Snippet Nov 7**: seen only in search result text. I did not open the page.
 - **Vendor**: the source sells the product or a competing or adjacent product. Treat it as a claim about itself. Every help or developer doc on a vendor's own domain is a vendor source.
 - **Vendor-funded directory**: G2, Capterra, GetApp and similar.
-- **CL** and **TBJ**: reused from `Corner stores and restaurants fit/connectors_and_limits.md` and `tools_by_job.md`, checked Nov 6, 2026. Not reopened.
+- **CL** and **TBJ**: reused from `connectors_and_limits.md` and `tools_by_job.md`, checked Nov 6, 2026. Not reopened.
 - **not stated**: the page I read does not say. **not found**: I looked and found nothing, or ran out of time. Neither proves it does not exist.
 - **Est.**: my estimate, an inference. No vendor publishes how long an owner takes to get data out, and I timed nothing.
 
