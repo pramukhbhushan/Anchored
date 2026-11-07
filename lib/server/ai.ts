@@ -20,7 +20,7 @@ export { aiLabel, isAiConfigured } from "@/lib/llm";
 /** Return the configured provider, or throw when AI is off. */
 function requireLlm() {
   const llm = getBudgetedLlm();
-  if (!llm) throw new LlmConfigError("No AI provider is set up on this server. Set `AI_PROVIDER` and its key.");
+  if (!llm) throw new LlmConfigError("No AI provider is set up on this server. Set `AI_PROVIDER` and `AI_API_KEY`.");
   return llm;
 }
 

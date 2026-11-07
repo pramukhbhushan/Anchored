@@ -1,3 +1,4 @@
+import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { CardRecord, CardStatus, ChatMessage, OutboxEntry } from "@/lib/api/contract";
 import type { IntakeDraft, ProfileChange } from "@/lib/domain/intake";
