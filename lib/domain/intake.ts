@@ -205,6 +205,8 @@ const TOOL_RULES: readonly KeywordRule<string>[] = [
   { pattern: /\bsquare\b/gi, value: "Square", ambiguous: true },
   { pattern: /\bclover\b/gi, value: "Clover", ambiguous: true },
   { pattern: /\btoast\b/gi, value: "Toast", ambiguous: true },
+  { pattern: /\bopen ?table\b/gi, value: "OpenTable" },
+  { pattern: /\b(?:doordash|door dash)\b/gi, value: "DoorDash" },
   { pattern: /\bjobber\b/gi, value: "Jobber" },
   { pattern: /\bhouse ?call(?: ?pro)?\b/gi, value: "Housecall Pro" },
   { pattern: /\bcalendly\b/gi, value: "Calendly" },

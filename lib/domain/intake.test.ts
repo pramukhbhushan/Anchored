@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { profileFromAnswers, profileFromFacts } from "@/lib/domain/engine";
 import {
+  allowedLists,
   applyAnswer,
   applyChanges,
   changeReply,
@@ -172,6 +173,11 @@ describe("reading answers", () => {
     const twice = answer(once, text("honestly no clue"));
     expect(twice.settled).toContain("reach");
     expect(question(twice).field).toBe("tools");
+  });
+
+  it("keeps DoorDash and OpenTable when the owner names them as tools", () => {
+    expect(readAnswer("DoorDash and OpenTable", "tools").facts.tools).toEqual(expect.arrayContaining(["DoorDash", "OpenTable"]));
+    expect(allowedLists({ reach: [], tools: ["DoorDash", "opentable"], signals: [], languages: [] }).tools).toEqual(["OpenTable", "DoorDash"]);
   });
 
   it("reads texting as a way customers reach the business", () => {

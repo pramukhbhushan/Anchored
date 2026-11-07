@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { caseStudyById, exampleProfile } from "@/lib/domain/cases";
+import { profileFromFacts } from "@/lib/domain/engine";
 import {
   activeAgents,
   agentForSkill,
@@ -114,6 +115,14 @@ describe("owned tools", () => {
     }
     const toastShop = { ...caseStudy("restaurant"), tools: ["Toast"] };
     expect(pathOptions(toastShop, "social").owned.map((tool) => tool.id)).not.toContain("toastiq");
+  });
+
+  it("offers tools the owner already uses: OpenTable for no-shows, Stripe for invoicing", () => {
+    expect(pathOptions(caseStudy("restaurant"), "noshows").owned.map((tool) => tool.id)).toEqual(["opentable"]);
+    expect(pathOptions(caseStudy("coach"), "books").owned.map((tool) => tool.id)).toEqual(["stripe-invoicing"]);
+    expect(defaultChoice(exampleProfile("tutor"), "books")).toEqual({ path: "turnon", toolId: "stripe-invoicing" });
+    const bistro = profileFromFacts({ name: "Bistro", trade: "Bistro", tradeKey: "restaurant", reach: [], tools: ["OpenTable"], signals: ["appointments"] });
+    expect(defaultChoice(bistro, "noshows")).toEqual({ path: "turnon", toolId: "opentable" });
   });
 
   it("lists Squaremates as priced on quote, since its agent price isn't published", () => {
