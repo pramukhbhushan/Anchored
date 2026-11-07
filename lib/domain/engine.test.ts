@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EXAMPLES, exampleProfile } from "@/lib/domain/cases";
 import { detectTradeKey, hintFor, profileFromAnswers, profileFromFacts, profileFromSentence } from "@/lib/domain/engine";
+import { pathOptions } from "@/lib/domain/paths";
 import type { BusinessFacts, BusinessProfile, OnboardingAnswers } from "@/lib/domain/types";
 import { BASE_WORKFLOWS } from "@/lib/domain/workflows";
 
@@ -52,10 +53,14 @@ describe("workflows from facts", () => {
     expect(corner.workflows.licenses).toBeDefined();
   });
 
-  it("recommends turning on Square's scheduling for the salon because it uses Square", () => {
-    expect(exampleProfile("salon").workflows.scheduling?.rec).toBe("turnon");
-    const withoutSquare = profileFromFacts({ ...example("salon"), tools: [] });
-    expect(withoutSquare.workflows.scheduling?.rec).toBe("buy");
+  it("recommends turning on QuickBooks for the auto shop's bookkeeping because it uses QuickBooks", () => {
+    expect(exampleProfile("auto").workflows.books?.rec).toBe("turnon");
+    const withoutQuickBooks = profileFromFacts({ ...example("auto"), tools: [] });
+    expect(withoutQuickBooks.workflows.books?.rec).not.toBe("turnon");
+  });
+
+  it("recommends buying scheduling for the salon, since Square's agent is a paid add-on", () => {
+    expect(exampleProfile("salon").workflows.scheduling?.rec).toBe("buy");
   });
 
   it("never applies a trade hint: a restaurant with no signals gets no supplier workflow", () => {
@@ -69,6 +74,15 @@ describe("workflows from facts", () => {
     expect(hintFor("Taco restaurant").signals).toContain("suppliers");
     expect(restaurant.workflows.invoices).toBeUndefined();
     expect(restaurant.signals).toEqual([]);
+  });
+
+  it("gives a bookkeeping reason that fits the trade", () => {
+    const taqueria = profileFromFacts({ ...BLANK_FACTS, trade: "Taqueria", signals: ["appointments"] });
+    expect(taqueria.workflows.books?.why).not.toContain("after the work is done");
+    const painter = profileFromFacts({ ...BLANK_FACTS, trade: "Painter", tradeKey: "home", signals: ["quotes"] });
+    expect(painter.workflows.books?.why).toContain("after the work is done");
+    const coach = profileFromFacts({ ...BLANK_FACTS, trade: "Coach", tradeKey: "coach", tools: ["Stripe"], signals: ["appointments"] });
+    expect(coach.workflows.books?.why).toContain("Stripe");
   });
 
   it("skips workflows that fit too little to act on", () => {
@@ -97,18 +111,18 @@ describe("profiles", () => {
     vi.unstubAllGlobals();
   });
 
-  it("cuts the customers text at a word, not mid-word", () => {
-    const profile = profileFromAnswers({
-      ...BLANK_ANSWERS,
-      what: "Families and offices around Austin who order tacos and catering, with trays from $60. Setup is free.",
-    });
-    expect(profile.customers).toBe(
-      "From your answers: Families and offices around Austin who order tacos and catering, with trays from $60...",
+  it("takes customers from the part of the answer about who buys", () => {
+    const withPrices = (what: string) => profileFromAnswers({ ...BLANK_ANSWERS, what }).customers;
+    expect(withPrices("Weekly mowing at $45 a visit and spring cleanups around $350, mostly homeowners")).toBe("Homeowners");
+    expect(withPrices("Families and offices around Austin who order tacos and catering, with trays from $60. Setup is free.")).toBe(
+      "Families and offices around Austin who order tacos and catering",
     );
+    expect(withPrices("Tacos and burritos, $3 to $12. Our customers are mostly construction workers.")).toBe("Construction workers");
   });
 
-  it("keeps a short customers answer whole, and a blank one reads as not given", () => {
-    expect(profileFromAnswers({ ...BLANK_ANSWERS, what: "Office lunches" }).customers).toBe("From your answers: Office lunches");
+  it("shows no customers when the answer only says what the business sells", () => {
+    expect(profileFromAnswers({ ...BLANK_ANSWERS, what: "Office lunches" }).customers).toBe("Not given");
+    expect(profileFromAnswers({ ...BLANK_ANSWERS, what: "Fresh bread and cakes, $4 to $40" }).customers).toBe("Not given");
     expect(profileFromAnswers(BLANK_ANSWERS).customers).toBe("Not given");
   });
 
@@ -130,6 +144,12 @@ describe("profiles", () => {
     expect(profileFromSentence("a bakery").id).not.toBe(first);
   });
 
+  it("capitalizes the trade the same way whichever path built the profile", () => {
+    expect(profileFromAnswers({ ...BLANK_ANSWERS, kind: "corner store in Baltimore" }).trade).toBe("Corner store in Baltimore");
+    expect(profileFromFacts({ ...BLANK_FACTS, trade: "taco truck" }).trade).toBe("Taco truck");
+    expect(profileFromSentence("a corner store in Baltimore").trade).toBe("Corner store in Baltimore");
+  });
+
   it("splits the business name from its place at the first comma", () => {
     const profile = profileFromAnswers({ ...BLANK_ANSWERS, name: "Taco Loco, Austin, TX", kind: "Taco truck" });
     expect(profile.name).toBe("Taco Loco");
@@ -144,7 +164,8 @@ describe("profiles", () => {
       tradeKey: "any",
       place: "Not given",
       languages: ["English"],
-      tools: ["Paper and phone"],
+      // No answer about tools invents none, so the profile never claims "Paper and phone".
+      tools: [],
       kind: "custom",
       builtBy: "rules",
     });
@@ -159,6 +180,23 @@ describe("profiles", () => {
     expect(exampleProfile("dental").id).toBe("ex-dental");
   });
 
+  it.each([
+    ["I run Rosa's Tacos, a food truck in Baltimore", "Rosa's Tacos", "Food truck in Baltimore"],
+    ["Harbor Mini Mart is a corner store that takes SNAP", "Harbor Mini Mart", "Corner store that takes SNAP"],
+    ["I run a bakery called Rise & Crumb in Frederick", "Rise & Crumb", "Bakery in Frederick"],
+    ["We're Bright Smile Dental, a family dental office", "Bright Smile Dental", "Family dental office"],
+    ["I run a bakery with 9 staff", "Your business", "Bakery with 9 staff"],
+  ])("pulls the name from a sentence that has one: %s", (sentence, name, trade) => {
+    expect(profileFromSentence(sentence)).toMatchObject({ name, trade });
+  });
+
+  it("clips a long trade at a word with an ellipsis", () => {
+    const { trade } = profileFromSentence(
+      "I run a family restaurant with a bar, a patio and a catering kitchen that serves weddings and offices across the county",
+    );
+    expect(trade).toBe("Family restaurant with a bar, a patio and a catering kitchen that...");
+  });
+
   it("reads signals and software from the words of a sentence", () => {
     const profile = profileFromSentence("I run a corner store that takes SNAP and uses Square");
     expect(profile.trade).toBe("Corner store that takes SNAP and uses Square");
@@ -167,6 +205,45 @@ describe("profiles", () => {
     expect(profile.tools).toContain("Square");
     expect(profile.reach).toContain("Google");
     expect(profile.nicheAgents.map((agent) => agent.id)).toEqual(["niche:snap-stock-check"]);
+  });
+
+  it.each([
+    ["locally", "We sell locally made soap", "reach", "Phone calls"],
+    ["debt", "A debt counseling practice", "signals", "snap"],
+    ["marketing", "A marketing agency", "reach", "Walk-ins"],
+    ["Snapchat", "A photo studio that shares work on Snapchat", "signals", "snap"],
+    ["information", "An information technology consultancy", "reach", "Website form"],
+    ["prevent", "We prevent water damage in basements", "signals", "catering"],
+    ["workshop", "A pottery workshop", "reach", "Walk-ins"],
+    ["workshop", "A pottery workshop", "signals", "suppliers"],
+  ] as const)("doesn't read a word hidden inside '%s' as a fact: %s", (_word, sentence, list, value) => {
+    expect(profileFromSentence(sentence)[list]).not.toContain(value);
+  });
+
+  it("reads whole words, plurals and inflections", () => {
+    const profile = profileFromSentence("A yoga studio that takes bookings by text, with classes and events");
+    expect(profile.reach).toContain("Phone calls");
+    expect(profile.signals).toEqual(expect.arrayContaining(["appointments", "catering"]));
+    expect(profileFromSentence("We run two shops and answer calls").reach).toEqual(expect.arrayContaining(["Walk-ins", "Phone calls"]));
+  });
+
+  it("spots software by its whole name, not inside other words", () => {
+    expect(profileFromSentence("A flooring installer who measures by the square foot").tools).not.toContain("Square");
+    expect(profileFromSentence("A cafe known for toasted bagels").tools).not.toContain("Toast");
+    expect(profileFromSentence("A cafe that takes orders on Toast").tools).toContain("Toast");
+    expect(profileFromSentence("Customers find us on Google").tools).not.toContain("Google Sheets");
+  });
+
+  it("detects the trade from whole words, so 'delivery' isn't a deli and 'smart' isn't a mart", () => {
+    expect(detectTradeKey("Smart home installs")).not.toBe("store");
+    expect(detectTradeKey("Delivery service")).toBe("any");
+    expect(detectTradeKey("Home services")).toBe("home");
+  });
+
+  it("gives a business picked through the Home services chip the home trade and its tools", () => {
+    const shop = profileFromAnswers({ ...BLANK_ANSWERS, name: "Comfort Pros, Bowie, MD", kind: "Home services", reach: ["Phone calls"] });
+    expect(shop.tradeKey).toBe("home");
+    expect(pathOptions(shop, "calls").buy.map(({ tool }) => tool.id)).toContain("servicetitan");
   });
 
   it("detects the trade from free text", () => {

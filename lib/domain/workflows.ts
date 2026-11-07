@@ -102,6 +102,8 @@ export const TOOL_OPTIONS: readonly string[] = [
   "Square",
   "Clover",
   "Toast",
+  "OpenTable",
+  "DoorDash",
   "Jobber",
   "Housecall Pro",
   "Calendly",

@@ -66,6 +66,8 @@ export interface IntakeDraft {
   /** Follow-ups asked so far, by the rules or the model. Capped at `MAX_FOLLOW_UPS`. */
   readonly followUps: number;
   readonly review: IntakeReview;
+  /** Lists the owner answered with none, so the summary says "None" rather than "Skipped". Absent in older drafts. */
+  readonly answeredNone?: readonly ListKey[];
 }
 
 /** One quick-reply chip. `suggested` marks options common for this kind of business; it never selects one. */
@@ -187,7 +189,7 @@ interface KeywordRule<T extends string> {
 }
 
 const REACH_RULES: readonly KeywordRule<string>[] = [
-  { pattern: /\b(?:phones?|calls?|calling)\b/gi, value: "Phone calls" },
+  { pattern: /\b(?:phones?|calls?|calling|texts?|texting|texted|sms)\b/gi, value: "Phone calls" },
   { pattern: /\b(?:walk[- ]?(?:ins?|ups?)|foot traffic|storefront|counter)\b/gi, value: "Walk-ins" },
   { pattern: /\b(?:website|web form|contact form|online form|book online|order online)\b/gi, value: "Website form" },
   // "Google Sheets" and friends are tools, not a way customers find you.
@@ -205,6 +207,8 @@ const TOOL_RULES: readonly KeywordRule<string>[] = [
   { pattern: /\bsquare\b/gi, value: "Square", ambiguous: true },
   { pattern: /\bclover\b/gi, value: "Clover", ambiguous: true },
   { pattern: /\btoast\b/gi, value: "Toast", ambiguous: true },
+  { pattern: /\bopen ?table\b/gi, value: "OpenTable" },
+  { pattern: /\b(?:doordash|door dash)\b/gi, value: "DoorDash" },
   { pattern: /\bjobber\b/gi, value: "Jobber" },
   { pattern: /\bhouse ?call(?: ?pro)?\b/gi, value: "Housecall Pro" },
   { pattern: /\bcalendly\b/gi, value: "Calendly" },
@@ -695,7 +699,7 @@ function applyFieldAnswer(draft: IntakeDraft, field: IntakeField, picks: readonl
   if (picks !== undefined) facts = withPicks(facts, field, picks);
   if (reading.intent === "none" && isListStep(field)) facts = withList(facts, field, []);
   if (reading.intent === "answer") facts = mergeAnswer(facts, field, reading, { settled: draft.settled, replace: revisiting });
-  const answered: IntakeDraft = { ...draft, facts, followUp: null };
+  const answered: IntakeDraft = { ...draft, facts, followUp: null, answeredNone: noneLists(draft, field, facts, picks, reading) };
 
   // The rules ask again at most once per question, and only while the follow-up budget lasts.
   const again = answeringFollowUp || reading.intent !== "answer" ? null : reaskText(field, answered, picks, reading);
@@ -703,6 +707,13 @@ function applyFieldAnswer(draft: IntakeDraft, field: IntakeField, picks: readonl
   if (reasked) return reasked;
 
   return { ...answered, settled: unique([...answered.settled, field]), review: revisiting ? { stage: "asking" } : answered.review };
+}
+
+/** The lists answered with none after this answer: an empty Done or a typed "none" adds the list, any value removes it. */
+function noneLists(draft: IntakeDraft, field: IntakeField, facts: IntakeFacts, picks: readonly string[] | undefined, reading: AnswerReading): ListKey[] {
+  const before = (draft.answeredNone ?? []).filter((key) => facts[key].length === 0);
+  const saidNone = isListStep(field) && facts[field].length === 0 && (picks !== undefined || reading.intent === "none");
+  return saidNone ? unique([...before, field]) : before;
 }
 
 /** Text to ask again when an answer missed its question, or `null` when it landed. */
@@ -873,7 +884,9 @@ export function planReadyText(business: BusinessProfile): string {
 // =============================================================================
 
 /** The value one summary line shows, or `null` when Anchored doesn't know it yet. */
-function summaryValue(field: IntakeField, facts: IntakeFacts): string | null {
+function summaryValue(field: IntakeField, draft: IntakeDraft): string | null {
+  const { facts } = draft;
+  if (isListStep(field) && facts[field].length === 0 && draft.answeredNone?.includes(field)) return "None";
   switch (field) {
     case "name":
       return [facts.name, facts.place].filter(Boolean).join(", ") || null;
@@ -894,7 +907,7 @@ function summaryValue(field: IntakeField, facts: IntakeFacts): string | null {
 /** One line per planned question for the "What Anchored knows" card: known, skipped, or still open. */
 export function summarize(draft: IntakeDraft): KnownFact[] {
   return INTAKE_FIELDS.map((field) => {
-    const value = summaryValue(field, draft.facts);
+    const value = summaryValue(field, draft);
     const state = value !== null ? "known" : draft.settled.includes(field) ? "skipped" : "open";
     return { field, label: FIELD_LABELS[field].summary, value, state };
   });
@@ -962,6 +975,8 @@ const RENAME =
   /\b(?:renamed|rename)\s+(?:it|us|the (?:business|shop|store|company|restaurant|truck)|our (?:business|shop|store|company|restaurant|truck))\s+(?:to\s+)?["']?(.+?)["']?(?=[.!?]|$)|\b(?:new name is|now called|changed (?:our|the) name to|we're (?:now )?called|we are (?:now )?called)\s+["']?(.+?)["']?(?=[.!?,]|$)/i;
 const MOVED = /\b(?:moved|relocated|moving)\s+(?:(?:the|our) (?:shop|store|business|truck|office|restaurant)\s+)?to\s+(.+?)(?=[.!?;]|\s+(?:and|but|so)\b|$)|\b(?:we're|we are)\s+now\s+in\s+(.+?)(?=[.!?;]|\s+(?:and|but|so)\b|$)/i;
 const NOW_A = /\b(?:we're|we are|now we're|we became)\s+(?:now\s+)?(?:a|an)\s+/i;
+// Words that end a rename sentence without being part of the name: "we're called Brightpath now".
+const RENAME_FILLER = /(?:\s+(?:now|these days|instead|going forward|from now on|anymore|officially))+["']?$/i;
 
 /** Read the changes an owner describes, such as "we started doing catering" or "we switched from Clover to Square". */
 export function readChanges(text: string): FactChanges {
@@ -969,7 +984,7 @@ export function readChanges(text: string): FactChanges {
   if (clean === "") return NO_CHANGES;
   const { found, dropped } = scanLists(clean, false);
   const rename = RENAME.exec(clean);
-  const name = rename?.[1] ?? rename?.[2];
+  const name = (rename?.[1] ?? rename?.[2])?.replace(RENAME_FILLER, "").replace(/^["']+|["']+$/g, "");
   const moved = MOVED.exec(clean);
   const movedTo = (moved?.[1] ?? moved?.[2] ?? "").trim();
   // "Moved to Square" is a tool change, read above, not a new town.

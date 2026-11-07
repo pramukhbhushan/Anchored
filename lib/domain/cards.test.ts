@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { CORE_AGENTS } from "@/lib/domain/agents";
+import { CORE_AGENTS, SKILLS } from "@/lib/domain/agents";
 import { CARD_TEMPLATES, type CardBody, type CardSkill, draftFeed, simulateCard } from "@/lib/domain/cards";
 import { CASE_STUDIES, caseStudyById, EXAMPLES, exampleProfile } from "@/lib/domain/cases";
-import { checkSend } from "@/lib/domain/executor";
+import { checkSend, QUIET_HOURS_RULE } from "@/lib/domain/executor";
 import { activeAgents, workflowIdsOf } from "@/lib/domain/paths";
 import type { BusinessProfile, Choice, ChoiceMap, WorkflowId } from "@/lib/domain/types";
 
@@ -166,6 +166,35 @@ describe("triage", () => {
   });
 });
 
+describe("callback cards", () => {
+  it("offer two open times, as the Callback skill promises", () => {
+    expect(SKILLS.callback.does).toContain("Drafts one text with two open times");
+    const dental = exampleProfile("dental");
+    for (const variant of VARIANTS) {
+      expect(CARD_TEMPLATES.callback(dental, variant).body, `variant ${variant}`).toMatch(/\d{1,2}(?::\d\d)? [ap]\.m\. or \d{1,2}(?::\d\d)? [ap]\.m\./);
+    }
+  });
+});
+
+describe("post cards", () => {
+  const posts = (business: BusinessProfile): CardBody[] => VARIANTS.map((variant) => CARD_TEMPLATES.posts(business, variant));
+
+  it("drafts Google listing posts only for a business that uses Google", () => {
+    const corner = exampleProfile("corner");
+    expect(corner.reach).not.toContain("Google");
+    for (const card of posts(corner)) expect(`${card.title} ${card.body}`).not.toMatch(/google/i);
+    expect(posts(exampleProfile("dental"))[0]?.title).toContain("Google");
+    const listingOnly = { ...corner, tools: ["Google Business Profile"] };
+    expect(posts(listingOnly)[0]?.title).toContain("Google");
+  });
+
+  it("never claims it read hours the post doesn't hold", () => {
+    for (const business of [exampleProfile("corner"), exampleProfile("dental")]) {
+      for (const card of posts(business)) expect(card.checks).not.toContain("Hours read from your profile");
+    }
+  });
+});
+
 describe("every drafted card", () => {
   // Researched cards and every template variant each business could draft. Locked cards never send by design.
   const drafts = EVERY_BUSINESS.flatMap((business) => [
@@ -186,6 +215,17 @@ describe("every drafted card", () => {
   it("makes no claim tied to a season or month", () => {
     const seasonal = /\b(winter|summer|spring|fall|autumn|holidays?|cold snap|heat wave|cooling|november|december)\b/i;
     for (const [label, card] of drafts) expect(`${card.title} ${card.body} ${card.reason}`, label).not.toMatch(seasonal);
+  });
+
+  it("states the send-hours rule instead of claiming the current time", () => {
+    for (const [label, card] of drafts) {
+      for (const check of card.checks.filter((text) => /\b[ap]\.m\./.test(text))) expect(check, label).toBe(QUIET_HOURS_RULE);
+    }
+  });
+
+  it("names no weekday in a title or reason, which could contradict today's date", () => {
+    const weekday = /\b(?:mon|tues|wednes|thurs|fri|satur|sun)day\b/i;
+    for (const [label, card] of drafts) expect(`${card.title} ${card.reason}`, label).not.toMatch(weekday);
   });
 
   it("asks HVAC callers about heat or AC, whatever the month", () => {

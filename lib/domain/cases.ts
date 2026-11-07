@@ -1,4 +1,5 @@
 import { profileFromFacts } from "@/lib/domain/engine";
+import { QUIET_HOURS_RULE } from "@/lib/domain/executor";
 import type {
   BusinessFacts,
   BusinessProfile,
@@ -117,7 +118,7 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
         title: "Missed call at 7:42 p.m. from (301) 555-0192",
         body: "Sorry we missed you, this is College Park Heating & Air. Is your heat or AC fully off, or running but not keeping up? We can come tomorrow at 8 or 10 a.m. Reply STOP to opt out.",
         reason: "Callers who wait often book the next shop on Google.",
-        checks: ["Before 8 p.m. Maryland quiet hours", "The caller reached out first", "No price in the text"],
+        checks: [QUIET_HOURS_RULE, "The caller reached out first", "No price in the text"],
         action: "Send text",
         channel: "sms",
         to: "(301) 555-0192",
@@ -163,7 +164,7 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
         title: "312 past customers haven't booked in 18 months",
         body: "Hi from College Park Heating & Air! It's been a while since your last tune-up. Reply YES and we'll find you a time. Reply STOP to opt out.",
         reason: "Slow seasons leave trucks idle.",
-        checks: ["Only the 118 with written consent", "Sent between 8 a.m. and 8 p.m."],
+        checks: ["Only the 118 with written consent", QUIET_HOURS_RULE],
         action: "Send to 118 customers",
         channel: "sms",
         to: "118 customers with consent",
@@ -252,8 +253,9 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
       },
       noshows: {
         isNew: false,
-        why: "Reservation no-shows leave seats empty on your busiest nights.",
+        why: "Reservation no-shows leave seats empty on your busiest nights. OpenTable has reminders, but we couldn't confirm them on your plan, so Show-up Keeper texts each party the day of.",
         stake: "About $16,600 a year in sales before refills, modeled",
+        override: { rec: "build" },
       },
       scheduling: {
         isNew: false,
@@ -294,8 +296,8 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
       showup: {
         title: "Table for 6 tonight at 7 p.m., booked by Ana",
         body: "Hi Ana, see you tonight at 7 at Linden Street Kitchen, table for 6. Reply C to confirm or R to change. Reply STOP to opt out.",
-        reason: "A 6-top no-show on a Friday is the night's biggest loss.",
-        checks: ["Booked through OpenTable with a phone number", "Inside 8 a.m. to 8 p.m."],
+        reason: "A no-show by a table for 6 is the night's biggest loss.",
+        checks: ["Booked through OpenTable with a phone number", QUIET_HOURS_RULE],
         action: "Send text",
         channel: "sms",
         to: "Ana Ruiz",
@@ -354,7 +356,12 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
     },
     plans: {
       calls: { isNew: false, why: "Leads reach you in DMs and forms, not calls.", stake: "" },
-      books: { isNew: false, why: "Coaches rank invoicing as their top admin task (ICF).", stake: "" },
+      books: {
+        isNew: false,
+        why: "Coaches rank invoicing as their top admin task (ICF). Stripe's own reminders read like a bill, so Bookkeeping and Invoicing drafts a nudge in your voice with the amount from Stripe.",
+        stake: "",
+        override: { rec: "build" },
+      },
       leads: {
         isNew: false,
         why: "68% of clients think it over for weeks, and 'let me think about it' rarely gets a follow-up.",
@@ -386,7 +393,7 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
         to: "Priya S.",
       },
       callfollow: {
-        title: "Sam said 'let me think' on Tuesday",
+        title: "Sam said 'let me think' after your call",
         body: "Hi Sam, I enjoyed our call. Here's the 3-month plan we talked about: $1,800, starting with a session in two weeks. Any questions I can answer?",
         reason: "Check-in 2 of 3. Most clients decide over weeks.",
         checks: ["Price matches your package list", "Check-in 2 of 3"],

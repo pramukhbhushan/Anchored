@@ -1,3 +1,4 @@
+import { QUIET_HOURS_RULE } from "@/lib/domain/executor";
 import { activeAgents, agentForSkill, chosenSkills } from "@/lib/domain/paths";
 import type { ActiveAgent, BusinessProfile, CardDraft, ChoiceMap, KeyedCard, SkillId } from "@/lib/domain/types";
 
@@ -20,7 +21,7 @@ export type CardSkill = Exclude<SkillId, "brief">;
  * they never repeat it. `agents` are the agents at work here; triage hands email only to one of them.
  */
 export type CardTemplate = (
-  business: Pick<BusinessProfile, "name">,
+  business: Pick<BusinessProfile, "name" | "reach" | "tools">,
   variant: number,
   agents?: readonly ActiveAgent[],
 ) => CardBody;
@@ -37,6 +38,11 @@ function pick<T>(variant: number, standing: T, ...simulated: readonly [T, ...T[]
   return simulated[index] ?? simulated[0];
 }
 
+/** Whether the owner said customers find them on Google or that they keep a Google Business Profile. */
+function usesGoogle(business: Pick<BusinessProfile, "reach" | "tools">): boolean {
+  return business.reach.includes("Google") || business.tools.includes("Google Business Profile");
+}
+
 // =============================================================================
 // Templates
 // =============================================================================
@@ -47,9 +53,9 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
     const caller = pick(v, "(410) 555-0137", "(443) 555-0182", "(240) 555-0164");
     return {
       title: `Missed call at ${pick(v, "2:15 p.m.", "4:40 p.m.", "11:05 a.m.")} from ${caller}`,
-      body: `Sorry we missed you, this is ${b.name}. What can we help with? We can call you back at ${pick(v, "4 p.m. today", "9 a.m. tomorrow", "1 p.m. today")}, or reply with a better time. Reply STOP to opt out.`,
+      body: `Sorry we missed you, this is ${b.name}. What can we help with? We can call you back at ${pick(v, "4 p.m. or 5:30 p.m. today", "9 a.m. or 11 a.m. tomorrow", "1 p.m. or 3 p.m. today")}, or reply with a better time. Reply STOP to opt out.`,
       reason: "Callers who wait often try someone else.",
-      checks: ["Inside 8 a.m. to 8 p.m.", "The caller reached out first", "No price in the text"],
+      checks: [QUIET_HOURS_RULE, "The caller reached out first", "No price in the text"],
       action: "Send text",
       channel: "sms",
       to: caller,
@@ -74,7 +80,7 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
       title: `Booking tomorrow at ${time} with ${name}`,
       body: `Hi ${name}, a reminder of your visit with ${b.name} tomorrow at ${time}. Reply C to confirm or R to reschedule. Reply STOP to opt out.`,
       reason: "A reminder the day before saves the slot.",
-      checks: ["Inside 8 a.m. to 8 p.m.", "Booked customer with consent"],
+      checks: [QUIET_HOURS_RULE, "Booked customer with consent"],
       action: "Send text",
       channel: "sms",
       to: pick(v, "Maria Lopez", "Devon Hall", "Kim Tran"),
@@ -95,8 +101,8 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
   callfollow: (b, v) => {
     const name = pick(v, "Sam", "Lee", "Jamie");
     return {
-      title: `${name} said 'let me think' on Tuesday`,
-      body: `Hi ${name}, good talking Tuesday. Any questions I can answer about getting started with ${b.name}?`,
+      title: `${name} said 'let me think' after your call`,
+      body: `Hi ${name}, good talking the other day. Any questions I can answer about getting started with ${b.name}?`,
       reason: "Check-in 2 of 3.",
       checks: ["Check-in 2 of 3", "No new offer added"],
       action: "Send email",
@@ -127,7 +133,7 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
       title: `${count} past customers haven't been back in a year`,
       body: `Hi, it's ${b.name}. ${pick(v, "It's been a while!", "We'd love to see you again.", "We have openings coming up.")} Reply YES and we'll find you a time. Reply STOP to opt out.`,
       reason: "Past customers already know you.",
-      checks: ["Only customers with written consent", "Sent between 8 a.m. and 8 p.m."],
+      checks: ["Only customers with written consent", QUIET_HOURS_RULE],
       action: `Send to ${count} customers`,
       channel: "sms",
       to: `${count} customers with consent`,
@@ -186,19 +192,30 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
     action: "Add to rep list",
     channel: "list",
   }),
-  posts: (b, v) => ({
-    title: pick(
-      v,
-      "Your Google listing hasn't changed in 3 months",
-      "Your hours on Google don't match your profile",
-      "Your Google listing has no recent photos",
-    ),
-    body: `Draft post for ${b.name}: "${pick(v, "Stop by this week, or call ahead to book a time.", "Our hours are updated. Check them before you stop by.", "A look at what we've been working on. Stop by and say hi.")}"`,
-    reason: "Customers skip a business when basic details are missing.",
-    checks: ["You post it yourself", "Hours read from your profile"],
-    action: "Copy post",
-    channel: "list",
-  }),
+  // Google listing posts only for a business that said it uses Google. No profile holds hours, so no post states them.
+  posts: (b, v) =>
+    usesGoogle(b)
+      ? {
+          title: pick(
+            v,
+            "Your Google listing hasn't changed in 3 months",
+            "Customers check your Google listing before they visit",
+            "Your Google listing has no recent photos",
+          ),
+          body: `Draft post for ${b.name}: "${pick(v, "Stop by this week, or call ahead to book a time.", "Planning a visit? Check our listing for this week's hours before you stop by.", "A look at what we've been working on. Stop by and say hi.")}"`,
+          reason: "Customers skip a business when basic details are missing.",
+          checks: ["You post it yourself", "No prices or offers in the post"],
+          action: "Copy post",
+          channel: "list",
+        }
+      : {
+          title: pick(v, "Nothing posted in 3 weeks", "A short post for this week", "Show customers what's new"),
+          body: `Draft post for ${b.name}: "${pick(v, "Stop by this week, or call ahead to book a time.", "Thanks to everyone who came by this week. See you soon.", "A look at what we've been working on. Stop by and say hi.")}"`,
+          reason: "A short, regular post keeps you in front of customers.",
+          checks: ["You post it yourself", "No prices or offers in the post"],
+          action: "Copy post",
+          channel: "list",
+        },
   reviewdrafter: (_b, v) => ({
     title: "New 4-star review mentions a long wait",
     body: `Thanks for the kind words, ${pick(v, "Chris", "Dana", "Pat")}, and you're right about the wait. We're adding help at our busiest hours. Hope to see you again soon.`,

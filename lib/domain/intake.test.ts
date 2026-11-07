@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { profileFromAnswers, profileFromFacts } from "@/lib/domain/engine";
 import {
+  allowedLists,
   applyAnswer,
   applyChanges,
   changeReply,
@@ -138,6 +139,18 @@ describe("reading answers", () => {
     expect(draft.settled).toContain("tools");
   });
 
+  it("records an answer of none as none, not skipped, and builds no tools from it", () => {
+    const toTools: IntakeDraft = { ...newDraft(), settled: ["name", "kind", "what", "reach"], facts: { ...newDraft().facts, name: "X", kind: "Y", what: "Z" } };
+    const toolsFact = (draft: IntakeDraft) => summarize(draft).find((fact) => fact.field === "tools");
+    for (const reply of [picks(), text("None of these")]) {
+      const draft = answer(toTools, reply);
+      expect(toolsFact(draft)).toMatchObject({ state: "known", value: "None" });
+      expect(profileFromAnswers(draftToAnswers(draft)).tools).toEqual([]);
+    }
+    expect(toolsFact(answer(toTools, text("skip")))).toMatchObject({ state: "skipped", value: null });
+    expect(toolsFact(applyAnswer(answer(toTools, picks()), "tools", picks("Square")))).toMatchObject({ state: "known", value: "Square" });
+  });
+
   describe("a list question the owner already answered in passing", () => {
     // The first answer named how customers get in touch, so the reach question only confirms it.
     const heard: IntakeDraft = {
@@ -172,6 +185,20 @@ describe("reading answers", () => {
     const twice = answer(once, text("honestly no clue"));
     expect(twice.settled).toContain("reach");
     expect(question(twice).field).toBe("tools");
+  });
+
+  it("keeps DoorDash and OpenTable when the owner names them as tools", () => {
+    expect(readAnswer("DoorDash and OpenTable", "tools").facts.tools).toEqual(expect.arrayContaining(["DoorDash", "OpenTable"]));
+    expect(allowedLists({ reach: [], tools: ["DoorDash", "opentable"], signals: [], languages: [] }).tools).toEqual(["OpenTable", "DoorDash"]);
+  });
+
+  it("reads texting as a way customers reach the business", () => {
+    expect(readAnswer("They take bookings by text mostly", "reach").facts.reach).toContain("Phone calls");
+  });
+
+  it("gives an owner who tapped Home services the home trade", () => {
+    const { draft } = converse([text("Comfort Pros, Bowie, MD"), picks("Home services")]);
+    expect(profileFromAnswers(draftToAnswers(draft)).tradeKey).toBe("home");
   });
 
   it("never records facts the owner ruled out", () => {
@@ -264,6 +291,15 @@ describe("business chat changes", () => {
     tools: ["Clover"],
     signals: ["suppliers"],
     voice: "Thanks, see you soon!",
+  });
+
+  it.each([
+    ["Also we're called Brightpath Credit now", "Brightpath Credit"],
+    ["We renamed the business to Brightpath Credit these days.", "Brightpath Credit"],
+    ["Our new name is Brightpath Credit instead", "Brightpath Credit"],
+    ["We're now called Brightpath Credit from now on!", "Brightpath Credit"],
+  ])("drops trailing filler from a new name: %s", (message, name) => {
+    expect(readChanges(message).texts.name).toBe(name);
   });
 
   it("reads additions, removals and switches", () => {

@@ -35,8 +35,9 @@ const WINDOW_MS = 10 * 60 * 1000;
 const LIMITS = {
   createBusiness: { bucket: "create-business", windowMs: WINDOW_MS, perSession: 10, perIp: 60 },
   rewrite: { bucket: "rewrite", windowMs: WINDOW_MS, perSession: 20, perIp: 120 },
-  // An onboarding interview runs about a dozen turns, so 40 leaves room for a restart or two.
-  chat: { bucket: "chat", windowMs: WINDOW_MS, perSession: 40, perIp: 200 },
+  // One onboarding runs 11 to 14 turns and Reset demo keeps the session, so 90 fits three
+  // onboardings plus chat. The daily model budget in `lib/server/ai-budget.ts` caps the spend.
+  chat: { bucket: "chat", windowMs: WINDOW_MS, perSession: 90, perIp: 450 },
   newEvent: { bucket: "new-event", windowMs: WINDOW_MS, perSession: 60, perIp: 300 },
   mutation: { bucket: "mutation", windowMs: WINDOW_MS, perSession: 120, perIp: 600 },
 } as const satisfies Record<string, ApiLimit>;
