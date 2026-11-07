@@ -1,19 +1,44 @@
 # Anchored
 
-Anchored helps any small business discover, compare and adopt AI tools. An owner describes how the business runs. Anchored maps the work AI can take on into workflows, offers three paths for each one, and rates real tools against the software the owner already uses. Where no tool fits, an approve-first agent drafts the work and waits for the owner's tap.
+Anchored shows a small business owner where AI can save them time, which tools fit, and what it all costs. Where no tool fits, Anchored's own AI agents draft the work. Nothing reaches a customer until the owner taps Approve.
 
-Built for the University of Maryland AI for Small Business Hack-a-thon, Fall 2026. The research behind it is in `docs/research/`: HVAC, coaching, and corner stores and restaurants.
+Built for the University of Maryland AI for Small Business Hack-a-thon, Fall 2026. The research behind it is in [`docs/research/`](docs/research/).
 
-## How the product is organized
+## How it works
 
-- **Workflows are the what.** Five are shared by every business: answer and return calls, bookkeeping and invoicing, lead follow-up, social posts, and quotes. Onboarding answers add others, such as a supplier price check, delivery disputes or a SNAP stocking check.
-- **Each workflow has three paths.** Turn on a tool the owner already pays for, buy one from the catalog, or have Anchored build it.
-- **Five agents run the build path.** Front Desk, Follow-up, Bookkeeping and Invoicing, Content and Social, and Internal Communications. Each agent runs skills, such as Closer or Price Watch. Internal Communications always runs the daily brief and forwarded-email triage.
-- **Onboarding can spawn a niche agent** for work only some businesses have, such as SNAP Stock Check. A niche agent reuses the same actions and rules, and asks for approval on every card.
-- **Tools are rated on seven checks**, personalized by onboarding: price and cancel terms, easy to start, connects to your software, states data use, you stay in charge, names your languages, and proven in similar businesses. Each check shows its evidence level. Code computes every score; the model never sets one.
-- **Plain code sends.** The executor checks quiet hours, consent and the allergy lock before anything goes out. In this build, texts and emails go to a simulated outbox.
+To look around without typing anything, open the app and pick a sample business, such as College Park Heating & Air.
 
-Trade templates are hints. Onboarding suggests answers that businesses like yours often give, and the owner confirms each one.
+### 1. Describe your business
+
+Anchored asks one question at a time: what you sell, how customers reach you, and what software you already use. Skip anything you don't know.
+
+![Chat that asks about the business, with a checklist of what Anchored knows so far](docs/screenshots/1-describe.png)
+
+### 2. See where AI can help
+
+Anchored lists the jobs AI can take off your plate, such as returning missed calls or chasing quotes. Each job has three options: turn on a tool you already pay for, buy a new one, or let an Anchored agent do it. Anchored marks its pick.
+
+![Workflows page with the three options for each job](docs/screenshots/2-workflows.png)
+
+### 3. Compare tools
+
+Each tool gets a score out of 100 for your business. The score comes from seven checks, such as price, setup effort and whether it works with your software.
+
+![Tools page with scored tool cards](docs/screenshots/3-tools.png)
+
+### 4. Approve before anything goes out
+
+Agents write each text or email as a card. You approve, edit or skip it. Anchored also holds texts during quiet hours and texts only customers who agreed to get them. In this demo, approved messages land in a demo outbox and nothing is sent.
+
+![Approvals page with draft cards and the demo outbox](docs/screenshots/4-approve.png)
+
+### 5. See what it costs
+
+One page shows the monthly bill and what each piece does. Tools you already pay for count as $0.
+
+![Stack page with the monthly bill](docs/screenshots/5-stack.png)
+
+For how the code fits together, see [`docs/architecture.md`](docs/architecture.md).
 
 ## Run it locally
 
