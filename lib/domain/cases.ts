@@ -115,7 +115,7 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
     cards: {
       callback: {
         title: "Missed call at 7:42 p.m. from (301) 555-0192",
-        body: "Sorry we missed you, this is College Park Heating & Air. Is your system fully off, or running but not cooling? We can come tomorrow at 8 or 10 a.m. Reply STOP to opt out.",
+        body: "Sorry we missed you, this is College Park Heating & Air. Is your heat or AC fully off, or running but not keeping up? We can come tomorrow at 8 or 10 a.m. Reply STOP to opt out.",
         reason: "Callers who wait often book the next shop on Google.",
         checks: ["Before 8 p.m. Maryland quiet hours", "The caller reached out first", "No price in the text"],
         action: "Send text",
@@ -124,7 +124,7 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
       },
       closer: {
         title: "$11,400 heat pump quote to the Okafors, 5 days quiet",
-        body: "Hi James, it's Dana at College Park Heating & Air. I can hold Thursday's install slot until Friday. Want me to send the 0% financing option?",
+        body: "Hi James, it's Dana at College Park Heating & Air. I can hold Thursday's install slot until Friday. Want me to send the 0% financing option? Reply STOP to opt out.",
         reason: "Touch 2 of 3. Day 5 of your day 1, 5 and 10 plan.",
         checks: ["Financing is on your allowed offers", "Customer has a consent record", "Touch 2 of 3"],
         action: "Send text",
@@ -142,9 +142,9 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
         stake: 1800,
       },
       inquiry: {
-        title: "New Local Services lead: no heat, kids at home",
+        title: "New Local Services lead: system down, kids at home",
         body: "Hi Maria, this is Dana at College Park Heating & Air. We can be there today between 3 and 5 p.m. Does that work? Reply STOP to opt out.",
-        reason: "No-heat calls in November book fast elsewhere.",
+        reason: "A family with a broken system books the first shop that answers.",
         checks: ["Same-day slot is open on your board", "No price in a first reply"],
         action: "Send text",
         channel: "sms",
@@ -152,7 +152,7 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
       },
       reviewer: {
         title: "Patel job paid this afternoon",
-        body: "Thanks for having us out, Priya. If we did right by you, a Google review helps your neighbors find us: [your review link]. Reply STOP to opt out.",
+        body: "Thanks for having us out, Priya. If we did right by you, a Google review helps your neighbors find us. I'll send the link next. Reply STOP to opt out.",
         reason: "Reviews feed your Local Services Ads ranking.",
         checks: ["No reward offered for a rating", "Existing customer with consent"],
         action: "Send text",
@@ -161,17 +161,17 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
       },
       reactivator: {
         title: "312 past customers haven't booked in 18 months",
-        body: "Hi from College Park Heating & Air! Fall is a good time for a furnace tune-up. Reply YES and we'll find you a time. Reply STOP to opt out.",
-        reason: "Shoulder season leaves trucks idle.",
+        body: "Hi from College Park Heating & Air! It's been a while since your last tune-up. Reply YES and we'll find you a time. Reply STOP to opt out.",
+        reason: "Slow seasons leave trucks idle.",
         checks: ["Only the 118 with written consent", "Sent between 8 a.m. and 8 p.m."],
         action: "Send to 118 customers",
         channel: "sms",
         to: "118 customers with consent",
       },
       keeper: {
-        title: "14 maintenance plans expire in December",
-        body: "Hi, your College Park Heating & Air maintenance plan renews Dec 1. Reply YES to keep your spring and fall tune-ups. Reply STOP to opt out.",
-        reason: "Renewal 30 days out, before the cold snap.",
+        title: "14 maintenance plans renew next month",
+        body: "Hi, your College Park Heating & Air maintenance plan renews on the 1st. Reply YES to keep your twice-a-year tune-ups. Reply STOP to opt out.",
+        reason: "Renewal 30 days out keeps plans from lapsing.",
         checks: ["Plan members with consent", "No new price"],
         action: "Send to 14 members",
         channel: "sms",
@@ -228,6 +228,7 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
         isNew: false,
         why: "Walk-in guests aren't leads. Catering is the one real lead, and it has its own workflow.",
         stake: "",
+        override: { rec: "skip" },
       },
       social: {
         isNew: true,
@@ -272,7 +273,7 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
     },
     cards: {
       catering: {
-        title: "Party of 40 on Dec 12, from your catering form",
+        title: "Party of 40 in three weeks, from your catering form",
         body: "Hi Marcus, thanks for thinking of Linden Street Kitchen! For 40 people we offer three packages: a taco bar, bowls with sides, or family-style platters. Which sounds closest? I can send a quote today.",
         reason: "Catering orders average $360 to $420.",
         checks: ["Within your kitchen limit of 60", "No allergy claims", "Sent by email, not text"],
@@ -283,7 +284,7 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
       },
       pricewatch: {
         title: "Avocados up $6 a case",
-        body: "Your Nov 5 produce invoice charges $48 a case against $42 on Oct 29. At 4 cases a week that's $24 a week. Add to your rep list?",
+        body: "Your latest produce invoice charges $48 a case, up from $42 on the one before. At 4 cases a week that's $24 a week. Add to your rep list?",
         reason: "Guacamole is still priced from the old cost.",
         checks: ["Invoice lines add up to the total", "Compared with your last invoice on file"],
         action: "Add to rep list",
@@ -300,8 +301,8 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
         to: "Ana Ruiz",
       },
       posts: {
-        title: "Your Google listing still shows summer hours",
-        body: "Draft post: \"Winter hours start Monday: open 11 to 9, closed Tuesdays. Catering for the holidays? Ask us.\"",
+        title: "Your Google listing still shows your old hours",
+        body: "Draft post: \"New hours start Monday: open 11 to 9, closed Tuesdays. Planning an event? Ask us about catering.\"",
         reason: "Diners skip a place when basic details are wrong.",
         checks: ["You post it yourself", "Hours read from your profile"],
         action: "Copy post",
@@ -396,7 +397,7 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
       },
       nudger: {
         title: "Jordan's invoice is 9 days late",
-        body: "Hi Jordan, a quick nudge on invoice 1042 for $600. Here's the link if it's easier: [Stripe link]. Thanks!",
+        body: "Hi Jordan, a quick nudge on invoice 1042 for $600. If paying online is easier, I'll send the link next. Thanks!",
         reason: "A friendly reminder now beats an awkward one later.",
         checks: ["Amount read from Stripe"],
         action: "Send email",

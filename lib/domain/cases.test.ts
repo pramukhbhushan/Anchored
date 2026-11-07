@@ -16,7 +16,7 @@ type PathFields = Pick<WorkflowPlan, "fit" | "rec" | "skills" | "tool">;
 // Every place the research replaces the rules' pick. Each one's reason is in that workflow's `why`.
 const OVERRIDES: Readonly<Record<string, Partial<Record<WorkflowId, Partial<PathFields>>>>> = {
   hvac: { social: { skills: ["reactivator"] }, quotes: { skills: ["closer", "debrief"] }, reviews: { rec: "build" } },
-  restaurant: { calls: { rec: "buy", tool: "certus" }, books: { rec: "skip" } },
+  restaurant: { calls: { rec: "buy", tool: "certus" }, books: { rec: "skip" }, leads: { rec: "skip" } },
   coach: { leads: { skills: ["inquiry", "callfollow"] }, noshows: { rec: "build" } },
 };
 

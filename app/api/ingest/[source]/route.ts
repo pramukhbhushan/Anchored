@@ -3,7 +3,8 @@ import type { CardsResponse } from "@/lib/api/contract";
 import { ingestSchema } from "@/lib/api/schemas";
 import { SKILLS } from "@/lib/domain/agents";
 import { CARD_TEMPLATES, simulateCard } from "@/lib/domain/cards";
-import { chosenSkills } from "@/lib/domain/paths";
+import { mentionsAllergen } from "@/lib/domain/executor";
+import { activeAgents, chosenSkills } from "@/lib/domain/paths";
 import type { BusinessProfile, KeyedCard, SkillId } from "@/lib/domain/types";
 import { addEventCard, choicesForSkill, findBusiness, getChoices, nextSimulationTurn } from "@/lib/server/data";
 import { fail, handleError, json, readBody } from "@/lib/server/http";
@@ -97,6 +98,20 @@ function personalize(card: KeyedCard, source: string, business: BusinessProfile,
   }
 }
 
+/** Turn an event that asks about allergies into a locked card the owner must answer personally. */
+function allergyLock(card: KeyedCard, payload: Readonly<Record<string, unknown>>): KeyedCard {
+  const who = text(payload, "name") ?? text(payload, "author") ?? text(payload, "from") ?? "A customer";
+  return {
+    ...card,
+    title: `Allergy question from ${who}`,
+    body: `${who} asked about allergies. Anchored doesn't draft answers to allergy questions. Call them or reply yourself.`,
+    reason: "An approved guess would become the business's own statement about someone's health.",
+    checks: ["Thread locked until you write the reply"],
+    action: "I'll handle it",
+    channel: "locked",
+  };
+}
+
 /** Record an event and draft a card from the skill that handles its source. */
 export async function POST(request: Request, { params }: { params: Promise<{ source: string }> }) {
   const parsed = await readBody(request, ingestSchema);
@@ -126,13 +141,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ sou
     await getStore().recordEvent(await getSessionId(), business.id, source, payload);
 
     const turn = await nextSimulationTurn(business.id);
-    // Triage has no workflow to narrow to, so its card comes straight from the template.
+    // Triage has no workflow to narrow to, so its card comes straight from the template,
+    // told which agents are at work so it only routes to one that exists.
     const card: KeyedCard | null =
       skill === "triage"
-        ? { ...CARD_TEMPLATES.triage(business, turn), agent: "internal", skill: "triage", key: `${business.id}:sim:${turn}` }
+        ? { ...CARD_TEMPLATES.triage(business, turn, activeAgents(business, choices)), agent: "internal", skill: "triage", key: `${business.id}:sim:${turn}` }
         : simulateCard(business, choicesForSkill(business, choices, skill), turn);
     if (!card) return fail(409, "That skill has no card to draft for this event yet.");
-    return json<CardsResponse>(await addEventCard(business, personalize(card, source, business, payload)), 201);
+    // An allergy question gets no drafted answer at all: the thread is locked for the owner to reply.
+    const message = text(payload, "message", 2000) ?? text(payload, "text", 2000) ?? "";
+    const result = mentionsAllergen(message) ? allergyLock(card, payload) : personalize(card, source, business, payload);
+    return json<CardsResponse>(await addEventCard(business, result), 201);
   } catch (error) {
     return handleError(error, "POST /api/ingest/[source]");
   }

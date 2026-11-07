@@ -1,6 +1,6 @@
 import "server-only";
 import type { CardRecord, DecideCardRequest, DecideCardResponse, OutboxEntry } from "@/lib/api/contract";
-import { checkSend } from "@/lib/domain/executor";
+import { checkSend, ensureOptOut } from "@/lib/domain/executor";
 import type { CardDraft } from "@/lib/domain/types";
 import type { Store } from "@/lib/store";
 
@@ -52,7 +52,9 @@ export async function decideCard(store: Store, session: string, card: CardRecord
     return { ok: true, response: { card: skipped } };
   }
 
-  const body = request.body ?? card.body;
+  // The opt-out line is the law's job, not the owner's: code puts it back if an edit dropped it.
+  const shown = request.body ?? card.body;
+  const body = card.channel === "sms" ? ensureOptOut(shown) : shown;
   const edited = card.edited || body !== card.body;
   const draft: CardDraft = { ...card, body };
 

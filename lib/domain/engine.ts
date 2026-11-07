@@ -82,12 +82,12 @@ function matchWorkflows(facts: BusinessFacts): Partial<Record<WorkflowId, Matche
 
   w.calls = reaches("Phone calls")
     ? { fit: 3, why: "Customers reach you by phone. A missed call often turns into a call to someone else." }
-    : { fit: 0, why: "Customers don't usually reach you by phone." };
+    : { fit: 0, why: "Phone calls weren't mentioned. Add them if customers call you." };
   w.books = runs("QuickBooks")
     ? { fit: 2, why: "You already pay for QuickBooks. Use what it does before you buy more." }
     : bookedOrQuoted
       ? { fit: 2, why: "You bill after the work is done, and late invoices need a polite nudge." }
-      : { fit: 1, why: "Customers pay at the counter." };
+      : { fit: 1, why: "Quotes and bookings weren't mentioned, so there may be little to bill later." };
   w.leads =
     leadsArriveInWriting || says("quotes")
       ? {
@@ -96,17 +96,19 @@ function matchWorkflows(facts: BusinessFacts): Partial<Record<WorkflowId, Matche
             ? "New inquiries arrive in forms and messages while you're busy."
             : "People ask for prices and wait to hear back.",
         }
-      : { fit: 1, why: "Most sales happen on the spot, with no lead to chase." };
+      : says("catering")
+        ? { fit: 2, why: "Catering and event requests are leads, and each one waits on your reply." }
+        : { fit: 1, why: "Forms, messages and quote requests weren't mentioned, so there may be few leads to chase." };
   w.social = says("marketing")
     ? { fit: 1, why: "You already post or advertise. A post drafter can come later." }
     : {
         fit: 2,
         isNew: true,
-        why: "You don't post or advertise today. Short posts and listing updates are a cheap place to start.",
+        why: "Posting and ads weren't mentioned. Short posts and listing updates are a cheap place to start.",
       };
   w.quotes = says("quotes")
     ? { fit: 3, why: "You send quotes, and quotes go quiet when nobody has time to chase them." }
-    : { fit: 0, why: "You don't write custom quotes." };
+    : { fit: 0, why: "Quotes weren't mentioned. Add them if you write custom quotes." };
 
   if (says("suppliers")) {
     w.invoices = { fit: 3, why: "You buy from suppliers. Price rises on invoices pass unseen until margins shrink." };
@@ -157,7 +159,7 @@ function tasksFrom(facts: BusinessFacts): string[] {
   if (says("suppliers")) tasks.push("Check supplier invoices");
   if (says("licenses")) tasks.push("Track license renewals");
   if (says("shifts")) tasks.push("Fill shift gaps");
-  if (!says("marketing")) tasks.push("Post online, which nobody does today");
+  if (!says("marketing")) tasks.push("Start posting online");
   return tasks.slice(0, 5);
 }
 
@@ -169,7 +171,7 @@ function tasksFrom(facts: BusinessFacts): string[] {
 export function profileFromFacts(facts: BusinessFacts, builtBy: EngineAuthor = "rules"): BusinessProfile {
   // Blank answers count as missing, so `||` rather than `??` throughout.
   return {
-    id: facts.id || `b_${crypto.randomUUID()}`,
+    id: facts.id || freshProfileId(),
     kind: "custom",
     builtBy,
     name: facts.name || "Your business",
@@ -204,13 +206,14 @@ export function profileFromAnswers(answers: OnboardingAnswers): BusinessProfile 
     tradeKey: detectTradeKey(`${answers.kind} ${answers.what}`),
     size: answers.what.match(SIZE_PATTERN)?.[0] ?? "Not given",
     seats: 4,
-    customers: `From your answers: ${answers.what.slice(0, 90)}`,
+    customers: answers.what.trim() === "" ? undefined : `From your answers: ${clipAtWord(answers.what.trim(), 90)}`,
     reach: answers.reach,
     tools: answers.tools,
     signals: answers.signals,
     languages: answers.languages,
+    // "Answer calls and texts" is one task, so only commas and line breaks separate tasks.
     tasks: answers.week
-      .split(/,|\band\b/)
+      .split(/[,\r\n]/)
       .map((task) => task.trim())
       .filter((task) => task.length > 3)
       .slice(0, 5),
@@ -278,6 +281,28 @@ function firstWord(name: string): string {
   const lower = name.toLowerCase();
   const space = lower.indexOf(" ");
   return space === -1 ? lower : lower.slice(0, space);
+}
+
+/** `text` cut to at most `max` characters at a word boundary, with "..." when anything was cut. */
+function clipAtWord(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const lastSpace = text.lastIndexOf(" ", max);
+  // A single word longer than `max` has no boundary to cut at, so it is cut mid-word.
+  const cut = lastSpace > 0 ? text.slice(0, lastSpace) : text.slice(0, max);
+  return `${cut.replace(/[\s,.;:!?-]+$/, "")}...`;
+}
+
+/** A fresh `b_` profile id that works in any browser context. */
+function freshProfileId(): string {
+  // Browsers expose `crypto.randomUUID` only on HTTPS or localhost, so a demo on a LAN address falls back.
+  const webCrypto: Partial<Crypto> | undefined = globalThis.crypto;
+  if (typeof webCrypto?.randomUUID === "function") return `b_${webCrypto.randomUUID()}`;
+  if (typeof webCrypto?.getRandomValues === "function") {
+    const bytes = webCrypto.getRandomValues(new Uint8Array(16));
+    return `b_${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+  }
+  // Unique enough for one page: the server assigns its own id when the business is saved.
+  return `b_${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
 }
 
 function orDefault<T>(list: readonly T[] | undefined, fallback: readonly T[]): readonly T[] {

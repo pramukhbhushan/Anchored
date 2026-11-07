@@ -1,4 +1,6 @@
+import { OPT_OUT_LINE } from "@/lib/domain/executor";
 import type {
+  BusinessProfile,
   CoreAgentDef,
   CoreAgentId,
   ModelTier,
@@ -15,7 +17,8 @@ import type {
 // Who does the work on the build path. `SKILLS` holds what each skill reads,
 // may do and never does, and names the core agent that runs it; `CORE_AGENTS`
 // are the five agents every business gets; `NICHE_TEMPLATES` are agents that
-// onboarding spawns for one business through `spawnNicheAgents`.
+// onboarding spawns for one business through `spawnNicheAgents`; `rulesFor`
+// lists the rules every agent here works under.
 
 /** The Claude model behind a tier and why that tier fits the work. */
 export interface ModelTierDef {
@@ -350,6 +353,29 @@ export function spawnNicheAgents(signals: readonly SignalId[]): NicheAgent[] {
     spawnedBecause: template.because,
     approval: "every-card",
   }));
+}
+
+// =============================================================================
+// Rules
+// =============================================================================
+
+/** The rules every agent at a business works under, in plain words, for its profile page. */
+export function rulesFor(business: Pick<BusinessProfile, "tradeKey" | "signals">): string[] {
+  const rules = [
+    "Quiet hours: no texts from 8 p.m. to 8 a.m.",
+    "Texts go only to customers who agreed to get them.",
+    `Every text ends with "${OPT_OUT_LINE}"`,
+  ];
+  // `checkSend` holds allergy talk for every business; the profile names the rule only where customers ask.
+  if (sellsFood(business)) rules.push("Anything about allergies comes from you. Anchored won't send it.");
+  rules.push("No prices or offers outside the ones you allow.");
+  return rules;
+}
+
+/** Whether a business serves or sells food, so customers may ask it about allergies. */
+function sellsFood(business: Pick<BusinessProfile, "tradeKey" | "signals">): boolean {
+  const foodTrade = business.tradeKey === "restaurant" || business.tradeKey === "store";
+  return foodTrade || business.signals.includes("catering") || business.signals.includes("snap");
 }
 
 // =============================================================================

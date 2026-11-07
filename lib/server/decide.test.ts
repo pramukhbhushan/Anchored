@@ -84,6 +84,21 @@ describe("decideCard", () => {
     expect((await store.getCard(SESSION, card.id))?.status).toBe("pending");
   });
 
+  it("puts the opt-out line back on a text whose edit dropped it", async () => {
+    const card = await addCard(missedCallText);
+    await decideCard(store, SESSION, card, { decision: "approve", body: "Hi, sorry we missed you. Call back anytime." }, TEN_AM_EASTERN);
+
+    expect((await store.listOutbox(SESSION, BUSINESS))[0]?.body).toBe("Hi, sorry we missed you. Call back anytime. Reply STOP to opt out.");
+  });
+
+  it("refuses a draft that still has a placeholder", async () => {
+    const card = await addCard({ ...missedCallText, key: `${BUSINESS}:reviewer`, skill: "reviewer", body: "Leave us a review: [your review link]. Reply STOP to opt out." });
+    const result = await decideCard(store, SESSION, card, { decision: "approve" }, TEN_AM_EASTERN);
+
+    expect(result.ok && result.response.blocked).toMatch(/your review link/);
+    expect(await store.listOutbox(SESSION, BUSINESS)).toHaveLength(0);
+  });
+
   it("never sends a locked card, even when approved", async () => {
     const card = await addCard({ ...missedCallText, key: `${BUSINESS}:locked:0`, channel: "locked" });
     await decideCard(store, SESSION, card, { decision: "approve" }, TEN_AM_EASTERN);
