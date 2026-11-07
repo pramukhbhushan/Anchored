@@ -210,12 +210,7 @@ body:has(.compare-tray) .toast{bottom:calc(88px + env(safe-area-inset-bottom,0px
 .top-cta{flex:none}
 @media (max-width:640px){.nav{order:3;margin-left:0;width:100%}.top-cta{margin-left:auto}}
 
-.hero{padding-block:52px 40px}
-.hero .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px 64px;align-items:start}
-.hero .lede{font-size:19px;color:var(--ink-2);max-width:60ch;margin-top:18px}
-.hero .ctas{margin-top:26px}
-.hero .fine{margin-top:16px;font-size:14px;max-width:70ch}
-@media (max-width:900px){.hero .grid{grid-template-columns:minmax(0,1fr);gap:32px}.hero{padding-block:32px 24px}}
+/* The landing page's own layout lives in components/site/landing.module.css */
 .try{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .try input{flex:1 1 220px;min-width:0;min-height:40px;border:1.5px solid var(--line);border-radius:var(--r);padding:9px 12px;background:var(--sheet);font-size:16px}
 .try input:hover{border-color:var(--ink-2)}
@@ -249,19 +244,8 @@ body:has(.compare-tray) .toast{bottom:calc(88px + env(safe-area-inset-bottom,0px
 .fitbar{display:flex;gap:3px;margin-top:6px}
 .fitbar span{width:18px;height:5px;border-radius:2px;background:var(--line)} .fitbar span.on{background:var(--ink)}
 
-section.band{padding-block:48px;border-top:1px solid var(--line)}
-.band .prose{margin-top:8px}
-.band .rtable{margin-top:18px}
-.steps4{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:28px;margin:26px 0 0;padding:0;counter-reset:s}
-.steps4 li{list-style:none;counter-increment:s}
-.steps4 li::before{content:counter(s);font-family:var(--display);font-stretch:125%;font-weight:900;font-size:30px;display:block;line-height:1;margin-bottom:10px}
-.steps4 h3{margin-bottom:6px} .steps4 p{color:var(--ink-2);font-size:15px;max-width:60ch}
-#cases{scroll-margin-top:76px}
-.site-foot{padding-block:28px 40px;border-top:1px solid var(--line);color:var(--muted);font-size:13.5px}
-
-/* ---------- Case study cards (landing page and /app) ---------- */
+/* ---------- Case study cards (/app) ---------- */
 .cases{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px;align-items:stretch}
-.band .cases{margin-top:22px}
 .case{position:relative;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:10px;min-width:0}
 .case h3{font-size:18px}
 .case .who{font-size:13.5px;color:var(--muted)}
