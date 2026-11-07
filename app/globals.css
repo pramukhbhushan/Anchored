@@ -281,11 +281,12 @@ section.band{padding-block:48px;border-top:1px solid var(--line)}
 .case-link:focus-visible::after{outline:2px solid var(--ink);outline-offset:2px;box-shadow:0 0 0 4px var(--carbon)}
 
 /* ---------- How it's built ---------- */
-.doc{padding-block:36px 72px}
-.doc-cards{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))}
-/* Sections sit side by side once each can have 560px */
-.doc-grid{display:grid;gap:8px 40px;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr));align-items:start}
-.doc .section{margin-top:44px}
+/* One column, so the page reads top to bottom; tables take the column's full width, prose stops at 65ch */
+.doc{max-width:calc(960px + 2 * var(--gutter));padding-block:var(--s-6) var(--s-8)}
+.doc-defs{display:grid;gap:var(--s-5) var(--s-6);grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));margin:0}
+.doc-defs dt{font-family:var(--display);font-stretch:106%;font-weight:800;font-size:var(--fs-lg)}
+.doc-defs dd{margin:var(--s-1) 0 0;color:var(--ink-2);max-width:65ch}
+.doc .section{margin-top:var(--s-8)}
 .doc .rtable{margin-top:8px}
 .lanes{display:flex;flex-direction:column;gap:14px;margin-bottom:16px}
 .lane{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:14px}
