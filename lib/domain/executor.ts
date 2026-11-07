@@ -31,6 +31,9 @@ export const DEMO_TIME_ZONE = "America/New_York";
 const QUIET_FROM_HOUR = 20;
 const QUIET_UNTIL_HOUR = 8;
 
+/** The send-hours rule as a card's checks state it. A rule, not a claim about the time the card was drafted. */
+export const QUIET_HOURS_RULE = "Texts send 8 a.m. to 8 p.m. only";
+
 // The opt-out line in any case, with or without its period, so `ensureOptOut` can move it instead of adding a second.
 const OPT_OUT_PHRASE = /\s*reply\s+stop\s+to\s+opt\s+out\.?/gi;
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CORE_AGENTS } from "@/lib/domain/agents";
 import { CARD_TEMPLATES, type CardBody, type CardSkill, draftFeed, simulateCard } from "@/lib/domain/cards";
 import { CASE_STUDIES, caseStudyById, EXAMPLES, exampleProfile } from "@/lib/domain/cases";
-import { checkSend } from "@/lib/domain/executor";
+import { checkSend, QUIET_HOURS_RULE } from "@/lib/domain/executor";
 import { activeAgents, workflowIdsOf } from "@/lib/domain/paths";
 import type { BusinessProfile, Choice, ChoiceMap, WorkflowId } from "@/lib/domain/types";
 
@@ -205,6 +205,17 @@ describe("every drafted card", () => {
   it("makes no claim tied to a season or month", () => {
     const seasonal = /\b(winter|summer|spring|fall|autumn|holidays?|cold snap|heat wave|cooling|november|december)\b/i;
     for (const [label, card] of drafts) expect(`${card.title} ${card.body} ${card.reason}`, label).not.toMatch(seasonal);
+  });
+
+  it("states the send-hours rule instead of claiming the current time", () => {
+    for (const [label, card] of drafts) {
+      for (const check of card.checks.filter((text) => /\b[ap]\.m\./.test(text))) expect(check, label).toBe(QUIET_HOURS_RULE);
+    }
+  });
+
+  it("names no weekday in a title or reason, which could contradict today's date", () => {
+    const weekday = /\b(?:mon|tues|wednes|thurs|fri|satur|sun)day\b/i;
+    for (const [label, card] of drafts) expect(`${card.title} ${card.reason}`, label).not.toMatch(weekday);
   });
 
   it("asks HVAC callers about heat or AC, whatever the month", () => {

@@ -1,3 +1,4 @@
+import { QUIET_HOURS_RULE } from "@/lib/domain/executor";
 import { activeAgents, agentForSkill, chosenSkills } from "@/lib/domain/paths";
 import type { ActiveAgent, BusinessProfile, CardDraft, ChoiceMap, KeyedCard, SkillId } from "@/lib/domain/types";
 
@@ -54,7 +55,7 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
       title: `Missed call at ${pick(v, "2:15 p.m.", "4:40 p.m.", "11:05 a.m.")} from ${caller}`,
       body: `Sorry we missed you, this is ${b.name}. What can we help with? We can call you back at ${pick(v, "4 p.m. today", "9 a.m. tomorrow", "1 p.m. today")}, or reply with a better time. Reply STOP to opt out.`,
       reason: "Callers who wait often try someone else.",
-      checks: ["Inside 8 a.m. to 8 p.m.", "The caller reached out first", "No price in the text"],
+      checks: [QUIET_HOURS_RULE, "The caller reached out first", "No price in the text"],
       action: "Send text",
       channel: "sms",
       to: caller,
@@ -79,7 +80,7 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
       title: `Booking tomorrow at ${time} with ${name}`,
       body: `Hi ${name}, a reminder of your visit with ${b.name} tomorrow at ${time}. Reply C to confirm or R to reschedule. Reply STOP to opt out.`,
       reason: "A reminder the day before saves the slot.",
-      checks: ["Inside 8 a.m. to 8 p.m.", "Booked customer with consent"],
+      checks: [QUIET_HOURS_RULE, "Booked customer with consent"],
       action: "Send text",
       channel: "sms",
       to: pick(v, "Maria Lopez", "Devon Hall", "Kim Tran"),
@@ -100,8 +101,8 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
   callfollow: (b, v) => {
     const name = pick(v, "Sam", "Lee", "Jamie");
     return {
-      title: `${name} said 'let me think' on Tuesday`,
-      body: `Hi ${name}, good talking Tuesday. Any questions I can answer about getting started with ${b.name}?`,
+      title: `${name} said 'let me think' after your call`,
+      body: `Hi ${name}, good talking the other day. Any questions I can answer about getting started with ${b.name}?`,
       reason: "Check-in 2 of 3.",
       checks: ["Check-in 2 of 3", "No new offer added"],
       action: "Send email",
@@ -132,7 +133,7 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
       title: `${count} past customers haven't been back in a year`,
       body: `Hi, it's ${b.name}. ${pick(v, "It's been a while!", "We'd love to see you again.", "We have openings coming up.")} Reply YES and we'll find you a time. Reply STOP to opt out.`,
       reason: "Past customers already know you.",
-      checks: ["Only customers with written consent", "Sent between 8 a.m. and 8 p.m."],
+      checks: ["Only customers with written consent", QUIET_HOURS_RULE],
       action: `Send to ${count} customers`,
       channel: "sms",
       to: `${count} customers with consent`,
