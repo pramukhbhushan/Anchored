@@ -133,8 +133,9 @@ Judges can test without an account through **Continue as guest**, and each one s
 | `lib/server/` | Session, data access, Claude calls and card decisions |
 | `lib/store/` | The `Store` interface with Supabase and in-memory versions |
 | `supabase/migrations/` | Database schema |
-| `docs/build-contract.md` | The exports each module provides |
-| `mvp/anchored.html` | The single-page prototype this app was ported from |
+| `docs/architecture.md` | How the layers fit together |
+| `docs/research/` | The research by trade, the design document, and where they disagree. Its `README.md` lists every file |
+| `docs/prototype/` | The single-page prototype this app was ported from |
 
 ## Test
 
