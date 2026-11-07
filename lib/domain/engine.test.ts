@@ -53,10 +53,14 @@ describe("workflows from facts", () => {
     expect(corner.workflows.licenses).toBeDefined();
   });
 
-  it("recommends turning on Square's scheduling for the salon because it uses Square", () => {
-    expect(exampleProfile("salon").workflows.scheduling?.rec).toBe("turnon");
-    const withoutSquare = profileFromFacts({ ...example("salon"), tools: [] });
-    expect(withoutSquare.workflows.scheduling?.rec).toBe("buy");
+  it("recommends turning on QuickBooks for the auto shop's bookkeeping because it uses QuickBooks", () => {
+    expect(exampleProfile("auto").workflows.books?.rec).toBe("turnon");
+    const withoutQuickBooks = profileFromFacts({ ...example("auto"), tools: [] });
+    expect(withoutQuickBooks.workflows.books?.rec).not.toBe("turnon");
+  });
+
+  it("recommends buying scheduling for the salon, since Square's agent is a paid add-on", () => {
+    expect(exampleProfile("salon").workflows.scheduling?.rec).toBe("buy");
   });
 
   it("never applies a trade hint: a restaurant with no signals gets no supplier workflow", () => {

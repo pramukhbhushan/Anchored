@@ -103,6 +103,32 @@ describe("agents", () => {
   });
 });
 
+describe("owned tools", () => {
+  const salon = exampleProfile("salon");
+
+  it("doesn't count a paid add-on as owned just because the owner uses its platform", () => {
+    for (const workflow of ["scheduling", "social"] as const) {
+      const options = pathOptions(salon, workflow);
+      expect(options.owned.map((tool) => tool.id), workflow).toEqual([]);
+      expect(options.buy.map(({ tool }) => tool.id), workflow).toContain("squaremates");
+    }
+    const toastShop = { ...caseStudy("restaurant"), tools: ["Toast"] };
+    expect(pathOptions(toastShop, "social").owned.map((tool) => tool.id)).not.toContain("toastiq");
+  });
+
+  it("lists Squaremates as priced on quote, since its agent price isn't published", () => {
+    const cost = stackCost(salon, only(salon, { scheduling: { path: "buy", toolId: "squaremates" } }));
+    expect(cost.onQuote.map((tool) => tool.id)).toEqual(["squaremates"]);
+  });
+
+  it("says who decides in an owner's sentence, not a vendor quote", () => {
+    const squaremates = pathOptions(salon, "scheduling").buy.find(({ tool }) => tool.id === "squaremates");
+    const note = squaremates?.rating.checks.charge[2] ?? "";
+    expect(note).not.toMatch(/['"]/);
+    expect(note).toMatch(/\byou\b/i);
+  });
+});
+
 describe("stackCost", () => {
   const hvac = caseStudy("hvac");
 
