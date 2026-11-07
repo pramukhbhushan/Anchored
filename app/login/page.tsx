@@ -41,11 +41,10 @@ function LocalDemo({ next }: { readonly next: string }) {
       <section className="wo" aria-labelledby="local-title">
         <div className="wo-head">
           <b id="local-title">Local demo</b>
-          <span>No accounts</span>
         </div>
         <div className="wo-perf" aria-hidden="true" />
         <div className={styles.slipBody}>
-          <p>This demo runs without accounts, so your work stays with this browser.</p>
+          <p>Your work stays with this browser.</p>
           <Link className={`btn ${styles.full}`} href={next}>
             Open Anchored
           </Link>
