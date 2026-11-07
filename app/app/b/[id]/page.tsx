@@ -48,7 +48,6 @@ export default async function OverviewPage({ params }: { readonly params: Promis
   const stats = feedStats(feed.cards);
   const waiting = feed.cards.filter((card) => card.status === "pending");
   const atStake = waiting.reduce((sum, card) => sum + (card.stake ?? 0), 0);
-  const edited = feed.cards.filter((card) => card.status === "approved" && card.edited).length;
   const cost = stackCost(business, choices);
   const onQuote = cost.onQuote.length > 0 ? `, plus ${joinAnd(cost.onQuote.map((tool) => tool.name))} on quote` : "";
   // Same rule as the morning brief in `lib/domain/brief.ts`: new workflows the owner hasn't skipped.
@@ -131,7 +130,7 @@ export default async function OverviewPage({ params }: { readonly params: Promis
             </li>
             {stats.approved > 0 && (
               <li>
-                So far: {stats.approved} approved, {edited} edited
+                So far: {stats.approved} approved, {stats.edited} edited
                 {stats.actedOn > 0 ? `, ${money(stats.actedOn)} acted on` : ""}.
               </li>
             )}

@@ -19,14 +19,18 @@ export interface PlannedWorkflow {
 /** What the views read from each card in a feed. */
 export interface FeedCard {
   readonly status: "pending" | "approved" | "skipped";
+  readonly channel: "sms" | "email" | "list" | "locked";
   readonly edited: boolean;
   readonly stake?: number;
 }
 
-/** Counts behind the overview's KPI strip and the approvals summary. */
+/** Counts behind the morning brief and the Stack page's approval step. */
 export interface FeedStats {
   readonly pending: number;
+  /** Drafts the owner approved; "I'll handle it" on a locked card is not an approval. */
   readonly approved: number;
+  /** Approved drafts the owner edited first. */
+  readonly edited: number;
   /** Share of approved cards the owner edited first, 0 to 100. */
   readonly editRate: number;
   /** Dollars riding on the cards the owner approved. */
@@ -50,13 +54,16 @@ export function topWorkflows(business: BusinessProfile, count: number): PlannedW
     .slice(0, count);
 }
 
-/** Count the feed: waiting, approved, the edit rate and the dollars on approved cards. */
+/** Count the feed: waiting, approved, edited, the edit rate and the dollars on approved cards. */
 export function feedStats(cards: readonly FeedCard[]): FeedStats {
-  const approved = cards.filter((c) => c.status === "approved");
+  // A locked card is decided by "I'll handle it", which takes the work back rather than approving a draft.
+  const approved = cards.filter((c) => c.status === "approved" && c.channel !== "locked");
+  const edited = approved.filter((c) => c.edited).length;
   return {
     pending: cards.filter((c) => c.status === "pending").length,
     approved: approved.length,
-    editRate: approved.length > 0 ? Math.round((approved.filter((c) => c.edited).length / approved.length) * 100) : 0,
+    edited,
+    editRate: approved.length > 0 ? Math.round((edited / approved.length) * 100) : 0,
     actedOn: approved.reduce((sum, c) => sum + (c.stake ?? 0), 0),
   };
 }
