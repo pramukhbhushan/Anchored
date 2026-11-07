@@ -13,12 +13,12 @@ describe("Badge", () => {
       <>
         <Badge>Phone</Badge>
         <Badge tone="new">New for you</Badge>
-        <Badge tone="count">3</Badge>
+        <Badge tone="good">Approved</Badge>
       </>,
     );
 
     expect(screen.getByText("Phone")).toBeInTheDocument();
     expect(screen.getByText("New for you")).toBeInTheDocument();
-    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getByText("Approved")).toBeInTheDocument();
   });
 });
