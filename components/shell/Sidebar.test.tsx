@@ -66,9 +66,9 @@ describe("Sidebar", () => {
     expect(within(nav()).getByRole("link", { name: "Overview" })).toHaveAttribute("href", "/app/b/rosa");
     expect(within(nav()).getByRole("link", { name: "Overview" })).not.toHaveAttribute("aria-current");
     expect(nav().querySelectorAll('[aria-current="page"]')).toHaveLength(1);
-    // The business itself is current, though its overview is not the page.
-    expect(within(nav()).getByRole("link", { name: /Rosa's Taqueria/ })).toHaveAttribute("aria-current", "true");
-    expect(within(nav()).getByRole("link", { name: /Greenfield Lawn/ })).not.toHaveAttribute("aria-current");
+    // Inside a business the top bar's switcher does the switching, so the sidebar lists no other business.
+    expect(within(nav()).queryByRole("link", { name: /Greenfield Lawn/ })).not.toBeInTheDocument();
+    expect(within(nav()).queryByText("Sample businesses")).not.toBeInTheDocument();
   });
 
   it("marks the overview as the page on a business's front page", () => {
