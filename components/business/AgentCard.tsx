@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useId, useState, useTransition, type ReactNode } from "react";
 import { ApiCallError, callApi, errorText } from "@/components/api";
+import { cardAnchor } from "@/components/routes";
 import { useToast, type ToastLink } from "@/components/ui/Toast";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -247,7 +248,7 @@ export function AgentCard({
   }
 
   return (
-    <article className={`card${locked ? " locked" : ""}`}>
+    <article className={`card${locked ? " locked" : ""}`} id={cardAnchor(card.key)}>
       {head}
       {editing ? (
         <>
