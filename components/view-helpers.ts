@@ -1,5 +1,6 @@
 import { workflowIdsOf } from "@/lib/domain/paths";
-import type { BusinessProfile, Rating, Tool, WorkflowId, WorkflowPlan } from "@/lib/domain/types";
+import type { BusinessProfile, Rating, WorkflowId, WorkflowPlan } from "@/lib/domain/types";
+import { NOT_GIVEN } from "@/lib/domain/workflows";
 
 // =============================================================================
 // Module Overview
@@ -7,7 +8,7 @@ import type { BusinessProfile, Rating, Tool, WorkflowId, WorkflowPlan } from "@/
 // Small pure helpers the views share: `plannedWorkflows` pairs each of a
 // business's workflows with its plan, `topWorkflows` picks the ones worth acting
 // on, `feedStats` counts the approvals feed, `fitLine` explains a tool score,
-// `monthlyCost` prices one tool, and `money` formats dollars.
+// `placeOf` reads the town, and `money` formats dollars.
 
 /** One of a business's workflows with Anchored's plan for it. */
 export interface PlannedWorkflow {
@@ -31,12 +32,6 @@ export interface FeedStats {
   /** Dollars riding on the cards the owner approved. */
   readonly actedOn: number;
 }
-
-const NOT_GIVEN = "Not given";
-
-// Mirrors `DEMO_TIME_ZONE` in `lib/server/decide.ts`, where quiet hours are checked, so dates and "Queued for" match the rule.
-/** The time zone the demo's dates and send times are shown in. */
-export const DEMO_TIME_ZONE = "America/New_York";
 
 /** Return the business's workflows with their plans, in the catalog's workflow order. */
 export function plannedWorkflows(business: BusinessProfile): PlannedWorkflow[] {
@@ -78,12 +73,6 @@ export function fitLine(rating: Rating, checkCount: number): string {
 export function placeOf(business: Pick<BusinessProfile, "place">): string | null {
   const place = business.place.trim();
   return place === "" || place === NOT_GIVEN ? null : place;
-}
-
-/** Return what `tool` costs this business a month, or `null` when the vendor only quotes. */
-export function monthlyCost(tool: Tool, business: BusinessProfile): number | null {
-  if (tool.monthly === null) return null;
-  return tool.perUser ? tool.monthly * (business.seats || 1) : tool.monthly;
 }
 
 /** Format dollars as `$1,248` or `$29.5`, never more than two decimals. */

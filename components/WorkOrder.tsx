@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Stamp } from "@/components/Stamp";
 import { plannedWorkflows, topWorkflows } from "@/components/view-helpers";
-import { SIGNALS, WORKFLOWS } from "@/lib/domain/workflows";
+import { NOT_GIVEN, SIGNALS, WORKFLOWS } from "@/lib/domain/workflows";
 import type { BusinessProfile } from "@/lib/domain/types";
 
 // =============================================================================
@@ -10,8 +10,6 @@ import type { BusinessProfile } from "@/lib/domain/types";
 // The carbon-yellow work order from the landing hero: how Anchored read a
 // business, its top four workflows with stamped verdicts, and an `action` slot
 // in the footer for the "Open the full plan" button.
-
-const NOT_GIVEN = "Not given";
 
 /** Render the work order for `business`, with `action` at the bottom right. */
 export function WorkOrder({ business, action }: { readonly business: BusinessProfile; readonly action: ReactNode }) {

@@ -3,6 +3,7 @@ import { cache } from "react";
 import { isAuthEnabled } from "@/lib/auth/config";
 import { isAiConfigured } from "@/lib/server/ai";
 import { getFeed, listBusinesses } from "@/lib/server/data";
+import { isDatabaseConfigured } from "@/lib/store";
 import type { BusinessProfile } from "@/lib/domain/types";
 
 // =============================================================================
@@ -59,11 +60,5 @@ export const businessSummaries = cache(async (): Promise<BusinessSummary[]> => {
 
 /** Report whether an AI provider, a database and accounts are configured. */
 export function demoStatus(): DemoStatus {
-  // Mirrors `createStore` in `lib/store/index.ts`, which picks Supabase only when both a URL and the service key are set.
-  const databaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  return {
-    aiOn: isAiConfigured(),
-    databaseOn: Boolean(databaseUrl && process.env.SUPABASE_SERVICE_ROLE_KEY),
-    accountsOn: isAuthEnabled(),
-  };
+  return { aiOn: isAiConfigured(), databaseOn: isDatabaseConfigured(), accountsOn: isAuthEnabled() };
 }

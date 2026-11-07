@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { CardsResponse } from "@/lib/api/contract";
+import type { EventCardResponse } from "@/lib/api/contract";
 import { ingestSchema } from "@/lib/api/schemas";
 import { SKILLS } from "@/lib/domain/agents";
 import { CARD_TEMPLATES, simulateCard } from "@/lib/domain/cards";
@@ -151,7 +151,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ sou
     // An allergy question gets no drafted answer at all: the thread is locked for the owner to reply.
     const message = text(payload, "message", 2000) ?? text(payload, "text", 2000) ?? "";
     const result = mentionsAllergen(message) ? allergyLock(card, payload) : personalize(card, source, business, payload);
-    return json<CardsResponse>(await addEventCard(business, result), 201);
+    return json<EventCardResponse>(await addEventCard(business, result), 201);
   } catch (error) {
     return handleError(error, "POST /api/ingest/[source]");
   }

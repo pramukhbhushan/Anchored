@@ -56,15 +56,21 @@ export interface SetChoiceResponse {
   readonly choice: Choice;
 }
 
-/** GET /api/businesses/[id]/cards returns the feed; POST simulates a new event for a chosen skill. */
+/** GET /api/businesses/[id]/cards: the card feed and the simulated outbox. */
 export interface CardsResponse {
   readonly cards: readonly CardRecord[];
   readonly outbox: readonly OutboxEntry[];
-  /** The card a simulate or ingest request just created, when it made one. */
-  readonly added?: CardRecord | null;
 }
+
+/** POST /api/businesses/[id]/cards: simulate a new event for one chosen skill, or rotate through them all. */
 export interface SimulateRequest {
   readonly skill?: SkillId;
+}
+
+/** POST /api/businesses/[id]/cards and POST /api/ingest/[source]: the feed, plus the card the event created. */
+export interface EventCardResponse extends CardsResponse {
+  /** The new card, or `null` when the store could not read it back. */
+  readonly added: CardRecord | null;
 }
 
 /** POST /api/cards/[id]: approve, approve an edited body, or skip. */

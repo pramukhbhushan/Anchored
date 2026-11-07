@@ -75,6 +75,9 @@ export const PATH_DESCRIPTION: Readonly<Record<PathKind, string>> = {
 // Onboarding options
 // =============================================================================
 
+/** The placeholder the engine writes where onboarding gave no answer; views and the chat leave it out. */
+export const NOT_GIVEN = "Not given";
+
 /** Facts an owner can check during onboarding; each one can add workflows. */
 export const SIGNALS: readonly SignalDef[] = [
   { id: "quotes", label: "I send quotes or estimates", short: "Sends quotes" },

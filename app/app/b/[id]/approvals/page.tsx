@@ -9,8 +9,8 @@ import { Badge } from "@/components/ui/Badge";
 import { buttonClass } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader, SectionHeader } from "@/components/ui/PageHeader";
-import { DEMO_TIME_ZONE } from "@/components/view-helpers";
 import type { CardRecord, OutboxEntry } from "@/lib/api/contract";
+import { sendTimeText } from "@/lib/domain/executor";
 import { activeAgents, agentName, chosenSkills } from "@/lib/domain/paths";
 import { isAiConfigured } from "@/lib/server/ai";
 import { getBusinessOrNotFound, getChoices, getFeed } from "@/lib/server/data";
@@ -31,16 +31,6 @@ const CHANNEL_LABEL: Readonly<Record<OutboxEntry["channel"], string>> = {
   list: "Logged",
 };
 
-/** Return a queued send's time, such as "Mon 8:00 AM", in the time zone quiet hours use. */
-function sendTime(iso: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: DEMO_TIME_ZONE,
-    weekday: "short",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(iso));
-}
-
 /** Return the outbox line for an email or list entry, from its card when the feed still has it. */
 function logText(entry: OutboxEntry, card: CardRecord | undefined): string {
   if (card === undefined) return `${CHANNEL_LABEL[entry.channel]}: ${entry.to}`;
@@ -57,7 +47,7 @@ function OutboxItem({
   readonly card?: CardRecord;
   readonly queued: boolean;
 }) {
-  const when = queued ? <small className="queued">Queued for {sendTime(entry.sentAt)}</small> : null;
+  const when = queued ? <small className="queued">Queued for {sendTimeText(new Date(entry.sentAt))}</small> : null;
   if (entry.channel === "sms") {
     return (
       <li className={`bubble${queued ? " is-queued" : ""}`}>

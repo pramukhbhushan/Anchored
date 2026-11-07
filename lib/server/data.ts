@@ -1,7 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { notFound } from "next/navigation";
-import type { CardRecord, OutboxEntry } from "@/lib/api/contract";
+import type { CardRecord, EventCardResponse, OutboxEntry } from "@/lib/api/contract";
 import { draftFeed } from "@/lib/domain/cards";
 import { CASE_STUDIES, caseStudyById } from "@/lib/domain/cases";
 import { chosenSkills, resolveChoices, workflowIdsOf } from "@/lib/domain/paths";
@@ -65,7 +65,7 @@ export function uniqueEventKey(card: KeyedCard): KeyedCard {
 }
 
 /** Store a new event card and return the feed along with the stored card. */
-export async function addEventCard(business: BusinessProfile, card: KeyedCard): Promise<{ cards: CardRecord[]; outbox: OutboxEntry[]; added: CardRecord | null }> {
+export async function addEventCard(business: BusinessProfile, card: KeyedCard): Promise<EventCardResponse> {
   const session = await getSessionId();
   const store = getStore();
   const unique = uniqueEventKey(card);

@@ -1,6 +1,6 @@
 import { detectTradeKey, hintFor, planWorkflows, profileFromFacts, TRADE_HINTS } from "@/lib/domain/engine";
 import type { BusinessFacts, BusinessProfile, OnboardingAnswers, SignalId, TradeKey, WorkflowId, WorkflowPlan } from "@/lib/domain/types";
-import { LANGUAGE_OPTIONS, PATH_LABEL, REACH_OPTIONS, SIGNALS, TOOL_OPTIONS, WORKFLOW_IDS, WORKFLOWS } from "@/lib/domain/workflows";
+import { LANGUAGE_OPTIONS, NOT_GIVEN, PATH_LABEL, REACH_OPTIONS, SIGNALS, TOOL_OPTIONS, WORKFLOW_IDS, WORKFLOWS } from "@/lib/domain/workflows";
 
 // =============================================================================
 // Module Overview
@@ -911,6 +911,20 @@ export interface FactChanges {
 /** What part of a profile one change touched. */
 export type ChangeArea = "workflow" | "path" | "reach" | "tool" | "signal" | "language" | "name" | "place" | "kind" | "voice";
 
+/** The word each `ChangeArea` shows under a chat reply and in the profile's recent changes. */
+export const CHANGE_AREA_LABEL: Readonly<Record<ChangeArea, string>> = {
+  workflow: "Workflow",
+  path: "Path",
+  reach: "Reach",
+  tool: "Tool",
+  signal: "Fact",
+  language: "Language",
+  name: "Name",
+  place: "Town",
+  kind: "Kind",
+  voice: "Voice",
+};
+
 /** One visible change to a business profile, as the chat reports it. */
 export interface ProfileChange {
   readonly op: "added" | "removed" | "changed";
@@ -947,8 +961,6 @@ export function readChanges(text: string): FactChanges {
     texts: withoutBlanks({ name: name ? clip(name, TEXT_LIMITS.name) : undefined, place, kind: kind ? capitalize(kind) : undefined }),
   };
 }
-
-const NOT_GIVEN = "Not given";
 
 /** The facts a profile was built from, with the engine's "Not given" placeholders taken out. */
 export function factsFromProfile(business: BusinessProfile): BusinessFacts {

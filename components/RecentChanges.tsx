@@ -1,30 +1,17 @@
 import { ArrowLeftRight, Minus, Plus } from "lucide-react";
 import type { ReactNode } from "react";
-import { DEMO_TIME_ZONE } from "@/components/view-helpers";
 import type { ChatMessage } from "@/lib/api/contract";
-import type { ChangeArea, ProfileChange } from "@/lib/domain/intake";
+import { DEMO_TIME_ZONE } from "@/lib/domain/executor";
+import { CHANGE_AREA_LABEL, type ProfileChange } from "@/lib/domain/intake";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
 // "Recent changes" on the profile page: what the business chat changed, newest
-// first, read from the stored chat replies. The area names match the ones the
-// chat shows under each reply.
+// first, read from the stored chat replies. Each change is named with
+// `CHANGE_AREA_LABEL`, the same words the chat shows under each reply.
 
 const SHOWN = 8;
-
-const AREA_LABEL: Readonly<Record<ChangeArea, string>> = {
-  workflow: "Workflow",
-  path: "Path",
-  reach: "Reach",
-  tool: "Tool",
-  signal: "Fact",
-  language: "Language",
-  name: "Name",
-  place: "Town",
-  kind: "Kind",
-  voice: "Voice",
-};
 
 const OP: Readonly<Record<ProfileChange["op"], { readonly icon: ReactNode; readonly word: string }>> = {
   added: { icon: <Plus size={14} aria-hidden="true" />, word: "Added" },
@@ -77,7 +64,7 @@ export function RecentChanges({ messages, isSample }: { readonly messages: reado
           {OP[change.op].icon}
           <span>
             <span className="sr">{OP[change.op].word}: </span>
-            <b>{AREA_LABEL[change.area]}</b> {change.to === undefined ? change.label : `${change.label}: ${change.to}`}
+            <b>{CHANGE_AREA_LABEL[change.area]}</b> {change.to === undefined ? change.label : `${change.label}: ${change.to}`}
           </span>
           <time dateTime={at}>{whenText(at)}</time>
         </li>

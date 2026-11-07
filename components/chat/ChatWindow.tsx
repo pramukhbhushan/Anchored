@@ -3,12 +3,12 @@
 import { Anchor, ArrowLeftRight, ArrowUp, Check, ChevronDown, CircleAlert, Minus, Plus, RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode, type RefObject } from "react";
-import { callApi, errorText } from "@/components/api";
+import { callApi, errorText, getApi } from "@/components/api";
 import { ResizablePanel } from "@/components/resize/ResizablePanel";
 import { businessHref, NEW_BUSINESS_HREF } from "@/components/routes";
 import { Button, ButtonLink } from "@/components/ui/Button";
-import type { ApiError, BusinessChatResponse, ChatMessage, IntakeAnswerRequest, IntakeResponse, StartIntakeResponse } from "@/lib/api/contract";
-import { answerText, type ChangeArea, type IntakeQuestion, type KnownFact, type ProfileChange } from "@/lib/domain/intake";
+import type { BusinessChatResponse, ChatMessage, IntakeAnswerRequest, IntakeResponse, StartIntakeResponse } from "@/lib/api/contract";
+import { answerText, CHANGE_AREA_LABEL, type IntakeQuestion, type KnownFact, type ProfileChange } from "@/lib/domain/intake";
 import styles from "./chat.module.css";
 
 // =============================================================================
@@ -32,25 +32,6 @@ export function ChatWindow(props: ChatWindowProps) {
 // =============================================================================
 
 const LOAD_FAILED = "Anchored couldn't load this chat. Check your connection and try again.";
-
-/** Narrow a response body to the `ApiError` shape every route returns on failure. */
-function isApiError(value: unknown): value is ApiError {
-  return typeof value === "object" && value !== null && "error" in value && typeof value.error === "string";
-}
-
-/** GET an API route's JSON, or throw with a message the owner can read. `callApi` covers only writes. */
-async function getApi<T>(url: string): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(url, { cache: "no-store" });
-  } catch (cause) {
-    throw new Error(LOAD_FAILED, { cause });
-  }
-  const data: unknown = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(isApiError(data) ? data.error : LOAD_FAILED);
-  // The routes and this component compile against the same `lib/api/contract.ts` shapes.
-  return data as T;
-}
 
 /** A request in flight or failed. `text` is the owner's words, shown before the server has them. */
 interface Outgoing {
@@ -179,7 +160,7 @@ function IntakeChat() {
     }
     void (async () => {
       try {
-        const resumed = await getApi<IntakeResponse>(`/api/intake/${encodeURIComponent(saved)}`);
+        const resumed = await getApi<IntakeResponse>(`/api/intake/${encodeURIComponent(saved)}`, LOAD_FAILED);
         if (!resumed.done) {
           setView({ ...resumed, intakeId: saved });
           return;
@@ -311,7 +292,7 @@ function BusinessChat({ businessId, readOnly }: { readonly businessId: string; r
   useEffect(() => {
     let live = true;
     void run(null, async () => {
-      const chat = await getApi<BusinessChatResponse>(url);
+      const chat = await getApi<BusinessChatResponse>(url, LOAD_FAILED);
       if (live) setMessages(chat.messages);
     });
     return () => {
@@ -434,19 +415,6 @@ function MessageItem({ role, text, changes, state }: { readonly role: ChatMessag
   );
 }
 
-const AREA_LABEL: Readonly<Record<ChangeArea, string>> = {
-  workflow: "Workflow",
-  path: "Path",
-  reach: "Reach",
-  tool: "Tool",
-  signal: "Fact",
-  language: "Language",
-  name: "Name",
-  place: "Town",
-  kind: "Kind",
-  voice: "Voice",
-};
-
 const OP_ICON: Readonly<Record<ProfileChange["op"], ReactNode>> = {
   added: <Plus size={14} strokeWidth={2.6} aria-hidden="true" />,
   removed: <Minus size={14} strokeWidth={2.6} aria-hidden="true" />,
@@ -463,7 +431,7 @@ function ChangeList({ changes }: { readonly changes: readonly ProfileChange[] })
           <li key={`${change.op}:${change.area}:${change.label}`} data-op={change.op}>
             {OP_ICON[change.op]}
             <span className={styles.srOnly}>{change.op}: </span>
-            <span className={styles.area}>{AREA_LABEL[change.area]}</span>
+            <span className={styles.area}>{CHANGE_AREA_LABEL[change.area]}</span>
             <span>{change.to === undefined ? change.label : `${change.label}: ${change.to}`}</span>
           </li>
         ))}
