@@ -1,3 +1,4 @@
+import type { IntakeQuestion, KnownFact, ProfileChange } from "@/lib/domain/intake";
 import type { BusinessProfile, CardDraft, Choice, OnboardingAnswers, SkillId, WorkflowId } from "@/lib/domain/types";
 
 // =============================================================================
@@ -89,4 +90,54 @@ export interface IngestRequest {
 /** Error body every route returns on failure. */
 export interface ApiError {
   readonly error: string;
+}
+
+// =============================================================================
+// Chat: onboarding by conversation, and the ongoing business chat
+// =============================================================================
+
+/** One message in a chat thread. */
+export interface ChatMessage {
+  readonly id: string;
+  readonly role: "anchored" | "owner";
+  readonly text: string;
+  /** ISO time the message was stored. */
+  readonly at: string;
+  /** What this reply changed in the business, on business chat replies that changed something. */
+  readonly changes?: readonly ProfileChange[];
+}
+
+/** The state of an onboarding chat, as every intake route returns it. */
+export interface IntakeResponse {
+  readonly messages: readonly ChatMessage[];
+  /** One line per question for the "What Anchored knows" card. */
+  readonly known: readonly KnownFact[];
+  /** What Anchored asks next, or `null` once the owner confirmed and the business exists. */
+  readonly question: IntakeQuestion | null;
+  readonly done: boolean;
+  /** Set once the business is built. Its plan lives at `/app/b/<businessId>`. */
+  readonly businessId?: string;
+}
+
+/** POST /api/intake: start an onboarding chat. */
+export interface StartIntakeResponse extends IntakeResponse {
+  readonly intakeId: string;
+}
+
+/** POST /api/intake/[id]: answer the current question by typing, tapping chips, or both. GET returns the same state. */
+export interface IntakeAnswerRequest {
+  readonly text?: string;
+  /** The full selection for a multi-select question, or the one chip tapped on a single-select one. */
+  readonly picks?: readonly string[];
+}
+
+/** POST /api/businesses/[id]/chat: tell Anchored what changed. */
+export interface BusinessChatRequest {
+  readonly text: string;
+}
+
+/** GET and POST /api/businesses/[id]/chat. `changes` is what the latest message changed; empty on GET. */
+export interface BusinessChatResponse {
+  readonly messages: readonly ChatMessage[];
+  readonly changes: readonly ProfileChange[];
 }

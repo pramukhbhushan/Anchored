@@ -42,14 +42,17 @@ async function send(store: Store, session: string, card: CardRecord, body: strin
   return store.addOutbox(session, { businessId: card.businessId, cardId: card.id, channel: card.channel, to: card.to ?? "customer", body: text, sentAt: sentAt.toISOString() });
 }
 
+const ALREADY_DECIDED: DecisionResult = { ok: false, status: 409, error: "This card was already decided." };
+
 /** Apply `request` to a pending `card` and return what changed. */
 export async function decideCard(store: Store, session: string, card: CardRecord, request: DecideCardRequest, now = new Date()): Promise<DecisionResult> {
-  if (card.status !== "pending") return { ok: false, status: 409, error: "This card was already decided." };
+  if (card.status !== "pending") return ALREADY_DECIDED;
   const decidedAt = now.toISOString();
+  // Every status change goes through `updatePendingCard`: when two taps race, only the first one decides and sends.
 
   if (request.decision === "skip") {
-    const skipped = await store.updateCard(session, card.id, { status: "skipped", decidedAt });
-    return { ok: true, response: { card: skipped } };
+    const skipped = await store.updatePendingCard(session, card.id, { status: "skipped", decidedAt });
+    return skipped ? { ok: true, response: { card: skipped } } : ALREADY_DECIDED;
   }
 
   // The opt-out line is the law's job, not the owner's: code puts it back if an edit dropped it.
@@ -59,24 +62,26 @@ export async function decideCard(store: Store, session: string, card: CardRecord
   const draft: CardDraft = { ...card, body };
 
   if (card.channel === "locked") {
-    const handled = await store.updateCard(session, card.id, { status: "approved", decidedAt });
-    return { ok: true, response: { card: handled } };
+    const handled = await store.updatePendingCard(session, card.id, { status: "approved", decidedAt });
+    return handled ? { ok: true, response: { card: handled } } : ALREADY_DECIDED;
   }
 
   const check = checkSend(draft, { now, timeZone: DEMO_TIME_ZONE, hasConsent: true });
   if (check.ok) {
-    const approved = await store.updateCard(session, card.id, { status: "approved", body, edited, decidedAt });
+    const approved = await store.updatePendingCard(session, card.id, { status: "approved", body, edited, decidedAt });
+    if (!approved) return ALREADY_DECIDED;
     return { ok: true, response: { card: approved, outbox: await send(store, session, approved, body, now) } };
   }
 
   // Quiet hours delay a text; any other rule refuses it until the owner changes the draft.
   const later = nextAllowedHour(draft, now);
   if (!later) {
-    if (edited) await store.updateCard(session, card.id, { body, edited });
+    if (edited) await store.updatePendingCard(session, card.id, { body, edited });
     const stillPending = await store.getCard(session, card.id);
     return { ok: true, response: { card: stillPending ?? card, blocked: check.reason } };
   }
-  const queued = await store.updateCard(session, card.id, { status: "approved", body, edited, decidedAt });
+  const queued = await store.updatePendingCard(session, card.id, { status: "approved", body, edited, decidedAt });
+  if (!queued) return ALREADY_DECIDED;
   const outbox = await send(store, session, queued, body, later);
   return { ok: true, response: { card: queued, outbox, blocked: `${check.reason} Queued for ${formatLocal(later)}.` } };
 }

@@ -54,8 +54,8 @@ const config: NextConfig = {
   reactStrictMode: true,
   // Don't advertise the framework in every response.
   poweredByHeader: false,
-  // The dev-only badge sat on top of the sidebar footer; bottom right is free space.
-  devIndicators: { position: "bottom-right" },
+  // The dev-only badge sits in the sidebar's bottom-left corner, where `.side-foot` leaves room for it in dev.
+  devIndicators: { position: "bottom-left" },
   async headers() {
     const isProduction = process.env.NODE_ENV === "production";
     return [{ source: "/:path*", headers: [...SECURITY_HEADERS, ...(isProduction ? PRODUCTION_HEADERS : [])] }];

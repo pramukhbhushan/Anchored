@@ -1,40 +1,75 @@
 "use client";
 
+import { RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { callApi, errorText } from "@/components/api";
+import { APP_HREF } from "@/components/routes";
 import { useToast } from "@/components/Toast";
+import { Button } from "@/components/ui/Button";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The small "Reset demo" button in the app bar. It clears this session's
-// businesses, choices and cards through `/api/reset`, then returns to the
-// landing page.
+// "Reset demo" in the sidebar. The first press opens a confirmation that
+// names what goes; the second clears this session's businesses, choices,
+// approvals and outbox through `/api/reset`, then returns to the business list.
 
-/** Render the reset button and run the reset on click. */
-export function ResetDemoButton() {
+/** Say what a reset deletes, naming how many of the owner's businesses go. */
+function resetWarning(ownCount: number): string {
+  const businesses =
+    ownCount === 0 ? "" : ownCount === 1 ? "your 1 business, " : `your ${ownCount} businesses, `;
+  return `This deletes ${businesses}every path you chose, and all approvals and outbox messages in this session. Sample businesses go back to how they started.`;
+}
+
+/** Render the reset button, its confirmation, and run the reset. */
+export function ResetDemoButton({ ownCount }: { readonly ownCount: number }) {
   const router = useRouter();
   const toast = useToast();
+  const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  const confirmButton = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (confirming) confirmButton.current?.focus();
+  }, [confirming]);
 
   async function reset() {
     setBusy(true);
     try {
       await callApi<{ ok: true }>("/api/reset", "POST");
       toast("Demo reset");
-      // No `router.refresh()`: it would re-render this business page, which may no longer exist.
-      // Next 15 refetches dynamic pages on every visit, so the next business page is fresh anyway.
-      router.push("/");
+      setConfirming(false);
+      // `refresh` re-renders the shell so its business list and counts drop what was deleted.
+      router.push(APP_HREF);
+      router.refresh();
     } catch (error) {
       toast(errorText(error));
+    } finally {
       setBusy(false);
     }
   }
 
+  if (!confirming) {
+    return (
+      <button type="button" className="side-foot-link" title="Reset demo" onClick={() => setConfirming(true)}>
+        <RotateCcw aria-hidden="true" size={16} />
+        <span className="side-foot-text">Reset demo</span>
+      </button>
+    );
+  }
+
   return (
-    <button type="button" className="btn sm ghost" onClick={reset} disabled={busy}>
-      Reset demo
-    </button>
+    <div className="reset-confirm" role="group" aria-label="Confirm reset">
+      <p>{resetWarning(ownCount)}</p>
+      <div className="row">
+        <Button ref={confirmButton} size="sm" onClick={reset} disabled={busy}>
+          {busy ? "Resetting..." : "Delete and reset"}
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => setConfirming(false)} disabled={busy}>
+          Cancel
+        </Button>
+      </div>
+    </div>
   );
 }

@@ -76,11 +76,12 @@ With no AI settings, Anchored maps businesses and drafts cards with its own rule
 | `AI_BASE_URL` | The endpoint root for `openai-compatible`, which is the part before `/chat/completions`, such as `https://example.com/v1`. It must use https, except for a model on `localhost` |
 | `AI_MODEL` | The model for every tier. Every provider except `anthropic` needs it, unless all three tier variables are set |
 | `AI_MODEL_QUICK`, `AI_MODEL_DEFAULT`, `AI_MODEL_COMPLEX` | The model for one tier. Each one overrides `AI_MODEL` |
+| `AI_DAILY_CALL_CAP` | Model calls allowed per UTC day across every visitor, counted in Supabase. Default 2000; `0` turns model calls off |
 | `APP_URL` | This deployment's public URL. Anchored sends it as the `HTTP-Referer` header to providers that ask for attribution, such as OpenRouter |
 
-Each model call names a tier: `quick` for "Rewrite in my voice" and `default` for onboarding text. With `anthropic` and no model variables, the `quick`, `default`, and `complex` tiers run `claude-haiku-5-5`, `claude-sonnet-5-5`, and `claude-opus-5-5`.
+Each model call names a tier: `quick` for "Rewrite in my voice" and chat turns, and `default` for onboarding text. With `anthropic` and no model variables, the `quick`, `default`, and `complex` tiers run `claude-haiku-5-5`, `claude-sonnet-5-5`, and `claude-opus-5-5`.
 
-Before a public deploy, set a hard spend cap in your AI provider's billing settings. The rate limits in `middleware.ts` slow abuse, but they don't cap spend.
+Past `AI_DAILY_CALL_CAP`, chats and onboarding fall back to the rules and rewrites return 429. Before a public deploy, also set a hard spend cap in your AI provider's billing settings, as the backstop.
 
 ## Set up Supabase
 
@@ -112,15 +113,16 @@ A guest who adds an email under **Save your work** keeps the same user id. Their
 
 The server reads and writes with the service role key, which bypasses row-level security. `20261107000200_auth_policies.sql` adds policies as a second layer. With them, a signed-in user's own token can reach only the rows whose `session_id` is that user's id. The anon key alone reaches nothing.
 
-`20261107000100_retention.sql` deletes every row older than 30 days once you schedule it, and that includes rows that belong to accounts. Schedule it only on a demo deployment.
+`purge_expired_demo_data()` deletes demo rows older than 30 days once you schedule it with `pg_cron`. It skips rows that belong to email and Google accounts, and deletes guests' rows.
 
 ## Deploy to Vercel
 
-1. Import the repository in Vercel. The default Next.js settings work.
-2. Add the three environment variables under **Settings > Environment Variables**.
-3. Deploy.
+1. Set up Supabase as described above, with every migration run.
+2. Import the repository in Vercel. The default Next.js settings work.
+3. Under **Settings > Environment Variables**, add `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`. For AI, add `AI_PROVIDER`, its key, `AI_DAILY_CALL_CAP` and `APP_URL`.
+4. Deploy, then add the deployment's address to Supabase's **Site URL** and **Redirect URLs**.
 
-Every visitor gets an anonymous session cookie, so judges can test without logging in and see only their own businesses and cards. **Reset demo** clears a session.
+Judges can test without an account through **Continue as guest**, and each one sees only their own businesses and cards. **Reset demo** clears a session.
 
 ## Project layout
 

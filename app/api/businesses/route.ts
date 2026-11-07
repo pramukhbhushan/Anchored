@@ -2,9 +2,9 @@ import { randomUUID } from "node:crypto";
 import type { CreateBusinessResponse } from "@/lib/api/contract";
 import { createBusinessSchema } from "@/lib/api/schemas";
 import { EXAMPLES, exampleProfile } from "@/lib/domain/cases";
-import { profileFromAnswers, profileFromSentence } from "@/lib/domain/engine";
+import { profileFromSentence } from "@/lib/domain/engine";
 import type { BusinessProfile } from "@/lib/domain/types";
-import { enrichProfile, isAiConfigured } from "@/lib/server/ai";
+import { buildProfileFromAnswers } from "@/lib/server/create-business";
 import { fail, handleError, json, readBody } from "@/lib/server/http";
 import { getSessionId } from "@/lib/server/session";
 import { getStore } from "@/lib/store";
@@ -24,15 +24,7 @@ async function buildProfile(request: ReturnType<typeof createBusinessSchema.pars
     return { ...exampleProfile(request.exampleId), id: `b_${randomUUID()}`, kind: "custom" };
   }
   if (request.from === "sentence") return profileFromSentence(request.sentence);
-
-  const base = profileFromAnswers(request.answers);
-  if (!isAiConfigured()) return base;
-  try {
-    return await enrichProfile(request.answers, base);
-  } catch (error) {
-    console.warn(`[API /api/businesses] AI enrichment failed; keeping the rules-built profile. Reason: ${error instanceof Error ? error.message : String(error)}`);
-    return base;
-  }
+  return buildProfileFromAnswers(request.answers);
 }
 
 /** Create a business for this session. */

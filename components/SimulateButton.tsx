@@ -1,10 +1,12 @@
 "use client";
 
+import { Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { cardSource } from "@/components/agent-labels";
 import { callApi, errorText } from "@/components/api";
 import { useToast } from "@/components/Toast";
+import { Button } from "@/components/ui/Button";
 import type { CardRecord, CardsResponse, SimulateRequest } from "@/lib/api/contract";
 
 // =============================================================================
@@ -14,19 +16,19 @@ import type { CardRecord, CardsResponse, SimulateRequest } from "@/lib/api/contr
 // chosen skill, the way a missed call or a new invoice would, then toasts who
 // drafted it and refreshes the feed.
 
-/** Return the most recently created card, the one the simulation just added. */
-function newest(cards: readonly CardRecord[]): CardRecord | undefined {
-  // ISO 8601 timestamps sort as strings.
-  return cards.reduce<CardRecord | undefined>((best, c) => (best === undefined || c.createdAt > best.createdAt ? c : best), undefined);
-}
+// The route names the card it just drafted as `added`; `lib/api/contract.ts` gains the field alongside this change.
+type SimulateResponse = CardsResponse & { readonly added?: CardRecord };
 
-/** Render the simulate button; `agentNames` maps each active agent's ref to its name for the toast. */
+/** Render the simulate button; `agentNames` names agents in the toast, whose link goes to `seeHref`. */
 export function SimulateButton({
   businessId,
   agentNames,
+  seeHref,
 }: {
   readonly businessId: string;
   readonly agentNames: Readonly<Record<string, string>>;
+  /** Where the new card shows: `#waiting` on the approvals page, the approvals page from anywhere else. */
+  readonly seeHref: string;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -38,16 +40,16 @@ export function SimulateButton({
     try {
       // An empty request lets the route rotate through every chosen skill.
       const request: SimulateRequest = {};
-      const { cards } = await callApi<CardsResponse>(
+      const { added } = await callApi<SimulateResponse>(
         `/api/businesses/${encodeURIComponent(businessId)}/cards`,
         "POST",
         request,
       );
-      const card = newest(cards);
       toast(
-        card === undefined
+        added === undefined
           ? "New card added"
-          : `New card from ${cardSource(card.agent === null ? null : (agentNames[card.agent] ?? null), card.skill)}`,
+          : `New card from ${cardSource(added.agent === null ? null : (agentNames[added.agent] ?? null), added.skill)}`,
+        { label: "See it", href: seeHref },
       );
       startRefresh(() => router.refresh());
     } catch (error) {
@@ -58,8 +60,9 @@ export function SimulateButton({
   }
 
   return (
-    <button type="button" className="btn ghost" onClick={simulate} disabled={busy || refreshing}>
-      Simulate a new event
-    </button>
+    <Button variant="secondary" onClick={simulate} disabled={busy || refreshing}>
+      <Zap aria-hidden="true" size={16} />
+      {busy || refreshing ? "Drafting..." : "Simulate a new event"}
+    </Button>
   );
 }

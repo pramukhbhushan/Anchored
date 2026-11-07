@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { skillList } from "@/components/agent-labels";
 import { ChooseButton } from "@/components/ChooseButton";
-import { compareHref } from "@/components/routes";
+import { toolsHref } from "@/components/routes";
 import { FitBar, Stamp } from "@/components/Stamp";
+import { Badge } from "@/components/ui/Badge";
+import { buttonClass } from "@/components/ui/Button";
 import type { SetChoiceRequest } from "@/lib/api/contract";
 import { toolById, toolName } from "@/lib/domain/catalog";
 import { pathOptions } from "@/lib/domain/paths";
@@ -13,14 +15,15 @@ import type { BusinessProfile, Choice, WorkflowId, WorkflowPlan } from "@/lib/do
 // =============================================================================
 // Module Overview
 // =============================================================================
-// One workflow card on the workflows page: fit, our pick, the reason and the
-// stake, then the three path rows (turn on, buy, build) with the chosen one
-// marked. The build row names the agent and the skills it would run.
-// Server-rendered; only the Choose and Skip buttons run in the browser.
+// One workflow card on the workflows page: fit, the path the owner is on as a
+// stamp (with "Our pick" when it differs), the reason and the stake, then the
+// three path rows with the chosen one marked. Server-rendered; only the Choose
+// and Skip buttons run in the browser. Each card is linkable at `#wf-<id>`.
 
 /** One path row's content. An empty `label` means the path isn't available here. */
 interface PathRowProps {
   readonly businessId: string;
+  readonly workflowName: string;
   readonly kind: "turnon" | "buy" | "build";
   readonly label: string;
   readonly sub: string;
@@ -29,7 +32,7 @@ interface PathRowProps {
 }
 
 /** Render one path: its name, what would run it, and a Choose toggle when it's available. */
-function PathRow({ businessId, kind, label, sub, request, chosen }: PathRowProps) {
+function PathRow({ businessId, workflowName, kind, label, sub, request, chosen }: PathRowProps) {
   const available = label !== "" && request !== null;
   return (
     <div className={`path${chosen ? " chosen" : ""}${available ? "" : " none"}`}>
@@ -42,8 +45,9 @@ function PathRow({ businessId, kind, label, sub, request, chosen }: PathRowProps
         <ChooseButton
           businessId={businessId}
           request={request}
-          className={`btn sm${chosen ? "" : " ghost"}`}
+          className={buttonClass(chosen ? "primary" : "secondary", "sm")}
           pressed={chosen}
+          label={`Choose ${PATH_LABEL[kind]}: ${label} for ${workflowName}`}
         >
           {chosen ? "Chosen" : "Choose"}
         </ChooseButton>
@@ -64,8 +68,13 @@ export function OppCard({
   readonly plan: WorkflowPlan;
   readonly choice: Choice;
 }) {
+  const name = WORKFLOWS[id].name;
   const options = pathOptions(business, id);
-  const owned = options.owned[0];
+  // Show the owned tool the owner turned on; else our preferred one if they own it; else the first they own.
+  const owned =
+    (choice.path === "turnon" ? toolById(choice.toolId) : undefined) ??
+    options.owned.find((t) => t.id === plan.tool) ??
+    options.owned[0];
   // Show the tool already chosen; else our preferred tool unless the owner already has it; else the top-rated one.
   const buyId =
     choice.path === "buy"
@@ -75,28 +84,32 @@ export function OppCard({
         : options.buy[0]?.tool.id;
   const buyTool = buyId === undefined ? undefined : toolById(buyId);
   const build = options.build;
+  const followsPick = choice.path === plan.rec;
 
   return (
-    <article className={`opp${plan.rec === "skip" && choice.path === "skip" ? " dim" : ""}`}>
-      <header>
+    <article className={`opp${choice.path === "skip" ? " dim" : ""}`} id={`wf-${id}`}>
+      <header className="opp-head">
         <div>
-          <h3>{WORKFLOWS[id].name}</h3>
+          <h3>{name}</h3>
           <FitBar fit={plan.fit} />
         </div>
-        <span title="Our pick">
-          <Stamp path={plan.rec} />
-        </span>
+        <div className="opp-verdict">
+          <span className="sr">Your path:</span>
+          <Stamp path={choice.path} />
+          <span className="opp-pick">{followsPick ? "Our pick" : `Our pick: ${PATH_LABEL[plan.rec]}`}</span>
+        </div>
       </header>
       {plan.isNew && (
-        <span className="chip new" style={{ alignSelf: "flex-start" }}>
+        <Badge tone="new" className="opp-new">
           New for you
-        </span>
+        </Badge>
       )}
       <p className="why">{plan.why}</p>
       {plan.stake !== "" && <p className="stake">{plan.stake}</p>}
       <div className="paths">
         <PathRow
           businessId={business.id}
+          workflowName={name}
           kind="turnon"
           label={owned ? toolName(owned) : ""}
           sub={owned ? `You already use ${owned.platform ?? "it"}` : "Nothing you use covers this"}
@@ -105,14 +118,16 @@ export function OppCard({
         />
         <PathRow
           businessId={business.id}
+          workflowName={name}
           kind="buy"
           label={buyTool ? toolName(buyTool) : ""}
-          sub={buyTool ? `${buyTool.price}. Fit ${rateTool(buyTool, business).total} for you` : "No catalog tool yet"}
+          sub={buyTool ? `${buyTool.price}. Scores ${rateTool(buyTool, business).total}/100 on our checks` : "No catalog tool yet"}
           request={buyTool ? { workflow: id, path: "buy", toolId: buyTool.id } : null}
           chosen={choice.path === "buy"}
         />
         <PathRow
           businessId={business.id}
+          workflowName={name}
           kind="build"
           label={build ? `${build.agentName} agent` : ""}
           sub={build ? skillList(build.skills) : "Anchored doesn't build this one"}
@@ -120,15 +135,20 @@ export function OppCard({
           chosen={choice.path === "build"}
         />
       </div>
-      <div className="foot">
+      <div className="opp-foot">
         {choice.path === "skip" ? (
-          <span className="muted">Skipped</span>
+          <span className="muted">Skipped for now</span>
         ) : (
-          <ChooseButton businessId={business.id} request={{ workflow: id, path: "skip" }} className="linkbtn">
+          <ChooseButton
+            businessId={business.id}
+            request={{ workflow: id, path: "skip" }}
+            className={buttonClass("quiet", "sm")}
+            label={`Skip ${name} for now`}
+          >
             Skip for now
           </ChooseButton>
         )}
-        <Link className="linkbtn" href={compareHref(business.id, id)}>
+        <Link className={buttonClass("quiet", "sm")} href={toolsHref(business.id, id)} aria-label={`Compare tools for ${name}`}>
           Compare tools for this
         </Link>
       </div>

@@ -34,6 +34,8 @@ const WINDOW_MS = 10 * 60 * 1000;
 const LIMITS = {
   createBusiness: { bucket: "create-business", windowMs: WINDOW_MS, perSession: 10, perIp: 60 },
   rewrite: { bucket: "rewrite", windowMs: WINDOW_MS, perSession: 20, perIp: 120 },
+  // An onboarding interview runs about a dozen turns, so 40 leaves room for a restart or two.
+  chat: { bucket: "chat", windowMs: WINDOW_MS, perSession: 40, perIp: 200 },
   newEvent: { bucket: "new-event", windowMs: WINDOW_MS, perSession: 60, perIp: 300 },
   mutation: { bucket: "mutation", windowMs: WINDOW_MS, perSession: 120, perIp: 600 },
 } as const satisfies Record<string, ApiLimit>;
@@ -104,6 +106,7 @@ export function limitFor(method: string, pathname: string): ApiLimit {
   if (method !== "POST") return LIMITS.mutation;
   if (/^\/api\/businesses\/?$/.test(pathname)) return LIMITS.createBusiness;
   if (/^\/api\/cards\/[^/]+\/rewrite\/?$/.test(pathname)) return LIMITS.rewrite;
+  if (/^\/api\/intake(\/[^/]+)?\/?$/.test(pathname) || /^\/api\/businesses\/[^/]+\/chat\/?$/.test(pathname)) return LIMITS.chat;
   if (/^\/api\/businesses\/[^/]+\/cards\/?$/.test(pathname) || /^\/api\/ingest\/[^/]+\/?$/.test(pathname)) return LIMITS.newEvent;
   return LIMITS.mutation;
 }

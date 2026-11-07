@@ -116,4 +116,17 @@ describe("decideCard", () => {
     const second = await decideCard(store, SESSION, decided, { decision: "approve" }, TEN_AM_EASTERN);
     expect(second).toEqual({ ok: false, status: 409, error: "This card was already decided." });
   });
+
+  it("sends once when two approvals of the same pending card race", async () => {
+    const card = await addCard(missedCallText);
+    // Both requests read the card while it was pending, like a double tap.
+    const results = await Promise.all([
+      decideCard(store, SESSION, card, { decision: "approve" }, TEN_AM_EASTERN),
+      decideCard(store, SESSION, card, { decision: "approve" }, TEN_AM_EASTERN),
+    ]);
+
+    expect(results.filter((result) => result.ok)).toHaveLength(1);
+    expect(results).toContainEqual({ ok: false, status: 409, error: "This card was already decided." });
+    expect(await store.listOutbox(SESSION, BUSINESS)).toHaveLength(1);
+  });
 });

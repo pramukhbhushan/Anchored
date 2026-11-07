@@ -161,6 +161,15 @@ describe("limitFor", () => {
     expect(limitFor("POST", "/api/cards/abc-123/rewrite")).toMatchObject({ perSession: 20, perIp: 120 });
   });
 
+  it("shares one chat limit between onboarding turns and the business chat", () => {
+    const start = limitFor("POST", "/api/intake");
+    const answer = limitFor("POST", "/api/intake/abc-123");
+    const chat = limitFor("POST", "/api/businesses/b_1/chat");
+    expect(start).toMatchObject({ perSession: 40, perIp: 200 });
+    expect(answer.bucket).toBe(start.bucket);
+    expect(chat.bucket).toBe(start.bucket);
+  });
+
   it("shares one event limit between simulate and ingest", () => {
     const simulate = limitFor("POST", "/api/businesses/b_1/cards");
     const ingest = limitFor("POST", "/api/ingest/missed-call");
@@ -176,6 +185,7 @@ describe("limitFor", () => {
       ["PUT", "/api/businesses"],
       ["POST", "/api/businesses/b_1"],
       ["POST", "/api/cards/abc/rewrite/extra"],
+      ["POST", "/api/intake/abc/extra"],
     ] as const) {
       expect(limitFor(method, path), `${method} ${path}`).toMatchObject({ perSession: 120, perIp: 600 });
     }
