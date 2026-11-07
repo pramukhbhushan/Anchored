@@ -1,46 +1,49 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { OpenFromHash } from "@/components/business/OpenFromHash";
 import { OppCard } from "@/components/business/OppCard";
 import { businessHref } from "@/components/routes";
-import { Stamp } from "@/components/ui/Stamp";
 import { ButtonLink } from "@/components/ui/Button";
-import { PageHeader, SectionHeader } from "@/components/ui/PageHeader";
-import { plannedWorkflows, type PlannedWorkflow } from "@/components/view-helpers";
-import { PATH_DESCRIPTION, WORKFLOWS } from "@/lib/domain/workflows";
-import type { BusinessProfile, Choice, PathKind, WorkflowId } from "@/lib/domain/types";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { placeOf, plannedWorkflows, type PlannedWorkflow } from "@/components/view-helpers";
+import { WORKFLOWS } from "@/lib/domain/workflows";
+import type { BusinessProfile, Choice, WorkflowId } from "@/lib/domain/types";
 import { getBusinessOrNotFound, getChoices } from "@/lib/server/data";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The workflows map: what each stamp means, then one card per workflow, the
-// five every business shares first and the ones onboarding added after. Each
-// card offers three paths and marks the one the owner is on.
+// The Workflows page: the landing hero's work order, extended to every
+// workflow the business has. One line per workflow, best fit first, the five
+// every business shares and then the ones onboarding added. Each line opens to
+// change its path; `#wf-<id>` opens and scrolls to one.
 
 export const metadata: Metadata = { title: "Workflows" };
 
-const LEGEND: readonly PathKind[] = ["turnon", "buy", "build", "skip"];
-
-/** Render one group of workflow cards. */
-function WorkflowGrid({
+/** Render one group of work-order lines under its label, best fit first. */
+function Group({
   business,
+  label,
   list,
   choices,
 }: {
   readonly business: BusinessProfile;
+  readonly label: string;
   readonly list: readonly PlannedWorkflow[];
   readonly choices: Record<WorkflowId, Choice>;
 }) {
+  // Array sort is stable, so equal fits keep the catalog order.
+  const ranked = [...list].sort((a, z) => z.plan.fit - a.plan.fit);
   return (
-    <div className="grid-cards">
-      {list.map((w) => (
+    <section className="wf-group" aria-label={label}>
+      <h3 className="wf-label">{label}</h3>
+      {ranked.map((w) => (
         <OppCard key={w.id} business={business} id={w.id} plan={w.plan} choice={choices[w.id]} />
       ))}
-    </div>
+    </section>
   );
 }
 
-/** Render every workflow card for the business in the URL, grouped shared then added. */
+/** Render the work order for the business in the URL. */
 export default async function WorkflowsPage({ params }: { readonly params: Promise<{ id: string }> }) {
   const { id } = await params;
   const business = await getBusinessOrNotFound(id);
@@ -48,48 +51,28 @@ export default async function WorkflowsPage({ params }: { readonly params: Promi
   const planned = plannedWorkflows(business);
   const shared = planned.filter((w) => WORKFLOWS[w.id].base);
   const added = planned.filter((w) => !WORKFLOWS[w.id].base);
+  const place = placeOf(business);
 
   return (
     <>
       <PageHeader
         title="Workflows"
-        description="Work AI can take on for this business. Each workflow has three paths. The stamp shows the one you're on; change it any time and your stack updates."
         actions={
           <ButtonLink href={businessHref(business.id, "stack")} variant="secondary">
             See your stack
           </ButtonLink>
         }
       />
-      <div className="legend" role="note" aria-label="What the stamps mean">
-        {LEGEND.map((path) => (
-          <span key={path}>
-            <Stamp path={path} /> {PATH_DESCRIPTION[path]}
-          </span>
-        ))}
-        <span className="legend-score">
-          Tool scores are out of 100.{" "}
-          <Link href={`${businessHref(business.id, "tools")}#how-we-score`}>How we score</Link>
-        </span>
-      </div>
-
-      <section className="section" aria-labelledby="shared">
-        <SectionHeader
-          id="shared"
-          title="Every business shares these five"
-          description="The most common places AI helps a small business."
-        />
-        <WorkflowGrid business={business} list={shared} choices={choices} />
+      <section className="slip wf-order" aria-labelledby="order-title">
+        <header className="slip-head">
+          <h2 id="order-title">Work order for {business.name}</h2>
+          {place !== null && <span>{place}</span>}
+        </header>
+        <div className="slip-perf" aria-hidden="true" />
+        <Group business={business} label="Shared by every business" list={shared} choices={choices} />
+        {added.length > 0 && <Group business={business} label="Added from your answers" list={added} choices={choices} />}
       </section>
-      {added.length > 0 && (
-        <section className="section" aria-labelledby="added">
-          <SectionHeader
-            id="added"
-            title={`Added for ${business.name}`}
-            description="From what you told Anchored about how you work."
-          />
-          <WorkflowGrid business={business} list={added} choices={choices} />
-        </section>
-      )}
+      <OpenFromHash />
     </>
   );
 }
