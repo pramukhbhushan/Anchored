@@ -152,6 +152,29 @@ export class SupabaseStore implements Store {
     return toCard(data as CardRow);
   }
 
+  async updatePendingCard(session: string, cardId: string, patch: CardPatch): Promise<CardRecord | null> {
+    const current = await this.getCard(session, cardId);
+    if (!current || current.status !== "pending") return null;
+    const { id, key, businessId, status, edited, createdAt, decidedAt, ...draft } = current;
+    const update = {
+      draft: patch.body === undefined ? draft : { ...draft, body: patch.body },
+      status: patch.status ?? status,
+      edited: patch.edited ?? edited,
+      decided_at: patch.decidedAt === undefined ? decidedAt : patch.decidedAt,
+    };
+    // `status = pending` in the filter makes the check and the write one statement: a second request matches no row.
+    const { data, error } = await this.db.from("cards").update(update).eq("session_id", session).eq("id", id).eq("status", "pending").select(CARD_COLUMNS).maybeSingle();
+    if (error) fail("updatePendingCard", error);
+    return data ? toCard(data as CardRow) : null;
+  }
+
+  async useAiCall(day: string, cap: number): Promise<boolean> {
+    // `use_ai_call` increments and compares in one statement, so concurrent callers can't overshoot the cap.
+    const { data, error } = await this.db.rpc("use_ai_call", { p_day: day, p_cap: cap });
+    if (error) fail("useAiCall", error);
+    return data === true;
+  }
+
   async addOutbox(session: string, entry: NewOutboxEntry): Promise<OutboxEntry> {
     const row = { session_id: session, business_id: entry.businessId, card_id: entry.cardId, channel: entry.channel, recipient: entry.to, body: entry.body, ...(entry.sentAt ? { sent_at: entry.sentAt } : {}) };
     const { data, error } = await this.db.from("outbox").insert(row).select(OUTBOX_COLUMNS).single();

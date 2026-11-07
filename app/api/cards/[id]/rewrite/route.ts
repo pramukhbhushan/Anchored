@@ -31,9 +31,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     const session = await getSessionId();
     const store = getStore();
     // The model call takes seconds; if the owner decided the card meanwhile, its sent text must not change.
-    const current = await store.getCard(session, card.id);
-    if (!current || current.status !== "pending") return fail(409, "This card was decided while it was being rewritten. Nothing changed.");
-    const updated = await store.updateCard(session, card.id, { body, edited: true });
+    const updated = await store.updatePendingCard(session, card.id, { body, edited: true });
+    if (!updated) return fail(409, "This card was decided while it was being rewritten. Nothing changed.");
     return json<RewriteResponse>({ card: updated });
   } catch (error) {
     if (error instanceof LlmRefusalError) return fail(422, "The AI model couldn't rewrite this one. Edit it yourself instead.");

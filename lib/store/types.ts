@@ -50,6 +50,8 @@ export interface Store {
   listCards(session: string, businessId: string): Promise<CardRecord[]>;
   getCard(session: string, cardId: string): Promise<CardRecord | null>;
   updateCard(session: string, cardId: string, patch: CardPatch): Promise<CardRecord>;
+  /** Apply `patch` only while the card is still pending, and return it; `null` when another request decided it first. */
+  updatePendingCard(session: string, cardId: string, patch: CardPatch): Promise<CardRecord | null>;
   addOutbox(session: string, entry: NewOutboxEntry): Promise<OutboxEntry>;
   listOutbox(session: string, businessId: string): Promise<OutboxEntry[]>;
   recordEvent(session: string, businessId: string, source: string, payload: Readonly<Record<string, unknown>>): Promise<void>;
@@ -59,6 +61,8 @@ export interface Store {
   addMessages(session: string, thread: ChatThread, messages: readonly NewChatMessage[]): Promise<ChatMessage[]>;
   getIntake(session: string, id: string): Promise<IntakeRecord | null>;
   saveIntake(session: string, intake: IntakeRecord): Promise<void>;
+  /** Count one model call against the day's cap for every visitor together; `false` once the cap is reached. */
+  useAiCall(day: string, cap: number): Promise<boolean>;
   /** Delete everything the session created, so the demo starts fresh. */
   reset(session: string): Promise<void>;
 }
