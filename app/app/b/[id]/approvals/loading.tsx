@@ -7,5 +7,5 @@ import { PageSkeleton } from "@/components/ui/Skeleton";
 
 /** Render the placeholder for your approvals. */
 export default function ApprovalsLoading() {
-  return <PageSkeleton layout="list" label="your approvals" />;
+  return <PageSkeleton layout="feed" label="your approvals" />;
 }
