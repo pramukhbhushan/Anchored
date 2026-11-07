@@ -42,7 +42,16 @@ const DIALECTS: Readonly<Record<CompatibleName, Dialect>> = {
     titleHeader: "X-OpenRouter-Title",
   },
   // Featherless documents no `response_format`, so its JSON is requested in the prompt.
-  featherless: { tokenParam: "max_completion_tokens", structured: "prompt", baseBody: {}, structuredBody: {}, titleHeader: "X-Title" },
+  // `enable_thinking: false` turns off reasoning on models that think by default, such as Qwen3.6:
+  // with it on, Qwen spent its whole 700-token budget thinking and returned no text. Models without
+  // the switch, such as Gemma 4, ignore it. Measured on Featherless, Nov 2026.
+  featherless: {
+    tokenParam: "max_completion_tokens",
+    structured: "prompt",
+    baseBody: { chat_template_kwargs: { enable_thinking: false } },
+    structuredBody: {},
+    titleHeader: "X-Title",
+  },
   "openai-compatible": { tokenParam: "max_tokens", structured: "prompt", baseBody: {}, structuredBody: {}, titleHeader: null },
 };
 
