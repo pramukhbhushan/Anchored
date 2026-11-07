@@ -166,6 +166,25 @@ describe("triage", () => {
   });
 });
 
+describe("post cards", () => {
+  const posts = (business: BusinessProfile): CardBody[] => VARIANTS.map((variant) => CARD_TEMPLATES.posts(business, variant));
+
+  it("drafts Google listing posts only for a business that uses Google", () => {
+    const corner = exampleProfile("corner");
+    expect(corner.reach).not.toContain("Google");
+    for (const card of posts(corner)) expect(`${card.title} ${card.body}`).not.toMatch(/google/i);
+    expect(posts(exampleProfile("dental"))[0]?.title).toContain("Google");
+    const listingOnly = { ...corner, tools: ["Google Business Profile"] };
+    expect(posts(listingOnly)[0]?.title).toContain("Google");
+  });
+
+  it("never claims it read hours the post doesn't hold", () => {
+    for (const business of [exampleProfile("corner"), exampleProfile("dental")]) {
+      for (const card of posts(business)) expect(card.checks).not.toContain("Hours read from your profile");
+    }
+  });
+});
+
 describe("every drafted card", () => {
   // Researched cards and every template variant each business could draft. Locked cards never send by design.
   const drafts = EVERY_BUSINESS.flatMap((business) => [

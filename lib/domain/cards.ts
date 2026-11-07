@@ -20,7 +20,7 @@ export type CardSkill = Exclude<SkillId, "brief">;
  * they never repeat it. `agents` are the agents at work here; triage hands email only to one of them.
  */
 export type CardTemplate = (
-  business: Pick<BusinessProfile, "name">,
+  business: Pick<BusinessProfile, "name" | "reach" | "tools">,
   variant: number,
   agents?: readonly ActiveAgent[],
 ) => CardBody;
@@ -35,6 +35,11 @@ function pick<T>(variant: number, standing: T, ...simulated: readonly [T, ...T[]
   const index = (((variant - 1) % simulated.length) + simulated.length) % simulated.length;
   // `index` is always in range; the fallback only satisfies `noUncheckedIndexedAccess`.
   return simulated[index] ?? simulated[0];
+}
+
+/** Whether the owner said customers find them on Google or that they keep a Google Business Profile. */
+function usesGoogle(business: Pick<BusinessProfile, "reach" | "tools">): boolean {
+  return business.reach.includes("Google") || business.tools.includes("Google Business Profile");
 }
 
 // =============================================================================
@@ -186,19 +191,30 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
     action: "Add to rep list",
     channel: "list",
   }),
-  posts: (b, v) => ({
-    title: pick(
-      v,
-      "Your Google listing hasn't changed in 3 months",
-      "Your hours on Google don't match your profile",
-      "Your Google listing has no recent photos",
-    ),
-    body: `Draft post for ${b.name}: "${pick(v, "Stop by this week, or call ahead to book a time.", "Our hours are updated. Check them before you stop by.", "A look at what we've been working on. Stop by and say hi.")}"`,
-    reason: "Customers skip a business when basic details are missing.",
-    checks: ["You post it yourself", "Hours read from your profile"],
-    action: "Copy post",
-    channel: "list",
-  }),
+  // Google listing posts only for a business that said it uses Google. No profile holds hours, so no post states them.
+  posts: (b, v) =>
+    usesGoogle(b)
+      ? {
+          title: pick(
+            v,
+            "Your Google listing hasn't changed in 3 months",
+            "Customers check your Google listing before they visit",
+            "Your Google listing has no recent photos",
+          ),
+          body: `Draft post for ${b.name}: "${pick(v, "Stop by this week, or call ahead to book a time.", "Planning a visit? Check our listing for this week's hours before you stop by.", "A look at what we've been working on. Stop by and say hi.")}"`,
+          reason: "Customers skip a business when basic details are missing.",
+          checks: ["You post it yourself", "No prices or offers in the post"],
+          action: "Copy post",
+          channel: "list",
+        }
+      : {
+          title: pick(v, "Nothing posted in 3 weeks", "A short post for this week", "Show customers what's new"),
+          body: `Draft post for ${b.name}: "${pick(v, "Stop by this week, or call ahead to book a time.", "Thanks to everyone who came by this week. See you soon.", "A look at what we've been working on. Stop by and say hi.")}"`,
+          reason: "A short, regular post keeps you in front of customers.",
+          checks: ["You post it yourself", "No prices or offers in the post"],
+          action: "Copy post",
+          channel: "list",
+        },
   reviewdrafter: (_b, v) => ({
     title: "New 4-star review mentions a long wait",
     body: `Thanks for the kind words, ${pick(v, "Chris", "Dana", "Pat")}, and you're right about the wait. We're adding help at our busiest hours. Hope to see you again soon.`,
