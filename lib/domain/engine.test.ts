@@ -135,6 +135,12 @@ describe("profiles", () => {
     expect(profileFromSentence("a bakery").id).not.toBe(first);
   });
 
+  it("capitalizes the trade the same way whichever path built the profile", () => {
+    expect(profileFromAnswers({ ...BLANK_ANSWERS, kind: "corner store in Baltimore" }).trade).toBe("Corner store in Baltimore");
+    expect(profileFromFacts({ ...BLANK_FACTS, trade: "taco truck" }).trade).toBe("Taco truck");
+    expect(profileFromSentence("a corner store in Baltimore").trade).toBe("Corner store in Baltimore");
+  });
+
   it("splits the business name from its place at the first comma", () => {
     const profile = profileFromAnswers({ ...BLANK_ANSWERS, name: "Taco Loco, Austin, TX", kind: "Taco truck" });
     expect(profile.name).toBe("Taco Loco");

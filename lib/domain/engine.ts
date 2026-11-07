@@ -175,7 +175,7 @@ export function profileFromFacts(facts: BusinessFacts, builtBy: EngineAuthor = "
     kind: "custom",
     builtBy,
     name: facts.name || "Your business",
-    trade: facts.trade || "Small business",
+    trade: capitalize(facts.trade.trim()) || "Small business",
     tradeKey: facts.tradeKey,
     place: facts.place || NOT_GIVEN,
     size: facts.size || NOT_GIVEN,
@@ -323,7 +323,7 @@ export function profileFromSentence(text: string): BusinessProfile {
   const { name, trade } = nameAndTrade(text.trim());
   return profileFromFacts({
     name: name ?? "Your business",
-    trade: clipAtWord(trade.charAt(0).toUpperCase() + trade.slice(1), 70),
+    trade: clipAtWord(trade, 70),
     tradeKey: detectTradeKey(text),
     reach,
     tools,
@@ -366,6 +366,11 @@ function freshProfileId(): string {
   }
   // Unique enough for one page: the server assigns its own id when the business is saved.
   return `b_${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+}
+
+/** `text` with its first letter upper-cased, so every path's trade reads "Corner store", not "corner store". */
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function orDefault<T>(list: readonly T[] | undefined, fallback: readonly T[]): readonly T[] {
