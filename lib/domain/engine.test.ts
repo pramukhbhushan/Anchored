@@ -164,6 +164,23 @@ describe("profiles", () => {
     expect(exampleProfile("dental").id).toBe("ex-dental");
   });
 
+  it.each([
+    ["I run Rosa's Tacos, a food truck in Baltimore", "Rosa's Tacos", "Food truck in Baltimore"],
+    ["Harbor Mini Mart is a corner store that takes SNAP", "Harbor Mini Mart", "Corner store that takes SNAP"],
+    ["I run a bakery called Rise & Crumb in Frederick", "Rise & Crumb", "Bakery in Frederick"],
+    ["We're Bright Smile Dental, a family dental office", "Bright Smile Dental", "Family dental office"],
+    ["I run a bakery with 9 staff", "Your business", "Bakery with 9 staff"],
+  ])("pulls the name from a sentence that has one: %s", (sentence, name, trade) => {
+    expect(profileFromSentence(sentence)).toMatchObject({ name, trade });
+  });
+
+  it("clips a long trade at a word with an ellipsis", () => {
+    const { trade } = profileFromSentence(
+      "I run a family restaurant with a bar, a patio and a catering kitchen that serves weddings and offices across the county",
+    );
+    expect(trade).toBe("Family restaurant with a bar, a patio and a catering kitchen that...");
+  });
+
   it("reads signals and software from the words of a sentence", () => {
     const profile = profileFromSentence("I run a corner store that takes SNAP and uses Square");
     expect(profile.trade).toBe("Corner store that takes SNAP and uses Square");

@@ -281,6 +281,35 @@ const SIGNAL_WORDS: readonly (readonly [RegExp, SignalId])[] = [
   [/\b(?:instagram|tiktok|post(?:s|ed|ing)?|advertis(?:e|es|ed|ing)|ads|marketing)\b/, "marketing"],
 ];
 
+// "I run ...", "we own ...", "we're ..." and the like, which come before a name or a kind of business.
+const SENTENCE_LEAD = /^(?:(?:i|we)\s+(?:run|own|have|operate|manage|started)|we're|we are|this is)\s+/i;
+// "called Rise & Crumb", ending at punctuation or a word that starts a new phrase.
+const CALLED_NAME = /\s*\b(?:called|named)\s+["']?(.+?)["']?(?=[,.;!?]|\s+(?:in|at|near|on|that|which|who|with|and)\b|$)/i;
+// A capitalized name followed by ", a" or " is a", as in "Harbor Mini Mart is a corner store". Case-sensitive on purpose.
+const LEADING_NAME = /^([A-Z][^,]*?)(?:,\s*|\s+is\s+)an?\s+/;
+const NOT_A_NAME = /^(?:i|we|it|this|that|my|our)$/i;
+
+/** Split a one-sentence description into a business name, when it has one, and the kind of business. */
+function nameAndTrade(text: string): { name?: string; trade: string } {
+  const called = CALLED_NAME.exec(text);
+  if (called?.[1]) {
+    const rest = `${text.slice(0, called.index)}${text.slice(called.index + called[0].length)}`;
+    return { name: called[1].trim(), trade: bareTrade(rest) };
+  }
+  const body = text.replace(SENTENCE_LEAD, "");
+  const named = LEADING_NAME.exec(body);
+  const name = named?.[1]?.trim();
+  if (named && name && !NOT_A_NAME.test(name) && name.split(/\s+/).length <= 6) {
+    return { name, trade: body.slice(named[0].length).trim() };
+  }
+  return { trade: bareTrade(text) };
+}
+
+/** The kind of business with "I run" and the article taken off: "I run a bakery" becomes "bakery". */
+function bareTrade(text: string): string {
+  return text.replace(SENTENCE_LEAD, "").replace(/^(?:a|an)\s+/i, "").trim();
+}
+
 // These options describe the absence of software, so a sentence can't name them.
 const NOT_SOFTWARE: readonly string[] = ["Paper and phone", "Cash register"];
 
@@ -291,13 +320,10 @@ export function profileFromSentence(text: string): BusinessProfile {
   const reach = [...REACH_WORDS.filter(([pattern]) => pattern.test(lower)).map(([, way]) => way), "Google"];
   const signals = SIGNAL_WORDS.filter(([pattern]) => pattern.test(lower)).map(([, signal]) => signal);
   const tools = TOOL_OPTIONS.filter((name) => !NOT_SOFTWARE.includes(name) && namesSoftware(text, name));
-  const trade = text
-    .replace(/^(i run|we run|i own|we own|i have|we have)\s+/i, "")
-    .replace(/^(a|an)\s+/i, "")
-    .trim();
+  const { name, trade } = nameAndTrade(text.trim());
   return profileFromFacts({
-    name: "Your business",
-    trade: trade.charAt(0).toUpperCase() + trade.slice(1, 70),
+    name: name ?? "Your business",
+    trade: clipAtWord(trade.charAt(0).toUpperCase() + trade.slice(1), 70),
     tradeKey: detectTradeKey(text),
     reach,
     tools,
