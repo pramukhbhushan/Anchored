@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { OPT_OUT_LINE } from "@/lib/domain/executor";
 import { workflowIdsOf } from "@/lib/domain/paths";
 import type { BusinessProfile, OnboardingAnswers, WorkflowId, WorkflowPlan } from "@/lib/domain/types";
 import { PATH_LABEL, SIGNALS, WORKFLOWS } from "@/lib/domain/workflows";
@@ -15,8 +16,6 @@ import { getBudgetedLlm } from "@/lib/server/ai-budget";
 // path or score; code owns those decisions and checks every reply.
 
 export { aiLabel, isAiConfigured } from "@/lib/llm";
-
-const STOP_LINE = "Reply STOP to opt out.";
 
 /** Return the configured provider, or throw when AI is off. */
 function requireLlm() {
@@ -107,7 +106,7 @@ export async function rewriteInVoice(business: BusinessProfile, body: string): P
   const added = newFacts(body, text);
   if (added.length > 0) throw new LlmResponseError(`The rewrite added details that weren't in the draft: ${added.join(", ")}.`);
   // The opt-out line is a texting rule, so code restores it if the rewrite dropped it.
-  return body.includes(STOP_LINE) && !text.includes(STOP_LINE) ? `${text} ${STOP_LINE}` : text;
+  return body.includes(OPT_OUT_LINE) && !text.includes(OPT_OUT_LINE) ? `${text} ${OPT_OUT_LINE}` : text;
 }
 
 // Links, emails, phone numbers, money and other numbers are facts a rewrite must not invent.
