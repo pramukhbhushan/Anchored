@@ -1,0 +1,50 @@
+/* =============================================================================
+   Module Overview
+   =============================================================================
+   Styles for `ResizeHandle` and `ResizablePanel`. The handle is an 8px hit area
+   centered on the panel's edge. At rest it draws one hairline; on hover, focus
+   and drag a 2px carbon line, the same yellow that marks the open page in the
+   sidebar. Only the tokens from `app/globals.css` are used. */
+
+/* =============================================================================
+   Panel
+   ============================================================================= */
+
+/* Zero specificity, so a shell class on the panel wins, for example `position: sticky` */
+:where(.panel){position:relative}
+
+/* =============================================================================
+   Handle
+   ============================================================================= */
+
+.handle{position:absolute;top:0;bottom:0;z-index:1;width:8px;cursor:col-resize;touch-action:none}
+.handle[data-side="right"]{right:-4px}
+.handle[data-side="left"]{left:-4px}
+
+/* The hairline. `--resize-line` lets a panel that already draws a border on this edge hide it */
+.handle::before{content:"";position:absolute;top:0;bottom:0;width:1px;background:var(--resize-line,var(--line))}
+/* At rest it takes the first pixel outside the panel's padding box: on a 1px border, exactly over it */
+.handle[data-side="right"]::before{left:4px}
+.handle[data-side="left"]::before{left:3px}
+
+/* Active: 2px of carbon centered on the edge */
+.handle:hover::before,
+.handle:focus-visible::before,
+.handle[data-dragging]::before{left:3px;width:2px;background:var(--carbon)}
+
+/* The house focus ring from `app/globals.css`, restated so the handle keeps it whatever happens there */
+.handle:focus-visible{outline:2px solid var(--ink);outline-offset:2px;box-shadow:0 0 0 4px var(--carbon)}
+
+@media (prefers-reduced-motion:no-preference){
+  .handle::before{transition:background-color .15s ease}
+  /* A short wait before the hover line shows, so a pointer crossing the edge doesn't flash it */
+  .handle:hover:not(:focus-visible):not([data-dragging])::before{transition:background-color .15s ease .1s,width 0s linear .1s,left 0s linear .1s}
+}
+
+/* Forced colors drop backgrounds, so draw the line in system colors */
+@media (forced-colors:active){
+  .handle::before{background:CanvasText}
+  .handle:hover::before,
+  .handle:focus-visible::before,
+  .handle[data-dragging]::before{background:Highlight}
+}

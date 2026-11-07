@@ -15,7 +15,7 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["lib/**/*.test.ts", "app/**/*.test.ts", "middleware.test.ts"],
+    include: ["lib/**/*.test.ts", "app/**/*.test.ts", "components/**/*.test.ts", "middleware.test.ts"],
     environment: "node",
   },
 });
