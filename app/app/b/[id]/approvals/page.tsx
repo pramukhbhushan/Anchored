@@ -99,7 +99,7 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
         title="Approvals"
         actions={
           <>
-            <a className={buttonClass("secondary", "md", "only-narrow")} href="#outbox">
+            <a className={buttonClass("quiet", "md", "only-narrow")} href="#outbox">
               See outbox
             </a>
             {canSimulate && <SimulateButton businessId={business.id} agentNames={agentNames} seeHref="#waiting" />}

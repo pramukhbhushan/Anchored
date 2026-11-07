@@ -613,7 +613,7 @@ html[data-dev] .side-foot{padding-bottom:64px}
   .trow-head{display:none}
   .trow{grid-template-columns:40px minmax(0,1fr);column-gap:var(--s-3)}
   .trow-covers,.trow-acts,.trow-detail{grid-column:2}
-  .trow-acts{align-items:flex-start}
+  .trow-acts{flex-direction:row;flex-wrap:wrap;align-items:center;gap:var(--s-1) var(--s-4)}
   .trow-score{font-size:var(--fs-lg)}
 }
 .crit{list-style:none;margin:var(--s-3) 0 0;padding:0;display:flex;flex-direction:column;gap:var(--s-2);font-size:var(--fs-fine)}
