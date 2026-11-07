@@ -13,8 +13,8 @@ import type { OnboardingAnswers, SignalId } from "@/lib/domain/types";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The onboarding form. Sample answers describe a landscaping company, as in the
-// prototype. As the owner types the kind of business, `hintFor` suggests boxes
+// The one-page onboarding form, the alternative to chat. Sample answers
+// describe a landscaping company. As the owner types the kind of business, `hintFor` suggests boxes
 // that businesses like it often tick; a suggestion is a chip the owner taps to
 // tick its box, and nothing is ticked from the trade alone.
 

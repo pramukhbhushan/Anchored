@@ -4,6 +4,7 @@ import { Anchor, ArrowLeftRight, ArrowUp, Check, ChevronDown, CircleAlert, Minus
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { callApi, errorText } from "@/components/api";
+import { ResizablePanel } from "@/components/resize/ResizablePanel";
 import { businessHref, NEW_BUSINESS_HREF } from "@/components/routes";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import type { ApiError, BusinessChatResponse, ChatMessage, IntakeAnswerRequest, IntakeResponse, StartIntakeResponse } from "@/lib/api/contract";
@@ -237,7 +238,17 @@ function IntakeChat() {
           typing={busy || view === null ? (building ? "Building your plan" : "typing") : null}
           label="Onboarding conversation with Anchored"
         />
-        <KnowsCard known={view?.known ?? []} fresh={fresh} done={builtId !== undefined} onStartOver={startOver} disabled={busy} />
+        <ResizablePanel
+          storageKey="chat-knows"
+          side="left"
+          defaultWidth={360}
+          min={280}
+          max={560}
+          label="Resize What Anchored knows"
+          className={styles.knowsPanel}
+        >
+          <KnowsCard known={view?.known ?? []} fresh={fresh} done={builtId !== undefined} onStartOver={startOver} disabled={busy} />
+        </ResizablePanel>
         <div className={styles.composer}>
           {/* A reset or restarted server loses the intake, so a retry can't land; starting over always can. */}
           {outgoing?.status === "failed" && <FailLine error={outgoing.error} retry={outgoing.retry} startOver={view === null ? undefined : startOver} />}

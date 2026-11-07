@@ -17,8 +17,9 @@
    viewport minus the top bar and page heading, so the text box stays on screen. */
 .chat{container-type:inline-size;display:grid;grid-template-rows:minmax(0,1fr);flex:1 1 auto;width:100%;min-width:0;height:100%;min-height:420px;max-height:calc(100dvh - 120px)}
 .frame{display:grid;column-gap:20px;min-height:0}
+/* The knows rail sizes itself through `ResizablePanel`'s `--panel-w`, so its column is `auto` */
 .intake{
-  grid-template-columns:minmax(0,1fr) clamp(340px,26vw,380px);
+  grid-template-columns:minmax(0,1fr) auto;
   grid-template-rows:minmax(0,1fr) auto;
   grid-template-areas:"thread knows" "composer knows";
 }
@@ -109,7 +110,10 @@
    "What Anchored knows": the full-height work-order rail
    ============================================================================= */
 
-.knows{grid-area:knows;display:flex;flex-direction:column;min-height:0;overflow:hidden;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+/* The resizable wrapper takes the grid area; `.knows` draws its own border, so the handle's hairline is hidden */
+.knowsPanel{grid-area:knows;width:var(--panel-w);display:flex;flex-direction:column;min-height:0;--resize-line:transparent}
+.knowsPanel > .knows{flex:1}
+.knows{display:flex;flex-direction:column;min-height:0;overflow:hidden;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
 .knows::before{content:"";flex:none;display:block;height:8px;background:var(--carbon)}
 /* Scallops under the carbon band, as on a torn-off work order. */
 .knowsHead{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:16px 20px 4px;background:radial-gradient(circle at 6px -1px,var(--carbon) 4px,transparent 4.5px) 0 0/12px 10px repeat-x}
@@ -158,6 +162,8 @@
     grid-template-rows:minmax(0,1fr) auto auto;
     grid-template-areas:"thread" "knows" "composer";
   }
+  .knowsPanel{width:auto}
+  .knowsPanel [data-resize-handle]{display:none}
   .knows{overflow:visible;border-bottom:0;border-top:3px solid var(--carbon);border-radius:0;box-shadow:none}
   .knows::before,.knowsHead{display:none}
   .knowsToggle{display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px 6px;border:0;background:var(--sheet);color:var(--ink);font-size:14.5px;font-weight:750;text-align:left;cursor:pointer}

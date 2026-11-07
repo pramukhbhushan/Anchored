@@ -39,7 +39,7 @@ export function WorkOrder({ business, action }: { readonly business: BusinessPro
           <dd>{business.tools.join(", ")}</dd>
           {readAs.length > 0 && (
             <>
-              <dt>Read as</dt>
+              <dt>We heard</dt>
               <dd>{readAs.join(", ")}</dd>
             </>
           )}

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { HeroMapper } from "@/components/HeroMapper";
-import { businessHref } from "@/components/routes";
+import { NEW_BUSINESS_HREF, businessHref } from "@/components/routes";
 import { Stamp } from "@/components/Stamp";
 import { topWorkflows } from "@/components/view-helpers";
+import { isAuthEnabled } from "@/lib/auth/config";
 import { CASE_STUDIES } from "@/lib/domain/cases";
 import { WORKFLOWS } from "@/lib/domain/workflows";
 
@@ -29,6 +30,8 @@ const ADAPT: readonly (readonly [when: string, adds: string])[] = [
 
 /** Render the landing page. */
 export default function HomePage() {
+  // With accounts on, `/app` sits behind sign-in, so the main call to action starts there.
+  const authEnabled = isAuthEnabled();
   return (
     <>
       <div className="wrap hero">
@@ -41,10 +44,10 @@ export default function HomePage() {
               fits. Nothing reaches a customer until you tap Approve.
             </p>
             <div className="row ctas">
-              <Link className="btn" href="/onboard">
-                Describe your business
+              <Link className="btn" href={authEnabled ? "/login" : NEW_BUSINESS_HREF}>
+                {authEnabled ? "Get started" : "Describe your business"}
               </Link>
-              <a className="btn ghost" href="#cases">
+              <a className="btn btn-secondary" href="#cases">
                 See the case studies
               </a>
             </div>
@@ -93,53 +96,47 @@ export default function HomePage() {
       <section className="band">
         <div className="wrap">
           <h2>One set of rules for every business</h2>
-          <p className="prose" style={{ marginTop: 8 }}>
+          <p className="prose">
             Anchored doesn&apos;t keep a template for each trade. Every business starts with the same five workflows,
             and each answer in onboarding can add more. A salon, a landscaper and an auto shop all go through the same
             rules.
           </p>
-          <div className="scroll" style={{ marginTop: 16 }}>
-            <table className="plain">
-              <thead>
-                <tr>
-                  <th>When you tell us</th>
-                  <th>Anchored adds</th>
+          <table className="rtable adapt">
+            <thead>
+              <tr>
+                <th scope="col">When you tell us</th>
+                <th scope="col">Anchored adds</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ADAPT.map(([when, adds]) => (
+                <tr key={when}>
+                  <th scope="row">{when}</th>
+                  <td data-label="Anchored adds">{adds}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {ADAPT.map(([when, adds]) => (
-                  <tr key={when}>
-                    <td>
-                      <b>{when}</b>
-                    </td>
-                    <td>{adds}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
       <section className="band" id="cases">
         <div className="wrap">
           <h2>Three case studies</h2>
-          <p className="prose" style={{ marginTop: 8 }}>
+          <p className="prose">
             We researched three very different businesses in depth, with sourced reports on how each one runs and where
             it loses money. The same rules map all three. The research adds the numbers behind each pick.
           </p>
           <div className="cases">
             {CASE_STUDIES.map((business) => (
               <article className="case" key={business.id}>
-                <p className="who">
-                  {business.caseStudy ? `${business.caseStudy.label}: ` : ""}
-                  {business.name}
-                </p>
+                <p className="who">{business.caseStudy?.label ?? business.trade}</p>
+                <h3>{business.name}</h3>
                 {business.caseStudy && (
                   <div>
                     <p className="stat">{business.caseStudy.stat}</p>
-                    <p style={{ marginTop: 6 }}>{business.caseStudy.statText}</p>
-                    <p className="src" style={{ marginTop: 4 }}>
+                    <p className="case-text">{business.caseStudy.statText}</p>
+                    <p className="src">
                       {business.caseStudy.statSource}. Researched by {business.caseStudy.researchedBy}.
                     </p>
                   </div>
@@ -153,7 +150,7 @@ export default function HomePage() {
                   ))}
                 </ul>
                 <div className="go">
-                  <Link className="btn sm ghost" href={businessHref(business.id, "workflows")}>
+                  <Link className="btn btn-secondary btn-sm" href={businessHref(business.id)}>
                     Open the case study
                   </Link>
                 </div>
@@ -163,10 +160,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer>
+      <footer className="site-foot">
         <div className="wrap">
-          A prototype for the University of Maryland AI for Small Business Hack-a-thon, Fall 2026. Example and
-          case-study businesses are fictional. Tool facts were gathered Nov 6 and 7, 2026, and can change.
+          Built for the University of Maryland AI for Small Business Hack-a-thon, Fall 2026. Example and case-study
+          businesses are fictional. Tool facts were gathered Nov 6 and 7, 2026, and can change.
         </div>
       </footer>
     </>

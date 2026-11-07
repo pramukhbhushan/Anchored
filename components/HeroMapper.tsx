@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, type FormEvent } from "react";
 import { callApi, errorText } from "@/components/api";
 import { businessHref } from "@/components/routes";
-import { useToast } from "@/components/Toast";
 import { WorkOrder } from "@/components/WorkOrder";
 import type { CreateBusinessRequest, CreateBusinessResponse } from "@/lib/api/contract";
 import { EXAMPLES, exampleProfile } from "@/lib/domain/cases";
@@ -18,7 +17,7 @@ import type { BusinessProfile } from "@/lib/domain/types";
 // tabs and the live work order. Mapping runs in the browser with the domain
 // rules; "Open the full plan" saves the business through `/api/businesses`.
 
-// The prototype's hero opened on the dental office example.
+// The hero opens on the dental office, a trade none of the case studies covers.
 const FIRST_EXAMPLE = "dental";
 
 /** What the work order shows: a picked example, or a sentence already mapped. */
@@ -29,7 +28,6 @@ type Shown =
 /** Render the sentence box, example tabs and work order, and open the plan on request. */
 export function HeroMapper() {
   const router = useRouter();
-  const toast = useToast();
   const [text, setText] = useState("");
   const [shown, setShown] = useState<Shown>({ kind: "example", exampleId: FIRST_EXAMPLE });
   // Bumped on every "Map it" so the work order remounts and its stamps thunk again.
@@ -58,8 +56,8 @@ export function HeroMapper() {
     setOpening(true);
     setStatus("Opening your plan...");
     try {
-      const { id, business } = await callApi<CreateBusinessResponse>("/api/businesses", "POST", request);
-      toast(`Opened ${business.name}`);
+      const { id } = await callApi<CreateBusinessResponse>("/api/businesses", "POST", request);
+      // The status line already says "Opening your plan"; a toast here would claim the page opened before it loads.
       router.push(businessHref(id, "workflows"));
     } catch (error) {
       setStatus(errorText(error));
@@ -102,8 +100,8 @@ export function HeroMapper() {
         key={shown.kind === "example" ? shown.exampleId : `sentence-${mapCount}`}
         business={profile}
         action={
-          <button type="button" className="btn sm" onClick={openPlan} disabled={opening}>
-            Open the full plan
+          <button type="button" className="btn btn-sm" onClick={openPlan} disabled={opening}>
+            {opening ? "Opening your plan..." : "Open the full plan"}
           </button>
         }
       />
