@@ -39,7 +39,7 @@ export class AnthropicProvider implements LlmProvider {
   constructor(config: ProviderConfig, fetchImpl?: typeof fetch) {
     this.label = config.label;
     this.models = config.models;
-    this.client = new Anthropic({ apiKey: config.apiKey, timeout: 60_000, maxRetries: 2, fetch: fetchImpl });
+    this.client = new Anthropic({ apiKey: config.apiKey, ...(config.baseUrl ? { baseURL: config.baseUrl } : {}), timeout: 60_000, maxRetries: 2, fetch: fetchImpl });
   }
 
   modelFor(tier: ModelTier): string {

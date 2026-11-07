@@ -6,9 +6,9 @@ import type { Store } from "./types";
 // Module Overview
 // =============================================================================
 // `getStore` picks the persistence backend once per server process: Supabase
-// when a project URL and `SUPABASE_SERVICE_ROLE_KEY` are set, memory otherwise.
-// In production, missing settings throw on first use instead of falling back,
-// unless `ANCHORED_ALLOW_MEMORY_STORE=1` asks for memory on purpose.
+// when `isDatabaseConfigured` finds a project URL and `SUPABASE_SERVICE_ROLE_KEY`,
+// memory otherwise. In production, missing settings throw on first use instead
+// of falling back, unless `ANCHORED_ALLOW_MEMORY_STORE=1` asks for memory on purpose.
 
 export type { Store } from "./types";
 export { NotFoundError } from "./types";
@@ -23,12 +23,23 @@ export function getStore(): Store {
   return holder.__anchoredStore;
 }
 
-/** Build the backend the environment names, refusing to lose data silently in production. */
-function createStore(): Store {
+/** Report whether a Supabase database is configured, so data is saved there rather than in memory. */
+export function isDatabaseConfigured(): boolean {
+  return databaseSettings() !== null;
+}
+
+/** Return the Supabase project URL and service key, or `null` when either is unset. */
+function databaseSettings(): { readonly url: string; readonly key: string } | null {
   // `SUPABASE_URL` wins; the public auth URL names the same project, so one variable can serve both.
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (url && key) return new SupabaseStore(url, key);
+  return url && key ? { url, key } : null;
+}
+
+/** Build the backend the environment names, refusing to lose data silently in production. */
+function createStore(): Store {
+  const database = databaseSettings();
+  if (database !== null) return new SupabaseStore(database.url, database.key);
 
   // A public deploy on memory would drop every visitor's work at each restart and grow without limit.
   if (process.env.NODE_ENV === "production" && process.env.ANCHORED_ALLOW_MEMORY_STORE !== "1") {

@@ -27,7 +27,7 @@ export interface ModelTierDef {
 }
 
 /** A niche agent onboarding can spawn, and the onboarding fact that spawns it. */
-export interface NicheTemplate {
+interface NicheTemplate {
   readonly slug: string;
   readonly name: string;
   readonly job: string;
@@ -330,7 +330,7 @@ function coreAgent(id: CoreAgentId, name: string, job: string, alwaysOn = false)
 // =============================================================================
 
 /** Niche agents onboarding can spawn, one per onboarding fact that calls for its own agent. */
-export const NICHE_TEMPLATES: readonly NicheTemplate[] = [
+const NICHE_TEMPLATES: readonly NicheTemplate[] = [
   {
     slug: "snap-stock-check",
     name: "SNAP Stock Check",

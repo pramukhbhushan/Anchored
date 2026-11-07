@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isAuthEnabled } from "@/lib/auth/config";
 import { createServerSupabase } from "@/lib/auth/server";
-import { isAllowedOrigin } from "@/middleware";
+import { isAllowedOrigin } from "@/lib/server/origin";
 
 // =============================================================================
 // Module Overview

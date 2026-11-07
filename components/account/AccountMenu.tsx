@@ -5,7 +5,7 @@ import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent 
 import { createBrowserSupabase } from "@/lib/auth/browser";
 import { authErrorText } from "@/lib/auth/errors";
 import { callbackUrl, SIGN_OUT_PATH } from "@/lib/auth/paths";
-import type { Viewer } from "@/lib/server/session";
+import type { Viewer } from "@/lib/auth/viewer";
 import styles from "./AccountMenu.module.css";
 
 // =============================================================================

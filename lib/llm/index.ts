@@ -1,5 +1,4 @@
 import "server-only";
-import type { ModelTier } from "@/lib/domain/types";
 import { AnthropicProvider } from "./anthropic";
 import { readProviderConfig } from "./config";
 import { OpenAICompatibleProvider } from "./openai-compatible";
@@ -50,9 +49,4 @@ export function isAiConfigured(): boolean {
 /** Name of the configured provider for owners, such as "Claude", or `null` when AI is off. */
 export function aiLabel(): string | null {
   return getLlm()?.label ?? null;
-}
-
-/** Model id the configured provider uses for `tier`, or `null` when AI is off. */
-export function modelFor(tier: ModelTier): string | null {
-  return getLlm()?.modelFor(tier) ?? null;
 }

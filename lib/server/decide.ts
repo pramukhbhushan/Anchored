@@ -1,6 +1,6 @@
 import "server-only";
 import type { CardRecord, DecideCardRequest, DecideCardResponse, OutboxEntry } from "@/lib/api/contract";
-import { checkSend, ensureOptOut } from "@/lib/domain/executor";
+import { checkSend, DEMO_TIME_ZONE, ensureOptOut, sendTimeText } from "@/lib/domain/executor";
 import type { CardDraft } from "@/lib/domain/types";
 import type { Store } from "@/lib/store";
 
@@ -11,8 +11,6 @@ import type { Store } from "@/lib/store";
 // executor's `checkSend` rules run first, and a text blocked only by quiet
 // hours is queued for the first allowed hour instead of sent now.
 
-// Every demo business is in Maryland. A real account stores its own time zone.
-const DEMO_TIME_ZONE = "America/New_York";
 const HOUR_MS = 60 * 60 * 1000;
 
 /** Result of a decision: the response to send, or a conflict to report. */
@@ -28,11 +26,6 @@ function nextAllowedHour(card: CardDraft, now: Date): Date | null {
     if (checkSend(card, { now: candidate, timeZone: DEMO_TIME_ZONE, hasConsent: true }).ok) return candidate;
   }
   return null;
-}
-
-/** Format a queued send time the way the owner reads it, for example "Mon 8:00 AM". */
-function formatLocal(date: Date): string {
-  return new Intl.DateTimeFormat("en-US", { timeZone: DEMO_TIME_ZONE, weekday: "short", hour: "numeric", minute: "2-digit" }).format(date);
 }
 
 /** Write the outbox entry for an approved card at `sentAt`. */
@@ -83,5 +76,5 @@ export async function decideCard(store: Store, session: string, card: CardRecord
   const queued = await store.updatePendingCard(session, card.id, { status: "approved", body, edited, decidedAt });
   if (!queued) return ALREADY_DECIDED;
   const outbox = await send(store, session, queued, body, later);
-  return { ok: true, response: { card: queued, outbox, blocked: `${check.reason} Queued for ${formatLocal(later)}.` } };
+  return { ok: true, response: { card: queued, outbox, blocked: `${check.reason} Queued for ${sendTimeText(later)}.` } };
 }

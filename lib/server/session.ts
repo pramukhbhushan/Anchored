@@ -5,26 +5,15 @@ import { cache } from "react";
 import { isAuthEnabled } from "@/lib/auth/config";
 import { createServerSupabase } from "@/lib/auth/server";
 import { isSessionId } from "@/lib/auth/session-id";
+import type { Viewer } from "@/lib/auth/viewer";
 import { SESSION_COOKIE } from "@/lib/session-cookie";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Who is visiting. With accounts on, `getViewer` and `getSessionId` return the
+// Who is visiting. With accounts on, `findViewer` and `getSessionId` return the
 // user that Supabase Auth verified; with accounts off, the anonymous session
 // that `middleware.ts` assigns. Every `Store` call is keyed by `getSessionId`.
-
-/** The visitor behind this request. */
-export interface Viewer {
-  /** The id the visitor's data is stored under: the Supabase user id, or the anonymous session id when accounts are off. */
-  readonly id: string;
-  /** The account's confirmed email, or `null` for a guest and for the local demo. */
-  readonly email: string | null;
-  /** True for a Supabase guest, and for every visitor when accounts are off: no email is on file. */
-  readonly isGuest: boolean;
-  /** True when Supabase accounts are on. */
-  readonly authEnabled: boolean;
-}
 
 /** Raised when accounts are on and nobody, not even a guest, is signed in. */
 export class SignInRequiredError extends Error {
@@ -72,7 +61,7 @@ export const findViewer = cache(async (): Promise<Viewer | null> => {
 });
 
 /** Return this request's viewer. Throws `SignInRequiredError` when accounts are on and nobody is signed in. */
-export async function getViewer(): Promise<Viewer> {
+async function getViewer(): Promise<Viewer> {
   const viewer = await findViewer();
   if (viewer === null) throw new SignInRequiredError();
   return viewer;

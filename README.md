@@ -2,7 +2,7 @@
 
 Anchored helps any small business discover, compare and adopt AI tools. An owner describes how the business runs. Anchored maps the work AI can take on into workflows, offers three paths for each one, and rates real tools against the software the owner already uses. Where no tool fits, an approve-first agent drafts the work and waits for the owner's tap.
 
-Built for the University of Maryland AI for Small Business Hack-a-thon, Fall 2026. The research behind it sits in the repository root: HVAC, coaching, and corner stores and restaurants.
+Built for the University of Maryland AI for Small Business Hack-a-thon, Fall 2026. The research behind it is in `docs/research/`: HVAC, coaching, and corner stores and restaurants.
 
 ## How the product is organized
 
@@ -67,13 +67,9 @@ With no AI settings, Anchored maps businesses and drafts cards with its own rule
 
 | Variable | What it does |
 | --- | --- |
-| `AI_PROVIDER` | One of `anthropic`, `openai`, `openrouter`, `featherless`, or `openai-compatible`. When it is unset, `ANTHROPIC_API_KEY` alone selects `anthropic` |
-| `ANTHROPIC_API_KEY` | The key for `anthropic` |
-| `OPENAI_API_KEY` | The key for `openai` |
-| `OPENROUTER_API_KEY` | The key for `openrouter` |
-| `FEATHERLESS_API_KEY` | The key for `featherless` |
-| `AI_API_KEY` | The key for `openai-compatible` |
-| `AI_BASE_URL` | The endpoint root for `openai-compatible`, which is the part before `/chat/completions`, such as `https://example.com/v1`. It must use https, except for a model on `localhost` |
+| `AI_PROVIDER` | One of `anthropic`, `openai`, `openrouter`, `featherless`, or `openai-compatible` |
+| `AI_API_KEY` | The API key for the provider in `AI_PROVIDER`, whichever it is |
+| `AI_BASE_URL` | The endpoint root, which is the part before `/chat/completions`, such as `https://api.featherless.ai/v1`. Optional for the named providers, which each have a default; required for `openai-compatible`. It must use https, except for a model on `localhost` |
 | `AI_MODEL` | The model for every tier. Every provider except `anthropic` needs it, unless all three tier variables are set |
 | `AI_MODEL_QUICK`, `AI_MODEL_DEFAULT`, `AI_MODEL_COMPLEX` | The model for one tier. Each one overrides `AI_MODEL` |
 | `AI_DAILY_CALL_CAP` | Model calls allowed per UTC day across every visitor, counted in Supabase. Default 2000; `0` turns model calls off |
@@ -133,8 +129,9 @@ Judges can test without an account through **Continue as guest**, and each one s
 | `lib/server/` | Session, data access, Claude calls and card decisions |
 | `lib/store/` | The `Store` interface with Supabase and in-memory versions |
 | `supabase/migrations/` | Database schema |
-| `docs/build-contract.md` | The exports each module provides |
-| `mvp/anchored.html` | The single-page prototype this app was ported from |
+| `docs/architecture.md` | How the layers fit together |
+| `docs/research/` | The research by trade, the design document, and where they disagree. Its `README.md` lists every file |
+| `docs/prototype/` | The single-page prototype this app was ported from |
 
 ## Test
 

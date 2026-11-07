@@ -64,7 +64,6 @@ summary{cursor:pointer}
 .wrap{padding-left:max(var(--gutter),env(safe-area-inset-left,0px));padding-right:max(var(--gutter),env(safe-area-inset-right,0px))}
 .muted{color:var(--muted)} .small{font-size:14px} .tiny{font-size:13px} .fine{font-size:13px;color:var(--muted)}
 .num{font-variant-numeric:tabular-nums}
-.stack-y{display:flex;flex-direction:column;gap:12px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .prose{max-width:70ch;color:var(--ink-2)}
@@ -114,7 +113,6 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .badge-good{background:var(--good-soft);color:var(--good)}
 .badge-warn{background:var(--warn-soft);color:var(--warn)}
 .badge-info{background:var(--buy-soft);color:var(--buy)}
-.badge-count{background:var(--carbon);color:var(--on-carbon);font-variant-numeric:tabular-nums}
 .badges{display:flex;flex-wrap:wrap;gap:6px}
 
 /* ---------- Card ---------- */
@@ -652,28 +650,6 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .logline{padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.1);font-size:13.5px}
 .logline.is-queued{background:transparent;border:1px dashed rgba(255,255,255,.35)}
 .phone-empty{margin:auto;max-width:24em;text-align:center;font-size:14px;opacity:.75}
-
-/* ---------- stack ---------- */
-.stack-table tbody th{font-weight:600}
-.total{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:12px;padding-top:14px}
-.total b{font-family:var(--display);font-stretch:100%;font-weight:850;font-size:26px;font-variant-numeric:tabular-nums}
-.cost .fine{margin-top:4px}
-.help-links{display:flex;flex-direction:column;align-items:stretch;gap:8px}
-.layers{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:10px;align-items:stretch}
-.layer{min-width:0;padding:14px;background:var(--sheet);border:1px solid var(--line);border-top:3px solid var(--ink);border-radius:var(--r);font-size:14px}
-.layer h3{font-size:15.5px}
-.layer-tag{margin:2px 0 8px;font-size:12.5px;color:var(--muted)}
-.layer ul{margin:0;padding-left:18px;color:var(--ink-2)}
-.layer li+li{margin-top:4px}
-.layer-note{display:block;font-size:12.5px;color:var(--muted)}
-.hood h3{font-size:17px}
-.hood-job{margin-top:4px;font-size:14px;color:var(--ink-2);max-width:70ch}
-.hood-why{margin-top:8px;font-size:14px}
-.hood-skill{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
-.hood h4{font-stretch:100%;font-weight:750;font-size:15px}
-.hood dl{display:grid;grid-template-columns:90px minmax(0,1fr);gap:6px 12px;margin:10px 0 0;font-size:14px}
-.hood dt{color:var(--muted)} .hood dd{margin:0;min-width:0;overflow-wrap:anywhere}
-.hood ul,.hood ol{margin:0;padding-left:18px}
 
 /* ---------- onboarding form ---------- */
 form.ob{display:flex;flex-direction:column;gap:18px}

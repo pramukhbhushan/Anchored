@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { cardSource } from "@/components/agent-labels";
 import { callApi, errorText } from "@/components/api";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ui/Toast";
 import { Button } from "@/components/ui/Button";
-import type { CardRecord, CardsResponse, SimulateRequest } from "@/lib/api/contract";
+import type { EventCardResponse, SimulateRequest } from "@/lib/api/contract";
 
 // =============================================================================
 // Module Overview
@@ -15,9 +15,6 @@ import type { CardRecord, CardsResponse, SimulateRequest } from "@/lib/api/contr
 // "Simulate a new event": asks the cards route to draft one more card from a
 // chosen skill, the way a missed call or a new invoice would, then toasts who
 // drafted it and refreshes the feed.
-
-// The route names the card it just drafted as `added`; `lib/api/contract.ts` gains the field alongside this change.
-type SimulateResponse = CardsResponse & { readonly added?: CardRecord };
 
 /** Render the simulate button; `agentNames` names agents in the toast, whose link goes to `seeHref`. */
 export function SimulateButton({
@@ -40,13 +37,13 @@ export function SimulateButton({
     try {
       // An empty request lets the route rotate through every chosen skill.
       const request: SimulateRequest = {};
-      const { added } = await callApi<SimulateResponse>(
+      const { added } = await callApi<EventCardResponse>(
         `/api/businesses/${encodeURIComponent(businessId)}/cards`,
         "POST",
         request,
       );
       toast(
-        added === undefined
+        added === null
           ? "New card added"
           : `New card from ${cardSource(added.agent === null ? null : (agentNames[added.agent] ?? null), added.skill)}`,
         { label: "See it", href: seeHref },

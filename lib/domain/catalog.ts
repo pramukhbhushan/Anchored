@@ -3,7 +3,7 @@ import type { Check, DiscoveryListing, TradeKey, Tool } from "@/lib/domain/types
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The tool catalog Anchored rates, seeded from tools_by_job.md and the HVAC
+// The tool catalog Anchored rates, seeded from docs/research/corner-stores-and-restaurants-notes/tools_by_job.md and the HVAC
 // and coaching tool tables. Each `Tool` carries its price, charge, data and
 // start checks with the evidence behind them; `DISCOVERY_QUEUE` lists tools
 // the discovery agent found that nobody has reviewed yet.

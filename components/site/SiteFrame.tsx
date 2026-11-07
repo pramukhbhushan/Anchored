@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { AnchorMark } from "@/components/AnchorMark";
+import { AnchorMark } from "@/components/ui/AnchorMark";
 import { APP_HREF } from "@/components/routes";
 import { buttonClass } from "@/components/ui/Button";
 

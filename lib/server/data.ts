@@ -1,7 +1,8 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { notFound } from "next/navigation";
-import type { CardRecord, OutboxEntry } from "@/lib/api/contract";
+import { cache } from "react";
+import type { CardRecord, EventCardResponse, OutboxEntry } from "@/lib/api/contract";
 import { draftFeed } from "@/lib/domain/cards";
 import { CASE_STUDIES, caseStudyById } from "@/lib/domain/cases";
 import { chosenSkills, resolveChoices, workflowIdsOf } from "@/lib/domain/paths";
@@ -22,12 +23,13 @@ export async function listBusinesses(): Promise<BusinessProfile[]> {
   return [...CASE_STUDIES, ...(await getStore().listBusinesses(session))];
 }
 
+// `cache` reads each id once per server render: the business layout and its page both look it up.
 /** Return a case study or one of the session's businesses, or `null`. */
-export async function findBusiness(id: string): Promise<BusinessProfile | null> {
+export const findBusiness = cache(async (id: string): Promise<BusinessProfile | null> => {
   const caseStudy = caseStudyById(id);
   if (caseStudy) return caseStudy;
   return getStore().getBusiness(await getSessionId(), id);
-}
+});
 
 /** Return the business for a page, or render the 404 page. */
 export async function getBusinessOrNotFound(id: string): Promise<BusinessProfile> {
@@ -59,13 +61,13 @@ export async function nextSimulationTurn(businessId: string): Promise<number> {
 }
 
 /** Give a new event card a key no other request can share, so two events arriving together both land. */
-export function uniqueEventKey(card: KeyedCard): KeyedCard {
+function uniqueEventKey(card: KeyedCard): KeyedCard {
   // The turn number alone can collide when a simulate and an ingest race; the random suffix can't.
   return { ...card, key: `${card.key}-${randomUUID().slice(0, 8)}` };
 }
 
 /** Store a new event card and return the feed along with the stored card. */
-export async function addEventCard(business: BusinessProfile, card: KeyedCard): Promise<{ cards: CardRecord[]; outbox: OutboxEntry[]; added: CardRecord | null }> {
+export async function addEventCard(business: BusinessProfile, card: KeyedCard): Promise<EventCardResponse> {
   const session = await getSessionId();
   const store = getStore();
   const unique = uniqueEventKey(card);
