@@ -561,39 +561,60 @@ html[data-dev] .side-foot{padding-bottom:64px}
   .wf-path .k{grid-column:1 / -1}
 }
 
-/* ---------- tools ---------- */
-.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
-.explainer{margin-bottom:12px;font-size:var(--fs-sm)}
-.explainer summary{display:inline-flex;align-items:center;min-height:32px;color:var(--link);font-weight:600}
-.explainer summary:hover,.tool-checks summary:hover{color:var(--ink)}
-.explainer-body{margin-top:6px;padding:12px 16px;max-width:76ch;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);color:var(--ink-2)}
-.explainer-body p+p{margin-top:8px}
-.toggle{display:inline-flex;align-items:center;gap:10px;min-height:40px;margin-bottom:10px;padding-right:8px;border-radius:var(--r);font-size:var(--fs-sm);font-weight:600;cursor:pointer}
+/* ---------- tools: a ranked list on paper, one ruled row per tool ---------- */
+.filter{display:inline-flex;align-items:center;gap:var(--s-2);font-size:var(--fs-sm);font-weight:600;color:var(--ink-2)}
+.filter select{appearance:none;-webkit-appearance:none;min-height:40px;max-width:min(320px,70vw);padding:8px 34px 8px 12px;border:1.5px solid var(--line);border-radius:var(--r);background:var(--sheet) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%235F6A7C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E") no-repeat right 10px center;font-weight:600;font-size:var(--fs-sm);color:var(--ink);text-overflow:ellipsis;cursor:pointer}
+.filter select:hover{border-color:var(--ink)}
+.explainer{font-size:var(--fs-sm)}
+.explainer summary{display:inline-flex;align-items:center;min-height:32px;color:var(--link);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.explainer summary:hover{color:var(--ink)}
+.explainer-body{margin-top:var(--s-2);padding:var(--s-3) var(--s-4);max-width:65ch;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);color:var(--ink-2)}
+.explainer-body p+p{margin-top:var(--s-2)}
+.toggle{display:inline-flex;align-items:center;gap:10px;min-height:40px;margin-top:var(--s-3);padding-right:8px;border-radius:var(--r);font-size:var(--fs-sm);font-weight:600;cursor:pointer}
 .toggle:hover{color:var(--ink);background:var(--hover)}
 .toggle input{width:18px;height:18px;accent-color:var(--ink)}
-.tools{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr));align-items:stretch}
-.tool{display:grid;grid-template-columns:60px minmax(0,1fr);grid-template-rows:1fr auto;gap:14px;align-items:start;padding:16px;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r)}
-.score{margin:0;padding-top:2px;text-align:center}
-.score b{display:block;font-family:var(--display);font-stretch:100%;font-weight:850;font-size:28px;line-height:1;font-variant-numeric:tabular-nums}
-.score small{display:block;margin-top:4px;font-size:var(--fs-fine);font-weight:600;color:var(--muted)}
-.tool-main{min-width:0}
-.tool-main h3{font-size:var(--fs-lg)}
-.tool-meta{margin-top:2px;font-size:var(--fs-sm);color:var(--ink-2)}
-.tool .badges{margin-top:8px}
-.tool-fit{margin-top:8px;font-size:var(--fs-sm);color:var(--ink-2)}
-.tool-checks{margin-top:6px}
-.tool-checks summary{display:inline-flex;align-items:center;min-height:32px;font-size:var(--fs-sm);font-weight:600;color:var(--link)}
-.tool-checks .fine{margin-top:8px}
-/* Actions sit on the card's last row, so cards side by side line their buttons up */
-.tool-acts{grid-column:1 / -1;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding-top:12px;border-top:1px dashed var(--line)}
-.tool-in-stack{white-space:normal}
-.crit{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:var(--fs-fine)}
+.tools-none{max-width:65ch;color:var(--muted)}
+.trows{max-width:var(--page-w)}
+/* Fixed columns, so scores, names and actions line up down the ranking */
+.trow-head,.trow{display:grid;grid-template-columns:48px minmax(0,1.2fr) minmax(0,1fr) 260px;column-gap:var(--s-5)}
+.trow-head{padding-bottom:var(--s-2);border-bottom:1px solid var(--line);font-size:var(--fs-fine);font-weight:600;color:var(--muted)}
+.trow-head span:first-child{text-align:right}
+.trow{align-items:start;row-gap:var(--s-3);padding:var(--s-4) 0;border-bottom:1px dashed var(--line)}
+.trow-score{text-align:right;font-family:var(--display);font-stretch:100%;font-weight:800;font-size:var(--fs-xl);line-height:1.1;font-variant-numeric:tabular-nums}
+.trow-main{min-width:0}
+.trow-main h3{font-size:var(--fs-md);font-family:var(--body);font-stretch:100%;font-weight:600;line-height:1.4;letter-spacing:0}
+.trow-price{font-size:var(--fs-sm);color:var(--ink-2)}
+.trow-note{font-size:var(--fs-fine);color:var(--warn)}
+.trow-covers{min-width:0;font-size:var(--fs-sm);color:var(--ink-2)}
+.trow-toggle{display:inline-flex;align-items:center;gap:var(--s-1);min-height:32px;margin-left:-8px;padding:4px 8px;border:0;border-radius:var(--r);background:none;color:var(--link);font-size:var(--fs-sm);font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.trow-toggle:hover{background:var(--hover);color:var(--ink)}
+.trow-toggle svg{flex:none}
+@media (prefers-reduced-motion:no-preference){.trow-toggle svg{transition:transform var(--ease)}}
+.trow-toggle[aria-expanded="true"] svg{transform:rotate(180deg)}
+.trow-acts{display:flex;flex-direction:column;align-items:flex-end;gap:var(--s-1)}
+.trow-status{display:inline-flex;align-items:flex-start;gap:var(--s-1);min-height:34px;padding-top:6px;font-size:var(--fs-sm);font-weight:600;color:var(--good)}
+.trow-status svg{flex:none;margin-top:2px}
+.trow-compare{color:var(--ink-2);text-decoration:none}
+.trow-compare[aria-pressed="true"]{color:var(--ink)}
+.trow-detail{grid-column:2 / -1;max-width:72ch;padding:var(--s-1) 0 0 var(--s-4);border-left:2px solid var(--line)}
+.trow-detail[hidden]{display:none}
+.trow-fit{font-size:var(--fs-sm);color:var(--ink-2)}
+.trow-detail .fine{margin-top:var(--s-3)}
+/* Phone and narrow panes: score, name and price on top, then what it covers, then the action */
+@container app (max-width:760px){
+  .trow-head{display:none}
+  .trow{grid-template-columns:40px minmax(0,1fr);column-gap:var(--s-3)}
+  .trow-covers,.trow-acts,.trow-detail{grid-column:2}
+  .trow-acts{align-items:flex-start}
+  .trow-score{font-size:var(--fs-lg)}
+}
+.crit{list-style:none;margin:var(--s-3) 0 0;padding:0;display:flex;flex-direction:column;gap:var(--s-2);font-size:var(--fs-fine)}
 .crit li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:start}
 .crit-name{font-weight:600}
 .crit-note{grid-column:1 / -1;color:var(--muted)}
-/* In flow after the list, so showing it never moves a card the owner is about to tap */
-.compare-tray{position:sticky;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:15;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;margin-top:14px;padding:12px 16px;background:var(--ink);color:var(--paper);border-radius:var(--r);box-shadow:var(--shadow)}
-.compare-tray .btn{background:var(--carbon);border-color:var(--carbon);color:var(--on-carbon)}
+/* In flow after the list, so showing it never moves a row the owner is about to tap */
+.compare-tray{position:sticky;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:15;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;max-width:var(--page-w);margin-top:var(--s-4);padding:12px 16px;background:var(--ink);color:var(--paper);border-radius:var(--r);box-shadow:var(--shadow)}
+.compare-tray .btn{background:var(--paper);border-color:var(--paper);color:var(--ink)}
 .compare-tray .btn-secondary{background:transparent;border-color:var(--paper);color:var(--paper)}
 .dialog{width:min(1200px,calc(100vw - 32px));max-height:calc(100dvh - 48px);padding:0;border:0;border-radius:8px;background:var(--sheet);color:var(--ink);box-shadow:var(--shadow)}
 .dialog::backdrop{background:var(--scrim)}
@@ -602,11 +623,12 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .dialog .scroll{padding:4px 20px 20px}
 .cmp-table td{min-width:160px}
 .cmp-note{display:block;margin-top:4px;font-size:var(--fs-fine);color:var(--muted)}
-.queue{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:12px}
-.queue article{min-width:0;padding:12px;border:1px dashed var(--line);border-radius:var(--r);font-size:var(--fs-fine)}
-.queue header{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
-.queue dl{display:grid;grid-template-columns:86px minmax(0,1fr);gap:4px 8px;margin:8px 0 0}
-.queue dt{color:var(--muted)} .queue dd{margin:0;overflow-wrap:anywhere}
+.queue{max-width:var(--page-w)}
+.queue summary{display:inline-flex;align-items:center;min-height:40px;font-weight:600;color:var(--link);text-decoration:underline;text-underline-offset:3px}
+.queue summary:hover{color:var(--ink)}
+.queue-note{margin-top:var(--s-2);font-size:var(--fs-sm);color:var(--muted);max-width:65ch}
+.queue .rtable{margin-top:var(--s-3);font-size:var(--fs-sm)}
+.queue .rtable td{overflow-wrap:anywhere}
 
 /* ---------- approvals: a wide feed and the outbox as a sticky right rail ---------- */
 .agent-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-bottom:22px;font-size:var(--fs-sm);color:var(--muted)}

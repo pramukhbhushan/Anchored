@@ -1,12 +1,8 @@
 import type { Metadata } from "next";
 import { CompareBoard, type CompareItem } from "@/components/business/CompareBoard";
-import { businessHref } from "@/components/routes";
 import { ScoreExplainer } from "@/components/business/ScoreExplainer";
-import { Badge } from "@/components/ui/Badge";
-import { ButtonLink } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { WorkflowFilter } from "@/components/business/WorkflowFilter";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { DISCOVERY_QUEUE, TOOLS, fitsTrade, toolName } from "@/lib/domain/catalog";
 import { workflowIdsOf } from "@/lib/domain/paths";
 import { rateTool, usesSoftware } from "@/lib/domain/rating";
@@ -18,9 +14,9 @@ import { getBusinessOrNotFound, getChoices } from "@/lib/server/data";
 // Module Overview
 // =============================================================================
 // The tools page: every catalog tool that covers one of the business's
-// workflows, rated on the seven checks for this business and filtered by
-// `?workflow=`. Tools built for other kinds of business wait behind a toggle.
-// The discovery queue of unchecked listings for the same workflows sits below.
+// workflows, rated on the seven checks for this business, ranked best fit
+// first and filtered by `?workflow=`. Tools built for other kinds of business
+// wait behind a toggle; unchecked listings wait in a closed disclosure below.
 
 export const metadata: Metadata = { title: "Tools" };
 
@@ -32,7 +28,7 @@ function chosenFor(tool: Tool, workflows: readonly WorkflowId[], choices: Record
   });
 }
 
-/** Render the filter, the rated tools and the discovery queue for the business in the URL. */
+/** Render the filter, the ranked tools and the listings waiting for review for the business in the URL. */
 export default async function ToolsPage({
   params,
   searchParams,
@@ -73,52 +69,47 @@ export default async function ToolsPage({
     <>
       <PageHeader
         title="Tools"
-        description="Tools rated for this business on seven checks: price, setup, your software, data use, control, languages and track record. Code computes every score. Anchored doesn't score its own agents."
-        actions={
-          <ButtonLink href={businessHref(business.id, "stack")} variant="secondary">
-            See your stack
-          </ButtonLink>
+        description={
+          <>
+            <p>Rated for {business.name} on seven checks.</p>
+            <ScoreExplainer />
+          </>
         }
+        actions={<WorkflowFilter businessId={business.id} workflows={myWorkflows} active={filter} />}
       />
-      <WorkflowFilter businessId={business.id} workflows={myWorkflows} active={filter} />
-      <ScoreExplainer />
       <CompareBoard key={business.id} businessId={business.id} items={items} filter={filter} />
 
-      <Card
-        className="section"
-        title="Discovery queue"
-        description="New tools a discovery agent found for your workflows. Nothing gets a score until a person opens the vendor's page and checks price, contract and data terms."
-      >
-        {queue.length === 0 ? (
-          <p className="muted">Nothing is waiting for review for {filter === "all" ? "your workflows" : "this workflow"}.</p>
-        ) : (
-          <div className="queue">
-            {queue.map((listing) => (
-              <article key={listing.name}>
-                <header>
-                  <b>{listing.name}</b>
-                  <Badge tone="warn">Waiting for review</Badge>
-                </header>
-                <p className="fine">{WORKFLOWS[listing.workflow].name}</p>
-                <dl>
-                  <dt>Price</dt>
-                  <dd>{listing.price}</dd>
-                  <dt>Connects</dt>
-                  <dd>{listing.connects}</dd>
-                  <dt>Data terms</dt>
-                  <dd>{listing.data}</dd>
-                  <dt>Contract</dt>
-                  <dd>{listing.contract}</dd>
-                  <dt>Source</dt>
-                  <dd>{listing.source}</dd>
-                  <dt>Found</dt>
-                  <dd>{listing.foundOn}</dd>
-                </dl>
-              </article>
-            ))}
-          </div>
-        )}
-      </Card>
+      {queue.length > 0 && (
+        <details className="section queue">
+          <summary>
+            {queue.length} new {queue.length === 1 ? "tool" : "tools"} waiting for a person to check{" "}
+            {queue.length === 1 ? "it" : "them"}
+          </summary>
+          <p className="queue-note">
+            A discovery agent found these. None gets a score until a person checks its price, contract and data terms.
+          </p>
+          <table className="rtable">
+            <thead>
+              <tr>
+                <th scope="col">Tool</th>
+                <th scope="col">Workflow</th>
+                <th scope="col">Price</th>
+                <th scope="col">Source</th>
+              </tr>
+            </thead>
+            <tbody>
+              {queue.map((listing) => (
+                <tr key={listing.name}>
+                  <th scope="row">{listing.name}</th>
+                  <td data-label="Workflow">{WORKFLOWS[listing.workflow].name}</td>
+                  <td data-label="Price">{listing.price}</td>
+                  <td data-label="Source">{listing.source}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
+      )}
     </>
   );
 }

@@ -3,15 +3,15 @@ import { CHECKS } from "@/lib/domain/rating";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// "How we score": the short explainer behind every fit score, so "63/100"
-// beside "4 not known yet" doesn't read as a contradiction. The weights it
-// describes live in `lib/domain/rating.ts`.
+// "How we score": the short explainer behind every fit score, so "63" beside
+// "3 verified" doesn't read as a contradiction. It sits under the tools page's
+// title. The weights it describes live in `lib/domain/rating.ts`.
 
 /** Render the collapsible "How we score" note, linkable at `#how-we-score`. */
 export function ScoreExplainer() {
   return (
     <details className="explainer" id="how-we-score">
-      <summary>How we score tools</summary>
+      <summary>How we score</summary>
       <div className="explainer-body">
         <p>
           Every tool gets a fit score out of 100 from {CHECKS.length} checks, worked out in code for your business.
