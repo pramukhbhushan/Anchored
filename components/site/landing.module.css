@@ -1,0 +1,179 @@
+/* =============================================================================
+   Module Overview
+   =============================================================================
+   The landing page: the hero, four steps that each pair a short claim with an
+   artifact built from the domain data, the case files and the closing band.
+   The work order, stamps and example tabs keep their rules in app/globals.css,
+   because the sign-in page and the app use them too.
+   The page's one loud device stays the hero's carbon work order. The steps
+   borrow its paper vocabulary: carbon number tabs, form checkboxes, dashed
+   tear lines and a dashed slot for an agent onboarding spawns.
+   Breakpoints match globals: 960px (steps stack) and 640px (phone). */
+
+/* ---------- Hero ---------- */
+.hero{padding-block:56px 72px}
+/* Anchor jumps land below the sticky site header */
+.hero input,.step,.research{scroll-margin-top:calc(var(--top-h) + 16px)}
+.heroGrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px 64px;align-items:start}
+.headline{font-size:clamp(38px,5.4vw,66px);font-weight:900;font-stretch:118%;letter-spacing:-.02em;line-height:1.02}
+.lede{font-size:19px;line-height:1.5;color:var(--ink-2);max-width:54ch;margin-top:22px}
+.ctas{margin-top:28px}
+.legend{margin:36px 0 0;padding:18px 0 0;border-top:1px dashed var(--line);display:grid;gap:12px;max-width:54ch}
+.legend div{display:grid;grid-template-columns:92px minmax(0,1fr);gap:14px;align-items:center}
+.legend dd{margin:0;font-size:15px;color:var(--ink-2)}
+@media (max-width:960px){
+  .heroGrid{grid-template-columns:minmax(0,1fr);gap:40px}
+  .hero{padding-block:32px 48px}
+}
+
+/* ---------- Steps: a sticky claim beside a live artifact ---------- */
+.step{padding-block:80px;border-top:1px solid var(--line)}
+.stepGrid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:40px 72px;align-items:start}
+.claim{position:sticky;top:calc(var(--top-h) + 40px)}
+.no{display:inline-grid;place-items:center;min-width:46px;height:46px;padding:0 12px;margin-bottom:20px;background:var(--carbon);color:var(--on-carbon);font-family:var(--display);font-stretch:125%;font-weight:900;font-size:24px;line-height:1;border-radius:3px}
+.title{font-size:clamp(28px,3.3vw,42px);font-weight:850;font-stretch:116%;letter-spacing:-.015em;line-height:1.06}
+.body{margin-top:18px;color:var(--ink-2);font-size:17px;line-height:1.6;max-width:50ch}
+.body p+p{margin-top:12px}
+.note{margin-top:18px;font-size:14px;color:var(--muted);max-width:50ch}
+.ticks{list-style:none;margin:16px 0 0;padding:0;display:grid;gap:8px;font-size:15.5px;color:var(--ink)}
+.ticks li{display:grid;grid-template-columns:20px minmax(0,1fr);gap:8px;align-items:baseline}
+.ticks li::before{content:"";width:6px;height:11px;margin-left:4px;border:solid var(--good);border-width:0 2px 2px 0;transform:translateY(-2px) rotate(45deg)}
+@media (max-width:960px){
+  .stepGrid{grid-template-columns:minmax(0,1fr)}
+  .claim{position:static}
+  .step{padding-block:56px}
+}
+
+/* ---------- Shared artifact surface ---------- */
+.sheet{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);min-width:0;overflow:hidden}
+.sheetHead{padding:18px 20px 16px;border-bottom:1px solid var(--line)}
+.sheetName{font-family:var(--display);font-stretch:112%;font-weight:800;font-size:20px;line-height:1.2}
+.sheetSub{font-size:14px;color:var(--muted);margin-top:2px}
+.part{padding:14px 20px;border-bottom:1px solid var(--line)}
+/* A part that heads the table below it, so no rule between them */
+.partOpen{border-bottom:0}
+.partTitle{font-size:14px;font-weight:700;color:var(--ink)}
+.partText{font-size:14px;color:var(--ink-2);margin-top:2px;max-width:70ch}
+.artifactNote{margin-top:12px;font-size:13.5px;color:var(--muted);max-width:70ch}
+.pickers{margin-bottom:12px}
+
+/* ---------- Step 1: the rule sheet ---------- */
+.facts{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 16px;margin:12px 0 0;font-size:14.5px}
+.facts div{display:contents}
+.facts dt{color:var(--muted)}
+.facts dd{margin:0;min-width:0}
+.rules{width:100%;border-collapse:collapse;font-size:14.5px}
+.rules th,.rules td{text-align:left;vertical-align:top;padding:10px 20px 10px 0;border-bottom:1px dashed var(--line)}
+.rules tr > :first-child{padding-left:20px;width:46px}
+.rules thead th{font-size:13px;font-weight:650;color:var(--muted);border-bottom:1px solid var(--line)}
+.rules thead th:nth-child(2){width:44%}
+.rules tbody th{font-weight:600}
+.rules tbody tr:last-child > *{border-bottom:0}
+.rules .off{color:var(--muted)}
+.rules .off th{font-weight:500}
+/* A form checkbox: inked when the answer applies, empty when it doesn't */
+.box{display:inline-grid;place-items:center;width:18px;height:18px;border:1.5px solid var(--muted);border-radius:3px;transform:translateY(2px)}
+.box.on{background:var(--ink);border-color:var(--ink)}
+.box.on::after{content:"";width:5px;height:9px;border:solid var(--paper);border-width:0 2px 2px 0;transform:translateY(-1px) rotate(45deg)}
+.count{padding:12px 20px;border-top:1px solid var(--line);font-size:14px;color:var(--ink-2);background:var(--paper)}
+@media (max-width:640px){
+  .rules thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .rules,.rules tbody{display:block}
+  .rules tr{display:grid;grid-template-columns:38px minmax(0,1fr);padding:10px 16px;border-bottom:1px dashed var(--line)}
+  .rules tbody tr:last-child{border-bottom:0}
+  .rules th,.rules td,.rules tr > :first-child{display:block;padding:0;border:0;width:auto}
+  .rules td:last-child{grid-column:2;font-size:14px;color:var(--ink-2)}
+  .rules .off td:last-child{color:var(--muted)}
+  .facts{grid-template-columns:minmax(0,1fr);gap:0}
+  .facts dd{margin-bottom:6px}
+}
+
+/* ---------- Step 2: owned tools, the seven-check matrix, the discovery queue ---------- */
+.owned{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 16px;align-items:center}
+.owned + .owned{margin-top:10px}
+/* Relative, so the screen-reader labels in the heads stay inside the scroller instead of widening the page */
+.matrixWrap{overflow-x:auto;position:relative}
+.matrix{width:100%;min-width:600px;border-collapse:collapse;font-size:14px}
+.matrix th,.matrix td{padding:12px 6px;border-bottom:1px dashed var(--line);text-align:center;vertical-align:middle}
+.matrix thead th{font-size:12.5px;line-height:1.2;font-weight:650;color:var(--muted);vertical-align:bottom;border-bottom:1px solid var(--line)}
+.matrix tr > :first-child{text-align:left;padding-left:20px;position:sticky;left:0;background:var(--sheet);min-width:132px}
+.matrix tr > :last-child{padding-right:16px}
+.matrix tbody tr:last-child > *{border-bottom:0}
+.toolName{display:block;font-weight:700;font-size:15px}
+.toolPrice{display:block;font-weight:400;font-size:13px;color:var(--muted)}
+.score{font-family:var(--display);font-stretch:100%;font-weight:850;font-size:21px;font-variant-numeric:tabular-nums}
+.best .score{color:var(--buy)}
+/* Four shapes, so the status reads without color: filled, half, dashed ring, crossed square */
+.st{display:inline-block;width:14px;height:14px;vertical-align:middle;border-radius:50%}
+.met{background:var(--good)}
+.partly{border:1.5px solid var(--good);background:linear-gradient(90deg,var(--good) 50%,transparent 50%)}
+.unknown{border:1.5px dashed var(--muted)}
+.notMet{border-radius:2px;border:1.5px solid var(--warn);background:linear-gradient(45deg,transparent 43%,var(--warn) 43% 57%,transparent 57%),linear-gradient(-45deg,transparent 43%,var(--warn) 43% 57%,transparent 57%)}
+.key{display:flex;flex-wrap:wrap;gap:6px 18px;padding:12px 20px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.key span{display:inline-flex;align-items:center;gap:6px}
+.queue{padding:14px 20px;border-top:1px solid var(--line);background:var(--paper);font-size:14px;color:var(--ink-2)}
+.queue b{color:var(--ink)}
+
+/* ---------- Step 3: the crew roster ---------- */
+.roster{list-style:none;margin:0;padding:0}
+.agent{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:10px 28px;padding:18px 20px;border-bottom:1px solid var(--line)}
+.roster .agent:last-child{border-bottom:0}
+.agentName{font-family:var(--display);font-stretch:112%;font-weight:800;font-size:18px;line-height:1.2;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.agentJob{font-size:14px;color:var(--ink-2);margin-top:4px}
+.skills{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
+.skills li{font-size:13.5px;font-weight:600;line-height:1.3;padding:4px 8px;border:1px solid var(--line);border-radius:3px;background:var(--paper)}
+/* A niche agent fills a slot that onboarding opens, so its border is a dashed outline, not a printed line */
+.niche{margin-top:14px;border:1.5px dashed var(--ink-2);border-radius:var(--r)}
+.niche .agent{border-bottom:0}
+.spawned{font-size:14px;margin-top:8px;color:var(--ink)}
+.spawned b{font-weight:650}
+@media (max-width:640px){.agent{grid-template-columns:minmax(0,1fr)}}
+
+/* ---------- Step 4: an approval card ---------- */
+.card{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);max-width:600px}
+.cardHead{padding:18px 20px 0}
+.source{font-size:13.5px;color:var(--muted)}
+.cardTitle{font-family:var(--display);font-stretch:106%;font-weight:800;font-size:20px;line-height:1.25;margin-top:4px}
+.to{font-size:14px;color:var(--ink-2);margin-top:6px}
+/* The draft sits in a text bubble, since it goes out as a text */
+.bubble{margin:16px 20px 0;padding:12px 14px;border-radius:16px 16px 16px 4px;background:var(--buy-soft);color:var(--ink);font-size:15.5px;line-height:1.5;max-width:46ch}
+.why{padding:14px 20px 0;font-size:14px;color:var(--ink-2)}
+.why b{color:var(--ink);font-weight:650}
+.passed{list-style:none;margin:14px 20px 0;padding:12px 0 0;border-top:1px dashed var(--line);display:grid;gap:6px;font-size:14px}
+.passed li{display:grid;grid-template-columns:20px minmax(0,1fr);gap:6px;align-items:baseline}
+.passed li::before{content:"";width:6px;height:11px;margin-left:4px;border:solid var(--good);border-width:0 2px 2px 0;transform:translateY(-2px) rotate(45deg)}
+.cardFoot{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px;padding:14px 20px;border-top:1px solid var(--line)}
+.stake{font-size:14px;color:var(--ink-2)}
+.stake b{font-family:var(--display);font-stretch:100%;font-weight:850;font-size:20px;color:var(--ink);margin-right:6px}
+
+/* ---------- Research: case files and the calls we made ---------- */
+.research{padding-block:80px;border-top:1px solid var(--line)}
+.researchHead{max-width:64ch}
+.files{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:20px;margin-top:36px;align-items:stretch}
+.file{display:flex;flex-direction:column;min-width:0;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r)}
+.fileHead{display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap;padding:14px 20px;border-bottom:1px dashed var(--line);font-size:13.5px;color:var(--muted)}
+.fileHead b{color:var(--ink);font-weight:650}
+.fileBody{padding:18px 20px 20px;display:flex;flex-direction:column;gap:6px}
+.fileName{font-size:19px}
+.fileStat{font-family:var(--display);font-stretch:112%;font-weight:900;font-size:44px;line-height:1;margin-top:10px;font-variant-numeric:tabular-nums}
+.fileText{font-size:15px;max-width:60ch}
+.fileSrc{font-size:13px;color:var(--muted)}
+.picks{list-style:none;margin:auto 0 0;padding:14px 20px 0;border-top:1px dashed var(--line);display:flex;flex-direction:column;gap:10px}
+.picks li{display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:14.5px}
+.fileGo{padding:16px 20px 18px}
+.decided{margin-top:64px}
+.decided h3{font-size:22px}
+.decided > p{margin-top:8px;color:var(--ink-2);max-width:64ch}
+.decided table{margin-top:18px}
+
+/* ---------- Closing band ---------- */
+.close{background:var(--device);color:var(--on-device);padding-block:72px}
+.closeTitle{font-size:clamp(28px,3.6vw,46px);font-weight:900;font-stretch:118%;letter-spacing:-.015em;color:var(--on-device);max-width:22ch}
+.closeText{margin-top:14px;font-size:17px;max-width:52ch;opacity:.85}
+.closeCtas{margin-top:28px}
+/* Two classes so the inverted buttons win over the global `.btn` whatever order the sheets load in */
+.close .invert{background:var(--on-device);border-color:var(--on-device);color:var(--device)}
+.close .invert:hover{color:var(--device)}
+.close .outline{background:transparent;border-color:var(--on-device);color:var(--on-device)}
+.close .outline:hover{background:rgba(255,255,255,.08);color:var(--on-device)}
+.foot{padding-block:28px 40px;color:var(--muted);font-size:13.5px}

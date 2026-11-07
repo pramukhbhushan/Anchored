@@ -10,8 +10,8 @@ Use Node.js 26, the version in `.nvmrc`.
 
 | Command | Runs |
 | --- | --- |
-| `npm run dev` | The dev server on port 3000, which belongs to the lead. Check your own work as in [Working in parallel](#working-in-parallel) |
-| `npm test` | Vitest, over the `*.test.ts` files beside the code |
+| `npm run dev` | The dev server on port 3000. Another person's dev server may already hold it; check your own work as in [Working in parallel](#working-in-parallel) |
+| `npm test` | Vitest: `*.test.ts` files run in Node, `*.test.tsx` component tests run in happy-dom |
 | `npm run typecheck` | `next typegen` for the route types, then `tsc --noEmit` |
 | `npm run build` | `next build` |
 | `npm run check` | The type check, the tests, then the build. CI in `.github/workflows/ci.yml` runs the same steps on every PR and every push to `main` |
@@ -32,6 +32,7 @@ Each layer imports only the layers below it: `lib/domain` at the bottom with `zo
 | `lib/auth/` | Supabase Auth clients, the sign-in paths and the `Viewer` type |
 | `app/` | Routes. The product is under `app/app/`, served at `/app`. The API is under `app/api/` |
 | `components/` | `ui/` primitives, `shell/` app chrome, `site/` marketing pages, `business/` business pages, `stack/` the Stack page, and `onboarding/`, `chat/`, `account/` and `resize/`. The root holds only `api.ts`, `routes.ts`, `view-helpers.ts` and `agent-labels.ts` |
+| `test/` | Shared component test setup: the DOM environment, `next/navigation` mocks, `fetch` helpers and fixtures |
 | `supabase/migrations/` | The database schema, one SQL file per change |
 | `docs/security.md` | Each security control and the file that holds it |
 | `docs/research/` | The team's research by trade. Its `README.md` lists every file |
@@ -52,12 +53,12 @@ Each rule protects an owner's customers or data, and breaking one can pass every
 
 ## Working in parallel
 
-Several agents work at once, each in its own git worktree on its own branch.
+Several teammates and agents work at once, each in its own git worktree on its own branch, and all of it lands on `main`.
 
-1. Agree with the lead on the files you own before you start. Edit only those. When your change needs a file someone else owns, ask the lead.
+1. Agree with the person directing you on the files you own before you start. Edit only those. When your change needs a file someone else owns, ask that person.
 2. Run `git fetch origin`, then branch from `origin/main`. Name the branch `feat/`, `fix/`, `docs/`, `refactor/` or `ci/` plus a short slug, such as `fix/quiet-hours-dst`.
 3. Run `npm ci`. A fresh worktree has no `node_modules`.
-4. Check your work in a browser on a port of your own. Leave port 3000 to the lead's dev server.
+4. Check your work in a browser on a port of your own. Leave port 3000 to whoever runs `npm run dev`.
 
    ```bash
    npm run build
@@ -65,8 +66,7 @@ Several agents work at once, each in its own git worktree on its own branch.
    ```
 
    Pick a port no other agent is using.
-5. Run `npm run check`, and push only once it passes. When the type check fails inside `.next/types` after a merge or a branch switch, an old build left those files: delete `.next` and run it again.
-6. Push your branch. Work reaches `main` only through a PR, merged with a merge commit, so each of your commits stays in `main`'s history.
+5. To push, open a PR or merge, follow [`.claude/skills/land-a-pr/SKILL.md`](.claude/skills/land-a-pr/SKILL.md) step by step: merge `origin/main` into your branch, pass `npm run check` on the merged tree, then open the PR. Work reaches `main` only through a PR, and `main` has no branch protection, so that check is the only gate.
 
 ## Conventions
 
@@ -76,4 +76,4 @@ Several agents work at once, each in its own git worktree on its own branch.
 - Quotes are straight. Headings are sentence case.
 - Each file has a `Module Overview` banner below its imports: a short comment paragraph on what the file does. `lib/domain/executor.ts` shows the shape.
 - Each exported function has a one-line `/** */` doc comment above it.
-- Tests sit beside the code as `<name>.test.ts`.
+- Tests sit beside the code: `<name>.test.ts` for logic, `<name>.test.tsx` for components. Component tests assert what an owner sees and does (roles, accessible names, links, the request sent), never class names, so a restyle keeps them green. Mock the network only at `fetch` with the helpers in `test/http.ts`; `test/setup-dom.ts` and `test/next.ts` cover the DOM setup and `next/navigation`.
