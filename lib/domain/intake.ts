@@ -66,6 +66,8 @@ export interface IntakeDraft {
   /** Follow-ups asked so far, by the rules or the model. Capped at `MAX_FOLLOW_UPS`. */
   readonly followUps: number;
   readonly review: IntakeReview;
+  /** Lists the owner answered with none, so the summary says "None" rather than "Skipped". Absent in older drafts. */
+  readonly answeredNone?: readonly ListKey[];
 }
 
 /** One quick-reply chip. `suggested` marks options common for this kind of business; it never selects one. */
@@ -697,7 +699,7 @@ function applyFieldAnswer(draft: IntakeDraft, field: IntakeField, picks: readonl
   if (picks !== undefined) facts = withPicks(facts, field, picks);
   if (reading.intent === "none" && isListStep(field)) facts = withList(facts, field, []);
   if (reading.intent === "answer") facts = mergeAnswer(facts, field, reading, { settled: draft.settled, replace: revisiting });
-  const answered: IntakeDraft = { ...draft, facts, followUp: null };
+  const answered: IntakeDraft = { ...draft, facts, followUp: null, answeredNone: noneLists(draft, field, facts, picks, reading) };
 
   // The rules ask again at most once per question, and only while the follow-up budget lasts.
   const again = answeringFollowUp || reading.intent !== "answer" ? null : reaskText(field, answered, picks, reading);
@@ -705,6 +707,13 @@ function applyFieldAnswer(draft: IntakeDraft, field: IntakeField, picks: readonl
   if (reasked) return reasked;
 
   return { ...answered, settled: unique([...answered.settled, field]), review: revisiting ? { stage: "asking" } : answered.review };
+}
+
+/** The lists answered with none after this answer: an empty Done or a typed "none" adds the list, any value removes it. */
+function noneLists(draft: IntakeDraft, field: IntakeField, facts: IntakeFacts, picks: readonly string[] | undefined, reading: AnswerReading): ListKey[] {
+  const before = (draft.answeredNone ?? []).filter((key) => facts[key].length === 0);
+  const saidNone = isListStep(field) && facts[field].length === 0 && (picks !== undefined || reading.intent === "none");
+  return saidNone ? unique([...before, field]) : before;
 }
 
 /** Text to ask again when an answer missed its question, or `null` when it landed. */
@@ -875,7 +884,9 @@ export function planReadyText(business: BusinessProfile): string {
 // =============================================================================
 
 /** The value one summary line shows, or `null` when Anchored doesn't know it yet. */
-function summaryValue(field: IntakeField, facts: IntakeFacts): string | null {
+function summaryValue(field: IntakeField, draft: IntakeDraft): string | null {
+  const { facts } = draft;
+  if (isListStep(field) && facts[field].length === 0 && draft.answeredNone?.includes(field)) return "None";
   switch (field) {
     case "name":
       return [facts.name, facts.place].filter(Boolean).join(", ") || null;
@@ -896,7 +907,7 @@ function summaryValue(field: IntakeField, facts: IntakeFacts): string | null {
 /** One line per planned question for the "What Anchored knows" card: known, skipped, or still open. */
 export function summarize(draft: IntakeDraft): KnownFact[] {
   return INTAKE_FIELDS.map((field) => {
-    const value = summaryValue(field, draft.facts);
+    const value = summaryValue(field, draft);
     const state = value !== null ? "known" : draft.settled.includes(field) ? "skipped" : "open";
     return { field, label: FIELD_LABELS[field].summary, value, state };
   });

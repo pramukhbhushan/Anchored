@@ -184,7 +184,7 @@ export function profileFromFacts(facts: BusinessFacts, builtBy: EngineAuthor = "
     customers: facts.customers || NOT_GIVEN,
     languages: orDefault(facts.languages, ["English"]),
     reach: orDefault(facts.reach, [NOT_GIVEN]),
-    tools: orDefault(facts.tools, ["Paper and phone"]),
+    tools: facts.tools,
     signals: facts.signals,
     tasks: orDefault(facts.tasks, tasksFrom(facts)),
     voice: facts.voice || `Thanks for reaching out to ${facts.name || "us"}!`,

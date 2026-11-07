@@ -139,6 +139,18 @@ describe("reading answers", () => {
     expect(draft.settled).toContain("tools");
   });
 
+  it("records an answer of none as none, not skipped, and builds no tools from it", () => {
+    const toTools: IntakeDraft = { ...newDraft(), settled: ["name", "kind", "what", "reach"], facts: { ...newDraft().facts, name: "X", kind: "Y", what: "Z" } };
+    const toolsFact = (draft: IntakeDraft) => summarize(draft).find((fact) => fact.field === "tools");
+    for (const reply of [picks(), text("None of these")]) {
+      const draft = answer(toTools, reply);
+      expect(toolsFact(draft)).toMatchObject({ state: "known", value: "None" });
+      expect(profileFromAnswers(draftToAnswers(draft)).tools).toEqual([]);
+    }
+    expect(toolsFact(answer(toTools, text("skip")))).toMatchObject({ state: "skipped", value: null });
+    expect(toolsFact(applyAnswer(answer(toTools, picks()), "tools", picks("Square")))).toMatchObject({ state: "known", value: "Square" });
+  });
+
   describe("a list question the owner already answered in passing", () => {
     // The first answer named how customers get in touch, so the reach question only confirms it.
     const heard: IntakeDraft = {

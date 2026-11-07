@@ -149,7 +149,8 @@ describe("profiles", () => {
       tradeKey: "any",
       place: "Not given",
       languages: ["English"],
-      tools: ["Paper and phone"],
+      // No answer about tools invents none, so the profile never claims "Paper and phone".
+      tools: [],
       kind: "custom",
       builtBy: "rules",
     });
