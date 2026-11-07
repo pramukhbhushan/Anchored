@@ -17,7 +17,7 @@ Trade templates are hints. Onboarding suggests answers that businesses like your
 
 ## Run it locally
 
-You need Node.js 20 or later.
+You need Node.js 26, the version in `.nvmrc`.
 
 1. Install dependencies:
 
@@ -115,7 +115,7 @@ The server reads and writes with the service role key, which bypasses row-level 
 
 1. Set up Supabase as described above, with every migration run.
 2. Import the repository in Vercel. The default Next.js settings work.
-3. Under **Settings > Environment Variables**, add `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`. For AI, add `AI_PROVIDER`, its key, `AI_DAILY_CALL_CAP` and `APP_URL`.
+3. Under **Settings > Environment Variables**, add `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`. For AI, add `AI_PROVIDER`, `AI_API_KEY`, `AI_DAILY_CALL_CAP` and `APP_URL`.
 4. Deploy, then add the deployment's address to Supabase's **Site URL** and **Redirect URLs**.
 
 Judges can test without an account through **Continue as guest**, and each one sees only their own businesses and cards. **Reset demo** clears a session.
@@ -125,8 +125,12 @@ Judges can test without an account through **Continue as guest**, and each one s
 | Path | Contents |
 | --- | --- |
 | `app/` | Pages and API routes |
+| `components/` | React components, grouped by feature: `ui/` primitives, `shell/` app chrome, and folders such as `business/` and `stack/` |
 | `lib/domain/` | Workflows, agents and skills, the catalog, ratings, the rules engine, case studies, card templates and the executor. Pure TypeScript with tests |
-| `lib/server/` | Session, data access, Claude calls and card decisions |
+| `lib/api/` | The request and response types of every API route, and the Zod schema for every request body |
+| `lib/llm/` | The model layer: the `LlmProvider` interface and one adapter per provider |
+| `lib/auth/` | Supabase Auth clients, the sign-in paths and the `Viewer` type |
+| `lib/server/` | Session, data access, model calls under the daily budget, and card decisions |
 | `lib/store/` | The `Store` interface with Supabase and in-memory versions |
 | `supabase/migrations/` | Database schema |
 | `docs/architecture.md` | How the layers fit together |
@@ -135,10 +139,18 @@ Judges can test without an account through **Continue as guest**, and each one s
 
 ## Test
 
-```bash
-npm test
-```
+You need Node.js 26, the version in `.nvmrc`. Run every check CI runs, in order: the type check, the tests and a production build.
 
 ```bash
-npm run typecheck
+npm run check
 ```
+
+No `.env` is needed. Each step also runs alone:
+
+```bash
+npm run typecheck   # generates Next route types, then runs tsc
+npm test
+npm run build
+```
+
+CI runs the same steps on every pull request and on every push to `main`.
