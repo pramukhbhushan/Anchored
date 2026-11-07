@@ -1,3 +1,4 @@
+import "server-only";
 import { z } from "zod";
 import type { ModelTier } from "@/lib/domain/types";
 import type { ProviderConfig } from "./config";

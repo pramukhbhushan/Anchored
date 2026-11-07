@@ -1,3 +1,4 @@
+import "server-only";
 import type { ModelTier } from "@/lib/domain/types";
 import { AnthropicProvider } from "./anthropic";
 import { readProviderConfig } from "./config";
