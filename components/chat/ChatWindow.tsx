@@ -7,6 +7,7 @@ import { callApi, errorText, getApi } from "@/components/api";
 import { ResizablePanel } from "@/components/resize/ResizablePanel";
 import { businessHref, NEW_BUSINESS_HREF } from "@/components/routes";
 import { Button, ButtonLink } from "@/components/ui/Button";
+import { GENERIC_STARTERS } from "@/components/chat/starters";
 import type { BusinessChatResponse, ChatMessage, IntakeAnswerRequest, IntakeResponse, StartIntakeResponse } from "@/lib/api/contract";
 import { answerText, CHANGE_AREA_LABEL, type IntakeQuestion, type KnownFact, type ProfileChange } from "@/lib/domain/intake";
 import styles from "./chat.module.css";
@@ -19,12 +20,18 @@ import styles from "./chat.module.css";
 // "What Anchored knows" card and ends on "Open your plan"; in `business` mode
 // the owner says what changed and the page refreshes to show the new plan.
 
-/** Onboard a new business, or talk to one that exists. Sample businesses pass `readOnly`. */
-export type ChatWindowProps = { readonly mode: "intake" } | { readonly mode: "business"; readonly businessId: string; readonly readOnly?: boolean };
+/** Onboard a new business, or talk to one that exists. Sample businesses pass `readOnly`; `starters` are the first messages offered. */
+export type ChatWindowProps =
+  | { readonly mode: "intake" }
+  | { readonly mode: "business"; readonly businessId: string; readonly readOnly?: boolean; readonly starters?: readonly string[] };
 
 /** Render the chat for `props.mode`. */
 export function ChatWindow(props: ChatWindowProps) {
-  return props.mode === "intake" ? <IntakeChat /> : <BusinessChat businessId={props.businessId} readOnly={props.readOnly ?? false} />;
+  return props.mode === "intake" ? (
+    <IntakeChat />
+  ) : (
+    <BusinessChat businessId={props.businessId} readOnly={props.readOnly ?? false} starters={props.starters ?? GENERIC_STARTERS} />
+  );
 }
 
 // =============================================================================
@@ -172,14 +179,16 @@ function IntakeChat() {
     })();
   }, []);
 
-  // After an answer lands, put focus where the next answer goes: the first chip, or the text box.
+  // After an answer lands, put focus where the next answer goes: the first chip for a chip question, or the text box.
+  // A text question's chips row holds only Skip, and focusing it would let Enter skip the question.
+  const hasOptions = question?.options !== undefined;
   useEffect(() => {
     if (!focusNext.current || busy) return;
     focusNext.current = false;
-    const chip = chipsRef.current?.querySelector("button");
+    const chip = hasOptions ? chipsRef.current?.querySelector("button") : null;
     if (chip) chip.focus();
     else inputRef.current?.focus();
-  }, [key, busy]);
+  }, [key, busy, hasOptions]);
 
   async function answer(request: IntakeAnswerRequest): Promise<void> {
     if (!view || !question || busy) return;
@@ -236,7 +245,14 @@ function IntakeChat() {
           {builtId !== undefined ? (
             <div className={styles.ready}>
               <p>Your plan is ready to review.</p>
-              <Button onClick={() => router.push(businessHref(builtId))} autoFocus>
+              <Button
+                onClick={() => {
+                  router.push(businessHref(builtId));
+                  // The shell's sidebar and switcher were rendered before this business existed; refresh them to list it.
+                  router.refresh();
+                }}
+                autoFocus
+              >
                 Open your plan
               </Button>
             </div>
@@ -280,9 +296,15 @@ function IntakeChat() {
 // Business chat
 // =============================================================================
 
-const STARTERS: readonly string[] = ["We started doing catering", "We switched to Square", "We now take EBT"];
-
-function BusinessChat({ businessId, readOnly }: { readonly businessId: string; readonly readOnly: boolean }) {
+function BusinessChat({
+  businessId,
+  readOnly,
+  starters,
+}: {
+  readonly businessId: string;
+  readonly readOnly: boolean;
+  readonly starters: readonly string[];
+}) {
   const router = useRouter();
   const [messages, setMessages] = useState<readonly ChatMessage[] | null>(null);
   const { outgoing, busy, run } = useSender();
@@ -320,8 +342,8 @@ function BusinessChat({ businessId, readOnly }: { readonly businessId: string; r
         <div className={styles.composer}>
           {outgoing?.status === "failed" && <FailLine error={outgoing.error} retry={outgoing.retry} />}
           {readOnly ? (
+            // Anchored's own message in the thread says why a sample can't change; the footer only offers the way out.
             <div className={styles.readOnly}>
-              <p>Sample businesses are read-only.</p>
               <ButtonLink variant="secondary" size="sm" href={NEW_BUSINESS_HREF}>
                 Start your own business
               </ButtonLink>
@@ -330,14 +352,14 @@ function BusinessChat({ businessId, readOnly }: { readonly businessId: string; r
             <>
               {fresh && (
                 <div className={styles.chips} role="group" aria-label="Things you can tell Anchored">
-                  {STARTERS.map((starter) => (
+                  {starters.map((starter) => (
                     <button key={starter} type="button" className={styles.chip} onClick={() => void send(starter)} disabled={busy}>
                       {starter}
                     </button>
                   ))}
                 </div>
               )}
-              <Composer inputRef={inputRef} placeholder="Tell Anchored what changed" disabled={messages === null || outgoing?.status === "failed"} busy={busy} onSend={(text) => void send(text)} />
+              <Composer inputRef={inputRef} placeholder="Tell Anchored what changed, and it updates your workflows" disabled={messages === null || outgoing?.status === "failed"} busy={busy} onSend={(text) => void send(text)} />
             </>
           )}
         </div>
