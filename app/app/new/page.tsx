@@ -5,6 +5,7 @@ import { NEW_BUSINESS_HREF } from "@/components/routes";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { isAuthEnabled } from "@/lib/auth/config";
 import { aiLabel } from "@/lib/server/ai";
 
 // =============================================================================
@@ -27,11 +28,13 @@ const NEXT_STEPS: readonly string[] = [
   "Agents you choose start drafting cards for you to approve.",
 ];
 
-/** Return the line that says who reads the owner's answers. */
-function privacyLine(aiName: string | null): string {
+/** Return the line that says who reads the owner's answers and where they are kept. */
+function privacyLine(aiName: string | null, accountsOn: boolean): string {
+  // With accounts off there is no account; the answers belong to this browser's session.
+  const kept = accountsOn ? "stay in your account" : "stay with this browser";
   return aiName
-    ? `Your answers go only to ${aiName} and stay in your account. Nothing is sent to your customers.`
-    : "Anchored's own rules read your answers, which stay in your account. Nothing is sent to your customers.";
+    ? `Your answers go only to ${aiName} and ${kept}. Nothing is sent to your customers.`
+    : `Anchored's own rules read your answers, which ${kept}. Nothing is sent to your customers.`;
 }
 
 /** Render chat onboarding, or the form when `?form=1`. */
@@ -42,6 +45,7 @@ export default async function NewBusinessPage({
 }) {
   const { form } = await searchParams;
   const aiName = aiLabel();
+  const privacy = privacyLine(aiName, isAuthEnabled());
 
   if (form === "1") {
     return (
@@ -65,7 +69,7 @@ export default async function NewBusinessPage({
                 ))}
               </ol>
             </Card>
-            <p className="fine">{privacyLine(aiName)}</p>
+            <p className="fine">{privacy}</p>
           </aside>
         </div>
       </>
@@ -86,7 +90,7 @@ export default async function NewBusinessPage({
       <div className="chat-stage">
         <ChatWindow mode="intake" />
       </div>
-      <p className="fine page-foot">{privacyLine(aiName)}</p>
+      <p className="fine page-foot">{privacy}</p>
     </div>
   );
 }
