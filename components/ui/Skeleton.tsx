@@ -9,7 +9,7 @@
 export type SkeletonLayout = "overview" | "cards" | "list" | "table" | "chat" | "profile";
 
 /** Render one placeholder block of `width` by `height`. */
-export function Skeleton({
+function Skeleton({
   width = "100%",
   height = 14,
   className,

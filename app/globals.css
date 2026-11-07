@@ -114,7 +114,6 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .badge-good{background:var(--good-soft);color:var(--good)}
 .badge-warn{background:var(--warn-soft);color:var(--warn)}
 .badge-info{background:var(--buy-soft);color:var(--buy)}
-.badge-count{background:var(--carbon);color:var(--on-carbon);font-variant-numeric:tabular-nums}
 .badges{display:flex;flex-wrap:wrap;gap:6px}
 
 /* ---------- Card ---------- */

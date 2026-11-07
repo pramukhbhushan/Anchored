@@ -59,7 +59,7 @@ export async function nextSimulationTurn(businessId: string): Promise<number> {
 }
 
 /** Give a new event card a key no other request can share, so two events arriving together both land. */
-export function uniqueEventKey(card: KeyedCard): KeyedCard {
+function uniqueEventKey(card: KeyedCard): KeyedCard {
   // The turn number alone can collide when a simulate and an ingest race; the random suffix can't.
   return { ...card, key: `${card.key}-${randomUUID().slice(0, 8)}` };
 }

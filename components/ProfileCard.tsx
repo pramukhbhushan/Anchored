@@ -44,7 +44,7 @@ function Chips({ values }: { readonly values: readonly string[] }) {
 }
 
 /** Render the business's kind, town and size on one line, each with an icon. */
-export function IdentityLine({ business }: { readonly business: BusinessProfile }) {
+function IdentityLine({ business }: { readonly business: BusinessProfile }) {
   const place = placeOf(business);
   const size = business.size.trim() === NOT_GIVEN ? "" : business.size.trim();
   return (

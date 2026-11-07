@@ -72,7 +72,7 @@ export const findViewer = cache(async (): Promise<Viewer | null> => {
 });
 
 /** Return this request's viewer. Throws `SignInRequiredError` when accounts are on and nobody is signed in. */
-export async function getViewer(): Promise<Viewer> {
+async function getViewer(): Promise<Viewer> {
   const viewer = await findViewer();
   if (viewer === null) throw new SignInRequiredError();
   return viewer;

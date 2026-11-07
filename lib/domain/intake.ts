@@ -156,7 +156,7 @@ function capitalize(text: string): string {
 }
 
 /** Join items as "a, b and c". */
-export function listText(items: readonly string[]): string {
+function listText(items: readonly string[]): string {
   if (items.length <= 1) return items[0] ?? "";
   return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
@@ -501,14 +501,14 @@ const FIELD_LABELS: Readonly<Record<IntakeField, { readonly change: string; read
 };
 
 /** Keep only values that name a real option for `key`, spelled as the option list spells it. Signals match by id, label or short label. */
-export function allowedValues(key: Exclude<ListKey, "signals">, values: readonly string[]): string[] {
+function allowedValues(key: Exclude<ListKey, "signals">, values: readonly string[]): string[] {
   const wanted = values.map((value) => value.trim().toLowerCase());
   const options = key === "reach" ? REACH_OPTIONS : key === "tools" ? TOOL_OPTIONS : LANGUAGE_OPTIONS;
   return options.filter((option) => wanted.includes(option.toLowerCase()));
 }
 
 /** Keep only values that name a signal, by id, label or short label. */
-export function allowedSignals(values: readonly string[]): SignalId[] {
+function allowedSignals(values: readonly string[]): SignalId[] {
   const wanted = values.map((value) => value.trim().toLowerCase());
   return SIGNALS.filter((signal) => [signal.id, signal.label.toLowerCase(), signal.short.toLowerCase()].some((name) => wanted.includes(name))).map((signal) => signal.id);
 }
@@ -935,7 +935,7 @@ export interface ProfileChange {
 }
 
 /** A change set that changes nothing. */
-export const NO_CHANGES: FactChanges = { add: NO_LISTS, remove: NO_LISTS, texts: {} };
+const NO_CHANGES: FactChanges = { add: NO_LISTS, remove: NO_LISTS, texts: {} };
 
 const RENAME =
   /\b(?:renamed|rename)\s+(?:it|us|the (?:business|shop|store|company|restaurant|truck)|our (?:business|shop|store|company|restaurant|truck))\s+(?:to\s+)?["']?(.+?)["']?(?=[.!?]|$)|\b(?:new name is|now called|changed (?:our|the) name to|we're (?:now )?called|we are (?:now )?called)\s+["']?(.+?)["']?(?=[.!?,]|$)/i;
@@ -963,7 +963,7 @@ export function readChanges(text: string): FactChanges {
 }
 
 /** The facts a profile was built from, with the engine's "Not given" placeholders taken out. */
-export function factsFromProfile(business: BusinessProfile): BusinessFacts {
+function factsFromProfile(business: BusinessProfile): BusinessFacts {
   const given = (value: string): string | undefined => (value === NOT_GIVEN ? undefined : value);
   return {
     id: business.id,
@@ -1040,7 +1040,7 @@ function listChanges<T extends string>(area: ChangeArea, before: readonly T[], a
 }
 
 /** List what changed between two versions of a profile: workflows, then facts, then new paths. */
-export function describeChanges(before: BusinessProfile, after: BusinessProfile): ProfileChange[] {
+function describeChanges(before: BusinessProfile, after: BusinessProfile): ProfileChange[] {
   const changes: ProfileChange[] = [];
   const paths: ProfileChange[] = [];
   for (const id of WORKFLOW_IDS) {

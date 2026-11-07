@@ -30,7 +30,7 @@ const shortList = z.array(z.string().trim().min(1).max(80)).max(20);
 // Request bodies
 // -----------------------------------------------------------------
 
-export const onboardingAnswersSchema = z.object({
+const onboardingAnswersSchema = z.object({
   name: z.string().trim().min(1, "Add your business name.").max(120),
   kind: z.string().trim().min(1, "Say what kind of business it is.").max(80),
   what: z.string().trim().max(1500),
