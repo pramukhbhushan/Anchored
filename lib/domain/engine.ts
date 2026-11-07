@@ -226,29 +226,39 @@ export function profileFromAnswers(answers: OnboardingAnswers): BusinessProfile 
 // -----------------------------------------------------------------
 
 // Each pattern runs against the lower-cased sentence; order is the order the answers appear on the profile.
+// Every pattern matches whole words with their plurals and inflections, so "locally" is not "call".
 const REACH_WORDS: readonly (readonly [RegExp, string])[] = [
-  [/call|phone|emergenc|repair|service|clinic|office|appointment|plumb|hvac|contractor/, "Phone calls"],
-  [/walk|store|shop|counter|cafe|bakery|truck|market|salon|restaurant|deli|\bbar\b/, "Walk-ins"],
-  [/website|online|form|book online/, "Website form"],
-  [/instagram|facebook|tiktok|social|\bdm/, "Instagram or Facebook"],
-  [/delivery|doordash|uber eats|grubhub/, "Delivery apps"],
-  [/email/, "Email"],
-  [/referr|word of mouth/, "Referrals"],
+  [
+    /\b(?:call(?:s|ed|ing|ers?)?|phones?|text(?:s|ed|ing)?|emergenc(?:y|ies)|repairs?|services?|clinics?|offices?|appointments?|plumb(?:er|ers|ing)?|hvac|contractors?)\b/,
+    "Phone calls",
+  ],
+  [/\b(?:walk[- ]?ins?|stores?|shops?|counters?|cafes?|bakery|bakeries|trucks?|markets?|salons?|restaurants?|delis?|bars?)\b/, "Walk-ins"],
+  [/\b(?:websites?|online|forms?)\b/, "Website form"],
+  [/\b(?:instagram|facebook|tiktok|social|dms?)\b/, "Instagram or Facebook"],
+  [/\b(?:deliver(?:s|y|ies|ed|ing)?|doordash|uber eats|grubhub)\b/, "Delivery apps"],
+  [/\be-?mails?\b/, "Email"],
+  [/\b(?:referr(?:al|als|ed|ing)|word of mouth)\b/, "Referrals"],
 ];
 
 const SIGNAL_WORDS: readonly (readonly [RegExp, SignalId])[] = [
-  [/quote|estimate|bid|project|install|custom|remodel|landscap|contract|repair/, "quotes"],
-  [/appointment|book|session|lesson|class|patient|client|groom|salon|tutor|clinic|consult|reserv/, "appointments"],
+  [/\b(?:quot(?:e|es|ed|ing)|estimat(?:e|es|ed|ing)|bids?|projects?|install(?:s|ed|ing|ation|ations|er|ers)?|custom|remodel(?:s|ed|ing)?|landscap(?:e|es|er|ers|ing)|contract(?:s|ed|ing|or|ors)?|repairs?)\b/, "quotes"],
   [
-    /supplier|wholesale|inventory|ingredient|stock|parts|food|bake|bakery|restaurant|truck|store|shop|market|cafe|florist|repair/,
+    /\b(?:appointments?|book(?:s|ed|ing|ings)?|sessions?|lessons?|class(?:es)?|patients?|clients?|groom(?:s|er|ers|ing)?|salons?|tutor(?:s|ing)?|clinics?|consult(?:s|ed|ing|ant|ants|ancy|ation|ations)?|reserv(?:e|es|ed|ation|ations))\b/,
+    "appointments",
+  ],
+  [
+    /\b(?:suppliers?|wholesal(?:e|er|ers)|inventory|ingredients?|stock(?:s|ed|ing)?|parts|food|bak(?:e|es|ed|er|ers|ery|eries|ing)|restaurants?|trucks?|stores?|shops?|markets?|cafes?|florists?|repairs?)\b/,
     "suppliers",
   ],
-  [/staff|employee|crew|shift|team|cooks?\b|workers/, "shifts"],
-  [/cater|event|party|parties|wedding/, "catering"],
-  [/snap|ebt/, "snap"],
-  [/licen|permit|alcohol|beer|wine|tobacco|lottery|health|food|clinic|salon|truck|daycare|child/, "licenses"],
-  [/membership|plan\b|subscription|maintenance/, "memberships"],
-  [/instagram|tiktok|\bpost|advertis|\bads\b|marketing/, "marketing"],
+  [/\b(?:staff|employees?|crews?|shifts?|teams?|cooks?|workers)\b/, "shifts"],
+  [/\b(?:cater(?:s|ed|er|ers|ing)?|events?|party|parties|weddings?)\b/, "catering"],
+  [/\b(?:snap|ebt)\b/, "snap"],
+  [
+    /\b(?:licen[cs](?:e|es|ed|ing)|permits?|alcohol|beer|wine|tobacco|lottery|health|food|clinics?|salons?|trucks?|daycares?|child|children|childcare)\b/,
+    "licenses",
+  ],
+  [/\b(?:memberships?|plans?|subscriptions?|maintenance)\b/, "memberships"],
+  [/\b(?:instagram|tiktok|post(?:s|ed|ing)?|advertis(?:e|es|ed|ing)|ads|marketing)\b/, "marketing"],
 ];
 
 // These options describe the absence of software, so a sentence can't name them.
@@ -260,7 +270,7 @@ export function profileFromSentence(text: string): BusinessProfile {
   // Every business can be found on Google, so it always counts as a way in.
   const reach = [...REACH_WORDS.filter(([pattern]) => pattern.test(lower)).map(([, way]) => way), "Google"];
   const signals = SIGNAL_WORDS.filter(([pattern]) => pattern.test(lower)).map(([, signal]) => signal);
-  const tools = TOOL_OPTIONS.filter((name) => !NOT_SOFTWARE.includes(name) && lower.includes(firstWord(name)));
+  const tools = TOOL_OPTIONS.filter((name) => !NOT_SOFTWARE.includes(name) && namesSoftware(text, name));
   const trade = text
     .replace(/^(i run|we run|i own|we own|i have|we have)\s+/i, "")
     .replace(/^(a|an)\s+/i, "")
@@ -276,11 +286,18 @@ export function profileFromSentence(text: string): BusinessProfile {
   });
 }
 
-/** Lower-cased first word of a software name, which is enough to spot it in a sentence. */
-function firstWord(name: string): string {
-  const lower = name.toLowerCase();
-  const space = lower.indexOf(" ");
-  return space === -1 ? lower : lower.slice(0, space);
+/**
+ * Report whether `text` names the software `name`, capitalized as the product spells it or after a usage cue
+ * such as "uses" or "on", since words like "square" and "toast" are common English otherwise. The first word
+ * is enough ("QuickBooks"), unless another tool shares it, as "Google Sheets" and "Google Business Profile" do.
+ */
+function namesSoftware(text: string, name: string): boolean {
+  const first = name.split(" ")[0] ?? name;
+  const shared = TOOL_OPTIONS.filter((option) => option.split(" ")[0] === first).length > 1;
+  // Tool names are letters and spaces only, so they need no escaping.
+  const word = shared ? name : first;
+  if (new RegExp(`\\b${word}\\b`).test(text)) return true;
+  return new RegExp(`\\b(?:use|uses|using|on|with|via|through|takes?|accepts?|runs?)\\s+(?:\\w+\\s+)?${word}\\b`, "i").test(text);
 }
 
 /** `text` cut to at most `max` characters at a word boundary, with "..." when anything was cut. */
@@ -313,12 +330,15 @@ function orDefault<T>(list: readonly T[] | undefined, fallback: readonly T[]): r
 // Trades and hints
 // =============================================================================
 
-// First match wins, so "pest control for restaurants" is home services.
+// First match wins, so "pest control for restaurants" is home services. Whole words only, so "delivery" is not a deli.
 const TRADE_WORDS: readonly (readonly [RegExp, TradeKey])[] = [
-  [/hvac|heating|plumb|electric|roof|landscap|lawn|mow|clean|handyman|pest|paint|contractor/, "home"],
-  [/restaurant|cafe|coffee|bakery|food|kitchen|diner|pizza|taco|catering|truck/, "restaurant"],
-  [/corner store|bodega|deli|mart|grocery|convenience/, "store"],
-  [/coach|consult|tutor|trainer|therap|counsel|teacher/, "coach"],
+  [
+    /\b(?:home services?|hvac|heating|plumb(?:er|ers|ing)?|electric(?:al|ian|ians)?|roof(?:s|er|ers|ing)?|landscap(?:e|er|ers|ing)|lawns?|mow(?:s|er|ers|ing)?|clean(?:er|ers|ing)|handym[ae]n|pest|paint(?:er|ers|ing)|contractors?)\b/,
+    "home",
+  ],
+  [/\b(?:restaurants?|cafes?|coffee|bakery|bakeries|food|kitchens?|diners?|pizza(?:s|ria|rias)?|tacos?|taqueria|cater(?:er|ers|ing)|trucks?)\b/, "restaurant"],
+  [/\b(?:corner stores?|bodegas?|delis?|marts?|grocer(?:y|ies|s)?|convenience)\b/, "store"],
+  [/\b(?:coach(?:es|ing)?|consult(?:ant|ants|ancy|ing)|tutor(?:s|ing)?|trainers?|therap(?:y|ist|ists)|counsel(?:or|ors|ing)|teachers?)\b/, "coach"],
 ];
 
 /** Guess the coarse business type from free text, or `any` when no trade word appears. */

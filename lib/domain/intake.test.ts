@@ -174,6 +174,15 @@ describe("reading answers", () => {
     expect(question(twice).field).toBe("tools");
   });
 
+  it("reads texting as a way customers reach the business", () => {
+    expect(readAnswer("They take bookings by text mostly", "reach").facts.reach).toContain("Phone calls");
+  });
+
+  it("gives an owner who tapped Home services the home trade", () => {
+    const { draft } = converse([text("Comfort Pros, Bowie, MD"), picks("Home services")]);
+    expect(profileFromAnswers(draftToAnswers(draft)).tradeKey).toBe("home");
+  });
+
   it("never records facts the owner ruled out", () => {
     expect(readAnswer("We don't take EBT and I never post online", "week").facts.signals).toEqual([]);
     // Phone keyboards type a curly apostrophe.

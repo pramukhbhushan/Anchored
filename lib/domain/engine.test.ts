@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EXAMPLES, exampleProfile } from "@/lib/domain/cases";
 import { detectTradeKey, hintFor, profileFromAnswers, profileFromFacts, profileFromSentence } from "@/lib/domain/engine";
+import { pathOptions } from "@/lib/domain/paths";
 import type { BusinessFacts, BusinessProfile, OnboardingAnswers } from "@/lib/domain/types";
 import { BASE_WORKFLOWS } from "@/lib/domain/workflows";
 
@@ -167,6 +168,45 @@ describe("profiles", () => {
     expect(profile.tools).toContain("Square");
     expect(profile.reach).toContain("Google");
     expect(profile.nicheAgents.map((agent) => agent.id)).toEqual(["niche:snap-stock-check"]);
+  });
+
+  it.each([
+    ["locally", "We sell locally made soap", "reach", "Phone calls"],
+    ["debt", "A debt counseling practice", "signals", "snap"],
+    ["marketing", "A marketing agency", "reach", "Walk-ins"],
+    ["Snapchat", "A photo studio that shares work on Snapchat", "signals", "snap"],
+    ["information", "An information technology consultancy", "reach", "Website form"],
+    ["prevent", "We prevent water damage in basements", "signals", "catering"],
+    ["workshop", "A pottery workshop", "reach", "Walk-ins"],
+    ["workshop", "A pottery workshop", "signals", "suppliers"],
+  ] as const)("doesn't read a word hidden inside '%s' as a fact: %s", (_word, sentence, list, value) => {
+    expect(profileFromSentence(sentence)[list]).not.toContain(value);
+  });
+
+  it("reads whole words, plurals and inflections", () => {
+    const profile = profileFromSentence("A yoga studio that takes bookings by text, with classes and events");
+    expect(profile.reach).toContain("Phone calls");
+    expect(profile.signals).toEqual(expect.arrayContaining(["appointments", "catering"]));
+    expect(profileFromSentence("We run two shops and answer calls").reach).toEqual(expect.arrayContaining(["Walk-ins", "Phone calls"]));
+  });
+
+  it("spots software by its whole name, not inside other words", () => {
+    expect(profileFromSentence("A flooring installer who measures by the square foot").tools).not.toContain("Square");
+    expect(profileFromSentence("A cafe known for toasted bagels").tools).not.toContain("Toast");
+    expect(profileFromSentence("A cafe that takes orders on Toast").tools).toContain("Toast");
+    expect(profileFromSentence("Customers find us on Google").tools).not.toContain("Google Sheets");
+  });
+
+  it("detects the trade from whole words, so 'delivery' isn't a deli and 'smart' isn't a mart", () => {
+    expect(detectTradeKey("Smart home installs")).not.toBe("store");
+    expect(detectTradeKey("Delivery service")).toBe("any");
+    expect(detectTradeKey("Home services")).toBe("home");
+  });
+
+  it("gives a business picked through the Home services chip the home trade and its tools", () => {
+    const shop = profileFromAnswers({ ...BLANK_ANSWERS, name: "Comfort Pros, Bowie, MD", kind: "Home services", reach: ["Phone calls"] });
+    expect(shop.tradeKey).toBe("home");
+    expect(pathOptions(shop, "calls").buy.map(({ tool }) => tool.id)).toContain("servicetitan");
   });
 
   it("detects the trade from free text", () => {

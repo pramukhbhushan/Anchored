@@ -187,7 +187,7 @@ interface KeywordRule<T extends string> {
 }
 
 const REACH_RULES: readonly KeywordRule<string>[] = [
-  { pattern: /\b(?:phones?|calls?|calling)\b/gi, value: "Phone calls" },
+  { pattern: /\b(?:phones?|calls?|calling|texts?|texting|texted|sms)\b/gi, value: "Phone calls" },
   { pattern: /\b(?:walk[- ]?(?:ins?|ups?)|foot traffic|storefront|counter)\b/gi, value: "Walk-ins" },
   { pattern: /\b(?:website|web form|contact form|online form|book online|order online)\b/gi, value: "Website form" },
   // "Google Sheets" and friends are tools, not a way customers find you.
