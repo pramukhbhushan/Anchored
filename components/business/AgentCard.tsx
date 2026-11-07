@@ -92,10 +92,11 @@ export function AgentCard({
       setConfirming(null);
       startRefresh(() => router.refresh());
     } catch (error) {
-      // 409: the stored draft no longer matches the text on screen, so approving it would send something unseen.
+      // 409: the card moved on since the owner saw it, so a reload shows its real state. The route says how it moved:
+      // a changed draft, a card already decided, or a workflow that no longer uses the agent.
       const isStale = error instanceof ApiCallError && error.status === 409;
       setStale(isStale);
-      setNote(isStale ? STALE_DRAFT : errorText(error));
+      setNote(isStale && error.message === "" ? STALE_DRAFT : errorText(error));
     } finally {
       setBusy(false);
     }
