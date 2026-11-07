@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { SESSION_COOKIE } from "@/lib/session-cookie";
-import { clientIp, clientKey, isAllowedOrigin, isBodyTooLarge, limitFor, middleware } from "./middleware";
+import { clientIp, clientKey, isBodyTooLarge, limitFor, middleware } from "./middleware";
 
 // =============================================================================
 // Module Overview
@@ -91,28 +91,6 @@ async function sessionCookie(key: SigningKey, userId: string): Promise<string> {
 // =============================================================================
 // Pure helpers
 // =============================================================================
-
-describe("isAllowedOrigin", () => {
-  it("allows a request from the same host", () => {
-    expect(isAllowedOrigin(`https://${HOST}`, HOST)).toBe(true);
-    expect(isAllowedOrigin("http://localhost:3000", "localhost:3000")).toBe(true);
-  });
-
-  it("allows a request with no `Origin`, such as one from curl", () => {
-    expect(isAllowedOrigin(null, HOST)).toBe(true);
-  });
-
-  it("refuses a foreign origin", () => {
-    expect(isAllowedOrigin("https://evil.example", HOST)).toBe(false);
-    expect(isAllowedOrigin(`https://${HOST}.evil.example`, HOST)).toBe(false);
-    expect(isAllowedOrigin("http://localhost:4000", "localhost:3000")).toBe(false);
-  });
-
-  it("refuses an opaque or malformed origin", () => {
-    expect(isAllowedOrigin("null", HOST)).toBe(false);
-    expect(isAllowedOrigin("not a url", HOST)).toBe(false);
-  });
-});
 
 describe("clientIp", () => {
   it("prefers `x-real-ip`, which Vercel sets itself, over a client-supplied `x-forwarded-for`", () => {

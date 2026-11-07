@@ -4,6 +4,7 @@ import type { ApiError } from "@/lib/api/contract";
 import { authConfig, type AuthConfig } from "@/lib/auth/config";
 import { loginHref, needsSignIn } from "@/lib/auth/paths";
 import { isSessionId } from "@/lib/auth/session-id";
+import { isAllowedOrigin } from "@/lib/server/origin";
 import { createRateLimiter } from "@/lib/server/rate-limit";
 import { SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from "@/lib/session-cookie";
 
@@ -45,20 +46,6 @@ export const MAX_BODY_BYTES = 64 * 1024;
 
 // Module scope lives as long as the server instance, so counts carry across requests.
 const limiter = createRateLimiter();
-
-/** Report whether a mutation's `Origin` header allows it: absent, or naming `host`. */
-export function isAllowedOrigin(origin: string | null, host: string): boolean {
-  // Only browsers send `Origin`, and only a browser carries a visitor's cookie for them.
-  if (origin === null) return true;
-  let originHost: string;
-  try {
-    originHost = new URL(origin).host;
-  } catch {
-    // The literal "null" that sandboxed frames and file pages send lands here too.
-    return false;
-  }
-  return originHost.toLowerCase() === host.toLowerCase();
-}
 
 /** Return the caller's IP: `x-real-ip`, then the first `x-forwarded-for` entry, then "unknown". */
 export function clientIp(headers: Headers): string {
