@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { CardsResponse } from "@/lib/api/contract";
 import { ingestSchema } from "@/lib/api/schemas";
 import { SKILLS } from "@/lib/domain/agents";
@@ -28,7 +29,20 @@ const SOURCE_SKILL: Readonly<Record<string, SkillId>> = {
   email: "triage",
 };
 
-/** Read a short string field from an event payload, or `undefined`. */
+// Each source accepts exactly these fields, so an event can't smuggle in extra data or oversized text.
+const phone = z.string().trim().regex(/^\+?[0-9 ().-]{7,20}$/, "Use a phone number like +1 301 555 0192.");
+const shortText = z.string().trim().min(1).max(80);
+const PAYLOADS: Readonly<Record<string, z.ZodType<Readonly<Record<string, unknown>>>>> = {
+  "missed-call": z.strictObject({ from: phone }),
+  "lead-form": z.strictObject({ name: shortText, message: z.string().max(1000).optional() }),
+  "catering-form": z.strictObject({ name: shortText, headcount: z.number().int().min(1).max(5000).optional(), date: z.string().max(40).optional(), message: z.string().max(1000).optional() }),
+  invoice: z.strictObject({ supplier: shortText, item: shortText.optional(), oldPrice: z.number().nonnegative().optional(), newPrice: z.number().nonnegative().optional() }),
+  review: z.strictObject({ author: shortText.optional(), text: z.string().trim().min(1).max(2000) }),
+  booking: z.strictObject({ name: shortText, when: z.string().trim().min(1).max(60) }),
+  email: z.strictObject({ from: z.string().trim().min(1).max(120), subject: z.string().trim().min(1).max(200), text: z.string().max(2000).optional() }),
+};
+
+/** Read a short string field from a validated payload, or `undefined`. */
 function field(payload: Readonly<Record<string, unknown>>, name: string): string | undefined {
   const value = payload[name];
   return typeof value === "string" && value.trim() ? value.trim().slice(0, 80) : undefined;
@@ -58,19 +72,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ sou
   if (!parsed.ok) return parsed.response;
   try {
     const { source } = await params;
+    // `hasOwn` keeps names like `constructor` from matching inherited object properties.
+    if (!Object.hasOwn(SOURCE_SKILL, source)) return fail(404, `Unknown event source. Use one of: ${Object.keys(SOURCE_SKILL).join(", ")}.`);
     const skill = SOURCE_SKILL[source];
-    if (!skill) return fail(404, `Unknown event source. Use one of: ${Object.keys(SOURCE_SKILL).join(", ")}.`);
+    const payloadSchema = PAYLOADS[source];
+    if (!skill || !payloadSchema) return fail(404, "Unknown event source.");
+    const payloadCheck = payloadSchema.safeParse(parsed.data.payload);
+    if (!payloadCheck.success) return fail(400, `This ${source} event is missing a field or has one it shouldn't: ${payloadCheck.error.issues[0]?.message ?? "invalid payload"}`);
+    const payload = payloadCheck.data;
     const business = await findBusiness(parsed.data.businessId);
     if (!business) return fail(404, "Business not found. It may have been reset.");
 
     const session = await getSessionId();
     const store = getStore();
-    await store.recordEvent(session, business.id, source, parsed.data.payload);
     const choices = await getChoices(business);
     // Triage belongs to Internal Communications, which runs for every business.
     if (skill !== "triage" && !chosenSkills(business, choices).includes(skill)) {
-      return fail(409, `The event was saved, but the ${SKILLS[skill].name} skill isn't in this stack. Choose Build on that workflow to get a card.`);
+      return fail(409, `The ${SKILLS[skill].name} skill isn't in this stack. Choose Build on that workflow to get a card.`);
     }
+    // Store the event only once it is valid and some skill will act on it.
+    await store.recordEvent(session, business.id, source, payload);
 
     const turn = await nextSimulationTurn(business.id);
     // Triage has no workflow to narrow to, so its card comes straight from the template.
@@ -78,7 +99,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ sou
       skill === "triage"
         ? { ...CARD_TEMPLATES.triage(business, turn), agent: "internal", skill: "triage", key: `${business.id}:sim:${turn}` }
         : simulateCard(business, choicesForSkill(business, choices, skill), turn);
-    if (card) await store.ensureCards(session, business.id, [personalize(card, source, business, parsed.data.payload)]);
+    if (card) await store.ensureCards(session, business.id, [personalize(card, source, business, payload)]);
     return json<CardsResponse>(await getFeed(business), 201);
   } catch (error) {
     return handleError(error, "POST /api/ingest/[source]");

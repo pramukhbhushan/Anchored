@@ -40,6 +40,8 @@ const PRODUCTION_HEADERS: readonly Header[] = [
 
 const config: NextConfig = {
   reactStrictMode: true,
+  // Don't advertise the framework in every response.
+  poweredByHeader: false,
   async headers() {
     const isProduction = process.env.NODE_ENV === "production";
     return [{ source: "/:path*", headers: [...SECURITY_HEADERS, ...(isProduction ? PRODUCTION_HEADERS : [])] }];

@@ -67,15 +67,58 @@ function feedOrder(a: CardRecord, b: CardRecord): number {
   return bTime.localeCompare(aTime);
 }
 
-/** Return the cards for the business's chosen skills and its simulated outbox. */
+// -----------------------------------------------------------------
+// Virtual cards: drafts that exist only until the owner acts on one
+// -----------------------------------------------------------------
+
+// Drafts are computed from the business and its choices, so a page view never writes a row.
+// A draft is stored the first time the owner approves, edits, skips or rewrites it.
+const VIRTUAL_PREFIX = "v.";
+
+/** Return the id a not-yet-stored draft carries, built from its stable key. */
+export function virtualCardId(key: string): string {
+  return VIRTUAL_PREFIX + key.replaceAll(":", "~");
+}
+
+/** Return the draft key inside a virtual card id, or `null` for a stored card's id. */
+export function keyFromVirtualId(id: string): string | null {
+  return id.startsWith(VIRTUAL_PREFIX) ? id.slice(VIRTUAL_PREFIX.length).replaceAll("~", ":") : null;
+}
+
+/** Report whether `id` has the shape of a card id: a stored UUID or a virtual draft id. */
+export function isCardId(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) || /^v\.[A-Za-z0-9_~-]{1,160}$/.test(id);
+}
+
+/** Return the stored card for `id`, storing a virtual draft first so it can be decided. `null` when it doesn't exist. */
+export async function materializeCard(id: string): Promise<CardRecord | null> {
+  const session = await getSessionId();
+  const store = getStore();
+  const key = keyFromVirtualId(id);
+  if (key === null) return store.getCard(session, id);
+
+  const business = await findBusiness(key.split(":")[0] ?? "");
+  if (!business) return null;
+  const draft = draftFeed(business, await getChoices(business)).find((card) => card.key === key);
+  if (!draft) return null;
+  await store.ensureCards(session, business.id, [draft]);
+  return (await store.listCards(session, business.id)).find((card) => card.key === key) ?? null;
+}
+
+/** Return the cards for the business's chosen skills and its simulated outbox. Reads only. */
 export async function getFeed(business: BusinessProfile): Promise<{ cards: CardRecord[]; outbox: OutboxEntry[] }> {
   const session = await getSessionId();
   const store = getStore();
   const choices = await getChoices(business);
-  await store.ensureCards(session, business.id, draftFeed(business, choices));
+  const stored = await store.listCards(session, business.id);
+  const storedKeys = new Set(stored.map((card) => card.key));
+  const now = new Date().toISOString();
+  const virtual: CardRecord[] = draftFeed(business, choices)
+    .filter((draft) => !storedKeys.has(draft.key))
+    .map((draft) => ({ ...draft, id: virtualCardId(draft.key), businessId: business.id, status: "pending", edited: false, createdAt: now, decidedAt: null }));
   // Internal Communications' triage runs for every business; other skills only while chosen.
   const live = new Set<SkillId>([...chosenSkills(business, choices), "triage"]);
   // Cards stay stored when an owner switches a workflow away from Build; hide them until it switches back.
-  const cards = (await store.listCards(session, business.id)).filter((card) => card.skill !== null && live.has(card.skill));
+  const cards = [...stored, ...virtual].filter((card) => card.skill !== null && live.has(card.skill));
   return { cards: cards.sort(feedOrder), outbox: await store.listOutbox(session, business.id) };
 }

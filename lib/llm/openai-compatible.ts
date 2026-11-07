@@ -19,7 +19,9 @@ interface Dialect {
   readonly tokenParam: "max_tokens" | "max_completion_tokens";
   /** `json_schema` sends `response_format`; `prompt` asks for JSON in the prompt and validates the reply. */
   readonly structured: "json_schema" | "prompt";
-  /** Extra body fields for structured requests. */
+  /** Extra body fields for every request. */
+  readonly baseBody: Readonly<Record<string, unknown>>;
+  /** Extra body fields for structured requests, replacing `baseBody` keys they share. */
   readonly structuredBody: Readonly<Record<string, unknown>>;
   /** Header that carries the app's name for attribution, if the provider has one. */
   readonly titleHeader: string | null;
@@ -28,12 +30,19 @@ interface Dialect {
 // Facts from each provider's docs, checked Nov 2026. OpenAI's reference page refused automated
 // fetches; its row follows OpenAI's published API, where `max_tokens` gave way to `max_completion_tokens`.
 const DIALECTS: Readonly<Record<CompatibleName, Dialect>> = {
-  openai: { tokenParam: "max_completion_tokens", structured: "json_schema", structuredBody: {}, titleHeader: null },
+  openai: { tokenParam: "max_completion_tokens", structured: "json_schema", baseBody: {}, structuredBody: {}, titleHeader: null },
   // OpenRouter supports json_schema only on some model endpoints; `require_parameters` routes to one that does.
-  openrouter: { tokenParam: "max_tokens", structured: "json_schema", structuredBody: { provider: { require_parameters: true } }, titleHeader: "X-OpenRouter-Title" },
+  // `data_collection: "deny"` keeps owners' answers away from endpoints that store prompts for training.
+  openrouter: {
+    tokenParam: "max_tokens",
+    structured: "json_schema",
+    baseBody: { provider: { data_collection: "deny" } },
+    structuredBody: { provider: { data_collection: "deny", require_parameters: true } },
+    titleHeader: "X-OpenRouter-Title",
+  },
   // Featherless documents no `response_format`, so its JSON is requested in the prompt.
-  featherless: { tokenParam: "max_completion_tokens", structured: "prompt", structuredBody: {}, titleHeader: "X-Title" },
-  "openai-compatible": { tokenParam: "max_tokens", structured: "prompt", structuredBody: {}, titleHeader: null },
+  featherless: { tokenParam: "max_completion_tokens", structured: "prompt", baseBody: {}, structuredBody: {}, titleHeader: "X-Title" },
+  "openai-compatible": { tokenParam: "max_tokens", structured: "prompt", baseBody: {}, structuredBody: {}, titleHeader: null },
 };
 
 const APP_TITLE = "Anchored";
@@ -76,7 +85,7 @@ export class OpenAICompatibleProvider implements LlmProvider {
     const headers: Record<string, string> = { Authorization: `Bearer ${this.config.apiKey}`, "Content-Type": "application/json" };
     if (this.dialect.titleHeader) headers[this.dialect.titleHeader] = APP_TITLE;
     if (this.config.appUrl) headers["HTTP-Referer"] = this.config.appUrl;
-    const body = { model: this.modelFor(request.tier), messages: [{ role: "user", content: prompt }], [this.dialect.tokenParam]: request.maxTokens, ...extraBody };
+    const body = { model: this.modelFor(request.tier), messages: [{ role: "user", content: prompt }], [this.dialect.tokenParam]: request.maxTokens, ...this.dialect.baseBody, ...extraBody };
 
     let response: Response;
     try {
@@ -85,8 +94,8 @@ export class OpenAICompatibleProvider implements LlmProvider {
       throw new LlmRequestError(`${this.label} could not be reached.`, null, { cause: error });
     }
     if (!response.ok) {
-      // Keep the provider's error text short; it can echo the request.
-      const detail = (await response.text().catch(() => "")).slice(0, 300);
+      // Keep the provider's error text short; it can echo the owner's words into server logs.
+      const detail = (await response.text().catch(() => "")).slice(0, 120);
       throw new LlmRequestError(`${this.label} returned HTTP ${response.status}. ${detail}`.trim(), response.status);
     }
 

@@ -96,7 +96,7 @@ describe("OpenAICompatibleProvider requests", () => {
     expect(request?.headers.get("Authorization")).toBe(`Bearer ${key}`);
     expect(request?.headers.get("Content-Type")).toBe("application/json");
     const otherTokenParam = tokenParam === "max_tokens" ? "max_completion_tokens" : "max_tokens";
-    expect(request?.body).toEqual({ model: "default-model", messages: [{ role: "user", content: TEXT_REQUEST.prompt }], [tokenParam]: 500 });
+    expect(request?.body).toMatchObject({ model: "default-model", messages: [{ role: "user", content: TEXT_REQUEST.prompt }], [tokenParam]: 500 });
     expect(request?.body).not.toHaveProperty(otherTokenParam);
   });
 
@@ -145,14 +145,15 @@ describe("OpenAICompatibleProvider requests", () => {
 
     expect(sent[0]?.body).toMatchObject({
       response_format: { type: "json_schema", json_schema: { name: "profile_text", strict: true, schema: STRICT_PROFILE_SCHEMA } },
-      provider: { require_parameters: true },
+      provider: { data_collection: "deny", require_parameters: true },
     });
   });
 
-  it("sends OpenRouter's routing rule only with structured requests", async () => {
+  it("tells OpenRouter not to keep prompts on every request, and adds its routing rule only for structured ones", async () => {
     const { fetchImpl, sent } = recordingFetch(() => completion({ content: "Welcome!" }));
     await providerFor(OPENROUTER, fetchImpl).generateText(TEXT_REQUEST);
-    expect(sent[0]?.body).not.toHaveProperty("provider");
+    expect(sent[0]?.body).toMatchObject({ provider: { data_collection: "deny" } });
+    expect(sent[0]?.body).not.toHaveProperty("provider.require_parameters");
     expect(sent[0]?.body).not.toHaveProperty("response_format");
   });
 

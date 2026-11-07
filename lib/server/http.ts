@@ -21,11 +21,39 @@ export function fail(status: number, message: string): NextResponse<ApiError> {
   return NextResponse.json({ error: message }, { status });
 }
 
-/** Parse the request body against `schema`, or return the 400 response to send instead. */
+/** Largest body a route reads. Matches the middleware's cap on declared lengths. */
+const MAX_BODY_BYTES = 64 * 1024;
+
+/** Read the body as text, stopping at `MAX_BODY_BYTES`, or return `null` when it is larger. */
+async function readCapped(request: Request): Promise<string | null> {
+  // A chunked body declares no length, so the middleware's check can't see it; count bytes as they arrive.
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_BODY_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks));
+}
+
+/** Parse the request body against `schema`, or return the 400, 413 or 415 response to send instead. */
 export async function readBody<T>(request: Request, schema: z.ZodType<T>): Promise<{ ok: true; data: T } | { ok: false; response: NextResponse<ApiError> }> {
+  const text = await readCapped(request);
+  if (text === null) return { ok: false, response: fail(413, `This request is too large. Keep it under ${MAX_BODY_BYTES / 1024} KB.`) };
+  // Only JSON is accepted, which also keeps simple cross-site form posts out.
+  if (text && !(request.headers.get("content-type") ?? "").toLowerCase().includes("application/json")) {
+    return { ok: false, response: fail(415, "Send the request as JSON (`Content-Type: application/json`).") };
+  }
   let raw: unknown;
   try {
-    const text = await request.text();
     raw = text ? JSON.parse(text) : {};
   } catch {
     return { ok: false, response: fail(400, "The request body is not valid JSON.") };

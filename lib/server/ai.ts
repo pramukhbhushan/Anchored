@@ -3,7 +3,7 @@ import { z } from "zod";
 import { workflowIdsOf } from "@/lib/domain/paths";
 import type { BusinessProfile, OnboardingAnswers, WorkflowId, WorkflowPlan } from "@/lib/domain/types";
 import { PATH_LABEL, SIGNALS, WORKFLOWS } from "@/lib/domain/workflows";
-import { getLlm, LlmConfigError } from "@/lib/llm";
+import { getLlm, LlmConfigError, LlmResponseError } from "@/lib/llm";
 
 // =============================================================================
 // Module Overview
@@ -103,6 +103,24 @@ export async function rewriteInVoice(business: BusinessProfile, body: string): P
 <message>${body}</message>`;
 
   const text = (await requireLlm().generateText({ tier: "quick", prompt, maxTokens: 1000 })).replace(/^"|"$/g, "").trim().slice(0, 600);
+  const added = newFacts(body, text);
+  if (added.length > 0) throw new LlmResponseError(`The rewrite added details that weren't in the draft: ${added.join(", ")}.`);
   // The opt-out line is a texting rule, so code restores it if the rewrite dropped it.
   return body.includes(STOP_LINE) && !text.includes(STOP_LINE) ? `${text} ${STOP_LINE}` : text;
+}
+
+// Links, emails, phone numbers, money and other numbers are facts a rewrite must not invent.
+const FACT_PATTERNS: readonly RegExp[] = [/https?:\/\/\S+|www\.\S+/gi, /[\w.+-]+@[\w-]+\.[\w.]+/g, /\$\s?\d[\d,.]*/g, /\d[\d\s().-]{5,}\d/g, /\d+(?:[.,:]\d+)*/g];
+
+/** Return the links, emails, phone numbers, amounts and numbers in `rewritten` that `original` doesn't contain. */
+export function newFacts(original: string, rewritten: string): string[] {
+  const squash = (value: string) => value.replace(/[\s().-]/g, "").toLowerCase();
+  const known = squash(original);
+  const added = new Set<string>();
+  for (const pattern of FACT_PATTERNS) {
+    for (const match of rewritten.match(pattern) ?? []) {
+      if (!known.includes(squash(match))) added.add(match.trim());
+    }
+  }
+  return [...added];
 }
