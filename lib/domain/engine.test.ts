@@ -102,18 +102,18 @@ describe("profiles", () => {
     vi.unstubAllGlobals();
   });
 
-  it("cuts the customers text at a word, not mid-word", () => {
-    const profile = profileFromAnswers({
-      ...BLANK_ANSWERS,
-      what: "Families and offices around Austin who order tacos and catering, with trays from $60. Setup is free.",
-    });
-    expect(profile.customers).toBe(
-      "From your answers: Families and offices around Austin who order tacos and catering, with trays from $60...",
+  it("takes customers from the part of the answer about who buys", () => {
+    const withPrices = (what: string) => profileFromAnswers({ ...BLANK_ANSWERS, what }).customers;
+    expect(withPrices("Weekly mowing at $45 a visit and spring cleanups around $350, mostly homeowners")).toBe("Homeowners");
+    expect(withPrices("Families and offices around Austin who order tacos and catering, with trays from $60. Setup is free.")).toBe(
+      "Families and offices around Austin who order tacos and catering",
     );
+    expect(withPrices("Tacos and burritos, $3 to $12. Our customers are mostly construction workers.")).toBe("Construction workers");
   });
 
-  it("keeps a short customers answer whole, and a blank one reads as not given", () => {
-    expect(profileFromAnswers({ ...BLANK_ANSWERS, what: "Office lunches" }).customers).toBe("From your answers: Office lunches");
+  it("shows no customers when the answer only says what the business sells", () => {
+    expect(profileFromAnswers({ ...BLANK_ANSWERS, what: "Office lunches" }).customers).toBe("Not given");
+    expect(profileFromAnswers({ ...BLANK_ANSWERS, what: "Fresh bread and cakes, $4 to $40" }).customers).toBe("Not given");
     expect(profileFromAnswers(BLANK_ANSWERS).customers).toBe("Not given");
   });
 

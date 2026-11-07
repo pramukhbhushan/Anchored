@@ -206,7 +206,7 @@ export function profileFromAnswers(answers: OnboardingAnswers): BusinessProfile 
     tradeKey: detectTradeKey(`${answers.kind} ${answers.what}`),
     size: answers.what.match(SIZE_PATTERN)?.[0] ?? NOT_GIVEN,
     seats: 4,
-    customers: answers.what.trim() === "" ? undefined : `From your answers: ${clipAtWord(answers.what.trim(), 90)}`,
+    customers: customersFrom(answers.what),
     reach: answers.reach,
     tools: answers.tools,
     signals: answers.signals,
@@ -219,6 +219,26 @@ export function profileFromAnswers(answers: OnboardingAnswers): BusinessProfile 
       .slice(0, 5),
     voice: answers.voice,
   });
+}
+
+// Words that name who buys, so a clause holding one is about customers rather than what is sold.
+const BUYER_WORDS =
+  /\b(?:customers|clients|buyers|families|homeowners|renters|tenants|landlords|offices|businesses|companies|students|parents|kids|children|teens|adults|seniors|neighbors|locals|commuters|tourists|professionals|couples|regulars|people|patients|members|workers|moms|dads|schools|churches)\b/i;
+// Lead-ins that introduce the buyers: "mostly homeowners", "our customers are ...".
+const BUYER_LEAD = /^(?:(?:and|but|our|my|customers|clients|buyers|are|is|mostly|mainly|usually|largely|primarily|sold to|selling to|for|to)\s+)+/i;
+
+/**
+ * Who buys, read from the answer to "What do you sell, who buys it, and roughly what does it cost?": the first
+ * clause that names buyers, or `undefined` when the answer only describes what is sold.
+ */
+function customersFrom(what: string): string | undefined {
+  const clause = what
+    .split(/[,.;!?\r\n]/)
+    .map((part) => part.trim())
+    .find((part) => BUYER_WORDS.test(part));
+  if (clause === undefined) return undefined;
+  const buyers = clause.replace(BUYER_LEAD, "").trim();
+  return buyers === "" ? undefined : clipAtWord(buyers.charAt(0).toUpperCase() + buyers.slice(1), 90);
 }
 
 // -----------------------------------------------------------------
