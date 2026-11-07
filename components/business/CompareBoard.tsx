@@ -2,8 +2,8 @@
 
 import { X } from "lucide-react";
 import { useRef, useState } from "react";
-import { CheckGrid, StatusBadge } from "@/components/CheckGrid";
-import { ChooseButton } from "@/components/ChooseButton";
+import { CheckGrid, StatusBadge } from "@/components/business/CheckGrid";
+import { ChooseButton } from "@/components/business/ChooseButton";
 import { Badge } from "@/components/ui/Badge";
 import { Button, buttonClass } from "@/components/ui/Button";
 import { fitLine } from "@/components/view-helpers";

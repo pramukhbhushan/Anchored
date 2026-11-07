@@ -1,10 +1,10 @@
 import { Plus } from "lucide-react";
 import type { Metadata } from "next";
 import { ChatWindow } from "@/components/chat/ChatWindow";
-import { ProfileCard } from "@/components/ProfileCard";
-import { RecentChanges } from "@/components/RecentChanges";
+import { ProfileCard } from "@/components/business/ProfileCard";
+import { RecentChanges } from "@/components/business/RecentChanges";
 import { NEW_BUSINESS_HREF } from "@/components/routes";
-import { SampleBadge } from "@/components/SampleBadge";
+import { SampleBadge } from "@/components/business/SampleBadge";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";

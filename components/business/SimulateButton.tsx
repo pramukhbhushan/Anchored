@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { cardSource } from "@/components/agent-labels";
 import { callApi, errorText } from "@/components/api";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ui/Toast";
 import { Button } from "@/components/ui/Button";
 import type { EventCardResponse, SimulateRequest } from "@/lib/api/contract";
 

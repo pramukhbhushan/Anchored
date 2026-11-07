@@ -3,8 +3,8 @@
 import { BookOpen, LayoutGrid, PanelLeftClose, PanelLeftOpen, Plus, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, type ReactNode, type Ref } from "react";
-import { AnchorMark } from "@/components/AnchorMark";
-import { ResetDemoButton } from "@/components/ResetDemoButton";
+import { AnchorMark } from "@/components/ui/AnchorMark";
+import { ResetDemoButton } from "@/components/shell/ResetDemoButton";
 import { APP_HREF, NEW_BUSINESS_HREF, SECTIONS, businessHref } from "@/components/routes";
 import type { ShellLocation } from "@/components/shell/location";
 import { SECTION_ICON } from "@/components/shell/nav";

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { NEW_BUSINESS_HREF, businessHref } from "@/components/routes";
 import { businessSummaries } from "@/components/shell/shell-data";
-import { Stamp } from "@/components/Stamp";
+import { Stamp } from "@/components/ui/Stamp";
 import { Badge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";

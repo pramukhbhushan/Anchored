@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Stamp } from "@/components/Stamp";
+import { Stamp } from "@/components/ui/Stamp";
 import { plannedWorkflows, topWorkflows } from "@/components/view-helpers";
 import { NOT_GIVEN, SIGNALS, WORKFLOWS } from "@/lib/domain/workflows";
 import type { BusinessProfile } from "@/lib/domain/types";

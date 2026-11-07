@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { HeroMapper } from "@/components/HeroMapper";
+import { HeroMapper } from "@/components/site/HeroMapper";
 import { NEW_BUSINESS_HREF, businessHref } from "@/components/routes";
-import { Stamp } from "@/components/Stamp";
+import { Stamp } from "@/components/ui/Stamp";
 import { topWorkflows } from "@/components/view-helpers";
 import { isAuthEnabled } from "@/lib/auth/config";
 import { CASE_STUDIES } from "@/lib/domain/cases";

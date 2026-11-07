@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useId, useState, useTransition, type ReactNode } from "react";
 import { ApiCallError, callApi, errorText } from "@/components/api";
-import { useToast, type ToastLink } from "@/components/Toast";
+import { useToast, type ToastLink } from "@/components/ui/Toast";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import type { CardRecord, DecideCardRequest, DecideCardResponse, RewriteResponse } from "@/lib/api/contract";

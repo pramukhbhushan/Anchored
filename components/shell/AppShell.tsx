@@ -4,7 +4,7 @@ import { Menu, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { AnchorMark } from "@/components/AnchorMark";
+import { AnchorMark } from "@/components/ui/AnchorMark";
 import { ResizeHandle } from "@/components/resize/ResizeHandle";
 import { useResizableWidth, widthVar } from "@/components/resize/use-resizable-width";
 import { APP_HREF, businessHref } from "@/components/routes";

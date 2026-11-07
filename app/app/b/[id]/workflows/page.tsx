@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { OppCard } from "@/components/OppCard";
+import { OppCard } from "@/components/business/OppCard";
 import { businessHref } from "@/components/routes";
-import { SampleBadge } from "@/components/SampleBadge";
-import { Stamp } from "@/components/Stamp";
+import { SampleBadge } from "@/components/business/SampleBadge";
+import { Stamp } from "@/components/ui/Stamp";
 import { ButtonLink } from "@/components/ui/Button";
 import { PageHeader, SectionHeader } from "@/components/ui/PageHeader";
 import { plannedWorkflows, type PlannedWorkflow } from "@/components/view-helpers";

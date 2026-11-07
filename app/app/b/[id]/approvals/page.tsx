@@ -1,10 +1,10 @@
 import { CheckCheck } from "lucide-react";
 import type { Metadata } from "next";
-import { AgentCard } from "@/components/AgentCard";
+import { AgentCard } from "@/components/business/AgentCard";
 import { cardSource } from "@/components/agent-labels";
 import { ResizablePanel } from "@/components/resize/ResizablePanel";
-import { SampleBadge } from "@/components/SampleBadge";
-import { SimulateButton } from "@/components/SimulateButton";
+import { SampleBadge } from "@/components/business/SampleBadge";
+import { SimulateButton } from "@/components/business/SimulateButton";
 import { Badge } from "@/components/ui/Badge";
 import { buttonClass } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
