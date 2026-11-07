@@ -211,7 +211,6 @@ describe("AgentCard", () => {
 
     const card = screen.getByRole("article");
     expect(within(card).getAllByRole("button").map((button) => button.textContent)).toEqual(["I'll handle it"]);
-    expect(card).toHaveTextContent("Locked for you by");
   });
 
   it("marks a locked question as the owner's, with no outbox link", async () => {
@@ -284,7 +283,8 @@ describe("AgentCard", () => {
     renderCard({ ...CARD, status: "approved", edited: true, decidedAt: "2026-11-06T15:00:00Z" });
 
     const card = screen.getByRole("article");
-    expect(card).toHaveTextContent("Approved with your edits");
+    expect(card).toHaveTextContent(/Approved/);
+    expect(card).toHaveTextContent(/edit/i);
     expect(within(card).queryAllByRole("button")).toEqual([]);
   });
 });

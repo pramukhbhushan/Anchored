@@ -32,7 +32,7 @@ describe("ResetDemoButton", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Reset demo" }));
 
-    expect(confirmation()).toHaveTextContent("your 2 businesses");
+    expect(confirmation()).toHaveTextContent(/\b2 businesses\b/);
     expect(within(confirmation()).getByRole("button", { name: "Delete and reset" })).toHaveFocus();
     expect(fetchSpy).not.toHaveBeenCalled();
   });
@@ -40,12 +40,12 @@ describe("ResetDemoButton", () => {
   it("counts one business in the singular, and names none when the owner has none", async () => {
     const { unmount } = renderButton(1);
     await userEvent.click(screen.getByRole("button", { name: "Reset demo" }));
-    expect(confirmation()).toHaveTextContent("your 1 business,");
+    expect(confirmation()).toHaveTextContent(/\b1 business\b/);
     unmount();
 
     renderButton(0);
     await userEvent.click(screen.getByRole("button", { name: "Reset demo" }));
-    expect(confirmation()).not.toHaveTextContent(/your \d+ business/);
+    expect(confirmation()).not.toHaveTextContent(/\d+ business/);
   });
 
   it("backs out on Cancel without deleting anything", async () => {

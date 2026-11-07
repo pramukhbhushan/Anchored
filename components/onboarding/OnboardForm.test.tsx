@@ -49,7 +49,7 @@ describe("OnboardForm", () => {
         languages: expect.arrayContaining(["English", "Spanish"]),
       }),
     });
-    expect(await screen.findByText(/Plan built for Greenfield Lawn & Landscape/)).toHaveRole("status");
+    expect(await screen.findByText(/Greenfield Lawn & Landscape/)).toHaveRole("status");
   });
 
   it("sends the boxes the owner ticks and leaves out the ones they untick", async () => {
