@@ -120,7 +120,7 @@
 .roster .agent:last-child{border-bottom:0}
 .agentName{font-family:var(--display);font-stretch:112%;font-weight:800;font-size:18px;line-height:1.2;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
 .agentJob{font-size:14px;color:var(--ink-2);margin-top:4px}
-.skills{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px;align-content:start}
+.skills{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
 .skills li{font-size:13.5px;font-weight:600;line-height:1.3;padding:4px 8px;border:1px solid var(--line);border-radius:3px;background:var(--paper)}
 /* A niche agent fills a slot that onboarding opens, so its border is a dashed outline, not a printed line */
 .niche{margin-top:14px;border:1.5px dashed var(--ink-2);border-radius:var(--r)}
