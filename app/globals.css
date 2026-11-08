@@ -361,9 +361,10 @@ body:has(.compare-tray) .toast{bottom:calc(88px + env(safe-area-inset-bottom,0px
 .side-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .side-count{flex:none;display:inline-grid;place-items:center;min-width:22px;height:20px;padding:0 6px;border-radius:999px;background:var(--carbon);color:var(--on-carbon);font-size:var(--fs-fine);font-weight:600;font-variant-numeric:tabular-nums}
 /* The open business's automations under Workflows, like threads under a project */
-.side-sub{list-style:none;margin:2px 0 6px 19px;padding:0 0 0 10px;border-left:1.5px solid var(--line)}
-.side-sub ul{list-style:none;margin:0;padding:0}
-.side-sub-stage{padding:8px 8px 2px;font:700 11.5px/1.2 var(--mono);color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.side-sub{list-style:none;margin:2px 0 6px 19px;padding:0}
+/* Each part of the day is a header, larger than its automations, which sit indented beneath it on a guide line */
+.side-sub ul{list-style:none;margin:2px 0 4px 10px;padding:0 0 0 8px;border-left:1.5px solid var(--line)}
+.side-sub-stage{padding:10px 8px 2px;font:800 15px/1.25 var(--display);font-stretch:100%;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .side-sub-link{display:flex;align-items:center;gap:8px;min-height:32px;padding:5px 8px;border-radius:var(--r);color:var(--ink-2);font-size:13.5px;font-weight:500;text-decoration:none}
 .side-sub-link:hover{background:var(--hover);color:var(--ink)}
 .side-sub-link[aria-current="page"]{background:var(--foam);color:var(--ink);font-weight:700}
