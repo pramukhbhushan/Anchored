@@ -139,7 +139,7 @@ When `checkSend` refuses a card, `decideCard` looks for the first whole hour in 
 
 Two values are fixed in this build. Every business uses `OWNER_TIME_ZONE`, `America/New_York`, and `decideCard` passes `hasConsent: true` because drafted contacts come with consent. The consent rule exists in `checkSend` but never refuses a card in this build.
 
-An approved card writes a row to the `outbox` table, or to memory under `MemoryStore`, where it waits until texting and email are connected. Nothing leaves the app. No SMS or email provider is connected, and no route sends a message to a real recipient.
+An approved card writes a row to the `outbox` table, or to memory under `MemoryStore`. No SMS or email provider is connected, and no route sends a message to a real recipient. Each outbox row instead offers the owner an `sms:` or `mailto:` link, built in `components/business/handoff.ts`, that opens the owner's own texting or email app with the approved text typed out; the owner presses send there. The text goes into the link through `encodeURIComponent`, so it can't add a recipient or a header. A text held for quiet hours gets no link until its send time passes, so the link can't skip the hold.
 
 ## Known limits
 

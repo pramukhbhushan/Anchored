@@ -30,7 +30,7 @@ New tools come from a discovery agent. It finds tools that do one job, and code 
 
 ### 4. Approve before anything goes out
 
-Agents write each text or email as a card. You approve, edit or skip it. Anchored also holds texts during quiet hours and texts only customers who agreed to get them. Anchored isn't connected to texting or email yet, so approved messages wait in the outbox and nothing is sent.
+Agents write each text or email as a card. You approve, edit or skip it. Anchored also holds texts during quiet hours and texts only customers who agreed to get them. Anchored isn't connected to texting or email yet, so each approved message lands in the outbox with a button that opens the owner's own texting or email app with the words typed out. The owner presses send there. A post or review reply comes with Copy and links to where it gets pasted.
 
 ![Approvals page with draft cards and the outbox](docs/screenshots/4-approve.png)
 

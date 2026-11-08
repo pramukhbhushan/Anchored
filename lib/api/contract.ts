@@ -26,7 +26,7 @@ export interface CardRecord extends CardDraft {
   readonly decidedAt: string | null;
 }
 
-/** One entry in the outbox. Approved messages wait here; Anchored isn't connected to texting or email yet. */
+/** One entry in the outbox. Anchored isn't connected to texting or email yet, so the owner sends each one from their own apps. */
 export interface OutboxEntry {
   readonly id: string;
   readonly businessId: string;

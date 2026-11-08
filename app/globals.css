@@ -670,6 +670,15 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .logline{padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.1);font-size:var(--fs-fine)}
 .logline.is-queued{background:transparent;border:1px dashed rgba(255,255,255,.35)}
 .phone-empty{margin:auto;max-width:24em;text-align:center;font-size:var(--fs-sm);opacity:.75}
+/* The owner's send step on an approved draft: outlined in the bubble's own ink, so it reads on yellow and on the dark phone */
+.handoff{display:flex;flex-direction:column;gap:6px;margin-top:8px;white-space:normal}
+.handoff p{font-size:var(--fs-fine)}
+.handoff-acts{display:flex;flex-wrap:wrap;gap:6px}
+.handoff .btn{color:inherit;border-color:currentColor;background:transparent}
+.handoff .btn:hover{color:inherit;background:rgba(127,127,127,.2)}
+.handoff-note{font-weight:600}
+.handoff-note:empty{margin-top:-6px}
+.handoff-text{margin-top:6px;padding:2px 0 2px 8px;border-left:2px solid currentColor;font-size:var(--fs-sm);white-space:pre-wrap;overflow-wrap:anywhere}
 
 /* ---------- onboarding form ---------- */
 form.ob{display:flex;flex-direction:column;gap:18px}
