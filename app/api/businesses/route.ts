@@ -7,6 +7,7 @@ import type { BusinessProfile } from "@/lib/domain/types";
 import { buildProfileFromAnswers } from "@/lib/server/create-business";
 import { fail, handleError, json, readBody } from "@/lib/server/http";
 import { getSessionId } from "@/lib/server/session";
+import { scheduleStarters } from "@/lib/server/starters";
 import { getStore } from "@/lib/store";
 
 // =============================================================================
@@ -36,7 +37,10 @@ export async function POST(request: Request) {
   try {
     const business = await buildProfile(parsed.data);
     if (!business) return fail(400, "That example doesn't exist. Pick one from the list.");
-    await getStore().saveBusiness(await getSessionId(), business, "onboarding");
+    const session = await getSessionId();
+    await getStore().saveBusiness(session, business, "onboarding");
+    // The starters are written after this response, so the owner reaches the plan without waiting on the model.
+    scheduleStarters(session, business);
     return json<CreateBusinessResponse>({ id: business.id, business }, 201);
   } catch (error) {
     return handleError(error, "POST /api/businesses");

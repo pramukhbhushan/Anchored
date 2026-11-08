@@ -1,12 +1,14 @@
-import { CheckCheck } from "lucide-react";
+import { CheckCheck, Plug } from "lucide-react";
 import type { Metadata } from "next";
 import { AgentCard } from "@/components/business/AgentCard";
 import { cardSource } from "@/components/agent-labels";
+import { businessHref } from "@/components/routes";
 import { ResizablePanel } from "@/components/resize/ResizablePanel";
 import { SendYourself } from "@/components/business/SendYourself";
 import { SimulateButton } from "@/components/business/SimulateButton";
+import { WritingStarters } from "@/components/business/WritingStarters";
 import { approvedDraft, handOff, type HandOff, type HandOffBusiness } from "@/components/business/handoff";
-import { buttonClass } from "@/components/ui/Button";
+import { buttonClass, ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader, SectionHeader } from "@/components/ui/PageHeader";
 import type { CardRecord, OutboxEntry } from "@/lib/api/contract";
@@ -24,8 +26,9 @@ import { getBusinessOrNotFound, getChoices, getFeed } from "@/lib/server/data";
 // the owner approved and what quiet hours are holding. Anchored sends a draft
 // itself through a connected service and says so; a draft it won't or couldn't
 // send carries the owner's send step: a link that opens their own texting or
-// email app, or text to copy and paste. Only the example business offers an
-// example event.
+// email app, or text to copy and paste. An owner's starters are examples until
+// a connected channel brings real drafts; with neither, the page points to
+// Connections. Only the example business offers an example event.
 
 export const metadata: Metadata = { title: "Approvals" };
 
@@ -105,6 +108,8 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
   const canSimulate = business.kind === "case" && chosenSkills(business, choices).length > 0;
   const canRewrite = isAiConfigured();
   const handOffBusiness: HandOffBusiness = { name: business.name, reach: business.reach, tools: business.tools };
+  // An owner's feed holds examples until a connected channel's real drafts replace them.
+  const showsExamples = business.kind === "custom" && !feed.examplesHidden;
 
   const waiting = feed.cards.filter((c) => c.status === "pending");
   const decided = feed.cards.filter((c) => c.status !== "pending");
@@ -134,10 +139,9 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
       <PageHeader
         title="Approvals"
         description={
-          business.kind === "case"
-            ? "Agents draft each text, email and post. Nothing goes out until you approve it."
-            : // No connector is live yet, so every card here is an agent's sample.
-              "Sample drafts from your agents. Nothing goes out until you approve it."
+          showsExamples
+            ? "Example drafts from your agents. Nothing goes out until you approve it."
+            : "Agents draft each text, email and post. Nothing goes out until you approve it."
         }
         actions={
           <>
@@ -152,8 +156,19 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
       <div className="with-rail">
         <div className="feed">
           <SectionHeader id="waiting" title={`${waiting.length} waiting`} />
+          {feed.writingStarters && <WritingStarters businessName={business.name} />}
           {waiting.length > 0 ? (
             <div className="feed-list">{waiting.map(renderCard)}</div>
+          ) : business.kind === "custom" && !feed.connected ? (
+            <EmptyState
+              icon={<Plug size={22} />}
+              title="Connect a phone or inbox to see real drafts"
+              actions={
+                <ButtonLink href={businessHref(business.id, "connections")}>Set up a connection</ButtonLink>
+              }
+            >
+              The examples are done. Once your texting number or email is connected, drafts for real customers land here.
+            </EmptyState>
           ) : (
             <EmptyState icon={<CheckCheck size={22} />} title="You're all caught up">
               {canSimulate

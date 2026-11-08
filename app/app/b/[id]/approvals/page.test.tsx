@@ -1,6 +1,9 @@
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { businessHref } from "@/components/routes";
+import { draftFeed } from "@/lib/domain/cards";
 import { SAMPLE_BUSINESS } from "@/lib/domain/cases";
+import { resolveChoices } from "@/lib/domain/paths";
 import { MemoryStore } from "@/lib/store/memory";
 import type { Store } from "@/lib/store/types";
 import { hvacShop } from "@/test/trades";
@@ -9,9 +12,10 @@ import { hvacShop } from "@/test/trades";
 // Module Overview
 // =============================================================================
 // What the Approvals page tells a visitor about the cards on it. An owner's
-// own business has no live connector yet, so the page says its cards are
-// samples; the example business says how approving works instead, and is the
-// only one that offers to watch an agent draft. Each approved text in the
+// starters are tagged as examples, and once they are done with nothing
+// connected the page points to Connections; the example business says how
+// approving works instead, and is the only one that offers to watch an agent
+// draft. Each approved text in the
 // outbox opens the owner's own texting app, except one quiet hours still hold
 // and one Anchored sent itself. A text that failed says why and offers the
 // owner's texting app, and one Anchored left for the owner says why.
@@ -36,10 +40,10 @@ beforeEach(async () => {
 });
 
 describe("Approvals page", () => {
-  it("tells an owner the cards are samples and that nothing goes out without approval", async () => {
+  it("tells an owner the cards are examples and that nothing goes out without approval", async () => {
     await renderApprovals(hvacShop().id);
 
-    expect(screen.getByText("Sample drafts from your agents. Nothing goes out until you approve it.")).toBeInTheDocument();
+    expect(screen.getByText("Example drafts from your agents. Nothing goes out until you approve it.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Watch an agent draft" })).not.toBeInTheDocument();
   });
 
@@ -47,7 +51,7 @@ describe("Approvals page", () => {
     await renderApprovals(SAMPLE_BUSINESS.id);
 
     expect(screen.getByText("Agents draft each text, email and post. Nothing goes out until you approve it.")).toBeInTheDocument();
-    expect(screen.queryByText(/Sample drafts/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Example drafts/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Watch an agent draft" })).toBeInTheDocument();
   });
 
@@ -114,5 +118,50 @@ describe("Approvals page", () => {
     expect(within(outbox).getByText("You send each one yourself")).toBeInTheDocument();
     expect(within(outbox).getByText(note)).toBeInTheDocument();
     expect(within(outbox).getByRole("link", { name: "Send from your phone" })).toBeInTheDocument();
+  });
+});
+
+describe("Approvals page examples", () => {
+  /** Skip every draft in the feed, as an owner clearing the examples would. */
+  async function skipEveryDraft() {
+    const shop = hvacShop();
+    const drafts = draftFeed(shop, resolveChoices(shop, {}));
+    await stores.current!.ensureCards(SESSION, shop.id, drafts);
+    for (const card of await stores.current!.listCards(SESSION, shop.id)) {
+      await stores.current!.updateCard(SESSION, card.id, { status: "skipped", decidedAt: "2026-11-07T15:00:00Z" });
+    }
+  }
+
+  it("tags each starter card as an example", async () => {
+    await renderApprovals(hvacShop().id);
+
+    const waiting = screen.getAllByRole("article");
+    expect(waiting.length).toBeGreaterThan(1);
+    for (const card of waiting) expect(within(card).getByText("Example")).toBeInTheDocument();
+  });
+
+  it("leaves the example business's researched cards untagged", async () => {
+    await renderApprovals(SAMPLE_BUSINESS.id);
+
+    expect(screen.queryByText("Example")).not.toBeInTheDocument();
+  });
+
+  it("points an owner with no examples left and nothing connected to Connections", async () => {
+    await skipEveryDraft();
+
+    await renderApprovals(hvacShop().id);
+
+    expect(screen.getByRole("heading", { name: "Connect a phone or inbox to see real drafts" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Set up a connection" })).toHaveAttribute("href", businessHref(hvacShop().id, "connections"));
+  });
+
+  it("tells a connected owner with nothing waiting that new drafts land here", async () => {
+    await skipEveryDraft();
+    await stores.current!.saveConnection(SESSION, { businessId: hvacShop().id, kind: "texting", hookId: "hook-1", settings: {}, secret: null });
+
+    await renderApprovals(hvacShop().id);
+
+    expect(screen.getByRole("heading", { name: "You're all caught up" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Set up a connection" })).not.toBeInTheDocument();
   });
 });

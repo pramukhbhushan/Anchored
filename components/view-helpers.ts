@@ -20,7 +20,7 @@ export interface PlannedWorkflow {
 
 /** What the views read from each card in a feed. */
 export interface FeedCard {
-  readonly key: string;
+  readonly example?: true;
   readonly title: string;
   readonly status: CardStatus;
   readonly channel: Channel;
@@ -59,7 +59,7 @@ export function topWorkflows(business: BusinessProfile, count: number): PlannedW
 }
 
 /** Count the feed: waiting, approved, edited, the edit rate and the dollars on approved cards. */
-export function feedStats(business: Pick<BusinessProfile, "kind">, cards: readonly FeedCard[]): FeedStats {
+export function feedStats(cards: readonly FeedCard[]): FeedStats {
   // A locked card is decided by "I'll handle it", which takes the work back rather than approving a draft.
   // A flag card asked the owner for a fact, so it has no draft to approve either.
   const approved = cards.filter((c) => c.status === "approved" && c.channel !== "locked" && c.channel !== "flag");
@@ -69,7 +69,7 @@ export function feedStats(business: Pick<BusinessProfile, "kind">, cards: readon
     approved: approved.length,
     edited,
     editRate: approved.length > 0 ? Math.round((edited / approved.length) * 100) : 0,
-    actedOn: stakeActedOn(business, cards),
+    actedOn: stakeActedOn(cards),
   };
 }
 

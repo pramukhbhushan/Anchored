@@ -5,6 +5,7 @@ import { buildProfileFromAnswers } from "@/lib/server/create-business";
 import { fail, handleError, json, readBody } from "@/lib/server/http";
 import { intakeState, intakeThread, takeIntakeTurn } from "@/lib/server/intake-ai";
 import { getSessionId } from "@/lib/server/session";
+import { scheduleStarters } from "@/lib/server/starters";
 import { getStore } from "@/lib/store";
 import type { IntakeRecord, NewChatMessage } from "@/lib/store/types";
 
@@ -61,6 +62,8 @@ export async function POST(request: Request, { params }: Context) {
     if (reply === null) {
       const business = await buildProfileFromAnswers(draftToAnswers(turn.draft));
       await store.saveBusiness(session, business, "onboarding");
+      // The starters are written after this response, so the plan appears without waiting on the model.
+      scheduleStarters(session, business);
       businessId = business.id;
       reply = planReadyText(business);
     }

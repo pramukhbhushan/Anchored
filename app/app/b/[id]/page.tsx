@@ -50,11 +50,11 @@ export default async function OverviewPage({ params }: { readonly params: Promis
   const { id } = await params;
   const business = await getBusinessOrNotFound(id);
   const [choices, feed] = await Promise.all([getChoices(business), getFeed(business)]);
-  const stats = feedStats(business, feed.cards);
+  const stats = feedStats(feed.cards);
   const waiting = feed.cards.filter((card) => card.status === "pending");
-  // Sample drafts carry made-up dollars, so only the owner's own events (or the example's research) add to this.
-  const atStake = stakeWaiting(business, feed.cards);
-  const samples = samplesWaiting(business, feed.cards);
+  // An example's dollar figure is made up to show the card, so only real drafts count toward what rides on today.
+  const atStake = stakeWaiting(feed.cards);
+  const samples = samplesWaiting(feed.cards);
   const cost = stackCost(business, choices);
   const onQuote = cost.onQuote.length > 0 ? `, plus ${joinAnd(cost.onQuote.map((tool) => tool.name))} on quote` : "";
   const fresh = newForOwner(business, choices);
@@ -133,6 +133,7 @@ export default async function OverviewPage({ params }: { readonly params: Promis
           {waiting.length > ROWS_SHOWN && <p className="brief-more">and {waiting.length - ROWS_SHOWN} more</p>}
 
           <ul className="brief-lines">
+            {/* An owner's starters are tagged as examples; the example business is understood as one as a whole. */}
             {samples > 0 && (
               <li>
                 <span>

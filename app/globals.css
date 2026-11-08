@@ -619,6 +619,7 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .card.locked{border-left:4px solid var(--warn)}
 .card-top{display:flex;flex-direction:column;gap:var(--s-1)}
 .card-who{font-size:var(--fs-fine);color:var(--muted)}
+.card-tag{margin-left:var(--s-2);vertical-align:baseline}
 .card h3{font-size:var(--fs-lg)}
 .card-why{font-size:var(--fs-sm);color:var(--muted);max-width:65ch}
 /* The draft is what the owner judges: body size, set off by a rule rather than a box inside the card */
