@@ -102,7 +102,7 @@ export async function sendBusinessChat(session: string, business: BusinessProfil
   }
 
   const { profile, changes } = applyChanges(business, await readOwnerChanges(business, text, stored));
-  if (changes.length > 0) await store.saveBusiness(session, profile);
+  if (changes.length > 0) await store.saveBusiness(session, profile, "chat");
   // A message that changed nothing may have been a request the rules didn't catch, so the reply says how to ask.
   const hint = changes.length === 0 && takesRequests(chosen) ? ` You can also ask your agents for work, like "${askExample(chosen)}".` : "";
   const saved = await store.addMessages(session, thread, [
@@ -166,7 +166,7 @@ async function writeWords(business: BusinessProfile, request: DraftRequest, text
 }
 
 // The longest draft each channel takes. A text runs a few lines; a post or a review reply a short paragraph.
-const WORDS_MAX: Readonly<Record<Channel, number>> = { sms: 360, email: 900, list: 600, locked: 0 };
+const WORDS_MAX: Readonly<Record<Channel, number>> = { sms: 360, email: 900, list: 600, locked: 0, flag: 0 };
 
 /** Ask the model for the draft's words, and refuse a reply that adds a fact, mentions an allergen or leaves a blank. */
 async function wordsFromModel(llm: LlmProvider, business: BusinessProfile, request: DraftRequest, text: string): Promise<string> {

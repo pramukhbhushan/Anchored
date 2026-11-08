@@ -15,7 +15,8 @@ import { WORKFLOWS } from "@/lib/domain/workflows";
 /** What the brief reads from each card in the feed. */
 export interface BriefCard {
   readonly key: string;
-  readonly status: "pending" | "approved" | "skipped";
+  // Mirrors `CardStatus` in `lib/api/contract.ts`, which this layer can't import.
+  readonly status: "pending" | "approved" | "skipped" | "superseded";
   readonly stake?: number;
   readonly title: string;
 }
@@ -35,9 +36,9 @@ export function stakeWaiting(business: BriefBusiness, cards: readonly BriefCard[
 
 /** Dollars on the cards the owner approved, counting only the cards whose figure is real for this business. */
 export function stakeActedOn(business: BriefBusiness, cards: readonly (BriefCard & { readonly channel: string })[]): number {
-  // A locked card is decided by "I'll handle it", which takes the work back rather than approving a draft.
+  // A locked card is decided by "I'll handle it", and a flag card asks the owner for a fact: neither approves a draft.
   return cards
-    .filter((card) => card.status === "approved" && card.channel !== "locked" && counts(business, card))
+    .filter((card) => card.status === "approved" && card.channel !== "locked" && card.channel !== "flag" && counts(business, card))
     .reduce((sum, card) => sum + (card.stake ?? 0), 0);
 }
 

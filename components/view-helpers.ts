@@ -1,6 +1,7 @@
 import { stakeActedOn } from "@/lib/domain/brief";
 import { workflowIdsOf } from "@/lib/domain/paths";
-import type { BusinessProfile, Rating, WorkflowId, WorkflowPlan } from "@/lib/domain/types";
+import type { CardStatus } from "@/lib/api/contract";
+import type { BusinessProfile, Channel, Rating, WorkflowId, WorkflowPlan } from "@/lib/domain/types";
 import { NOT_GIVEN } from "@/lib/domain/workflows";
 
 // =============================================================================
@@ -21,8 +22,8 @@ export interface PlannedWorkflow {
 export interface FeedCard {
   readonly key: string;
   readonly title: string;
-  readonly status: "pending" | "approved" | "skipped";
-  readonly channel: "sms" | "email" | "list" | "locked";
+  readonly status: CardStatus;
+  readonly channel: Channel;
   readonly edited: boolean;
   readonly stake?: number;
 }
@@ -60,7 +61,8 @@ export function topWorkflows(business: BusinessProfile, count: number): PlannedW
 /** Count the feed: waiting, approved, edited, the edit rate and the dollars on approved cards. */
 export function feedStats(business: Pick<BusinessProfile, "kind">, cards: readonly FeedCard[]): FeedStats {
   // A locked card is decided by "I'll handle it", which takes the work back rather than approving a draft.
-  const approved = cards.filter((c) => c.status === "approved" && c.channel !== "locked");
+  // A flag card asked the owner for a fact, so it has no draft to approve either.
+  const approved = cards.filter((c) => c.status === "approved" && c.channel !== "locked" && c.channel !== "flag");
   const edited = approved.filter((c) => c.edited).length;
   return {
     pending: cards.filter((c) => c.status === "pending").length,

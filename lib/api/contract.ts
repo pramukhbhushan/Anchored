@@ -15,7 +15,8 @@ import type { BusinessProfile, CardDraft, Choice, OnboardingAnswers, PlanApprova
 // Stored records
 // =============================================================================
 
-export type CardStatus = "pending" | "approved" | "skipped";
+/** A card's decision state. `superseded` means a newer draft to the same customer replaced it before the owner decided. */
+export type CardStatus = "pending" | "approved" | "skipped" | "superseded";
 
 /** A card as stored: the draft plus its decision state. */
 export interface CardRecord extends CardDraft {

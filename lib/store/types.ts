@@ -2,7 +2,7 @@ import type { CardRecord, CardStatus, ChatMessage, Delivery, OutboxEntry } from 
 import type { ConnectionKind } from "@/lib/domain/connections";
 import type { Contact } from "@/lib/domain/contacts";
 import type { IntakeDraft } from "@/lib/domain/intake";
-import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, WorkflowId } from "@/lib/domain/types";
+import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
 
 // =============================================================================
 // Module Overview
@@ -71,6 +71,14 @@ export interface IntakeRecord {
   readonly businessId: string | null;
 }
 
+/** One saved copy of a business profile. */
+export interface ProfileVersion {
+  readonly version: number;
+  readonly changedBy: ProfileChangeSource;
+  readonly savedAt: string;
+  readonly snapshot: BusinessProfile;
+}
+
 /**
  * Persistence for businesses, choices, cards, the outbox, raw events, chats, contacts and connections. Every method
  * takes the session first and touches only its rows, except the three marked deployment-wide.
@@ -80,7 +88,10 @@ export interface Store {
   /** Return the session's own businesses, oldest first. The example business lives in code and is not stored. */
   listBusinesses(session: string): Promise<BusinessProfile[]>;
   getBusiness(session: string, id: string): Promise<BusinessProfile | null>;
-  saveBusiness(session: string, business: BusinessProfile): Promise<void>;
+  /** Save `business`, bump its `version`, keep a copy in its history, and return it as saved. */
+  saveBusiness(session: string, business: BusinessProfile, changedBy?: ProfileChangeSource): Promise<BusinessProfile>;
+  /** Return a business's saved versions, newest first. */
+  listProfileVersions(session: string, businessId: string): Promise<ProfileVersion[]>;
   getChoices(session: string, businessId: string): Promise<ChoiceMap>;
   setChoice(session: string, businessId: string, workflow: WorkflowId, choice: Choice): Promise<void>;
   /** Insert drafts whose key the session doesn't have yet. Existing cards keep their state. */
@@ -90,6 +101,8 @@ export interface Store {
   updateCard(session: string, cardId: string, patch: CardPatch): Promise<CardRecord>;
   /** Apply `patch` only while the card is still pending, and return it; `null` when another request decided it first. */
   updatePendingCard(session: string, cardId: string, patch: CardPatch): Promise<CardRecord | null>;
+  /** Mark every pending card to `contact` as `superseded`, except the one keyed `exceptKey`, and return how many changed. */
+  supersedePendingCards(session: string, businessId: string, contact: string, exceptKey: string): Promise<number>;
   addOutbox(session: string, entry: NewOutboxEntry): Promise<OutboxEntry>;
   listOutbox(session: string, businessId: string): Promise<OutboxEntry[]>;
   recordEvent(session: string, businessId: string, source: string, payload: Readonly<Record<string, unknown>>): Promise<void>;

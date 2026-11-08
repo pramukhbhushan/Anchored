@@ -469,6 +469,7 @@ const DRAFT_STATUS: Readonly<Record<CardStatus, string>> = {
   pending: "Waiting in Approvals",
   approved: "Approved",
   skipped: "Skipped",
+  superseded: "Replaced by a newer draft",
 };
 
 /** The draft a reply made, linking to its card on the Approvals page. */
