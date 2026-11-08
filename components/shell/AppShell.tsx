@@ -172,28 +172,31 @@ export function AppShell({
       />
       <div className="scrim" aria-hidden="true" onClick={close} />
       <div className="shell-main" inert={open}>
+        {/* Start, the Jump to bar, end: the two sides share the leftover width equally, so the bar sits at the true center */}
         <header className="topbar">
-          <button
-            ref={menuButton}
-            type="button"
-            className="icon-btn menu-btn"
-            aria-label="Open menu"
-            aria-expanded={open}
-            aria-controls="app-nav"
-            onClick={() => setOpen(true)}
-          >
-            <Menu aria-hidden="true" size={20} />
-          </button>
-          <Link href={APP_HREF} className="topbar-mark" aria-label="Anchored, all businesses">
-            <AnchorMark size={20} />
-          </Link>
-          {/* At phone width the switcher gives way to this title; the drawer's "All businesses" link is the way to switch */}
-          <span className="topbar-title">{titleOf(location, current)}</span>
-          <BusinessSwitcher businesses={businesses} location={location} />
-          {current !== undefined && <SampleBadge business={current} />}
+          <div className="topbar-start">
+            <button
+              ref={menuButton}
+              type="button"
+              className="icon-btn menu-btn"
+              aria-label="Open menu"
+              aria-expanded={open}
+              aria-controls="app-nav"
+              onClick={() => setOpen(true)}
+            >
+              <Menu aria-hidden="true" size={20} />
+            </button>
+            <Link href={APP_HREF} className="topbar-mark" aria-label="Anchored, all businesses">
+              <AnchorMark size={20} />
+            </Link>
+            {/* At phone width the switcher gives way to this title; the drawer's "All businesses" link is the way to switch */}
+            <span className="topbar-title">{titleOf(location, current)}</span>
+            <BusinessSwitcher businesses={businesses} location={location} />
+            {current !== undefined && <SampleBadge business={current} />}
+          </div>
           <button type="button" className="palette-open" onClick={() => setPaletteOpen(true)}>
             <Search aria-hidden="true" size={16} />
-            Jump to
+            <span className="palette-label">Jump to a page or business</span>
             <span className="palette-hint" aria-label={`Shortcut ${modKey} K`}>
               <kbd>{modKey}</kbd>
               <kbd>K</kbd>
