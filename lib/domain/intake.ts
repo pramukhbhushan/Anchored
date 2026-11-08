@@ -1041,8 +1041,39 @@ export function withFollowUp(draft: IntakeDraft, field: IntakeField, text: strin
   return { ...draft, followUp: { field, text }, followUps: draft.followUps + 1 };
 }
 
+// Answers that name nothing a business sells: "oh, you know, the usual stuff".
+const VAGUE = /\b(?:the usual|you know|stuff|things|whatever|all sorts|a bit of everything|everything|not sure|idk|dunno|the normal)\b/i;
+const VAGUE_WHAT_TEXT = "Name two or three things you sell most, like drain cleaning or water heater installs, and roughly what they cost.";
+
+/** Whether an answer about what the business sells names nothing: vague words and nothing else of substance. */
+export function isVagueWhat(text: string): boolean {
+  if (!VAGUE.test(text)) return false;
+  const rest = text.replace(new RegExp(VAGUE.source, "gi"), " ").replace(/\b(?:oh|um|uh|well|just|really|like|we|do|sell|offer|i|the|a|and|of|all|kinds?|sorts?)\b/gi, " ").replace(/[^a-z]/gi, "");
+  return rest.length < 4;
+}
+
+// "to correct my earlier answer: we do drain cleaning ..." inside an answer to another question.
+const WHAT_CORRECTION = /\b(?:correct(?:ion)?|i meant|actually|to clarify|fix)\b[^:.!?]*?[:,]?\s*(?:we|i)\s+(?:do|sell|offer|make|provide)\s+([^.!?]{3,200})/i;
+
+/** What the business sells, from a correction the owner made inside another answer, or `null`. */
+function whatCorrection(text: string): string | null {
+  const found = WHAT_CORRECTION.exec(text)?.[1]?.trim();
+  return found ? found.charAt(0).toUpperCase() + found.slice(1) : null;
+}
+
 function applyFieldAnswer(draft: IntakeDraft, field: IntakeField, picks: readonly string[] | undefined, reading: AnswerReading): IntakeDraft {
+  const corrected = field !== "what" && reading.intent === "answer" ? whatCorrection(reading.text) : null;
+  const applied = applyOwnFieldAnswer(draft, field, picks, reading);
+  return corrected === null ? applied : { ...applied, facts: { ...applied.facts, what: corrected } };
+}
+
+function applyOwnFieldAnswer(draft: IntakeDraft, field: IntakeField, picks: readonly string[] | undefined, reading: AnswerReading): IntakeDraft {
   const answeringFollowUp = draft.followUp?.field === field;
+  if (field === "what" && reading.intent === "answer" && isVagueWhat(reading.text)) {
+    // A vague answer is never stored. It gets one follow-up of its own, then the question settles with what was known.
+    if (draft.followUp?.text !== VAGUE_WHAT_TEXT) return { ...draft, followUp: { field, text: VAGUE_WHAT_TEXT }, followUps: draft.followUps + 1 };
+    return { ...draft, followUp: null, settled: unique([...draft.settled, field]) };
+  }
   const revisiting = draft.review.stage === "revisiting" && draft.review.field === field;
   // A list question that opened by repeating what the owner said reads "yes" and "no, that's all" as keep it.
   const confirmingHeard = isListStep(field) && picks === undefined && draft.facts[field].length > 0 && (reading.intent === "none" || AFFIRM.test(reading.text));
@@ -1212,8 +1243,18 @@ export function composeReply(before: IntakeDraft, after: IntakeDraft, step: Inta
     const ack = skipped ? "No problem, we'll leave that out." : step === "listing" ? "Got it, I'll use your Google listing." : "Got it.";
     return [ack, lead, next.text].filter(Boolean).join(" ");
   }
-  const ack = modelAck ?? rulesAck(before, after, step, reading);
+  const ack = trustedAck(before, after, step, modelAck) ?? rulesAck(before, after, step, reading);
   return [ack, lead, next.text].filter(Boolean).join(" ");
+}
+
+/**
+ * The model's acknowledgement, when it claims only what happened: none for a vague answer being asked again,
+ * and none that thanks the owner for a correction the draft didn't take.
+ */
+function trustedAck(before: IntakeDraft, after: IntakeDraft, step: IntakeStep, modelAck: string | undefined): string | undefined {
+  if (modelAck === undefined || after.followUp?.text === VAGUE_WHAT_TEXT) return undefined;
+  const corrected = step !== "what" && before.facts.what !== after.facts.what;
+  return /\bcorrect/i.test(modelAck) && !corrected ? undefined : modelAck;
 }
 
 /** The first two messages of a new intake. */

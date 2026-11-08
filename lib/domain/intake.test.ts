@@ -196,6 +196,46 @@ describe("the question plan", () => {
     expect(throughGaps(draft).gaps).not.toContain("gap:ownerName");
   });
 
+  it("asks once more after a vague answer about what the business sells, and never stores it", () => {
+    const atWhat = converse([text("Brightwater Plumbing, Silver Spring, MD"), picks("Home services")]).draft;
+
+    const vague = answer(atWhat, text("oh, you know, the usual stuff"));
+
+    expect(vague.facts.what).toBeUndefined();
+    expect(question(vague).field).toBe("what");
+    expect(composeReply(atWhat, vague, "what", readAnswer("oh, you know, the usual stuff", "what"), "Thanks for clarifying those services.")).not.toMatch(/thanks for clarifying/i);
+    const still = answer(vague, text("just the usual stuff really"));
+    expect(still.facts.what).toBeUndefined();
+    expect(question(still).field).toBe("reach");
+  });
+
+  it("applies a correction to what the business sells made inside another answer", () => {
+    const atLanguages = converse([
+      text("Brightwater Plumbing, Silver Spring, MD"),
+      picks("Home services"),
+      text("Plumbing for homeowners"),
+      picks("Phone calls"),
+      picks(),
+      picks("quotes"),
+    ]).draft;
+    expect(question(atLanguages).field).toBe("languages");
+    const said = "English and Spanish. And sorry, to correct my earlier answer: we do drain cleaning, water heater installs and emergency leak repair.";
+
+    const after = answer(atLanguages, text(said));
+
+    expect(after.facts.languages).toEqual(["English", "Spanish"]);
+    expect(after.facts.what).toBe("Drain cleaning, water heater installs and emergency leak repair");
+  });
+
+  it("drops a model acknowledgement that claims a correction nobody applied", () => {
+    const atLanguages = converse([text("Brightwater Plumbing, Silver Spring, MD"), picks("Home services"), text("Plumbing for homeowners"), picks("Phone calls"), picks(), picks("quotes")]).draft;
+    const after = answer(atLanguages, text("English and Spanish"));
+
+    const reply = composeReply(atLanguages, after, "languages", readAnswer("English and Spanish", "languages"), "Thanks for the languages and service corrections.");
+
+    expect(reply).not.toMatch(/correction/i);
+  });
+
   it("offers a plumber only the chips and words that fit the trade", () => {
     const named = converse([text("Brightwater Plumbing, Silver Spring, MD"), picks("Home services"), text("Drain cleaning and water heaters for homeowners")]).draft;
     const labels = (draft: IntakeDraft) => (question(draft).options ?? []).map((option) => option.label);
