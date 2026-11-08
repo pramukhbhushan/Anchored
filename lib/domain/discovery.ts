@@ -36,6 +36,8 @@ export interface DiscoveryInput {
   readonly workflow: WorkflowId;
   /** The date to stamp on each listing, such as "Nov 8, 2026". */
   readonly foundOn: string;
+  /** The kind of business the run searched for, such as "hair salon". */
+  readonly foundFor: string;
   /** Names already listed. Defaults to every catalog tool and queued listing. */
   readonly known?: readonly string[];
 }
@@ -60,6 +62,11 @@ const FIELD_MAX = 160;
 const LABEL_MAX = 60;
 const NOT_STATED = "Not stated";
 
+/** `phrase` with "a" or "an" in front, such as "an auto repair shop". */
+export function withArticle(phrase: string): string {
+  return `${/^[aeiou]/i.test(phrase.trim()) ? "an" : "a"} ${phrase.trim()}`;
+}
+
 /** Every tool name Anchored already lists, in the catalog or the queue, with and without the maker. */
 export function knownToolNames(): string[] {
   return [...TOOLS.flatMap((tool) => [tool.name, toolName(tool)]), ...DISCOVERY_QUEUE.map((listing) => listing.name)];
@@ -70,6 +77,13 @@ function cleanField(value: string): string {
   const text = value.replace(/\s+/g, " ").trim();
   if (text === "") return NOT_STATED;
   return text.length > FIELD_MAX ? `${text.slice(0, FIELD_MAX - 1).trimEnd()}…` : text;
+}
+
+/** Whether the research names `product`: the whole name, or each of its words, so "Podium AI Employee" passes a page that says "Podium" and "AI employee" apart. */
+function mentioned(product: string, research: string): boolean {
+  if (research.includes(normalizeName(product))) return true;
+  const words = product.split(/\s+/).map(normalizeName).filter((word) => word !== "");
+  return words.length > 0 && words.every((word) => research.includes(word));
 }
 
 /** A short label for a page: its address without the scheme, "www.", query or trailing slash. */
@@ -101,10 +115,15 @@ export function vetCandidates(input: DiscoveryInput): DiscoveryResult {
 
   for (const candidate of input.candidates) {
     const product = candidate.name.replace(/\s+/g, " ").trim();
-    const maker = candidate.maker.replace(/\s+/g, " ").trim();
+    const maker = candidate.maker
+      .replace(/\s+/g, " ")
+      .replace(/[,\s]+(LLC|L\.L\.C\.|Inc\.?|Ltd\.?|Corp\.?|Corporation|Co\.)$/i, "")
+      .trim();
     const productKey = normalizeName(product);
-    // Name it the way `toolName` does: maker in front unless the product name already says it.
-    const name = normalizeName(maker) !== "" && !productKey.includes(normalizeName(maker)) ? `${maker} ${product}` : product;
+    // Name it the way `toolName` does: maker in front unless one name already contains the other,
+    // so "Conversational" by "Conversational LLC" stays "Conversational".
+    const makerKey = normalizeName(maker);
+    const name = makerKey !== "" && !productKey.includes(makerKey) && !makerKey.includes(productKey) ? `${maker} ${product}` : product;
     const key = normalizeName(name);
     const skip = (reason: string) => skipped.push({ name: name || "(no name)", reason });
 
@@ -117,7 +136,7 @@ export function vetCandidates(input: DiscoveryInput): DiscoveryResult {
       continue;
     }
     // The extraction step may only name tools the search step wrote about.
-    if (!research.includes(productKey)) {
+    if (!mentioned(product, research)) {
       skip("The research never mentions it");
       continue;
     }
@@ -142,6 +161,7 @@ export function vetCandidates(input: DiscoveryInput): DiscoveryResult {
       source: sourceLabel(page.url),
       url: page.url,
       foundOn: input.foundOn,
+      foundFor: input.foundFor,
     });
   }
   return { listings, skipped };

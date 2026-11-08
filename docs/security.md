@@ -57,6 +57,10 @@ Each server instance keeps its own counts in memory. On Vercel, a client whose r
 
 Past the cap, onboarding, the intake chat and the business chat fall back to the rules, and a rewrite returns 429. The provider's own spend cap stays the backstop.
 
+## Discovery agent
+
+`npm run discover` is the only caller of `fetchPage` in `lib/server/fetch-page.ts`, and no route reaches it, so a visitor can't make the server load an address. `fetchPage` still loads only public http and https addresses on the default port. It refuses localhost, private and link-local IP ranges, IPv6 literals and single-label hosts, checks the address again after redirects, and drops replies that aren't HTML, are over 2 MB or take over 10 seconds. Page text is untrusted: the prompts mark it as data, and `vetCandidates` in `lib/domain/discovery.ts` keeps a tool only when its source is a page the run loaded and that page names it. Nothing the agent finds gets a score or reaches an owner's page until a person reviews the change to `lib/domain/discovered.json`.
+
 ## Cross-site request check
 
 For the same requests, `middleware.ts` compares the host in the `Origin` header with the request's `Host`. The check is `isAllowedOrigin` in `lib/server/origin.ts`, which the sign-out route in `app/auth/signout/route.ts` also runs. A different host, or an `Origin` of `null`, gets a 403. A request with no `Origin` passes. Browsers send `Origin` on a cross-site POST, and a client that is not a browser has no visitor's cookie to send. The cookies' `SameSite=Lax` setting also stops browsers from sending them on a cross-site POST.

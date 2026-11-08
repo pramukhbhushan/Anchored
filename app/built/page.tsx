@@ -20,7 +20,7 @@ type Pair = readonly [name: string, text: string];
 const CHALLENGE: readonly Pair[] = [
   [
     "Discovery",
-    `A discovery agent searches the web for tools that do each workflow and records each one's price, integrations, data terms, contract, source page and the date it was found. Code keeps a tool only when its source is a page the search really returned. New listings wait in a review queue until a person checks them. The catalog starts with ${TOOLS.length} tools from our research.`,
+    `A discovery agent finds tools that do each workflow and records each one's price, integrations, data terms, contract, source page, and the date and kind of business it was found for. Code keeps a tool only when a real page backs it: the tool's own website, which code loads and checks for the tool's name, or a page from Claude's web search. New listings wait in a review queue until a person checks them. The catalog starts with ${TOOLS.length} tools from our research.`,
   ],
   [
     "Rating beyond reviews",
@@ -94,7 +94,7 @@ const STATUS: readonly Pair[] = [
   ],
   [
     "Discovery agent",
-    "Built. A team member runs it for one workflow at a time; it searches the web with Claude and adds each tool it finds to the review queue with the page it came from. It doesn't run on a schedule yet.",
+    "Built. A team member runs it for one workflow and one kind of business at a time, and each find joins the review queue with its page. It doesn't run on a schedule yet.",
   ],
   ["Live connectors", "Designed, not built yet."],
 ];

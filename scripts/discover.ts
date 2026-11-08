@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { z } from "zod";
 import { discoveryListingSchema } from "@/lib/domain/discovered";
+import { withArticle } from "@/lib/domain/discovery";
 import type { DiscoveryListing, WorkflowId } from "@/lib/domain/types";
 import { BASE_WORKFLOWS, WORKFLOWS, WORKFLOW_IDS } from "@/lib/domain/workflows";
 import { discoverTools } from "@/lib/server/discover";
@@ -10,7 +11,8 @@ import { discoverTools } from "@/lib/server/discover";
 // Module Overview
 // =============================================================================
 // `npm run discover`: runs the discovery agent for one or more workflows and
-// appends what it finds to `lib/domain/discovered.json`. The listings appear on
+// appends what it finds to `lib/domain/discovered.json`. It reads `.env.local`;
+// `--env-file` in front of the script points it at another file. The listings appear on
 // the Tools page as "waiting for a person to check", with no score. A person
 // reviews the file's diff before it merges, which is the check the queue
 // promises. `--dry-run` prints the listings without writing them.
@@ -56,9 +58,10 @@ async function main(): Promise<void> {
   const saved = readListings();
   const added: DiscoveryListing[] = [];
   for (const workflow of workflows) {
-    console.log(`\nSearching the web for ${WORKFLOWS[workflow].name.toLowerCase()} tools for a ${values.business}...`);
+    console.log(`\nLooking for ${WORKFLOWS[workflow].name.toLowerCase()} tools for ${withArticle(values.business)}...`);
     const run = await discoverTools({ workflow, business: values.business, alsoKnown: added.map((listing) => listing.name) });
-    console.log(`Read ${run.pagesRead} pages. Found ${run.listings.length} new ${run.listings.length === 1 ? "tool" : "tools"}.`);
+    const read = run.method === "search" ? `Searched the web and read ${run.pagesRead} pages.` : `Loaded ${run.pagesRead} vendor sites that name their tool.`;
+    console.log(`${read} Found ${run.listings.length} new ${run.listings.length === 1 ? "tool" : "tools"}.`);
     for (const listing of run.listings) console.log(`  + ${listing.name}: ${listing.price} (${listing.source})`);
     for (const skip of run.skipped) console.log(`  - ${skip.name}: ${skip.reason}`);
     added.push(...run.listings);
@@ -73,7 +76,7 @@ async function main(): Promise<void> {
     return;
   }
   writeFileSync(FILE, `${JSON.stringify([...saved, ...added], null, 2)}\n`);
-  console.log(`\nAdded ${added.length} listings to lib/domain/discovered.json. Check each one, then open a PR with the change.`);
+  console.log(`\nAdded ${added.length} ${added.length === 1 ? "listing" : "listings"} to lib/domain/discovered.json. Check each one, then open a PR with the change.`);
 }
 
 main().catch((error: unknown) => {

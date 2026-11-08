@@ -147,6 +147,8 @@ export interface DiscoveryListing {
   /** The page the discovery agent found it on. Listings from the team's own research have none. */
   readonly url?: string;
   readonly foundOn: string;
+  /** The kind of business the discovery agent searched for, such as "hair salon". */
+  readonly foundFor?: string;
 }
 
 // =============================================================================

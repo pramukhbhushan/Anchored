@@ -5,6 +5,7 @@ import { ScoreExplainer } from "@/components/business/ScoreExplainer";
 import { WorkflowFilter } from "@/components/business/WorkflowFilter";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { DISCOVERY_QUEUE, TOOLS, fitsTrade, toolName } from "@/lib/domain/catalog";
+import { withArticle } from "@/lib/domain/discovery";
 import { workflowIdsOf } from "@/lib/domain/paths";
 import { rateTool, usesSoftware } from "@/lib/domain/rating";
 import { WORKFLOWS } from "@/lib/domain/workflows";
@@ -115,7 +116,9 @@ export default async function ToolsPage({
                       listing.source
                     )}
                   </td>
-                  <td data-label="Found">{listing.foundOn}</td>
+                  <td data-label="Found">
+                    {listing.foundFor ? `${listing.foundOn}, for ${withArticle(listing.foundFor)}` : listing.foundOn}
+                  </td>
                 </tr>
               ))}
             </tbody>

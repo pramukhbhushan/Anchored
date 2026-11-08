@@ -23,6 +23,7 @@ export const discoveryListingSchema = z.object({
   source: z.string().min(1),
   url: z.url({ protocol: /^https?$/ }),
   foundOn: z.string().min(1),
+  foundFor: z.string().min(1).max(60),
 }) satisfies z.ZodType<DiscoveryListing>;
 
 /** Every listing the discovery agent added, oldest first. */

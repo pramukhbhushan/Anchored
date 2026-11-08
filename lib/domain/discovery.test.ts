@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DISCOVERY_QUEUE } from "./catalog";
 import { DISCOVERED, discoveryListingSchema } from "./discovered";
-import { MAX_LISTINGS_PER_RUN, sourceLabel, vetCandidates, type DiscoveryCandidate, type DiscoveryInput } from "./discovery";
+import { MAX_LISTINGS_PER_RUN, sourceLabel, vetCandidates, withArticle, type DiscoveryCandidate, type DiscoveryInput } from "./discovery";
 
 // =============================================================================
 // Module Overview
@@ -33,7 +33,16 @@ function candidate(overrides: Partial<DiscoveryCandidate> = {}): DiscoveryCandid
 
 /** One run for the calls workflow on Nov 8, 2026, with nothing listed yet unless `known` says so. */
 function run(candidates: DiscoveryCandidate[], overrides: Partial<DiscoveryInput> = {}) {
-  return vetCandidates({ candidates, pages: PAGES, findings: FINDINGS, workflow: "calls", foundOn: "Nov 8, 2026", known: [], ...overrides });
+  return vetCandidates({
+    candidates,
+    pages: PAGES,
+    findings: FINDINGS,
+    workflow: "calls",
+    foundOn: "Nov 8, 2026",
+    foundFor: "dental office",
+    known: [],
+    ...overrides,
+  });
 }
 
 describe("vetCandidates", () => {
@@ -52,6 +61,7 @@ describe("vetCandidates", () => {
         source: "getweave.com/pricing",
         url: "https://www.getweave.com/pricing/?utm_source=ads",
         foundOn: "Nov 8, 2026",
+        foundFor: "dental office",
       },
     ]);
   });
@@ -76,6 +86,14 @@ describe("vetCandidates", () => {
     ]);
   });
 
+  it("lists a tool whose name's words all appear in the research, even apart", () => {
+    const { listings } = run([candidate({ name: "Weave Phone Assistant", maker: "Weave" })], {
+      findings: "Weave's assistant answers the phone for dental offices.",
+    });
+
+    expect(listings.map((l) => l.name)).toEqual(["Weave Phone Assistant"]);
+  });
+
   it("skips a tool the research never mentions", () => {
     const { skipped } = run([candidate({ name: "Phantom Desk", maker: "" })]);
 
@@ -90,6 +108,18 @@ describe("vetCandidates", () => {
 
     expect(listings.map((l) => l.name)).toEqual(["Weave Receptionist"]);
     expect(skipped).toEqual([{ name: "Weave Receptionist", reason: "Anchored already lists it" }]);
+  });
+
+  it("keeps the product name alone when the maker's name already contains it", () => {
+    const { listings } = run([candidate({ name: "Arini", maker: "Arini Labs" })]);
+
+    expect(listings.map((l) => l.name)).toEqual(["Arini"]);
+  });
+
+  it("drops a company suffix from the maker it puts in front", () => {
+    const { listings } = run([candidate({ name: "Receptionist", maker: "Weave, Inc." })], { findings: "Weave's receptionist answers." });
+
+    expect(listings.map((l) => l.name)).toEqual(["Weave Receptionist"]);
   });
 
   it("skips a name that is really a web address", () => {
@@ -107,6 +137,13 @@ describe("vetCandidates", () => {
 
     expect(listings).toHaveLength(MAX_LISTINGS_PER_RUN);
     expect(skipped).toHaveLength(2);
+  });
+});
+
+describe("withArticle", () => {
+  it("uses an before a vowel and a before anything else", () => {
+    expect(withArticle("auto repair shop")).toBe("an auto repair shop");
+    expect(withArticle("hair salon")).toBe("a hair salon");
   });
 });
 
@@ -132,6 +169,7 @@ describe("the discovered file", () => {
       source: "getweave.com",
       url: "https://getweave.com",
       foundOn: "Nov 8, 2026",
+      foundFor: "dental office",
     };
 
     expect(discoveryListingSchema.safeParse(listing).success).toBe(true);
