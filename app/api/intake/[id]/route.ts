@@ -4,6 +4,7 @@ import { answerText, draftDetails, draftToAnswers, nextQuestion, planReadyText }
 import { buildProfileFromAnswers } from "@/lib/server/create-business";
 import { fail, handleError, json, readBody } from "@/lib/server/http";
 import { intakeState, intakeThread, takeIntakeTurn } from "@/lib/server/intake-ai";
+import { connectInvoiceSheet } from "@/lib/server/invoice-sheet";
 import { getSessionId } from "@/lib/server/session";
 import { scheduleStarters } from "@/lib/server/starters";
 import { getStore } from "@/lib/store";
@@ -67,6 +68,9 @@ export async function POST(request: Request, { params }: Context) {
       scheduleStarters(session, business);
       businessId = business.id;
       reply = planReadyText(business);
+      // An invoice sheet pasted during onboarding is read now, so its reminders wait in Approvals with the plan.
+      const sheetId = turn.draft.invoiceSheet?.id;
+      if (sheetId) reply = `${reply}\n\n${await connectInvoiceSheet(session, business, sheetId)}`;
     }
 
     const saved: IntakeRecord = { id, draft: turn.draft, businessId };

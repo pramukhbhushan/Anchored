@@ -23,7 +23,18 @@ vi.mock("@/lib/store", () => ({ getStore: () => stores.current }));
 const models = vi.hoisted(() => ({ current: null as LlmProvider | null }));
 vi.mock("@/lib/server/ai-budget", () => ({ getBudgetedLlm: () => models.current }));
 
+// Google Sheets is replaced by fixed rows, an error to throw, or no robot account at all.
+const sheets = vi.hoisted(() => ({ rows: [] as string[][], error: null as Error | null, account: { clientEmail: "robot@test.iam.gserviceaccount.com", privateKey: "unused" } as { clientEmail: string; privateKey: string } | null }));
+vi.mock("@/lib/connectors/google-sheets", () => ({
+  serviceAccountFrom: () => sheets.account,
+  readSheetValues: async () => {
+    if (sheets.error) throw sheets.error;
+    return sheets.rows;
+  },
+}));
+
 const { listBusinessChat, sendBusinessChat } = await import("./business-chat");
+const { ConnectorError } = await import("@/lib/connectors/errors");
 
 beforeEach(() => {
   stores.current = new MemoryStore();
@@ -153,5 +164,126 @@ describe("the example business's chat, asked for work", () => {
 
     expect(sent.messages.at(-1)?.card).toBeUndefined();
     expect(await stores.current!.listCards(SESSION, SAMPLE_BUSINESS.id)).toEqual([]);
+  });
+});
+
+describe("Bookkeeping in an owner's chat", () => {
+  const shop = hvacShop();
+  const store = () => stores.current!;
+  const say = (text: string) => sendBusinessChat(SESSION, shop, text);
+  const reminders = async () => (await store().listCards(SESSION, shop.id)).filter((card) => card.skill === "nudger" && card.invoice);
+
+  beforeEach(async () => {
+    await store().setChoice(SESSION, shop.id, "books", { path: "build", skills: ["nudger"] });
+  });
+
+  it("drafts a reminder from what the owner typed and links the reply to it", async () => {
+    await store().saveContact(SESSION, { businessId: shop.id, name: "Maya Chen", phone: null, email: "maya.chen@example.com", consent: null, optedOutAt: null });
+
+    const sent = await say("Maya Chen owes $450 on invoice 1042, due Oct 20");
+
+    const reply = sent.messages.at(-1);
+    expect(reply?.text).toBe("Bookkeeping and Invoicing drafted a reminder to Maya Chen for $450 on invoice 1042. It's waiting in Approvals.");
+    const [card] = await reminders();
+    expect(card).toMatchObject({ key: chatCardKey(shop.id, reply!.id), to: "maya.chen@example.com", stake: 450, invoice: { key: "n:1042" } });
+    expect(card?.body).toContain("for $450 was due Oct 20");
+    expect(reply?.card).toEqual({ key: card?.key, title: "Maya Chen owes $450 on invoice 1042", status: "pending" });
+  });
+
+  it("says how to send it when the customer has no email on file", async () => {
+    const sent = await say("Jordan Ellis owes $1,200 on invoice 1043");
+    expect(sent.messages.at(-1)?.text).toContain("Add Jordan Ellis's email in Connections so Anchored can send it, or send it yourself.");
+    expect((await reminders())[0]).toMatchObject({ to: "Jordan Ellis", stake: 1200 });
+  });
+
+  it("asks for a missing amount and drafts nothing", async () => {
+    const sent = await say("Jordan still owes me");
+    expect(sent.messages.at(-1)?.text).toBe("How much does Jordan owe? I'll only use the amount you give me.");
+    expect(await store().listCards(SESSION, shop.id)).toEqual([]);
+  });
+
+  it("refuses a third reminder in the owner's words", async () => {
+    await say("Maya Chen owes $450 on invoice 1042");
+    await say("Maya Chen owes $450 on invoice 1042");
+    const sent = await say("Maya Chen owes $450 on invoice 1042");
+    expect(sent.messages.at(-1)?.text).toBe("Invoice 1042 already has 2 reminders. Anchored won't send a third. Call the customer if it's still unpaid.");
+    expect(await reminders()).toHaveLength(2);
+  });
+
+  it("marks an invoice paid and says how many reminders it stopped", async () => {
+    await say("Maya Chen owes $450 on invoice 1042");
+    const sent = await say("Maya paid 1042");
+    expect(sent.messages.at(-1)?.text).toBe("Marked invoice 1042 from Maya paid. I stopped 1 reminder that was waiting.");
+    expect((await reminders())[0]?.status).toBe("superseded");
+  });
+
+  it("asks which invoice when a customer with two open ones paid", async () => {
+    await say("Maya Chen owes $450 on invoice 1042");
+    await say("Maya Chen owes $90 on invoice 1046");
+    const sent = await say("Maya Chen paid in full");
+    expect(sent.messages.at(-1)?.text).toBe("Maya Chen has more than one open invoice: invoice 1042 and invoice 1046. Which one was paid?");
+    expect((await reminders()).every((card) => card.status === "pending")).toBe(true);
+  });
+
+  it("leaves money the business itself paid to the profile reader", async () => {
+    const sent = await say("We paid $300 for new ads last month");
+    expect(sent.messages.at(-1)?.text).not.toMatch(/Which invoice|reminder/);
+    expect(await store().listCards(SESSION, shop.id)).toEqual([]);
+  });
+
+  it("leaves invoice talk to the request reader when Bookkeeping isn't working", async () => {
+    await store().setChoice(SESSION, shop.id, "books", { path: "skip" });
+    await say("Maya Chen owes $450 on invoice 1042");
+    expect(await reminders()).toEqual([]);
+  });
+});
+
+describe("connecting an invoice sheet in chat", () => {
+  const shop = hvacShop();
+  const store = () => stores.current!;
+  const LINK = "https://docs.google.com/spreadsheets/d/1jYg4Sn7znhd57XYKdPfj53reorhkliVlOoTEEQsIKiw/edit";
+  const say = async (text: string) => (await sendBusinessChat(SESSION, (await store().getBusiness(SESSION, shop.id)) ?? shop, text)).messages.at(-1)?.text;
+
+  beforeEach(async () => {
+    await store().saveBusiness(SESSION, shop);
+    await store().setChoice(SESSION, shop.id, "books", { path: "build", skills: ["nudger"] });
+    sheets.error = null;
+    sheets.account = { clientEmail: "robot@test.iam.gserviceaccount.com", privateKey: "unused" };
+    // Due dates far in the past, so the rows are overdue whatever day the test runs.
+    sheets.rows = [
+      ["Invoice #", "Customer", "Email", "Amount", "Due date", "Status"],
+      ["1042", "Maya Chen", "maya.chen@example.com", "450", "2020-10-20", "Unpaid"],
+      ["1045", "Sam Lee", "sam.lee@example.com", "240", "2020-10-15", "Paid"],
+    ];
+  });
+
+  it("connects the sheet from a pasted link, drafts reminders, and saves the sheet on the profile", async () => {
+    expect(await say(`here's my invoice sheet ${LINK}`)).toBe(
+      'Connected your invoice sheet. I checked your invoice sheet: 2 invoices. I drafted 1 reminder for overdue invoices. It\'s waiting in Approvals. Say "check my invoice sheet" any time to read it again.',
+    );
+    expect((await store().getBusiness(SESSION, shop.id))?.invoiceSheet?.id).toBe("1jYg4Sn7znhd57XYKdPfj53reorhkliVlOoTEEQsIKiw");
+    expect((await store().listCards(SESSION, shop.id)).filter((card) => card.skill === "nudger")).toHaveLength(1);
+  });
+
+  it("reads the connected sheet again on request, drafting nothing twice", async () => {
+    await say(`here's my invoice sheet ${LINK}`);
+    expect(await say("check my invoice sheet")).toBe("I checked your invoice sheet: 2 invoices. 1 overdue invoice already has a reminder.");
+  });
+
+  it("explains how to share a sheet the robot can't open, and connects nothing", async () => {
+    sheets.error = new ConnectorError("I can't open that sheet yet. In Google Sheets, click Share, add robot@test.iam.gserviceaccount.com as a Viewer, then send me the link again.", false);
+    expect(await say(`connect ${LINK}`)).toContain("click Share, add robot@test.iam.gserviceaccount.com as a Viewer");
+    expect((await store().getBusiness(SESSION, shop.id))?.invoiceSheet).toBeUndefined();
+  });
+
+  it("says when this server has no Google key", async () => {
+    sheets.account = null;
+    expect(await say(`connect ${LINK}`)).toContain("Google Sheets isn't set up on this server yet");
+  });
+
+  it("keeps the sheet connected when the owner later changes the profile", async () => {
+    await say(`here's my invoice sheet ${LINK}`);
+    await say("We started doing catering");
+    expect((await store().getBusiness(SESSION, shop.id))?.invoiceSheet?.id).toBe("1jYg4Sn7znhd57XYKdPfj53reorhkliVlOoTEEQsIKiw");
   });
 });

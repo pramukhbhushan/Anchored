@@ -2,7 +2,10 @@ import "server-only";
 import { z } from "zod";
 import type { BusinessChatResponse, CardRecord, ChatMessage } from "@/lib/api/contract";
 import { SKILLS } from "@/lib/domain/agents";
+import { money } from "@/lib/domain/details";
 import { findPlaceholder, mentionsAllergen } from "@/lib/domain/executor";
+import { asksToCheckSheet, sheetIdFromText, sheetSyncReply } from "@/lib/domain/invoice-sheet";
+import { followUpQuestion, readInvoiceMessage, talksAboutInvoice, type InvoiceMessage } from "@/lib/domain/invoices";
 import { allowedLists, applyChanges, changeReply, readChanges, readDetailChanges, type FactChanges } from "@/lib/domain/intake";
 import { agentForSkill, agentName, chosenSkills, resolveChoices } from "@/lib/domain/paths";
 import {
@@ -19,9 +22,12 @@ import {
 } from "@/lib/domain/requests";
 import type { BusinessProfile, Channel, KeyedCard, SkillId } from "@/lib/domain/types";
 import { LANGUAGE_OPTIONS, REACH_OPTIONS, SIGNALS, TOOL_OPTIONS } from "@/lib/domain/workflows";
+import { ConnectorError } from "@/lib/connectors/errors";
 import { LlmResponseError, type LlmProvider } from "@/lib/llm";
 import { newFacts } from "@/lib/server/ai";
 import { getBudgetedLlm } from "@/lib/server/ai-budget";
+import { checkEvent, ingestEvent } from "@/lib/server/ingest";
+import { connectInvoiceSheet, sheetsServiceAccount, syncInvoiceSheet } from "@/lib/server/invoice-sheet";
 import { quoted, shortPhrase } from "@/lib/server/intake-ai";
 import { getStore } from "@/lib/store";
 import type { ChatThread, NewChatMessage } from "@/lib/store/types";
@@ -32,7 +38,11 @@ import type { ChatThread, NewChatMessage } from "@/lib/store/types";
 // The ongoing chat for one business. When the owner asks for work, such as
 // "text Dana we're running late", `readRequest` decides in code which chosen
 // skill drafts it; the model writes only the words, and the card waits in
-// Approvals behind the reply that links to it. Any other message is read for
+// Approvals behind the reply that links to it. An owner telling Bookkeeping
+// about money owed or paid, such as "Sam Lee owes $240 on invoice 1042" or
+// "Sam paid 1042", becomes the same event a webhook would send, read in code
+// by `readInvoiceMessage`. A Google Sheets link connects the owner's invoice
+// sheet, and "check my invoice sheet" reads it again. Any other message is read for
 // what changed (with the model when one is set up, else the rules), and the
 // rebuilt profile is saved. The example business is shared, so its chat
 // answers but never changes or stores anything.
@@ -94,6 +104,14 @@ export async function sendBusinessChat(session: string, business: BusinessProfil
   const { stored, cards, chosen } = await readThread(session, business);
   // The welcome line is stored with the first exchange so the thread reads the same after a reload.
   const opening: NewChatMessage[] = stored.length === 0 ? [{ role: "anchored", text: welcomeText(business, chosen) }] : [];
+  // Money owed or paid goes to Bookkeeping first, before the general request reader sees it.
+  if (chosen.includes("nudger")) {
+    const sheetId = sheetIdFromText(text);
+    if (sheetId !== null) return answerSheet(session, business, text, sheetId, true, { stored, cards, opening });
+    if (business.invoiceSheet && asksToCheckSheet(text)) return answerSheet(session, business, text, business.invoiceSheet.id, false, { stored, cards, opening });
+    const invoice = readInvoiceMessage(text);
+    if (invoice.kind !== "none" && talksAboutInvoice(invoice, text)) return answerInvoice(session, business, text, invoice, { stored, cards, opening });
+  }
   const request = readRequest(text, business, chosen);
   if (request.kind === "draft") return draftRequested(session, business, text, request, { stored, cards, opening });
   if (request.kind !== "none") {
@@ -139,6 +157,80 @@ async function draftRequested(session: string, business: BusinessProfile, text: 
   const card: KeyedCard = { ...requestCard(business, request, words), agent, skill: request.skill, key: chatCardKey(business.id, reply.id) };
   await store.ensureCards(session, business.id, [card]);
   return { messages: linkCards(business, [...thread.stored, ...saved], [...thread.cards, { key: card.key, title: card.title, status: "pending" }]), changes: [] };
+}
+
+// =============================================================================
+// Money owed and paid
+// =============================================================================
+
+/**
+ * Answer an owner's message about an invoice. A missing fact gets a question back. A debt is checked first, then
+ * the reply is stored and the reminder drafted under the reply's key, so the reply links to it. A payment stops
+ * the invoice's waiting reminders first, so the reply can say how many it stopped.
+ */
+async function answerInvoice(session: string, business: BusinessProfile, text: string, invoice: Exclude<InvoiceMessage, { kind: "none" }>, thread: ThreadSoFar): Promise<BusinessChatResponse> {
+  const store = getStore();
+  const say = async (reply: string, cards: readonly CardLinkSource[] = thread.cards) => {
+    const saved = await store.addMessages(session, threadOf(business), [...thread.opening, { role: "owner", text }, { role: "anchored", text: reply }]);
+    return { saved, messages: linkCards(business, [...thread.stored, ...saved], cards) };
+  };
+  const question = followUpQuestion(invoice);
+  if (question !== null) return { messages: (await say(question)).messages, changes: [] };
+
+  const { name, amount, number, due } = invoice.facts;
+  // The customer's email comes from their contact, so an approved reminder has somewhere to go.
+  const contact = name === null ? undefined : (await store.listContacts(session, business.id)).find((c) => c.name.trim().toLowerCase() === name.toLowerCase());
+  const email = contact?.email ?? undefined;
+  const which = number ? `invoice ${number}` : "the invoice";
+
+  if (invoice.kind === "paid") {
+    const payload = { ...(name ? { name } : {}), ...(number ? { number } : {}), ...(amount === null ? {} : { amount }), ...(email ? { email } : {}) };
+    const result = await ingestEvent(session, business, "invoice-paid", payload, "live");
+    if (!result.ok) return { messages: (await say(result.error)).messages, changes: [] };
+    const stopped = (result.canceled?.cards ?? 0) + (result.canceled?.outbox ?? 0);
+    const reply = `Marked ${which}${name ? ` from ${name}` : ""} paid. ${stopped === 0 ? "No reminders were waiting." : `I stopped ${stopped} reminder${stopped === 1 ? "" : "s"} that ${stopped === 1 ? "was" : "were"} waiting.`}`;
+    return { messages: (await say(reply)).messages, changes: [] };
+  }
+
+  // A debt: `followUpQuestion` returned null, so the name and amount are both known.
+  if (name === null || amount === null) throw new Error("A complete debt came without a name or amount.");
+  const payload = { name, amount, kind: "overdue", ...(number ? { number } : {}), ...(due ? { due } : {}), ...(email ? { email } : {}) };
+  const check = await checkEvent(session, business, "invoice-late", payload);
+  if (!check.ok) return { messages: (await say(check.error)).messages, changes: [] };
+  const agent = agentName(business, agentForSkill(business, "nudger"));
+  const reply = `${agent} drafted a reminder to ${name} for ${money(amount)}${number ? ` on invoice ${number}` : ""}. It's waiting in Approvals.${email ? "" : ` Add ${name}'s email in Connections so Anchored can send it, or send it yourself.`}`;
+  const { saved } = await say(reply);
+  const replyMessage = saved.at(-1);
+  if (replyMessage === undefined) throw new Error("The store saved the chat but returned no reply.");
+  const key = chatCardKey(business.id, replyMessage.id);
+  const result = await ingestEvent(session, business, "invoice-late", payload, "live", { key });
+  if (!result.ok) console.warn(`[Business chat] The reminder passed its check but wasn't drafted: ${result.error}`);
+  const title = `${name} owes ${money(amount)}${number ? ` on invoice ${number}` : ""}`;
+  const linked = result.ok ? [...thread.cards, { key, title, status: "pending" as const }] : thread.cards;
+  return { messages: linkCards(business, [...thread.stored, ...saved], linked), changes: [] };
+}
+
+/**
+ * Connect the owner's invoice sheet, or read it again, and say what the check found. A sheet is saved on the
+ * profile only once Anchored has read it, so a link the robot can't open connects nothing.
+ */
+async function answerSheet(session: string, business: BusinessProfile, text: string, sheetId: string, connecting: boolean, thread: ThreadSoFar): Promise<BusinessChatResponse> {
+  const store = getStore();
+  let reply: string;
+  if (connecting) {
+    reply = await connectInvoiceSheet(session, business, sheetId);
+  } else {
+    const account = sheetsServiceAccount();
+    try {
+      reply = account === null ? await connectInvoiceSheet(session, business, sheetId, null) : sheetSyncReply(await syncInvoiceSheet(session, business, sheetId, account));
+    } catch (error) {
+      if (!(error instanceof ConnectorError)) throw error;
+      reply = error.message;
+    }
+  }
+  const latest = await store.listCards(session, business.id);
+  const saved = await store.addMessages(session, threadOf(business), [...thread.opening, { role: "owner", text }, { role: "anchored", text: reply }]);
+  return { messages: linkCards(business, [...thread.stored, ...saved], latest), changes: [] };
 }
 
 /** The fields of a stored card that a chat reply's link shows. */

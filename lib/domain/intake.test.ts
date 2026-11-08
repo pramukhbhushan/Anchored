@@ -23,6 +23,7 @@ import {
   draftDetails,
   readDetailChanges,
   withListingChoices,
+  wantsInvoiceSheet,
 } from "@/lib/domain/intake";
 import { PATH_OUTCOME } from "@/lib/domain/workflows";
 
@@ -498,5 +499,52 @@ describe("the listing step", () => {
       evidence: { hours: { sourceType: "listing", quote: "8 to 5", confidence: "high", ownerConfirmed: true } },
       placeId: "place-a",
     });
+  });
+});
+
+describe("the invoice sheet question", () => {
+  const LINK = "https://docs.google.com/spreadsheets/d/1jYg4Sn7znhd57XYKdPfj53reorhkliVlOoTEEQsIKiw/edit";
+  /** A coaching agency through the nine planned questions and the gaps, with the tools answer given. */
+  const coaching = (tools: IntakeAnswer) =>
+    throughGaps(
+      converse([
+        text("Brightpath Coaching, College Park"),
+        picks("Professional services"),
+        text("1-on-1 career coaching, sessions $175, a 3-session package $450, a $1,200 a month retainer"),
+        picks("Email", "Referrals"),
+        tools,
+        picks("appointments", "memberships"),
+        picks("English"),
+        text("Chasing clients who pay their invoices late"),
+        text("Hi Maya, thanks for reaching out! I have Tuesday at 10 or Thursday at 2."),
+      ]).draft,
+    ).draft;
+
+  it("asks for the sheet after the gaps when the owner uses Google Sheets and Bookkeeping is planned", () => {
+    const draft = coaching(text("Google Sheets, Calendly and Zoom"));
+    expect(wantsInvoiceSheet(draft)).toBe(true);
+    const asked = question(draft);
+    expect(asked.field).toBe("sheet");
+    expect(asked.text).toContain("paste its link here");
+    expect(asked.options?.map((option) => option.label)).toEqual(["Skip for now"]);
+  });
+
+  it("keeps the pasted link's sheet ID, then moves on to the review", () => {
+    const answered = answer(coaching(text("Google Sheets")), text(`here it is ${LINK}`));
+    expect(answered.invoiceSheet).toEqual({ id: "1jYg4Sn7znhd57XYKdPfj53reorhkliVlOoTEEQsIKiw" });
+    expect(question(answered).field).toBe("confirm");
+  });
+
+  it("asks only once, and a skip leaves no sheet", () => {
+    const skipped = answer(coaching(text("Google Sheets")), picks("skip"));
+    expect(skipped.invoiceSheet).toEqual({ id: null });
+    expect(wantsInvoiceSheet(skipped)).toBe(false);
+    expect(question(skipped).field).toBe("confirm");
+  });
+
+  it("doesn't ask an owner who doesn't use Google Sheets", () => {
+    const draft = coaching(picks("QuickBooks Online"));
+    expect(wantsInvoiceSheet(draft)).toBe(false);
+    expect(question(draft).field).toBe("confirm");
   });
 });

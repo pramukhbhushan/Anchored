@@ -148,11 +148,13 @@ describe("limitFor", () => {
     expect(chat.bucket).toBe(start.bucket);
   });
 
-  it("shares one event limit between simulate and ingest", () => {
+  it("shares one event limit between simulate, ingest and reading the invoice sheet", () => {
     const simulate = limitFor("POST", "/api/businesses/b_1/cards");
     const ingest = limitFor("POST", "/api/ingest/missed-call");
+    const sheet = limitFor("POST", "/api/businesses/b_1/invoice-sheet");
     expect(simulate).toMatchObject({ perSession: 60, perIp: 300 });
     expect(ingest.bucket).toBe(simulate.bucket);
+    expect(sheet.bucket).toBe(simulate.bucket);
   });
 
   it("gives connecting a service and saving a contact their own bucket", () => {

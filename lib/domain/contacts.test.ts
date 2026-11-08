@@ -75,6 +75,12 @@ describe("deliveryFor", () => {
     expect(deliveryFor({ channel: "email", to: "sam@example.com" }, { texting: true, email: false }, [])).toEqual({ by: "owner", reason: null });
   });
 
+  it("won't email a customer who opted out, matching the address in any case", () => {
+    const alex: Contact = { ...DANA, id: "c-alex", name: "Alex Romero", phone: null, email: "alex.romero@example.com", optedOutAt: "2026-11-01T10:00:00Z" };
+    expect(deliveryFor({ channel: "email", to: "Alex.Romero@example.com " }, ON, [alex])).toEqual({ by: "owner", reason: "This customer asked not to get messages. Anchored won't email them." });
+    expect(deliveryFor({ channel: "email", to: "alex.romero@example.com" }, ON, [{ ...alex, optedOutAt: null }])).toEqual({ by: "anchored", to: "alex.romero@example.com" });
+  });
+
   it("never sends a list card", () => {
     expect(deliveryFor({ channel: "list", to: "customer" }, ON, [DANA])).toEqual({ by: "owner", reason: null });
   });
