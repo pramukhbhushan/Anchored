@@ -501,7 +501,8 @@ function QuickReplies({
               onClick={() => onToggle(option.value)}
               disabled={disabled}
             >
-              {picked.includes(option.value) && <Check size={14} strokeWidth={2.8} aria-hidden="true" />}
+              {/* A plus that turns into a check, the same width, so picking one never shifts the chips under the pointer */}
+              {picked.includes(option.value) ? <Check size={14} strokeWidth={2.8} aria-hidden="true" /> : <Plus size={14} strokeWidth={2.4} aria-hidden="true" />}
               {option.label}
             </button>
           ) : (
