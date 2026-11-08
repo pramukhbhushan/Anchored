@@ -172,6 +172,19 @@ describe("triage", () => {
   });
 });
 
+describe("templates for work no connected source feeds", () => {
+  // Invoices, plan lists, past customers, licenses, voice notes and shelf counts can't reach Anchored yet,
+  // so any count, price, percent or invoice number on these cards would be made up.
+  const UNFED: readonly CardSkill[] = ["debrief", "reactivator", "keeper", "nudger", "pricewatch", "license", "stockcheck"];
+  const FIGURE = /\$\d|\d+%|\b\d+ (?:past )?(?:customers|plans|varieties|days)\b|\binvoice \d+|\d+ of \d+/i;
+
+  it.each(UNFED.flatMap((skill) => VARIANTS.map((v) => [skill, v] as const)))("%s, variant %i, states no made-up figure", (skill, variant) => {
+    const card = CARD_TEMPLATES[skill](hvacShop(), variant);
+    expect(`${card.title} ${card.body} ${card.action} ${card.to ?? ""}`).not.toMatch(FIGURE);
+    expect(card.stake).toBeUndefined();
+  });
+});
+
 describe("callback cards", () => {
   it("offer two open times, as the Callback skill promises", () => {
     expect(SKILLS.callback.does).toContain("Drafts one text with two open times");

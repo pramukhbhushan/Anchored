@@ -6,8 +6,9 @@ import { SimulateButton } from "@/components/business/SimulateButton";
 import { NEW_BUSINESS_HREF, businessHref, cardAnchor } from "@/components/routes";
 import { ButtonLink } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { feedStats, money, placeOf, plannedWorkflows } from "@/components/view-helpers";
+import { feedStats, money, placeOf } from "@/components/view-helpers";
 import { whoHandles } from "@/components/workflows/flow";
+import { newForOwner, samplesWaiting, stakeWaiting } from "@/lib/domain/brief";
 import { OWNER_TIME_ZONE } from "@/lib/domain/executor";
 import { activeAgents, chosenSkills, stackCost, workflowIdsOf } from "@/lib/domain/paths";
 import { groupByStage } from "@/lib/domain/stages";
@@ -52,15 +53,15 @@ export default async function OverviewPage({ params }: { readonly params: Promis
   const stats = feedStats(feed.cards);
   const waiting = feed.cards.filter((card) => card.status === "pending");
   // An example's dollar figure is made up to show the card, so only real drafts count toward what rides on today.
-  const atStake = waiting.reduce((sum, card) => sum + (card.example === true ? 0 : (card.stake ?? 0)), 0);
+  const atStake = stakeWaiting(feed.cards);
+  const samples = samplesWaiting(feed.cards);
   const cost = stackCost(business, choices);
   const onQuote = cost.onQuote.length > 0 ? `, plus ${joinAnd(cost.onQuote.map((tool) => tool.name))} on quote` : "";
-  // Same rule as the morning brief in `lib/domain/brief.ts`: new workflows the owner hasn't skipped.
-  const fresh = plannedWorkflows(business).filter((w) => w.plan.isNew && choices[w.id].path !== "skip");
+  const fresh = newForOwner(business, choices);
   const [onlyFresh] = fresh;
   const freshHref =
     fresh.length === 1 && onlyFresh !== undefined
-      ? `${businessHref(business.id, "workflows")}#wf-${onlyFresh.id}`
+      ? `${businessHref(business.id, "workflows")}#wf-${onlyFresh}`
       : businessHref(business.id, "workflows");
   const approvalsHref = businessHref(business.id, "approvals");
   const workflowsHref = businessHref(business.id, "workflows");
@@ -132,12 +133,20 @@ export default async function OverviewPage({ params }: { readonly params: Promis
           {waiting.length > ROWS_SHOWN && <p className="brief-more">and {waiting.length - ROWS_SHOWN} more</p>}
 
           <ul className="brief-lines">
-            {/* An owner's starters are samples until real drafts replace them; the example business's are understood as examples. */}
-            {waiting.some((card) => card.example === true) && <li>These drafts are samples until you connect your phone and email.</li>}
+            {/* An owner's starters are tagged as examples; the example business is understood as one as a whole. */}
+            {samples > 0 && (
+              <li>
+                <span>
+                  {samples === waiting.length ? "These drafts are samples" : `${samples} of these drafts are samples`}. Real ones come from your calls, texts and email
+                  once you connect them.
+                </span>
+                <Link href={businessHref(business.id, "connections")}>See connections</Link>
+              </li>
+            )}
             {atStake > 0 && <li>{money(atStake)} rides on today&apos;s cards.</li>}
             {fresh.length > 0 && (
               <li>
-                <span>New this week: {joinAnd(fresh.map((w) => WORKFLOWS[w.id].name))}.</span>
+                <span>New for you: {joinAnd(fresh.map((id) => WORKFLOWS[id].name))}.</span>
                 <Link href={freshHref}>{fresh.length === 1 ? "See workflow" : "See workflows"}</Link>
               </li>
             )}

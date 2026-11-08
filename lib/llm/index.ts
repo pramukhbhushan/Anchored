@@ -1,4 +1,5 @@
 import "server-only";
+import type { AiSetup } from "@/lib/domain/agents";
 import { AnthropicProvider } from "./anthropic";
 import { readProviderConfig } from "./config";
 import { OpenAICompatibleProvider } from "./openai-compatible";
@@ -49,4 +50,11 @@ export function isAiConfigured(): boolean {
 /** Name of the configured provider for owners, such as "Claude", or `null` when AI is off. */
 export function aiLabel(): string | null {
   return getLlm()?.label ?? null;
+}
+
+/** The configured provider's name and the model it runs for each tier, or `null` when AI is off. */
+export function aiSetup(): AiSetup | null {
+  const llm = getLlm();
+  if (llm === null) return null;
+  return { label: llm.label, models: { quick: llm.modelFor("quick"), default: llm.modelFor("default"), complex: llm.modelFor("complex") } };
 }

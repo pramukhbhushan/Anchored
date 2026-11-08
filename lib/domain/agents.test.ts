@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rulesFor } from "@/lib/domain/agents";
+import { rulesFor, SKILLS } from "@/lib/domain/agents";
 import { SAMPLE_BUSINESS } from "@/lib/domain/cases";
 import type { BusinessProfile, SignalId, TradeKey } from "@/lib/domain/types";
 import { hvacShop } from "@/test/trades";
@@ -38,5 +38,16 @@ describe("rulesFor", () => {
     expect(mentions(rulesFor(business("any", ["catering"])), /allerg/i)).toBe(true);
     expect(mentions(rulesFor(business("any", ["snap"])), /allerg/i)).toBe(true);
     expect(mentions(rulesFor(business("coach", ["appointments"])), /allerg/i)).toBe(false);
+  });
+});
+
+describe("SKILLS setup steps", () => {
+  // Anchored has no phone numbers of its own, no web form, no file upload and no photo reading: the owner
+  // connects their own Twilio number, Stripe and a forwarding address, adds customers on Connections, and asks in chat.
+  const missing = /Anchored (phone )?number|form link|\bupload|photograph|tap '/i;
+
+  it.each(Object.values(SKILLS).map((skill) => [skill.name, skill] as const))("asks %s's owner only for steps the app has today", (_, skill) => {
+    expect(skill.setup.filter((step) => missing.test(step))).toEqual([]);
+    expect(skill.reads.filter((source) => missing.test(source))).toEqual([]);
   });
 });

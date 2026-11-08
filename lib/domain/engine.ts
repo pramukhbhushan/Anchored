@@ -311,6 +311,8 @@ const CALLED_NAME = /\s*\b(?:called|named)\s+["']?(.+?)["']?(?=[,.;!?]|\s+(?:in|
 // A capitalized name followed by ", a" or " is a", as in "Harbor Mini Mart is a corner store". Case-sensitive on purpose.
 const LEADING_NAME = /^([A-Z][^,]*?)(?:,\s*|\s+is\s+)an?\s+/;
 const NOT_A_NAME = /^(?:i|we|it|this|that|my|our)$/i;
+// Two to six capitalized words, then "in" and a place: "Fresh Cut Lawn Care in Bowie". Case-sensitive on purpose.
+const TITLED_NAME_IN_PLACE = /^((?:[A-Z][\w'&.-]*\s+){1,5}[A-Z][\w'&.-]*)\s+in\s+[A-Z]/;
 
 /** Split a one-sentence description into a business name, when it has one, and the kind of business. */
 function nameAndTrade(text: string): { name?: string; trade: string } {
@@ -325,7 +327,9 @@ function nameAndTrade(text: string): { name?: string; trade: string } {
   if (named && name && !NOT_A_NAME.test(name) && name.split(/\s+/).length <= 6) {
     return { name, trade: body.slice(named[0].length).trim() };
   }
-  return { trade: bareTrade(text) };
+  // With no article to split on, the whole sentence still says what the business is, so it stays the trade.
+  const titled = TITLED_NAME_IN_PLACE.exec(body)?.[1];
+  return titled === undefined ? { trade: bareTrade(text) } : { name: titled, trade: bareTrade(body) };
 }
 
 /** The kind of business with "I run" and the article taken off: "I run a bakery" becomes "bakery". */

@@ -298,21 +298,19 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
     action: "Create follow-up",
     channel: "list",
   }),
-  reactivator: (b, v) => {
-    const count = pick(v, 38, 24, 51);
-    return {
-      title: `${count} past customers haven't been back in a year`,
-      body: `Hi, it's ${b.name}. ${pick(v, "It's been a while!", "We'd love to see you again.", "We have openings coming up.")} Reply YES and we'll find you a time. Reply STOP to opt out.`,
-      reason: "Past customers already know you.",
-      checks: ["Only customers with written consent", QUIET_HOURS_RULE],
-      action: `Send to ${count} customers`,
-      channel: "sms",
-      to: `${count} customers with consent`,
-    };
-  },
+  // No past-customer list or plan list reaches Anchored yet, so these name no count or date.
+  reactivator: (b, v) => ({
+    title: "Past customers who haven't been back in a year",
+    body: `Hi, it's ${b.name}. ${pick(v, "It's been a while!", "We'd love to see you again.", "We have openings coming up.")} Reply YES and we'll find you a time. Reply STOP to opt out.`,
+    reason: "Past customers already know you.",
+    checks: ["Only customers with written consent", QUIET_HOURS_RULE],
+    action: "Send to past customers",
+    channel: "sms",
+    to: "Past customers with consent",
+  }),
   keeper: (b, v) => ({
-    title: pick(v, "9 plans renew next month", "4 plans renew mid-month", "6 plans renew at the end of the month"),
-    body: `Hi, your plan with ${b.name} renews ${pick(v, "on the 1st", "on the 15th", "at the end of the month")}. Reply YES to keep it. Reply STOP to opt out.`,
+    title: pick(v, "Plans that renew next month", "Plans that renew mid-month", "Plans that renew at the end of the month"),
+    body: `Hi, your plan with ${b.name} renews ${pick(v, "next month", "mid-month", "at the end of the month")}. Reply YES to keep it. Reply STOP to opt out.`,
     reason: "Renewal 30 days out keeps plans from lapsing.",
     checks: ["Plan members with consent", "No new price"],
     action: "Send to plan members",
@@ -345,25 +343,25 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
     };
   },
   // No business profile holds a payment link yet, so the email promises it instead of leaving a blank to fill.
+  // A real overdue invoice comes from Stripe with its own number and amount; the starter names neither.
   nudger: (b, v) => {
-    const invoice = pick(v, "1042", "1057", "1063");
     const person = personFor(b, "nudger", v);
     return {
-      title: `Invoice ${invoice} is 9 days late`,
-      body: `Hi ${person.first}, a quick reminder about invoice ${invoice} from ${b.name}. If paying online is easier, I'll send the link next. Thanks!`,
+      title: `${person.first}'s invoice is past due`,
+      body: `Hi ${person.first}, a quick reminder about your invoice from ${b.name}. If paying online is easier, I'll send the link next. Thanks!`,
       reason: "A friendly reminder now beats an awkward one later.",
-      checks: ["Amount read from your invoice"],
+      checks: ["No late fee added"],
       action: "Send email",
       channel: "email",
       to: person.full,
-      stake: pick(v, 240, 410, 180),
     };
   },
-  pricewatch: (_b, v) => ({
-    title: `An item on your supplier invoice went up ${pick(v, "8%", "12%", "5%")}`,
-    body: `Your latest invoice charges ${pick(v, "$27.00", "$44.80", "$31.50")} for an item that cost ${pick(v, "$25.00", "$40.00", "$30.00")} last time. The invoice math checks out. Add it to your list for the rep?`,
+  // Supplier invoices can't reach Anchored yet, so the starter names no item, price or rise.
+  pricewatch: () => ({
+    title: "An item on your supplier invoice went up",
+    body: "Your latest invoice charges more for an item than last time. Add it to your list for the rep?",
     reason: "Price rises pass unseen until margins shrink.",
-    checks: ["Invoice lines add up to the total", "Compared with your last invoice on file"],
+    checks: ["You check the invoice yourself"],
     action: "Add to rep list",
     channel: "list",
   }),
@@ -434,19 +432,20 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
     };
   },
   // No profile names a calendar, so the reminder goes on the owner's list rather than into a calendar.
+  // License photos and shelf counts can't reach Anchored yet, so neither starter names a date or a count.
   license: (_b, v) => ({
-    title: pick(v, "A license renews in 30 days", "A permit renews in 45 days", "A certificate renews in 60 days"),
-    body: "The photo is on file. Add a renewal reminder for Monday morning?",
+    title: pick(v, "A license renews soon", "A permit renews soon", "A certificate renews soon"),
+    body: "Add a renewal reminder a month before it's due?",
     reason: "A lapse can shut down part of the business.",
-    checks: ["Date read from your license photo"],
+    checks: ["You add the renewal date yourself"],
     action: "Add reminder",
     channel: "list",
   }),
   stockcheck: () => ({
     title: "Staples check before your next wholesale run",
-    body: "Dairy: 5 of 7 varieties by your count. Add two to the next run? This count is not a USDA determination. Rule text checked Nov 7, 2026.",
+    body: "Count the varieties you stock in each staple category, and add any gaps to the next run. This count is not a USDA determination. Rule text checked Nov 7, 2026.",
     reason: "The SNAP stocking rule took effect Nov 4, 2026.",
-    checks: ["Counted from your taps"],
+    checks: ["You do the count"],
     action: "Add to run list",
     channel: "list",
   }),

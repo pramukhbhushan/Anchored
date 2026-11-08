@@ -4,7 +4,7 @@ import { APP_HREF } from "@/components/routes";
 import { ButtonLink } from "@/components/ui/Button";
 import { PageHeader, SectionHeader } from "@/components/ui/PageHeader";
 import { CORE_AGENTS } from "@/lib/domain/agents";
-import { TOOLS } from "@/lib/domain/catalog";
+import { checkedSpan, TOOLS } from "@/lib/domain/catalog";
 
 // =============================================================================
 // Module Overview
@@ -43,7 +43,7 @@ const LAYERS: readonly Pair[] = [
   ],
   [
     "Data",
-    "Connectors: forwarded calls, invoice photos, CSV uploads, forwarded email, and later Jobber, Square, Clover and QuickBooks.",
+    "Connectors: missed calls and texts on the owner's own Twilio number, forwarded email and unpaid Stripe invoices, and later Jobber, Square, Clover and QuickBooks.",
   ],
   ["Intelligence", "The morning brief: what waits for the owner today and what it's worth."],
   [
@@ -85,18 +85,21 @@ const STATUS: readonly Pair[] = [
     "Live. The rules run in code. With an AI provider set, it also rewrites the reasons in the owner's words.",
   ],
   ["Chat onboarding", "Live. Rules ask the questions; with an AI provider set, the model reads free answers too."],
-  ["Seven-check ratings", `Live. Computed in code from ${TOOLS.length} tools, with facts checked Nov 6 and 7, 2026.`],
+  ["Seven-check ratings", `Live. Computed in code from ${TOOLS.length} tools, with facts checked ${checkedSpan(TOOLS.map((tool) => tool.checkedOn)) ?? "by hand"}.`],
   ["Paths, stack and cost", "Live, saved to your account."],
   ["Rewrite in my voice", "Live when an AI provider is set."],
   [
     "Texts and emails",
-    "You send them. Business texting needs carrier registration, so each approved message opens your own texting or email app with the words typed out.",
+    "Anchored sends them through the owner's own Twilio number and its email service once the owner connects them. Until then, each approved message opens the owner's own texting or email app with the words typed out.",
   ],
   [
     "Discovery agent",
     "Built. A team member runs it for one workflow and one kind of business at a time, and each find joins the review queue with its page. It doesn't run on a schedule yet.",
   ],
-  ["Live connectors", "Designed, not built yet."],
+  [
+    "Connectors",
+    "Built: texting and missed calls on the owner's Twilio number, sending email, forwarded email and unpaid Stripe invoices. Each works once the server has its keys and the owner connects it. Calendars, quotes and invoice images aren't connected yet.",
+  ],
 ];
 
 const RESEARCH: readonly (readonly [study: string, by: string, finding: string])[] = [
@@ -258,7 +261,7 @@ export default function BuiltPage() {
               "Owner's phone",
               "Next.js on Vercel",
               "Supabase Postgres, row-level security per account",
-              "Agent worker: fast, default or most capable model by task",
+              "The skill for that event drafts a card",
               "Card",
               "Owner approves",
               "Executor in code checks rules, then sends",
@@ -266,7 +269,7 @@ export default function BuiltPage() {
             core="Owner approves"
           />
           <Lane
-            title="Every week, for the catalog"
+            title="For the catalog, when a team member runs discovery"
             nodes={[
               "Discovery agent searches per workflow",
               "Review queue",

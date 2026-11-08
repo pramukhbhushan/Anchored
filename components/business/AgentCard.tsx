@@ -36,12 +36,16 @@ function approvedToast(card: CardRecord, result: DecideCardResponse, business: H
       ? { message: `Approved. The ${thing} is on your clipboard, ready to paste.`, link: SEE_OUTBOX }
       : { message: `Approved. Your browser blocked the clipboard, so copy the ${thing} from the outbox.`, link: SEE_OUTBOX };
   }
-  const draft = result.outbox === undefined ? null : approvedDraft(result.outbox, result.card);
+  const what = card.channel === "email" ? "email" : "text";
+  const outbox = result.outbox;
+  // Anchored took the message on, so the owner has nothing to send; say only what actually happened.
+  if (outbox?.delivery === "sent") return { message: `Approved. Anchored sent the ${what} to ${outbox.to}.`, link: SEE_OUTBOX };
+  if (outbox?.delivery === "queued" || outbox?.delivery === "sending") return { message: `Approved. Anchored will send the ${what}.`, link: SEE_OUTBOX };
+  const draft = outbox === undefined ? null : approvedDraft(outbox, result.card);
   const step = draft === null ? null : handOff(draft, business);
+  const lead = outbox?.delivery === "failed" ? `Approved, but it didn't send${outbox.note === null ? "." : `: ${outbox.note}`}` : `Approved. The ${what} is ready to send.`;
   // A link to the texting or email app opens it in place, so the owner sends without leaving the card.
-  if (step?.kind === "open") {
-    return { message: `Approved. The ${card.channel === "email" ? "email" : "text"} is ready to send.`, link: { label: step.label, href: step.href } };
-  }
+  if (step?.kind === "open") return { message: lead, link: { label: step.label, href: step.href } };
   if (step?.kind === "copy") return { message: `Approved. Copy the ${step.what} from your outbox.`, link: SEE_OUTBOX };
   return { message: "Approved and logged in your outbox.", link: SEE_OUTBOX };
 }

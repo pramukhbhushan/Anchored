@@ -26,6 +26,13 @@ describe("monthlyBill", () => {
     expect(bill.segments.reduce((sum, s) => sum + s.share, 0)).toBeCloseTo(1);
   });
 
+  it("dates prices only when a tool is on the bill", () => {
+    const shop = hvacShop();
+    const skipAll: ChoiceMap = Object.fromEntries(workflowIdsOf(shop).map((id): [string, Choice] => [id, { path: "skip" }]));
+    expect(monthlyBill(shop, skipAll).pricesCheckedOn).toBeNull();
+    expect(monthlyBill(shop, {}).pricesCheckedOn).toMatch(/2026$/);
+  });
+
   it("splits the restaurant into new tools, agents, tools it has and skipped work", () => {
     const bill = monthlyBill(SAMPLE_BUSINESS, {});
     expect(bill.total).toBe(308);

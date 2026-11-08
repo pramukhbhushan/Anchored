@@ -26,15 +26,15 @@ const NEVER: Readonly<Record<CoreAgentId, string>> = {
   followup: "Never sends without your tap.",
   books: "Never sends a reminder you haven't approved.",
   content: "Never publishes. You post what you approve.",
-  internal: "Always on. Hands each forwarded email to the right agent.",
+  internal: "Always on. Never sends anything to a customer.",
 };
 
 /** Figures from docs/research/coaching-operations.md, each with its source. */
 const GAPS: readonly (readonly [figure: string, text: string, source: string])[] = [
   ["7×", "Firms that replied to a lead within an hour were nearly seven times as likely to qualify it.", "Harvard Business Review, 2011"],
   ["23%", "of firms in the same study never replied to the lead at all.", "Harvard Business Review, 2011"],
-  ["75%", "of Meta lead-ad leads arrive outside weekday 9-to-5 hours.", "LeadSync, via Ainora"],
-  ["93%", "of converted leads were reached by the sixth attempt.", "Velocify, via Ainora"],
+  ["75%", "of Meta lead-ad leads arrive outside weekday 9-to-5 hours.", "LeadSync, via Ainora, 2026"],
+  ["93%", "of converted leads were reached by the sixth attempt.", "Velocify, via Ainora, 2026"],
 ];
 
 const CASES: readonly (readonly [name: string, trade: string])[] = [
@@ -173,13 +173,13 @@ export default function HomePage() {
           <div>
             <p className={styles.eyebrow}>Built on research</p>
             <h2 id="proof-title" style={{ marginTop: 12 }}>
-              Researched with three very different businesses.
+              Researched across three very different trades.
             </h2>
             <ul className={styles.cases} style={{ marginTop: 28 }}>
               {CASES.map(([name, trade]) => (
                 <li key={name}>
-                  <b>{name}</b>
-                  <span>{trade}</span>
+                  <b>{trade}</b>
+                  <span>Sample business: {name}</span>
                 </li>
               ))}
             </ul>

@@ -64,6 +64,16 @@ describe("Workflows page", () => {
     expect(within(plan()).queryByRole("button")).not.toBeInTheDocument();
   });
 
+  it("never says a tool runs before the owner has signed up for it", async () => {
+    const approval = approvePlan(SHOP, { leads: { path: "buy", toolId: "housecall" } }, new Date("2026-11-07T15:30:00.000Z"));
+    await stores.current?.saveBusiness(SESSION, { ...SHOP, planApproval: approval });
+    await stores.current?.setChoice(SESSION, SHOP.id, "leads", { path: "buy", toolId: "housecall" });
+    await renderWorkflows(SHOP.id);
+
+    expect(plan()).not.toHaveTextContent(/run on their own/);
+    expect(plan()).toHaveTextContent("A new tool starts once you sign up for it.");
+  });
+
   it("asks the owner to approve a step they changed after approving", async () => {
     const approval = approvePlan(SHOP, {}, new Date("2026-11-07T15:30:00.000Z"));
     await stores.current?.saveBusiness(SESSION, { ...SHOP, planApproval: approval });

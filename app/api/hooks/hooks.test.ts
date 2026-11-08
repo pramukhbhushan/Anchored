@@ -167,6 +167,13 @@ describe("forwarded email", () => {
     expect(await cardTitles()).toEqual(["Forwarded email from Pat <pat@example.com>: Quote for a new AC"]);
   });
 
+  it("shows the email's own words and promises no draft that nothing will write", async () => {
+    await forward("inbound-key");
+    const [card] = await store().listCards(SESSION, SHOP.id);
+    expect(card?.body).toContain("Can you send a quote?");
+    expect(card?.body).not.toMatch(/will draft|will compare/);
+  });
+
   it("refuses the wrong key and drops mail for no business", async () => {
     expect((await forward("guess")).status).toBe(404);
     expect(await (await forward("inbound-key", "n".repeat(24))).json()).toEqual({ received: true, drafted: false });

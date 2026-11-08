@@ -37,6 +37,21 @@ describe("ChooseButton", () => {
     expect(router.refresh).toHaveBeenCalledTimes(1);
   });
 
+  it("says a new tool starts once the owner signs up, not that the work runs on it now", async () => {
+    stubFetch(() => json({ choice: { path: "buy", toolId: "jobber" } }));
+    render(
+      <ToastProvider>
+        <ChooseButton businessId="greenfield" request={BUY_JOBBER} className="btn" runner="Jobber">
+          Choose
+        </ChooseButton>
+      </ToastProvider>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Choose" }));
+
+    expect(await screen.findByText("Quotes and estimates: you picked Jobber. It starts once you sign up.")).toHaveRole("status");
+  });
+
   it("says a workflow left for now is the owner's to do, with no path words", async () => {
     stubFetch(() => json({ choice: { path: "skip" } }));
     renderButton({ workflow: "calls", path: "skip" });

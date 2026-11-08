@@ -35,7 +35,8 @@ export const CHECKS: readonly CheckDef[] = [
 
 /** Plain-words label for each evidence level. */
 export const EVIDENCE_LABEL: Readonly<Record<Evidence, string>> = {
-  page: "Vendor page, read Nov 2026",
+  // The date lives on each tool's `checkedOn`, shown beside its source, so one fixed month can't go stale here.
+  page: "Vendor page",
   snippet: "Search summary only",
   third: "Third-party page",
   ours: "Our reading of how it works",
@@ -116,7 +117,7 @@ function connectsCheck(tool: Tool, business: RatingContext): Check {
   if (tool.platform !== undefined) {
     return usesSoftware(business, tool.platform)
       ? ["met", "ours", `Part of ${tool.platform}, which you use`]
-      : ["no", "ours", `Needs ${tool.platform}, which you don't use`];
+      : ["no", "ours", `Needs ${tool.platform}, which isn't in the tools you named`];
   }
   if (tool.connects === undefined || tool.connects.length === 0) {
     return ["unknown", "none", "Doesn't name the software it works with"];
@@ -140,7 +141,9 @@ function languagesCheck(tool: Tool, otherLanguages: readonly string[]): Check {
 
 /** No tool has published 30-day results yet, so the best a fitting tool gets is "needs pilot data". */
 function provenCheck(tool: Tool, business: RatingContext): Check {
-  return fitsTrade(tool, business.tradeKey)
+  if (!fitsTrade(tool, business.tradeKey)) return ["no", "ours", `Built for ${tool.for.join(" and ")} businesses`];
+  // A general tool fits through "any", which says nothing about this trade in particular.
+  return tool.for.includes(business.tradeKey)
     ? ["unknown", "pilot", "Built for businesses like yours. No 30-day results published yet"]
-    : ["no", "ours", `Built for ${tool.for.join(" and ")} businesses`];
+    : ["unknown", "pilot", "Sold to any kind of business. No 30-day results published yet"];
 }

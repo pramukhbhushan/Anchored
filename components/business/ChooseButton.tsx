@@ -15,13 +15,14 @@ import { WORKFLOWS } from "@/lib/domain/workflows";
 // "Choose" and "Use". It saves the choice through the choices route, toasts
 // what changed in the owner's words, and refreshes the server-rendered page.
 
-/** Return the toast shown after a choice; `runner` names the tool the workflow now runs on, when known. */
+/** Return the toast shown after a choice; `runner` names the tool or agent the owner picked, when known. */
 function chosenMessage(request: SetChoiceRequest, runner: string | undefined): string {
   const name = WORKFLOWS[request.workflow].name;
   if (request.path === "skip") return `${name}: you handle it yourself for now`;
   if (request.path === "build") return `${name}: Anchored drafts it, you approve it`;
-  if (runner !== undefined) return `${name} now runs on ${runner}`;
-  return request.path === "turnon" ? `${name} now runs on a tool you have` : `${name} now runs on a new tool`;
+  // Anchored can't sign the owner up or switch a feature on, so the toast names the step that is still theirs.
+  if (request.path === "turnon") return `${name}: you picked ${runner === undefined ? "a tool you have" : `your ${runner}`}. Make sure the feature is on there.`;
+  return `${name}: you picked ${runner ?? "a new tool"}. It starts once you sign up.`;
 }
 
 /** Render a button that saves `request` for `businessId`; `pressed` makes it a toggle, `label` its accessible name. */

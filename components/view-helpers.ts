@@ -1,3 +1,4 @@
+import { stakeActedOn } from "@/lib/domain/brief";
 import { workflowIdsOf } from "@/lib/domain/paths";
 import type { CardStatus } from "@/lib/api/contract";
 import type { BusinessProfile, Channel, Rating, WorkflowId, WorkflowPlan } from "@/lib/domain/types";
@@ -19,6 +20,8 @@ export interface PlannedWorkflow {
 
 /** What the views read from each card in a feed. */
 export interface FeedCard {
+  readonly example?: true;
+  readonly title: string;
   readonly status: CardStatus;
   readonly channel: Channel;
   readonly edited: boolean;
@@ -34,7 +37,7 @@ export interface FeedStats {
   readonly edited: number;
   /** Share of approved cards the owner edited first, 0 to 100. */
   readonly editRate: number;
-  /** Dollars riding on the cards the owner approved. */
+  /** Dollars on the cards the owner approved, from their own events only; the example's are researched. */
   readonly actedOn: number;
 }
 
@@ -66,7 +69,7 @@ export function feedStats(cards: readonly FeedCard[]): FeedStats {
     approved: approved.length,
     edited,
     editRate: approved.length > 0 ? Math.round((edited / approved.length) * 100) : 0,
-    actedOn: approved.reduce((sum, c) => sum + (c.stake ?? 0), 0),
+    actedOn: stakeActedOn(cards),
   };
 }
 

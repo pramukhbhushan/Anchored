@@ -50,7 +50,8 @@ export function MonthlyBill({ bill }: { readonly bill: Bill }) {
       </ul>
       <p className={styles.finePrint}>
         {bill.plan > 0 && `Includes Anchored at a proposed ${money(bill.plan)} a month for all agents. `}
-        Tools you already pay for count as $0 here. Prices come from pages checked Nov 6 and 7, 2026.
+        Tools you already pay for count as $0 here.
+        {bill.pricesCheckedOn !== null && ` Tool prices come from pages checked ${bill.pricesCheckedOn}.`}
       </p>
     </Card>
   );

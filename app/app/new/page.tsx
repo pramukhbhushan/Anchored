@@ -25,7 +25,7 @@ const NEXT_STEPS: readonly string[] = [
   "Anchored maps the jobs your business does day to day and picks who handles each one.",
   "You look the plan over, change any step, and approve it.",
   "Work only some businesses have, such as a SNAP stocking check, can get its own niche agent.",
-  "Agents you choose start drafting cards for you to approve.",
+  "Agents you choose draft cards for you to approve: samples at first, then real ones once you connect your phone and email.",
 ];
 
 /** Return the line that says who reads the owner's answers and where they are kept. */

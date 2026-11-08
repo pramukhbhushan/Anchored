@@ -41,7 +41,7 @@ describe("Overview page", () => {
     await renderOverview(hvacShop().id);
 
     expect(within(brief()).getByText(/drafts? waits? for you/)).toBeInTheDocument();
-    expect(within(brief()).getByText("These drafts are samples until you connect your phone and email.")).toBeInTheDocument();
+    expect(within(brief()).getByText(/These drafts are samples\. Real ones come from your calls, texts and email once you connect them/)).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Four stops through the example" })).not.toBeInTheDocument();
   });
 
@@ -68,6 +68,37 @@ describe("Overview page", () => {
     expect(within(ledger).getByRole("link", { name: /Catering and events.*Anchored drafts, you approve/ })).toBeInTheDocument();
     expect(within(ledger).getByRole("link", { name: /Bookkeeping and invoicing.*Not handled yet/ })).toBeInTheDocument();
     expect(ledger).not.toHaveTextContent(/turn on|\bbuy\b|\bbuild\b|skip/i);
+  });
+
+  it("puts no dollar figure on sample drafts and makes no claim about this week", async () => {
+    await renderOverview(hvacShop().id);
+
+    expect(brief()).not.toHaveTextContent(/rides on/);
+    expect(brief()).not.toHaveTextContent(/this week/i);
+  });
+
+  it("totals only the dollars on cards from the owner's own events, and counts the samples beside them", async () => {
+    const shop = hvacShop();
+    await stores.current!.ensureCards(SESSION, shop.id, [
+      {
+        // Inbox Triage runs for every business, so its card shows whatever paths the shop picked.
+        key: `${shop.id}:event:email-7`,
+        agent: "internal",
+        skill: "triage",
+        title: "Forwarded email: Jo asks about her $400 invoice",
+        body: "Hand to Bookkeeping and Invoicing.",
+        reason: "You forwarded this email.",
+        checks: [],
+        action: "Hand off",
+        channel: "list",
+        stake: 400,
+      },
+    ]);
+
+    await renderOverview(shop.id);
+
+    expect(within(brief()).getByText("$400 rides on today's cards.")).toBeInTheDocument();
+    expect(within(brief()).getByText(/of these drafts are samples/)).toBeInTheDocument();
   });
 
   it("opens the example with its four stops and no sample line", async () => {

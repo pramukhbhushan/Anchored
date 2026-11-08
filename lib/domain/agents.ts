@@ -20,10 +20,16 @@ import type {
 // onboarding spawns for one business through `spawnNicheAgents`; `rulesFor`
 // lists the rules every agent here works under.
 
-/** The Claude model behind a tier and why that tier fits the work. */
+/** Why a tier fits the work. Which model runs it depends on the server's AI settings, read as an `AiSetup`. */
 export interface ModelTierDef {
-  readonly model: string;
   readonly why: string;
+}
+
+/** The AI provider a server runs and its model for each tier. */
+export interface AiSetup {
+  /** The provider's name for owners, such as "Claude" or "Featherless". */
+  readonly label: string;
+  readonly models: Readonly<Record<ModelTier, string>>;
 }
 
 /** A niche agent onboarding can spawn, and the onboarding fact that spawns it. */
@@ -49,13 +55,13 @@ export const SKILLS: Readonly<Record<SkillId, SkillDef>> = {
     name: "Callback",
     job: "Texts a caller back after a missed call",
     agent: "frontdesk",
-    reads: ["Missed-call alerts from your forwarded line", "Your hours and service area"],
+    reads: ["Missed calls that ring through to your Twilio number"],
     does: ["Drafts one text with two open times"],
     never: ["Sends without your tap", "Texts between 8 p.m. and 8 a.m.", "Quotes a price"],
     tier: "quick",
     setup: [
-      "Get an Anchored phone number",
-      "Turn on conditional call forwarding with your carrier's code, so unanswered calls ring Anchored",
+      "Connect your Twilio number on the Connections page",
+      "Turn on conditional call forwarding with your carrier's code, so unanswered calls ring your Twilio number",
       "Call your own line and let it ring out. The first card appears",
     ],
   },
@@ -64,14 +70,13 @@ export const SKILLS: Readonly<Record<SkillId, SkillDef>> = {
     name: "Inquiry Responder",
     job: "Replies to new leads with two times to talk",
     agent: "frontdesk",
-    reads: ["Your website form, forwarded email and pasted DMs", "Your calendar or booking link"],
+    reads: ["Texts customers send your Twilio number", "Leads you tell Anchored about in chat"],
     does: ["Drafts a reply in your voice"],
     never: ["Sends without your tap", "Puts a price in a first reply"],
     tier: "default",
     setup: [
-      "Point your website form at your Anchored form link",
-      "Forward lead emails to your Anchored address",
-      "Paste a DM into Anchored when one comes in",
+      "Connect your Twilio number on the Connections page, and customers' texts arrive as drafts",
+      "For a lead from a form, email or DM, ask in chat, like 'reply to Sam about a quote'",
     ],
   },
   showup: {
@@ -79,61 +84,55 @@ export const SKILLS: Readonly<Record<SkillId, SkillDef>> = {
     name: "Show-up Keeper",
     job: "Cuts no-shows with reminders",
     agent: "frontdesk",
-    reads: ["Your booking calendar or reservation list"],
-    does: ["Drafts reminders 24 hours and 1 hour before"],
+    reads: ["Bookings you tell Anchored about in chat"],
+    does: ["Drafts a reminder text"],
     never: ["Texts without consent"],
     tier: "quick",
-    setup: ["Connect your calendar or reservation export", "Choose the reminder times"],
+    setup: ["Ask in chat, like 'remind Maria about tomorrow at 10'", "Reading your booking calendar directly isn't built yet"],
   },
   catering: {
     id: "catering",
     name: "Catering Responder",
     job: "Answers catering and event requests",
     agent: "frontdesk",
-    reads: ["Your catering form and forwarded email", "Your packages and kitchen limits"],
-    does: ["Drafts a reply with three packages", "Follows up on day 1, day 3 and week 1, then stops"],
+    reads: ["Catering requests you tell Anchored about in chat"],
+    does: ["Drafts a reply to the request"],
     never: ["Answers allergy questions", "Texts without consent"],
     tier: "default",
-    setup: [
-      "Add your packages and the most guests your kitchen can serve",
-      "Point your catering form at Anchored, or forward requests",
-    ],
+    setup: ["Ask in chat, like 'reply to the party of 30 about catering'", "Reading your catering form directly isn't built yet"],
   },
   callfollow: {
     id: "callfollow",
     name: "Call Follow-up",
     job: "Checks in after 'let me think about it'",
     agent: "followup",
-    reads: ["Calls you mark as undecided"],
-    does: ["Drafts check-ins on day 1, 3 and 7"],
+    reads: ["Calls you tell Anchored about in chat"],
+    does: ["Drafts a check-in"],
     never: ["Sends a fourth check-in"],
     tier: "default",
-    setup: ["After a call, tap 'Said let me think' in Anchored"],
+    setup: ["After a call, ask in chat, like 'follow up with Dana, she said she'd think about it'"],
   },
   closer: {
     id: "closer",
     name: "Closer",
     job: "Chases quotes that went quiet",
     agent: "followup",
-    reads: ["Open quotes from your software or a spreadsheet", "Your allowed offers"],
-    does: ["Drafts three touches, then stops", "Marks the quote won or lost"],
+    reads: ["Quotes you tell Anchored about in chat"],
+    does: ["Drafts a follow-up on the quote"],
     never: ["Offers anything outside your rules", "Sends a fourth touch"],
     tier: "default",
-    setup: [
-      "Upload open quotes as a CSV, or connect your field software",
-      "Pick the offers Closer may mention, such as financing",
-    ],
+    setup: ["Ask in chat, like 'follow up with the Lewis family on their quote'", "Reading open quotes from your software isn't built yet"],
   },
   debrief: {
     id: "debrief",
     name: "Debrief",
     job: "Turns a voice note from the field into a quote follow-up",
     agent: "followup",
-    reads: ["Voice notes texted to your Anchored number"],
+    reads: ["Voice notes from your techs"],
     does: ["Pulls out the job, price and next step", "Hands the follow-up to Closer"],
     never: ["Contacts a customer by itself"],
     tier: "default",
-    setup: ["Add each tech's phone number", "Techs text a 30-second voice note after each visit"],
+    setup: ["Not built yet: voice notes can't reach Anchored today. Until then, ask Closer in chat"],
   },
   reactivator: {
     id: "reactivator",
@@ -144,73 +143,73 @@ export const SKILLS: Readonly<Record<SkillId, SkillDef>> = {
     does: ["Drafts a batch you approve once"],
     never: ["Texts anyone without written consent", "Sends a promotion after 8 p.m."],
     tier: "default",
-    setup: ["Upload past customers with their consent source", "Pick the season and the offer"],
+    setup: ["Add past customers and where their texting OK came from on the Connections page", "Ask in chat, like 'invite past customers back for spring'"],
   },
   keeper: {
     id: "keeper",
     name: "Keeper",
     job: "Renews maintenance plans before they lapse",
     agent: "followup",
-    reads: ["Plan list with renewal dates"],
-    does: ["Drafts renewal texts 30 days out"],
+    reads: ["Renewals you tell Anchored about in chat"],
+    does: ["Drafts a renewal text"],
     never: ["Charges a card", "Texts without consent"],
     tier: "quick",
-    setup: ["Upload your plan list with renewal dates"],
+    setup: ["Ask in chat, like 'remind Pat their plan renews next month'", "Reading a plan list with renewal dates isn't built yet"],
   },
   referral: {
     id: "referral",
     name: "Referral Ask",
     job: "Asks finishing customers for a testimonial and a referral",
     agent: "followup",
-    reads: ["Program or project end dates"],
-    does: ["Drafts the ask two weeks before the end"],
+    reads: ["Customers you name in chat"],
+    does: ["Drafts one ask for a testimonial and a referral"],
     never: ["Ties a reward to a rating"],
     tier: "quick",
-    setup: ["Add end dates for current clients"],
+    setup: ["Ask in chat, like 'ask Jo for a referral'"],
   },
   reviewer: {
     id: "reviewer",
     name: "Review Asker",
     job: "Asks for a Google review after a finished job or visit",
     agent: "followup",
-    reads: ["Finished, paid jobs or visits", "Your Google review link"],
+    reads: ["Finished jobs you tell Anchored about in chat"],
     does: ["Drafts one review request"],
     never: ["Offers a reward for a rating", "Writes a review"],
     tier: "quick",
-    setup: ["Paste your Google review link", "Mark jobs done in your software or in Anchored"],
+    setup: ["After a finished job, ask in chat, like 'ask the Lewis family for a review'"],
   },
   nudger: {
     id: "nudger",
     name: "Payment Nudger",
     job: "Reminds customers about late invoices",
     agent: "books",
-    reads: ["Your invoices, from Stripe, QuickBooks or a spreadsheet"],
+    reads: ["Unpaid invoices from Stripe", "Invoices you tell Anchored about in chat"],
     does: ["Drafts a friendly reminder"],
     never: ["Charges a card", "Adds late fees on its own"],
     tier: "quick",
-    setup: ["Connect Stripe, or upload an invoice list", "Set how many days late counts as late"],
+    setup: ["Connect Stripe on the Connections page, and unpaid invoices arrive as drafts", "Or ask in chat, like 'remind Jordan about invoice 1042'"],
   },
   pricewatch: {
     id: "pricewatch",
     name: "Price Watch",
     job: "Checks supplier invoices against the last price you paid",
     agent: "books",
-    reads: ["Photos of paper or PDF invoices"],
+    reads: ["Supplier invoices"],
     does: ["Checks the invoice math in code", "Flags price rises", "Adds them to your list for the rep"],
     never: ["Contacts a customer", "Changes a shelf or menu price"],
     tier: "default",
-    setup: ["Photograph your last two invoices from each supplier", "Confirm the lines Anchored read"],
+    setup: ["Not built yet: Anchored can't read invoice images or PDFs today"],
   },
   posts: {
     id: "posts",
     name: "Post Drafter",
     job: "Drafts social posts and Google listing updates",
     agent: "content",
-    reads: ["Your menu, services, hours and specials"],
+    reads: ["What you ask it to post about in chat"],
     does: ["Drafts posts for you to publish"],
     never: ["Posts for you", "Edits your listing without you"],
     tier: "quick",
-    setup: ["Paste your website or menu link", "Pick how often you want a draft"],
+    setup: ["Ask in chat, like 'write a post about our holiday hours'"],
   },
   reviewdrafter: {
     id: "reviewdrafter",
@@ -221,7 +220,7 @@ export const SKILLS: Readonly<Record<SkillId, SkillDef>> = {
     does: ["Drafts a reply that cites one detail"],
     never: ["Posts for you", "Argues with a reviewer"],
     tier: "quick",
-    setup: ["Paste a new review into Anchored"],
+    setup: ["Paste a new review into the chat and ask for a reply"],
   },
   brief: {
     id: "brief",
@@ -237,24 +236,24 @@ export const SKILLS: Readonly<Record<SkillId, SkillDef>> = {
   triage: {
     id: "triage",
     name: "Inbox Triage",
-    job: "Sorts emails you forward and hands each to the right agent",
+    job: "Puts each email you forward in front of you as a card",
     agent: "internal",
     reads: ["Emails you forward to your Anchored address"],
-    does: ["Hands each email to the right agent as a card"],
+    does: ["Shows each forwarded email as a card"],
     never: ["Replies to anyone on its own", "Reads your inbox directly"],
     tier: "quick",
-    setup: ["Forward emails to your Anchored address"],
+    setup: ["Get your forwarding address on the Connections page", "Forward emails to it"],
   },
   license: {
     id: "license",
     name: "License Clerk",
     job: "Keeps every license and renewal on one calendar",
     agent: "internal",
-    reads: ["A photo of each license or permit"],
+    reads: ["Your licenses and permits"],
     does: ["Warns you 30 days before a renewal"],
     never: ["Files anything for you"],
     tier: "quick",
-    setup: ["Photograph each license and permit"],
+    setup: ["Not built yet: Anchored can't read license images today"],
   },
   stockcheck: {
     id: "stockcheck",
@@ -382,9 +381,9 @@ function sellsFood(business: Pick<BusinessProfile, "tradeKey" | "signals">): boo
 // Model tiers
 // =============================================================================
 
-/** The Claude model each tier runs on. */
+/** Why each tier fits its work. The model behind it comes from the server's AI settings. */
 export const MODEL_TIERS: Readonly<Record<ModelTier, ModelTierDef>> = {
-  quick: { model: "Claude Haiku 5.5", why: "Short, routine text, so the fastest model is enough." },
-  default: { model: "Claude Sonnet 5.5", why: "Writes in your voice about a specific job." },
-  complex: { model: "Claude Opus 5.5", why: "Plans across many records." },
+  quick: { why: "Short, routine text, so the fastest model is enough." },
+  default: { why: "Writes in your voice about a specific job." },
+  complex: { why: "Plans across many records." },
 };

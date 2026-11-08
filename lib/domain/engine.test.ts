@@ -201,6 +201,8 @@ describe("profiles", () => {
     ["I run a bakery called Rise & Crumb in Frederick", "Rise & Crumb", "Bakery in Frederick"],
     ["We're Bright Smile Dental, a family dental office", "Bright Smile Dental", "Family dental office"],
     ["I run a bakery with 9 staff", "Your business", "Bakery with 9 staff"],
+    ["Fresh Cut Lawn Care in Bowie, MD mows lawns and sends quotes", "Fresh Cut Lawn Care", "Fresh Cut Lawn Care in Bowie, MD mows lawns and sends quotes"],
+    ["I run Fresh Cut Lawn Care in Bowie", "Fresh Cut Lawn Care", "Fresh Cut Lawn Care in Bowie"],
   ])("pulls the name from a sentence that has one: %s", (sentence, name, trade) => {
     expect(profileFromSentence(sentence)).toMatchObject({ name, trade });
   });

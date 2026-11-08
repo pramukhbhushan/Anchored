@@ -1,7 +1,7 @@
 import { TOOL_STEPS } from "@/components/workflows/copy";
 import { money } from "@/components/view-helpers";
 import { SKILLS } from "@/lib/domain/agents";
-import { toolName } from "@/lib/domain/catalog";
+import { checkedSpan, toolName } from "@/lib/domain/catalog";
 import { activeAgents, chosenTools, monthlyCost, resolveChoices, stackCost, workflowIdsOf } from "@/lib/domain/paths";
 import type { BusinessProfile, ChoiceMap, Tool, WorkflowId } from "@/lib/domain/types";
 import { WORKFLOWS } from "@/lib/domain/workflows";
@@ -54,6 +54,8 @@ export interface MonthlyBill {
   readonly segments: readonly BillSegment[];
   /** Always all four groups, in bill order, so the legend keeps its shape. */
   readonly groups: readonly BillGroup[];
+  /** When the prices of the tools on the bill were checked, such as "Nov 6 and 7, 2026", or `null` with no tool on it. */
+  readonly pricesCheckedOn: string | null;
 }
 
 /** The bill's name for Anchored's own segment. */
@@ -101,6 +103,7 @@ export function monthlyBill(business: BusinessProfile, choices: ChoiceMap): Mont
       { id: "turnon", amount: 0, lines: turnonLines },
       { id: "skip", amount: 0, lines: skipLines },
     ],
+    pricesCheckedOn: checkedSpan(tools.map(({ tool }) => tool.checkedOn)),
   };
 }
 

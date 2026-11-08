@@ -129,6 +129,36 @@ describe("AgentCard", () => {
     expect(within(toast).getByRole("link", { name: "Send from your email" }).getAttribute("href")).toMatch(/^mailto:\?subject=A%20note%20from%20Greenfield%20Landscaping&body=Hi%20Sam/);
   });
 
+  it("says Anchored sent it, with no send step, when the connected service took the text", async () => {
+    stubFetch(() => decided(CARD, { outbox: { ...outboxFor(CARD), to: "+13015550192", delivery: "sent" } }));
+    renderCard(CARD);
+
+    await userEvent.click(screen.getByRole("button", { name: /^Approve/ }));
+
+    const toast = await findToast("Approved. Anchored sent the text to +13015550192.");
+    expect(within(toast).queryByRole("link", { name: "Send from your phone" })).not.toBeInTheDocument();
+  });
+
+  it("says the send failed and why, then offers to send it from the owner's phone", async () => {
+    stubFetch(() => decided(CARD, { outbox: { ...outboxFor(CARD), delivery: "failed", note: "Twilio refused the number." } }));
+    renderCard(CARD);
+
+    await userEvent.click(screen.getByRole("button", { name: /^Approve/ }));
+
+    const toast = await findToast("Approved, but it didn't send: Twilio refused the number.");
+    expect(within(toast).getByRole("link", { name: "Send from your phone" })).toBeInTheDocument();
+  });
+
+  it("says a queued text waits for Anchored to send it, without claiming it went out", async () => {
+    stubFetch(() => decided(CARD, { outbox: { ...outboxFor(CARD), delivery: "queued" } }));
+    renderCard(CARD);
+
+    await userEvent.click(screen.getByRole("button", { name: /^Approve/ }));
+
+    const toast = await findToast("Approved. Anchored will send the text.");
+    expect(within(toast).queryByRole("link", { name: "Send from your phone" })).not.toBeInTheDocument();
+  });
+
   it("points to the outbox when the route logged no entry", async () => {
     stubFetch(() => decided(CARD));
     renderCard(CARD);

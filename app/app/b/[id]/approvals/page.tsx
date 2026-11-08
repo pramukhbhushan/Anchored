@@ -49,7 +49,9 @@ function deliveryLine(entry: OutboxEntry, held: boolean): string | null {
   if (entry.delivery === "sent") return "Sent by Anchored";
   if (entry.delivery === "failed") return entry.note === null ? "Didn't send. Send it yourself." : `Didn't send: ${entry.note}`;
   if (held) return `Ready to send at ${sendTimeText(new Date(entry.sentAt))}`;
-  if (entry.delivery === "queued" || entry.delivery === "sending") return "Sending now";
+  if (entry.delivery === "sending") return "Sending now";
+  // Due but not yet picked up: the scheduled sender takes it on its next run, so nothing has gone out yet.
+  if (entry.delivery === "queued") return "Waiting for Anchored to send it";
   return entry.note;
 }
 
@@ -106,10 +108,9 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
   const canSimulate = business.kind === "case" && chosenSkills(business, choices).length > 0;
   const canRewrite = isAiConfigured();
   const handOffBusiness: HandOffBusiness = { name: business.name, reach: business.reach, tools: business.tools };
-  // An owner's feed holds examples until a connected channel's real drafts replace them.
-  const showsExamples = business.kind === "custom" && !feed.examplesHidden;
-
   const waiting = feed.cards.filter((c) => c.status === "pending");
+  // The subtitle calls the drafts examples only while an example still waits; once they're cleared it would be false.
+  const showsExamples = business.kind === "custom" && !feed.examplesHidden && waiting.some((c) => c.example === true);
   const decided = feed.cards.filter((c) => c.status !== "pending");
   const cardById = new Map(feed.cards.map((c) => [c.id, c]));
   const now = new Date().toISOString();
@@ -201,7 +202,8 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
               </div>
               {outbox.length === 0 ? (
                 <p className="phone-empty">
-                  Approve a card and it lands here. Each one opens your own texting or email app with the message typed out, or gives you the words to paste.
+                  Approve a card and it lands here, with who sends it. Anchored sends through the texting and email you connect. Anything else opens your own
+                  texting or email app with the message typed out, or gives you the words to paste.
                 </p>
               ) : (
                 <>

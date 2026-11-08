@@ -74,7 +74,7 @@ export const SKILL_STEPS: Readonly<Record<SkillId, WorkSteps>> = {
     result: "A renewed plan",
   },
   referral: {
-    trigger: "A client is two weeks from finishing",
+    trigger: "A customer's job or visit wraps up well",
     draft: "An ask for a testimonial and a referral",
     result: "A testimonial and a new lead",
   },
@@ -94,7 +94,7 @@ export const SKILL_STEPS: Readonly<Record<SkillId, WorkSteps>> = {
     result: "A price rise caught before it eats your margin",
   },
   posts: {
-    trigger: "Your hours, menu or specials change",
+    trigger: "Your hours, services or specials change",
     draft: "A post for you to publish",
     result: "Customers see the right hours and specials",
   },
@@ -110,7 +110,7 @@ export const SKILL_STEPS: Readonly<Record<SkillId, WorkSteps>> = {
   },
   triage: {
     trigger: "You forward an email to Anchored",
-    draft: "A card for the right agent",
+    draft: "The email, as a card for you",
     result: "Nothing lost in your inbox",
   },
   license: {
@@ -127,9 +127,10 @@ export const SKILL_STEPS: Readonly<Record<SkillId, WorkSteps>> = {
 
 /** Triggers said in one trade's own words; every other trade and skill uses `SKILL_STEPS`. */
 export const TRADE_TRIGGERS: Readonly<Partial<Record<TradeKey, Partial<Record<SkillId, string>>>>> = {
-  restaurant: { showup: "A guest books a table" },
+  restaurant: { showup: "A guest books a table", posts: "Your hours, menu or specials change" },
+  store: { posts: "Your hours, stock or specials change" },
   home: { showup: "A customer books a visit" },
-  coach: { showup: "Someone books a discovery call" },
+  coach: { showup: "Someone books a discovery call", referral: "A client is two weeks from finishing" },
 };
 
 /** What a tool covering each workflow does, in the owner's words. */
@@ -205,8 +206,8 @@ export const TOOL_STEPS: Readonly<Record<WorkflowId, ToolSteps>> = {
     result: "A renewed plan",
   },
   referrals: {
-    trigger: "A client nears the end of their program",
-    does: "Asks finishing clients for referrals",
+    trigger: "A customer's work with you wraps up",
+    does: "Asks happy customers for referrals",
     result: "A new referral",
   },
 };
