@@ -88,6 +88,18 @@ export function readInvoiceMessage(text: string): InvoiceMessage {
   return { kind: "paid", facts, missing: facts.number === null && facts.name === null ? ["invoice"] : [] };
 }
 
+/**
+ * Whether an owner's message is about one of their invoices, rather than money the business itself paid or
+ * owes. "Sam owes $240" and "invoice 1042 is settled" are; "we paid $300 for ads" and "rent is overdue" aren't.
+ */
+export function talksAboutInvoice(message: InvoiceMessage, text: string): boolean {
+  if (message.kind === "none") return false;
+  const { name, number, amount } = message.facts;
+  if (name !== null || number !== null || /\binvoices?\b|\bbills?\b/i.test(text)) return true;
+  // "Someone owes me $200" is still a customer's debt; an amount alone never makes a payment the business's invoice.
+  return message.kind === "owed" && amount !== null;
+}
+
 /** The question Anchored asks when an owner's message leaves out a fact it needs. */
 export function followUpQuestion(message: Exclude<InvoiceMessage, { kind: "none" }>): string | null {
   const { missing, facts } = message;

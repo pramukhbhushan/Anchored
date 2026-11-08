@@ -11,6 +11,7 @@ import {
   readInvoiceMessage,
   reminderRecords,
   remindersFor,
+  talksAboutInvoice,
   type InvoiceCard,
   type InvoiceFacts,
   type ReminderRecord,
@@ -278,5 +279,24 @@ describe("matchPaidInvoice", () => {
       { invoiceKey: "n:1046", status: "approved" },
       { invoiceKey: "n:2000", status: "pending" },
     ]);
+  });
+});
+
+describe("talksAboutInvoice", () => {
+  const about = (text: string) => talksAboutInvoice(readInvoiceMessage(text), text);
+
+  it("is true for a customer's debt or payment", () => {
+    expect(about("Sam Lee owes $240")).toBe(true);
+    expect(about("someone owes me $200")).toBe(true);
+    expect(about("invoice 1042 is settled")).toBe(true);
+    expect(about("Maya paid")).toBe(true);
+    expect(about("the bill is overdue")).toBe(true);
+  });
+
+  it("is false for money the business paid, or debts with nothing to go on", () => {
+    expect(about("We paid $300 for new ads")).toBe(false);
+    expect(about("rent is overdue")).toBe(false);
+    expect(about("got paid today")).toBe(false);
+    expect(about("write a post about our group program")).toBe(false);
   });
 });

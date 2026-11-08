@@ -155,3 +155,74 @@ describe("the example business's chat, asked for work", () => {
     expect(await stores.current!.listCards(SESSION, SAMPLE_BUSINESS.id)).toEqual([]);
   });
 });
+
+describe("Bookkeeping in an owner's chat", () => {
+  const shop = hvacShop();
+  const store = () => stores.current!;
+  const say = (text: string) => sendBusinessChat(SESSION, shop, text);
+  const reminders = async () => (await store().listCards(SESSION, shop.id)).filter((card) => card.skill === "nudger" && card.invoice);
+
+  beforeEach(async () => {
+    await store().setChoice(SESSION, shop.id, "books", { path: "build", skills: ["nudger"] });
+  });
+
+  it("drafts a reminder from what the owner typed and links the reply to it", async () => {
+    await store().saveContact(SESSION, { businessId: shop.id, name: "Maya Chen", phone: null, email: "maya.chen@example.com", consent: null, optedOutAt: null });
+
+    const sent = await say("Maya Chen owes $450 on invoice 1042, due Oct 20");
+
+    const reply = sent.messages.at(-1);
+    expect(reply?.text).toBe("Bookkeeping and Invoicing drafted a reminder to Maya Chen for $450 on invoice 1042. It's waiting in Approvals.");
+    const [card] = await reminders();
+    expect(card).toMatchObject({ key: chatCardKey(shop.id, reply!.id), to: "maya.chen@example.com", stake: 450, invoice: { key: "n:1042" } });
+    expect(card?.body).toContain("for $450 was due Oct 20");
+    expect(reply?.card).toEqual({ key: card?.key, title: "Maya Chen owes $450 on invoice 1042", status: "pending" });
+  });
+
+  it("says how to send it when the customer has no email on file", async () => {
+    const sent = await say("Jordan Ellis owes $1,200 on invoice 1043");
+    expect(sent.messages.at(-1)?.text).toContain("Add Jordan Ellis's email in Connections so Anchored can send it, or send it yourself.");
+    expect((await reminders())[0]).toMatchObject({ to: "Jordan Ellis", stake: 1200 });
+  });
+
+  it("asks for a missing amount and drafts nothing", async () => {
+    const sent = await say("Jordan still owes me");
+    expect(sent.messages.at(-1)?.text).toBe("How much does Jordan owe? I'll only use the amount you give me.");
+    expect(await store().listCards(SESSION, shop.id)).toEqual([]);
+  });
+
+  it("refuses a third reminder in the owner's words", async () => {
+    await say("Maya Chen owes $450 on invoice 1042");
+    await say("Maya Chen owes $450 on invoice 1042");
+    const sent = await say("Maya Chen owes $450 on invoice 1042");
+    expect(sent.messages.at(-1)?.text).toBe("Invoice 1042 already has 2 reminders. Anchored won't send a third. Call the customer if it's still unpaid.");
+    expect(await reminders()).toHaveLength(2);
+  });
+
+  it("marks an invoice paid and says how many reminders it stopped", async () => {
+    await say("Maya Chen owes $450 on invoice 1042");
+    const sent = await say("Maya paid 1042");
+    expect(sent.messages.at(-1)?.text).toBe("Marked invoice 1042 from Maya paid. I stopped 1 reminder that was waiting.");
+    expect((await reminders())[0]?.status).toBe("superseded");
+  });
+
+  it("asks which invoice when a customer with two open ones paid", async () => {
+    await say("Maya Chen owes $450 on invoice 1042");
+    await say("Maya Chen owes $90 on invoice 1046");
+    const sent = await say("Maya Chen paid in full");
+    expect(sent.messages.at(-1)?.text).toBe("Maya Chen has more than one open invoice: invoice 1042 and invoice 1046. Which one was paid?");
+    expect((await reminders()).every((card) => card.status === "pending")).toBe(true);
+  });
+
+  it("leaves money the business itself paid to the profile reader", async () => {
+    const sent = await say("We paid $300 for new ads last month");
+    expect(sent.messages.at(-1)?.text).not.toMatch(/Which invoice|reminder/);
+    expect(await store().listCards(SESSION, shop.id)).toEqual([]);
+  });
+
+  it("leaves invoice talk to the request reader when Bookkeeping isn't working", async () => {
+    await store().setChoice(SESSION, shop.id, "books", { path: "skip" });
+    await say("Maya Chen owes $450 on invoice 1042");
+    expect(await reminders()).toEqual([]);
+  });
+});

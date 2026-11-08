@@ -231,14 +231,26 @@ function allergyLock(card: KeyedCard, payload: Readonly<Record<string, unknown>>
   };
 }
 
-/** The result of one event: the stored card's key, or why no card was drafted. */
-export type IngestResult = { readonly ok: true; readonly key: string } | { readonly ok: false; readonly status: number; readonly error: string };
+/** The result of one event: the stored card's key, or why no card was drafted. A payment also says how many reminders it stopped. */
+export type IngestResult =
+  | { readonly ok: true; readonly key: string; readonly canceled?: { readonly cards: number; readonly outbox: number } }
+  | { readonly ok: false; readonly status: number; readonly error: string };
 
-/**
- * Record an event for `business` in `session` and draft a card from the skill that handles its source. A
- * `simulated` event counts toward the simulator's rotation; a `live` one, from a webhook, never does.
- */
-export async function ingestEvent(session: string, business: BusinessProfile, source: string, rawPayload: unknown, origin: "simulated" | "live"): Promise<IngestResult> {
+type Refusal = Extract<IngestResult, { ok: false }>;
+
+/** An event that passed every check, with what drafting it needs. */
+interface Prepared {
+  readonly ok: true;
+  readonly payload: Readonly<Record<string, unknown>>;
+  readonly skill: SkillId;
+  readonly choices: ReturnType<typeof resolveChoices>;
+  readonly stored: Awaited<ReturnType<ReturnType<typeof getStore>["listCards"]>>;
+  /** For a payment, the invoice it settles, or `null` when no reminder matches it. */
+  readonly paidKey: string | null;
+}
+
+/** Run every check an event must pass before anything is stored: a known source, exact fields, a skill to act, and Bookkeeping's rules. */
+async function prepareEvent(session: string, business: BusinessProfile, source: string, rawPayload: unknown): Promise<Prepared | Refusal> {
   // `hasOwn` keeps names like `constructor` from matching inherited object properties.
   if (!Object.hasOwn(SOURCE_SKILLS, source) || !Object.hasOwn(PAYLOADS, source)) {
     return { ok: false, status: 404, error: `Unknown event source. Use one of: ${EVENT_SOURCES.join(", ")}.` };
@@ -257,14 +269,10 @@ export async function ingestEvent(session: string, business: BusinessProfile, so
     const names = candidates.map((candidate) => SKILLS[candidate].name).join(" or ");
     return { ok: false, status: 409, error: `Nothing in this plan handles a ${source} event. Let Anchored draft the workflow that uses ${names}.` };
   }
-  // Store the event only once it is valid and some skill will act on it.
-  await store.recordEvent(session, business.id, source, payload);
-
   const stored = await store.listCards(session, business.id);
-  const turn = stored.filter((card) => card.key.includes(":sim:")).length + 1;
 
-  // Bookkeeping's two rules run before any card is drafted: at most two reminders per invoice, and a payment stops the rest.
-  let canceled: { readonly cards: number; readonly outbox: number } | null = null;
+  // Bookkeeping's rules: at most two reminders per invoice, and a payment must name one invoice.
+  let paidKey: string | null = null;
   if (source === "invoice-late") {
     const ref = invoiceRef(payload);
     if (ref === null) return { ok: false, status: 409, error: "Anchored can't tell this invoice apart from the others, so it won't draft a reminder. Add the invoice number or the customer's name or email." };
@@ -275,8 +283,43 @@ export async function ingestEvent(session: string, business: BusinessProfile, so
   if (source === "invoice-paid") {
     const match = matchPaidInvoice(stored, { number: text(payload, "number", 40), email: text(payload, "email", 200), name: text(payload, "name"), amount: amount(payload, "amount") });
     if (match.kind === "ambiguous") return { ok: false, status: 409, error: `${text(payload, "name") ?? "This customer"} has more than one open invoice: ${match.options.join(" and ")}. Which one was paid?` };
+    paidKey = match.kind === "match" ? match.key : null;
+  }
+  return { ok: true, payload, skill, choices, stored, paidKey };
+}
+
+/** Check an event the way `ingestEvent` would, changing nothing. The chat uses it to answer before it drafts. */
+export async function checkEvent(session: string, business: BusinessProfile, source: string, rawPayload: unknown): Promise<{ readonly ok: true } | Refusal> {
+  const prepared = await prepareEvent(session, business, source, rawPayload);
+  return prepared.ok ? { ok: true } : prepared;
+}
+
+/**
+ * Record an event for `business` in `session` and draft a card from the skill that handles its source. A
+ * `simulated` event counts toward the simulator's rotation; a `live` one, from a webhook, never does. `key`
+ * stores the card under a key the caller chose, such as the chat reply that answers it.
+ */
+export async function ingestEvent(
+  session: string,
+  business: BusinessProfile,
+  source: string,
+  rawPayload: unknown,
+  origin: "simulated" | "live",
+  options: { readonly key?: string } = {},
+): Promise<IngestResult> {
+  const prepared = await prepareEvent(session, business, source, rawPayload);
+  if (!prepared.ok) return prepared;
+  const { payload, skill, choices, stored, paidKey } = prepared;
+  const store = getStore();
+  // Store the event only once it is valid and some skill will act on it.
+  await store.recordEvent(session, business.id, source, payload);
+  const turn = stored.filter((card) => card.key.includes(":sim:")).length + 1;
+
+  // A payment stops the invoice's waiting reminders before its note is drafted, so the note can say how many.
+  let canceled: { readonly cards: number; readonly outbox: number } | null = null;
+  if (source === "invoice-paid") {
     const which = text(payload, "number", 40);
-    canceled = match.kind === "match" ? await store.cancelInvoiceReminders(session, business.id, match.key, `Not sent: ${which ? `invoice ${which}` : "the invoice"} was paid.`) : { cards: 0, outbox: 0 };
+    canceled = paidKey === null ? { cards: 0, outbox: 0 } : await store.cancelInvoiceReminders(session, business.id, paidKey, `Not sent: ${which ? `invoice ${which}` : "the invoice"} was paid.`);
   }
   // Triage has no workflow to narrow to, so its card comes straight from the template,
   // told which agents are at work so it only routes to one that exists.
@@ -289,7 +332,7 @@ export async function ingestEvent(session: string, business: BusinessProfile, so
   const message = text(payload, "message", 2000) ?? text(payload, "text", 2000) ?? "";
   const drafted = canceled !== null ? paidCard(card, payload, canceled) : mentionsAllergen(message) ? allergyLock(card, payload) : personalize(card, source, business, payload);
   // The random suffix keeps two events arriving together from sharing a key.
-  const key = origin === "simulated" ? `${card.key}-${randomUUID().slice(0, 8)}` : liveEventKey(business.id, randomUUID());
+  const key = options.key ?? (origin === "simulated" ? `${card.key}-${randomUUID().slice(0, 8)}` : liveEventKey(business.id, randomUUID()));
   await store.ensureCards(session, business.id, [{ ...drafted, key }]);
-  return { ok: true, key };
+  return canceled === null ? { ok: true, key } : { ok: true, key, canceled };
 }
