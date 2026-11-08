@@ -213,6 +213,37 @@ describe("written starters", () => {
   });
 });
 
+describe("the owner's voice", () => {
+  const brightwater = (): BusinessProfile => ({
+    ...plumber(),
+    voice: "Friendly and direct, with a personal touch.",
+    details: { examples: [{ kind: "message", text: "Hey Mrs. Patel, Mike from Brightwater here. I can swing by Thursday." }] },
+  });
+
+  it("feeds the model the owner's own sample and first name, not a summary of them", async () => {
+    const model = modelWriting((prompt) => draftsForEverySkill(() => "Thanks for reaching out, we can help.", prompt));
+    models.current = model;
+    await stores.current!.saveBusiness(SESSION, brightwater());
+
+    await writeStarters(SESSION, brightwater());
+
+    expect(model.prompts[0]).toContain("Hey Mrs. Patel, Mike from Brightwater here.");
+    expect(model.prompts[0]).toContain("Mike");
+    expect(model.prompts[0]).not.toContain("I'll send the link next");
+  });
+
+  it("keeps a callback that offers two open times as marked blanks for the owner to fill", async () => {
+    const body = "Hey Ana, Mike from Greenbelt Plumbing here, sorry I missed you. I can call you back [first time] or [second time], which works?";
+    models.current = modelWriting((prompt) => draftsForEverySkill((skill) => (skill === "callback" ? body : "Thanks for reaching out, we can help."), prompt));
+    const business = plumber();
+
+    await writeStarters(SESSION, business);
+
+    const callback = (await storedCards(business)).find((card) => card.skill === "callback");
+    expect(callback?.body).toContain("[first time] or [second time]");
+  });
+});
+
 describe("a draft that breaks a rule", () => {
   it.each([
     ["a price", "We can do it for $99 if you book today."],

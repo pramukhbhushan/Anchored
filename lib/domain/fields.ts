@@ -53,7 +53,7 @@ export const FIELDS: Readonly<Record<FieldKey, FieldDef>> = {
     key: "pricingMethod",
     label: "How you charge",
     needs: { frontdesk: "must", followup: "must", books: "must" },
-    ask: { prompt: "How do you charge?", example: "A set menu, by the hour, a quote for each request, or packages" },
+    ask: { prompt: "How do you charge?", example: "Set prices, by the hour, a quote for each request, or packages" },
   },
   prices: {
     key: "prices",

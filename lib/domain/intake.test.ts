@@ -154,6 +154,106 @@ describe("the question plan", () => {
     expect(question(after).field).not.toBe("gap:vocabulary");
   });
 
+  const plumber = (): IntakeDraft =>
+    converse([
+      text("Brightwater Plumbing, Silver Spring, MD"),
+      picks("Home services"),
+      text("Drain cleaning and water heaters for homeowners"),
+      picks("Phone calls"),
+      picks(),
+      picks("quotes"),
+      picks("English"),
+      text("Calling people back"),
+      text("Hey Mrs. Patel, Mike from Brightwater here. I can come by Thursday."),
+    ]).draft;
+
+  it("applies a vocabulary correction to only the word it names", () => {
+    const start = plumber();
+    expect(question(start).field).toBe("gap:vocabulary");
+
+    const after = answer(start, text("Mostly, but we call a booking a service call, not a visit."));
+
+    expect(after.details?.vocabulary).toEqual({ customer: "customer", workUnit: "job", priceTerm: "estimate", bookingTerm: "service call" });
+  });
+
+  it("keeps the old words and asks once more when it can't tell which word a correction changes", () => {
+    const start = plumber();
+    const before = start.details?.vocabulary;
+
+    const once = answer(start, text("Mostly, but some of it is a bit different for us."));
+
+    expect(once.details?.vocabulary).toEqual(before);
+    expect(question(once).field).toBe("gap:vocabulary");
+    const twice = answer(once, text("Hard to say really."));
+    expect(twice.details?.vocabulary).toEqual(before);
+    expect(question(twice).field).not.toBe("gap:vocabulary");
+  });
+
+  it("reads the owner's first name from a voice sample that signs it, so it never asks for it", () => {
+    const draft = plumber();
+
+    expect(draft.details?.ownerName).toBe("Mike");
+    expect(throughGaps(draft).gaps).not.toContain("gap:ownerName");
+  });
+
+  it("asks once more after a vague answer about what the business sells, and never stores it", () => {
+    const atWhat = converse([text("Brightwater Plumbing, Silver Spring, MD"), picks("Home services")]).draft;
+
+    const vague = answer(atWhat, text("oh, you know, the usual stuff"));
+
+    expect(vague.facts.what).toBeUndefined();
+    expect(question(vague).field).toBe("what");
+    expect(composeReply(atWhat, vague, "what", readAnswer("oh, you know, the usual stuff", "what"), "Thanks for clarifying those services.")).not.toMatch(/thanks for clarifying/i);
+    const still = answer(vague, text("just the usual stuff really"));
+    expect(still.facts.what).toBeUndefined();
+    expect(question(still).field).toBe("reach");
+  });
+
+  it("applies a correction to what the business sells made inside another answer", () => {
+    const atLanguages = converse([
+      text("Brightwater Plumbing, Silver Spring, MD"),
+      picks("Home services"),
+      text("Plumbing for homeowners"),
+      picks("Phone calls"),
+      picks(),
+      picks("quotes"),
+    ]).draft;
+    expect(question(atLanguages).field).toBe("languages");
+    const said = "English and Spanish. And sorry, to correct my earlier answer: we do drain cleaning, water heater installs and emergency leak repair.";
+
+    const after = answer(atLanguages, text(said));
+
+    expect(after.facts.languages).toEqual(["English", "Spanish"]);
+    expect(after.facts.what).toBe("Drain cleaning, water heater installs and emergency leak repair");
+  });
+
+  it("drops a model acknowledgement that claims a correction nobody applied", () => {
+    const atLanguages = converse([text("Brightwater Plumbing, Silver Spring, MD"), picks("Home services"), text("Plumbing for homeowners"), picks("Phone calls"), picks(), picks("quotes")]).draft;
+    const after = answer(atLanguages, text("English and Spanish"));
+
+    const reply = composeReply(atLanguages, after, "languages", readAnswer("English and Spanish", "languages"), "Thanks for the languages and service corrections.");
+
+    expect(reply).not.toMatch(/correction/i);
+  });
+
+  it("offers a plumber only the chips and words that fit the trade", () => {
+    const named = converse([text("Brightwater Plumbing, Silver Spring, MD"), picks("Home services"), text("Drain cleaning and water heaters for homeowners")]).draft;
+    const labels = (draft: IntakeDraft) => (question(draft).options ?? []).map((option) => option.label);
+
+    expect(labels(named)).not.toEqual(expect.arrayContaining(["Walk-ins"]));
+    expect(labels(named)).not.toContain("Delivery apps");
+    const signals = answer(answer(named, picks("Phone calls")), picks());
+    expect(question(signals).field).toBe("signals");
+    expect(labels(signals).join(" ")).not.toMatch(/catering|SNAP|tables/i);
+    expect(labels(signals)).toContain("Customers book appointments");
+  });
+
+  it("keeps every chip for a trade it doesn't know", () => {
+    const named = converse([text("Ridge Dental, Laurel, MD"), text("dental office"), text("Cleanings and fillings")]).draft;
+
+    expect((question(named).options ?? []).map((option) => option.label)).toEqual(expect.arrayContaining(["Walk-ins", "Delivery apps"]));
+  });
+
   it("fills several facts from one sentence and skips the questions they answer", () => {
     let draft = answer(newDraft(), text("I run a food truck in Baltimore that does catering"));
     expect(draft.facts).toMatchObject({ kind: "Food truck", place: "Baltimore" });
