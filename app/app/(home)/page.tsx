@@ -69,6 +69,11 @@ function SampleCard({ business }: { readonly business: BusinessProfile }) {
           <p className="case-text">{business.caseStudy.statText}</p>
         </div>
       )}
+      {/* The title's link already covers the card; this says so where the eye lands, so it is hidden from screen readers. */}
+      <p className="case-go" aria-hidden="true">
+        Open the example
+        <ArrowRight size={16} />
+      </p>
       <ul>
         {topWorkflows(business, 3).map((w) => (
           <li key={w.id}>

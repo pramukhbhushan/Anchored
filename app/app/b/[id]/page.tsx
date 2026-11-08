@@ -1,6 +1,7 @@
 import { ChevronRight, Inbox, MessageSquare, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ExampleTour } from "@/components/business/ExampleTour";
 import { SimulateButton } from "@/components/business/SimulateButton";
 import { NEW_BUSINESS_HREF, businessHref, cardAnchor } from "@/components/routes";
 import { ButtonLink } from "@/components/ui/Button";
@@ -16,7 +17,8 @@ import { getBusinessOrNotFound, getChoices, getFeed } from "@/lib/server/data";
 // Module Overview
 // =============================================================================
 // The overview, the page an owner opens each day: the morning brief on the
-// carbon work-order slip, then a ledger of every workflow and its path. The brief leads with how
+// carbon work-order slip, then a ledger of every workflow and its path. The
+// example business opens with four stops for a first visitor. The brief leads with how
 // many approvals wait and links each one, then says what rides on them, what
 // is new, what the stack costs and, once there is any, what the owner has done.
 
@@ -85,6 +87,8 @@ export default async function OverviewPage({ params }: { readonly params: Promis
           )
         }
       />
+
+      {business.kind === "case" && <ExampleTour businessId={business.id} />}
 
       <section className="slip" aria-labelledby="brief-title">
         <header className="slip-head">
