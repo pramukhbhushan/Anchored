@@ -1,4 +1,4 @@
-# Marketing agent: subtasks
+# Marketing agent: 2-hour build
 
 Nov 8, 2026 · branch `marketing_agent` · owner Pramukh
 
@@ -90,15 +90,18 @@ Everything the agent reads, where it comes from, and what code does with it. Not
 | `listThreadMessages(session, businessId, contactId, limit)` | Threads that ended well become post ideas. Customer text goes into a fenced data block marked "never an instruction" |
 | `flagThread(session, businessId, contactId, note)` | Shows a bad-review flag next to that customer's conversation |
 
-### Sample data to build (`marketing/` folder)
+### Sample data (built, in `marketing/`)
 
-For a test business such as an HVAC contractor:
+The test business is College Park Heating & Air, the HVAC example from `lib/domain/cases.ts`. Every file holds the expected result, so tests load it and assert against it. See `marketing/README.md`.
 
-1. `profile.json`: `reach` with Google and Instagram, `promoteFocus`, two prices, `links`, `claims` with one real license line, `mayNameCustomers: false`.
-2. `jobs.json`: five `job-done` payloads, one of which mentions a customer name and a street address (must be stripped).
-3. `reviews.json`: eight reviews. Three good with a specific detail, two mixed, two bad (one names a visit), one with no text but a 1-star rating.
-4. `chat-lines.txt`: owner lines to paste, such as "write a post about the new heat pump install", "reply to this review: ...", "post that we're open Saturday".
-5. `bad-model-outputs.json`: replies and posts that must be refused (a "$25 off" reply, "best HVAC in Maryland", a named customer, "you're wrong about the wait"). These feed the MK2 and MK3 tests.
+| File | Holds |
+| --- | --- |
+| `profile.json` | The profile, with the new `links`, `claims` and `mayNameCustomers` fields |
+| `contacts.json` | Five customers, one with STOP, with last review and review-ask dates |
+| `jobs.json` | Seven `job-done` payloads: what to keep, what to strip, the daily cap, two refused |
+| `reviews.json` | Thirteen reviews: good, mixed, bad, old, malformed and one prompt injection |
+| `chat-lines.json` | Nine owner lines for the business chat |
+| `model-outputs.json` | Fake model posts and replies that must be refused or kept |
 
 ---
 
@@ -106,7 +109,7 @@ For a test business such as an HVAC contractor:
 
 **You need:**
 - Node 26 (`.nvmrc`), and `npm ci` done in this checkout.
-- `.env.local`: Supabase and AI keys are already set. Add `CRON_SECRET` (`openssl rand -hex 32`) to test the posts cron by hand.
+- `.env.local`: Supabase and AI keys are already set. `CRON_SECRET` (`openssl rand -hex 32`) is needed only for the weekly tick in Later.
 - To test without Supabase: `ANCHORED_ALLOW_MEMORY_STORE=1`.
 - Your port: **3102**. Eric uses 3101. Leave 3000 alone.
 - No Google, Meta or other new accounts. The demo runs on copy and paste.
@@ -119,98 +122,138 @@ For a test business such as an HVAC contractor:
 
 ---
 
-## Subtasks
+## The 2-hour build
 
-Each subtask lists what it is, what you need, the files, what to run, and when it's done.
+This is sized for **one person working alone**, with no parallel agents, so it holds even if nobody else is free. Everything that doesn't fit is under [Later](#later), with its full instructions kept.
 
-### MK1. Marketing character
+**What you'll have at the end:** a review comes in, code decides whether it's good, mixed or bad, the model writes a reply that code checks, and a bad review also gets a flag for the owner. A finished job comes in, code strips names and street numbers and refuses made-up claims, and a template post about that real job lands in Approvals. Every card still waits for the owner, and nothing goes to a customer.
 
-**What:** Give `content` its `character`: the role line, the voice rules and the four `never` limits above. Add `characterPrompt("content")` if G1 didn't already add the helper.
+**What's left out:** the model writing posts (posts stay template-written), the weekly schedule, Copy links, chat parsing, the 30-day review purge and anything that needs Eric's work.
 
-If the groundwork PR (G1) has landed on `main`, only check the wording and that each `never` line has a code check in MK2 or MK3.
+| Stage | Subtasks | Time | Checkpoint |
+| --- | --- | --- | --- |
+| 1. Review rules | MK1 character, MK3 trimmed | 35 min | `reviews.test.ts` passes against `marketing/reviews.json` and the reply cases in `marketing/model-outputs.json` |
+| 2. Post rules | MK2 trimmed | 35 min | `posts.test.ts` passes against `marketing/profile.json`, `jobs.json` and the post cases in `model-outputs.json` |
+| 3. New events and template posts | MK4, template change | 20 min | The simulator takes a `job-done` event and a review with a star rating, and refuses the broken ones in the sample data |
+| 4. Review replies and flags | MK7 trimmed | 30 min | In the browser, a good review gives one reply card and a bad one gives a reply card plus a flag card, with AI on and with AI off |
+| **Total** | | **2 hours**, plus about 10 minutes to finish | `npm run check` passes |
 
-**You need:** nothing external.
+Each stage builds on the one before it and ends in something you can test on its own. If time runs out, stop at the end of any stage: what's built is complete and tested.
 
-**Files:** `lib/domain/agents.ts`, `lib/domain/agents.test.ts`.
+### Stage 1. Review rules (35 min)
 
-**Depends on:** G1, or nothing if you do it here.
+**MK1. Marketing character (10 min).** Give `content` its `character`: the role line, the voice rules and the four `never` limits from [What the agent does](#what-the-agent-does). Add `characterPrompt("content")` if the groundwork PR (G1) hasn't. If G1 has landed, only check the wording.
 
-**Run:**
+**MK3, trimmed (25 min).** New `lib/domain/reviews.ts`, no I/O:
+- `reviewTone(text, rating?)`: `"good" | "mixed" | "bad"`. The rating wins when given (4 to 5 good, 3 mixed, 1 to 2 bad). Without one, negative-word rules decide. Code decides, never the model.
+- `checkReply(text, review)`: refuses offers ("discount", "free", "coupon", "credit", "% off", "next visit on us"), arguing ("actually", "you're wrong", "that's not true", "never happened"), and any reply over 600 characters.
+
+Cut to Later: `reviewDetail` (the model picks the detail to thank them for instead), the name and number check in `checkReply`, and `mayAskForReview`.
+
+**Files:** `lib/domain/agents.ts`, `lib/domain/agents.test.ts`, new `lib/domain/reviews.ts`, `lib/domain/reviews.test.ts`.
+
+**Checkpoint:**
 ```bash
-npx vitest run lib/domain/agents.test.ts
+npx vitest run lib/domain/agents.test.ts lib/domain/reviews.test.ts
 ```
+Every review in `marketing/reviews.json` gets its expected `tone`, including the 1-star review with almost no text. Every reply under `replies.refuse` in `marketing/model-outputs.json` is refused with a plain reason, and every reply under `replies.pass` is kept.
 
-**Done when:** a test proves `content.character.never` has four entries and every prompt `posts` and `reviewdrafter` send includes the voice rules.
+### Stage 2. Post rules (35 min)
 
-**Time:** 15 min.
+**MK2, trimmed.** New `lib/domain/posts.ts`, no I/O:
+- `channelsFor(profile)`: the channels to draft for, from `reach` and `tools` (Google, Instagram, Facebook), or one general channel.
+- `cleanJobSummary(summary, profile, contacts)`: removes street numbers and customer names unless `mayNameCustomers` is on.
+- `checkPost(text, profile, job?)`: refuses any price or number not in the profile or the job, award and guarantee words ("award", "#1", "best in", "top rated", "guarantee", "guaranteed") unless `details.claims` holds them, customer names, links not in `details.links`, and offers ("% off", "discount", "free") unless `promoteFocus` names that offer.
+- `postKey(businessId, now)`: `posts:<businessId>:job:<YYYY-MM-DD>`, so there's at most one finished-job post per day.
 
-### MK2. Post rules (pure domain)
+In the 2-hour build, `checkPost` guards the owner's and the simulator's job summaries before they go into a template post. When the model writes posts later (MK5), the same check runs on its output.
 
-**What:** New `lib/domain/posts.ts`, no I/O:
-- `channelsFor(profile)`: the channels to draft for, from `reach` and `tools` (Google, Instagram, Facebook, Nextdoor), or one general channel.
-- `buildPostContext(profile, events, threads, now)`: services, `promoteFocus`, finished jobs from `job-done` and `invoice-paid` (amounts dropped), bookings that have passed, good threads (STOP contacts skipped). Customer names and street numbers are removed unless `mayNameCustomers` is on.
-- `checkPost(text, context)`: returns `{ ok: true }` or `{ ok: false, reason }`. It refuses any price or number not in the context, award and guarantee words ("award", "#1", "best in", "top rated", "guarantee", "guaranteed") unless `details.claims` holds them, any customer name when naming isn't allowed, links not in `details.links`, and offers ("% off", "discount", "free") unless `promoteFocus` names that offer.
-- `postKey(businessId, trigger, now)`: `posts:<businessId>:<YYYY-Www>` for the weekly tick, `posts:<businessId>:job:<YYYY-MM-DD>` for finished jobs, so each fires at most once.
+Add the three optional `ProfileDetails` fields, `links`, `claims` and `mayNameCustomers`, to `lib/domain/types.ts` (shared, additive). Tell Eric the names.
 
-**You need:** nothing external. No keys.
+Cut to Later: `buildPostContext` with threads and bookings, and the weekly post key.
 
-**Files:** new `lib/domain/posts.ts`, `lib/domain/posts.test.ts`, new optional fields in `ProfileDetails` in `lib/domain/types.ts` (shared, additive): `links`, `claims`, `mayNameCustomers`.
+**Files:** new `lib/domain/posts.ts`, `lib/domain/posts.test.ts`, `lib/domain/types.ts`.
 
-**Depends on:** nothing. **Start here.**
-
-**Run:**
+**Checkpoint:**
 ```bash
 npx vitest run lib/domain/posts.test.ts
 ```
+`channelsFor` on `marketing/profile.json` returns Google, Instagram and Facebook. Job 2 in `jobs.json` loses "14" and "John Park". Every post under `posts.refuse` in `model-outputs.json` is refused and every one under `posts.pass` is kept.
 
-**Done when:** tests cover every refusal in `bad-model-outputs.json`, a name stripped from a job summary, a STOP contact's thread left out, a week key that is the same on Monday and Sunday, and a profile with no `reach` giving one channel.
+### Stage 3. New events and template posts (20 min)
 
-**Time:** 60 min.
-
-### MK3. Review rules (pure domain)
-
-**What:** New `lib/domain/reviews.ts`, no I/O:
-- `reviewTone(text, rating?)`: `"good" | "mixed" | "bad"`. The rating wins when given (4 to 5 good, 3 mixed, 1 to 2 bad). Without one, negative-word rules decide. Code decides, never the model.
-- `reviewDetail(text)`: one specific thing the reviewer mentioned (a person, a service, a moment), so the reply can thank them for it. Returns `null` when there's nothing specific.
-- `checkReply(text, review)`: refuses offers ("discount", "free", "coupon", "credit", "% off", "next visit on us"), arguing ("actually", "you're wrong", "that's not true", "never happened"), any number or name not in the review or profile, and a reply over 600 characters.
-
-**You need:** nothing external.
-
-**Files:** new `lib/domain/reviews.ts`, `lib/domain/reviews.test.ts`.
-
-**Depends on:** nothing. It can run alongside MK2.
-
-**Run:**
-```bash
-npx vitest run lib/domain/reviews.test.ts
-```
-
-**Done when:** all eight sample reviews get the expected tone, the 1-star empty review is bad, and every refused reply in `bad-model-outputs.json` fails with a plain reason.
-
-**Time:** 45 min.
-
-### MK4. Events: `job-done`, review rating, finished-job fan-out
-
-**What:** In `lib/server/ingest.ts`:
-- Add `job-done` to `SOURCE_SKILLS` (`["posts"]`) and to `PAYLOADS` as a strict object with `summary`, optional `area` and optional `contactName`.
+**MK4.** In `lib/server/ingest.ts` (shared, additive):
+- Add `job-done` to `SOURCE_SKILLS` (`["posts"]`) and to `PAYLOADS` as a strict object with `summary` (max 280), optional `area` and optional `contactName`.
 - Add optional `rating` (integer 1 to 5) and `platform` to the `review` payload.
-- Add `posts` to the `invoice-paid` fan-out next to Bookkeeping's `reviewer` (coordinate with BK3 so you add to the same list, not replace it).
-- Cap finished-job posts at one per business per day with `postKey`.
+- A `job-done` event cleans its summary with `cleanJobSummary` and runs `checkPost` on it. If the check fails, the card falls back to today's generic post. Cards use `postKey`, so a second job the same day makes no new card.
 
-The simulator picks the new source up from `EVENT_SOURCES` with no extra work.
+**Template change.** `CARD_TEMPLATES.posts` in `lib/domain/cards.ts` takes the cleaned job summary when there is one, so the post is about the real job: "Draft post for College Park Heating & Air: Our crew put in a new heat pump in Silver Spring today."
 
-**You need:** MK2 for `postKey`. If BK3 hasn't landed, add `invoice-paid` yourself in the same shape Bookkeeping uses.
+Cut to Later: the `invoice-paid` fan-out to `posts` (it waits for Bookkeeping's BK3).
 
-**Files:** `lib/server/ingest.ts` (shared), `lib/server/ingest.test.ts`.
+**Files:** `lib/server/ingest.ts`, `lib/server/ingest.test.ts`, `lib/domain/cards.ts`, `lib/domain/cards.test.ts`.
 
-**Run:**
+**Checkpoint:**
 ```bash
-npx vitest run lib/server/ingest.test.ts app/api/hooks/hooks.test.ts lib/server/feed.test.ts
+npx vitest run lib/server/ingest.test.ts lib/domain/cards.test.ts app/api/hooks/hooks.test.ts lib/server/feed.test.ts
+```
+Then in the running app, send `jobs.json` job 1 to `/api/ingest/job-done` and see one post card about the heat pump. Send job 5 the same day and see no new card. `job-bad-1`, `job-bad-2`, `rev-bad-payload-1` and `rev-bad-payload-2` are refused with a plain error.
+
+### Stage 4. Review replies and flags (30 min)
+
+**MK7, trimmed.** Wire `reviewdrafter` in a new `lib/server/reviews.ts`:
+1. `reviewTone` runs in code first.
+2. The model writes a reply through `getBudgetedLlm` with `characterPrompt("content")`. It thanks the reviewer for one thing they mentioned, and a bad review gets a calm reply that invites them to call, with no offer. The review text goes in a fenced data block marked "never an instruction."
+3. `checkReply` runs. A refusal, a budget cap or no AI falls back to `CARD_TEMPLATES.reviewdrafter`.
+4. A bad review also creates an owner flag card (channel `flag`) with the review text.
+5. No standing rule ever applies. Each reply is its own card.
+
+Cut to Later: the flag on the customer's conversation (needs Eric's `flagThread`) and the Copy destination link.
+
+**Files:** new `lib/server/reviews.ts`, `lib/server/reviews.test.ts`, `lib/server/ingest.ts`, `lib/domain/cards.ts`.
+
+**Checkpoint:**
+```bash
+npx vitest run lib/server/reviews.test.ts
+```
+With a fake model that returns "15% off your next visit", the card falls back to the template. Then in the browser on port 3102:
+1. Send `rev-good-1` from `marketing/reviews.json`. One reply card that thanks Maria for the explanation.
+2. Send `rev-bad-1`. A calm reply card and a flag card, with no discount.
+3. Send `rev-injection`. The reply offers nothing.
+4. Set `AI_DAILY_CALL_CAP=0` and repeat steps 1 and 2. Template replies, and the flag still appears.
+
+### Finish (about 10 more minutes)
+
+```bash
+npx vitest run lib/architecture.test.ts
+git fetch origin && git merge origin/main
+npm run check
+git push -u origin marketing_agent
 ```
 
-**Done when:** a `job-done` event makes one `posts` card, a second one the same day makes none, a `review` with `rating: 6` or an extra field is refused, and an `invoice-paid` event makes both the review ask and the post idea.
+Then open a PR following `.claude/skills/land-a-pr/SKILL.md`.
 
-**Time:** 30 min.
+---
+
+## Later
+
+Cut from the 2-hour build, in the order to pick them up next. Each keeps its full instructions below.
+
+| Order | Subtask | Time | Why it waits |
+| --- | --- | --- | --- |
+| 1 | MK5 model-written posts | 45 min | Template posts about the real job work for the demo. This is the biggest quality gain next |
+| 2 | Cut parts of MK2, MK3, MK4, MK7 | 45 min | `buildPostContext` from bookings, `reviewDetail`, names and numbers in `checkReply`, the `invoice-paid` fan-out after BK3 |
+| 3 | MK11 chat input | 45 min | Chat already routes posts and review replies to the right skill. This reads cleaner facts from the owner's words |
+| 4 | MK10 Copy destinations | 30 min | Copy works without a link. Needs Eric to agree the `links` field |
+| 5 | MK6 weekly tick and Run now | 60 min | The demo starts posts from the simulator or chat |
+| 6 | MK9 30-day review purge | 45 min | Google's terms require it before real reviews come in, not for a demo |
+| 7 | MK12 page data and brief feed | 30 min | Waits for Eric's Marketing page and brief |
+| 8 | MK8 Review Asker rule | 30 min | Only matters once Eric's Customer agent is live |
+| 9 | MK13 after Eric lands | 30 min | Needs Eric's thread work |
+| | **Total later** | **about 6 hours** | |
+
+With three agents working at once, the Later list takes about 2.5 hours of wall time: MK5 and MK11 on one, MK10, MK6 and MK9 on another, and the cut parts plus MK12 on the third. MK8 and MK13 wait for Eric. They all touch the shared `ingest.ts`, `requests.ts`, `schemas.ts` and `middleware.ts`, so merge one agent's work at a time.
+
 
 ### MK5. Post drafting with the model
 
@@ -271,30 +314,6 @@ curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3102/api/cron/posts   
 **Done when:** the cron makes one card per channel per business per week, a second run makes none, a call without the secret gets 401, and session A's run never touches session B's cards.
 
 **Time:** 60 min.
-
-### MK7. Review replies and bad-review flags
-
-**What:** Wire `reviewdrafter`:
-1. `reviewTone` and `reviewDetail` run in code first.
-2. The model writes a reply that thanks the reviewer for that detail. Bad reviews get a calm reply that invites them to call, with no offer. `checkReply` runs; any refusal falls back to `CARD_TEMPLATES.reviewdrafter`.
-3. A bad review also creates an owner flag card (channel `flag`) with the review text and, if known, the visit it mentions.
-4. The reply card's Copy destination is `details.reviewLink`, or the platform's link from `details.links`.
-5. No standing rule ever applies. Google requires prior, specific consent for automated review replies, so each reply is its own card.
-
-**You need:** AI keys for the model path.
-
-**Files:** `lib/server/ingest.ts` (shared), `lib/domain/cards.ts` (`CARD_TEMPLATES.reviewdrafter`), new `lib/server/reviews.ts` + test.
-
-**Depends on:** MK1, MK3, MK4.
-
-**Run:**
-```bash
-npx vitest run lib/server/reviews.test.ts lib/domain/cards.test.ts
-```
-
-**Done when:** a good review gets one reply card that names the detail, a bad review gets a reply card plus a flag card, and a fake model reply with "15% off your next visit" falls back to the template.
-
-**Time:** 45 min.
 
 ### MK8. No double contact with Review Asker
 
@@ -432,87 +451,12 @@ npx vitest run lib/server/posts.test.ts lib/server/reviews.test.ts
 
 **Time:** 30 min.
 
----
+### Cut parts of MK2, MK3, MK4 and MK7
 
-## How long it takes
-
-| Subtask | Time |
-| --- | --- |
-| MK1 character | 15 min |
-| MK2 post rules | 60 min |
-| MK3 review rules | 45 min |
-| MK4 events | 30 min |
-| MK5 post drafting | 45 min |
-| MK6 weekly tick and Run now | 60 min |
-| MK7 review replies and flags | 45 min |
-| MK8 Review Asker rule | 30 min |
-| MK9 retention migration | 45 min |
-| MK10 Copy destinations | 30 min |
-| MK11 chat input | 45 min |
-| MK12 page data and brief | 30 min |
-| MK13 after Eric lands | 30 min |
-| Sample data folder | 30 min |
-| **Total, one person in order** | **about 9 hours** |
-
-## Running 3 agents
-
-Give each agent its own git worktree off `marketing_agent` so they don't edit the same checkout:
-
-```bash
-git worktree add ../mk-a -b marketing_agent-a marketing_agent
-git worktree add ../mk-b -b marketing_agent-b marketing_agent
-git worktree add ../mk-c -b marketing_agent-c marketing_agent
-# in each: cp ../Anchored/.env.local . && npm ci
-```
-
-Merge each back into `marketing_agent` when its phase is done.
-
-| Phase | Agent A | Agent B | Agent C | Wall time |
-| --- | --- | --- | --- | --- |
-| 1 | MK1 + MK2 post rules | MK3 review rules | MK9 migration + sample data | about 75 min |
-| 2 (after merging phase 1) | MK4 events, then MK5 post drafting | MK7 review replies, then MK8 | MK10 Copy destinations | about 75 min |
-| 3 (after merging phase 2) | MK6 weekly tick | MK11 chat input | MK12 page data | about 60 min |
-| 4 | MK13 after Eric lands | | | 30 min |
-
-That's about **3.5 to 4 hours** of wall time, plus your review and the merges. Phases 2 and 3 all touch the shared `ingest.ts`, `requests.ts`, `schemas.ts` and `middleware.ts`, so merge one agent's work at a time.
-
----
-
-## Testing the whole agent
-
-### Unit tests (no keys)
-
-```bash
-npx vitest run lib/domain/posts.test.ts lib/domain/reviews.test.ts lib/domain/cards.test.ts lib/domain/requests.test.ts lib/domain/agents.test.ts
-npx vitest run lib/store/memory.test.ts lib/server/ingest.test.ts lib/server/posts.test.ts lib/server/reviews.test.ts lib/server/data.test.ts
-npx vitest run lib/architecture.test.ts
-```
-
-### Manual run, AI off then on
-
-```bash
-ANCHORED_ALLOW_MEMORY_STORE=1 npm run dev -- -p 3102
-```
-
-1. Continue as a guest and open your sample business. Make sure it chose Post Drafter and Review Drafter.
-2. In Chat, type `Write a post about the heat pump we installed in Silver Spring today`. Approvals shows one post per channel, with no price and no customer name.
-3. Type it again. No new finished-job post today.
-4. Paste `Reply to this review: Maria was on time and explained everything. 5 stars`. A reply card thanks the reviewer for the clear explanation.
-5. Paste `Reply to this review: Waited 3 hours and the unit still rattles. 1 star`. A calm reply card and a flag card appear. Neither offers a discount.
-6. Simulator: send `job-done` with `{"summary":"Replaced a furnace at 14 Elm St for John Park"}`. The post leaves out "14" and "John Park".
-7. Approve a post. The outbox row shows Copy and the Instagram or Google link, and dispatch never sends it.
-8. Run the cron twice with `curl -s -H "Authorization: Bearer $CRON_SECRET" http://localhost:3102/api/cron/posts`. One weekly post per channel, not two.
-9. Set `AI_DAILY_CALL_CAP=0` and repeat steps 2, 4 and 5. Template drafts appear and every rule still holds.
-
-### Before the PR
-
-```bash
-git fetch origin && git merge origin/main
-npm run check
-git push -u origin marketing_agent
-```
-
-Then open a PR following `.claude/skills/land-a-pr/SKILL.md`.
+- **MK2:** `buildPostContext(profile, events, threads, now)` reads services, `promoteFocus`, finished jobs from `job-done` and `invoice-paid` (amounts dropped), bookings that have passed, and good threads (STOP contacts skipped). Add the weekly key `posts:<businessId>:<YYYY-Www>` with MK6.
+- **MK3:** `reviewDetail(text)` returns one specific thing the reviewer mentioned, or `null`. `checkReply` also refuses any number or name not in the review or profile. `mayAskForReview` is MK8.
+- **MK4:** add `posts` to the `invoice-paid` fan-out next to Bookkeeping's `reviewer`, once BK3 lands.
+- **MK7:** when a bad review's author matches a contact, call Eric's `flagThread`. That's MK13. The Copy destination is MK10.
 
 ---
 
