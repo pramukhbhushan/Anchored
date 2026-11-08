@@ -39,6 +39,7 @@ async function errorOf(response: Response): Promise<string> {
 }
 
 beforeEach(async () => {
+  vi.restoreAllMocks();
   state.store = new MemoryStore();
   state.session = SESSION;
   await state.store.saveBusiness(SESSION, SHOP);
@@ -69,6 +70,18 @@ describe("POST /api/businesses/[id]/workflows", () => {
     await state.store?.setChoice(SESSION, SHOP.id, "scheduling", { path: "skip" });
     await addJob(SHOP.id, { workflow: "scheduling", path: "buy", toolId: "wheniwork" });
     expect((await state.store?.getChoices(SESSION, SHOP.id))?.scheduling).toEqual({ path: "buy", toolId: "wheniwork" });
+  });
+
+  it("can be tried again after a save fails partway", async () => {
+    const store = state.store;
+    if (store === null) throw new Error("the store is set up before each test");
+    vi.spyOn(store, "setChoice").mockRejectedValueOnce(new Error("database went away"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect((await addJob(SHOP.id, { workflow: "scheduling", path: "buy", toolId: "homebase" })).status).toBe(500);
+
+    const retry = await addJob(SHOP.id, { workflow: "scheduling", path: "buy", toolId: "homebase" });
+    expect(retry.status).toBe(200);
+    expect((await store.getBusiness(SESSION, SHOP.id))?.workflows.scheduling?.addedBy).toBe("owner");
   });
 
   it("refuses a job the business already has and points to the Workflows page", async () => {

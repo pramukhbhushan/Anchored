@@ -6,7 +6,7 @@ import { SAMPLE_BUSINESS } from "@/lib/domain/cases";
 import type { BusinessProfile } from "@/lib/domain/types";
 import { MemoryStore } from "@/lib/store/memory";
 import type { Store } from "@/lib/store/types";
-import { json, sentJson, stubFetch } from "@/test/http";
+import { deferred, json, sentJson, stubFetch } from "@/test/http";
 import { router } from "@/test/next";
 import { hvacShop } from "@/test/trades";
 
@@ -82,6 +82,32 @@ describe("Tools page", () => {
     expect(await screen.findByText(/Staff scheduling is in your workflows with .+\. It starts once you sign up\./)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "See it in Workflows" })).toHaveAttribute("href", `/app/b/${SHOP.id}/workflows#wf-scheduling`);
     expect(router.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("adds one job at a time, so a quick second tap on another card can't lose either", async () => {
+    const answer = deferred<Response>();
+    const fetchSpy = stubFetch(() => answer.promise);
+    await renderTools(SHOP.id);
+
+    await userEvent.click(within(jobCard("Staff scheduling")).getByRole("button", { name: /^Add with (?!Anchored).+ for staff scheduling$/ }));
+
+    for (const button of within(newJobsBand()).getAllByRole("button")) expect(button).toBeDisabled();
+    await userEvent.click(within(jobCard("License renewals")).getByRole("button", { name: "Add with Anchored for license renewals" }));
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    answer.resolve(json({ workflow: "scheduling", choice: { path: "buy", toolId: "homebase" } }));
+    expect(await screen.findByText(/Staff scheduling is in your workflows/)).toBeInTheDocument();
+  });
+
+  it("says why a job couldn't be added and lets the owner try again", async () => {
+    stubFetch(() => json({ error: "That job is already in your workflows. Change who handles it on the Workflows page." }, 409));
+    await renderTools(SHOP.id);
+
+    const add = within(jobCard("License renewals")).getByRole("button", { name: "Add with Anchored for license renewals" });
+    await userEvent.click(add);
+
+    expect(await screen.findByText(/already in your workflows/)).toHaveRole("status");
+    expect(add).toBeEnabled();
+    expect(router.refresh).not.toHaveBeenCalled();
   });
 
   it("offers Anchored as a second way in when a tool leads", async () => {

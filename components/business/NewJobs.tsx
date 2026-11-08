@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AddJobButton } from "@/components/business/AddJobButton";
+import { AddJobButton, AddJobsGroup } from "@/components/business/AddJobButton";
 import styles from "@/components/business/new-jobs.module.css";
 import { priceChip } from "@/components/business/tool-visuals";
 import toolStyles from "@/components/business/tools.module.css";
@@ -18,8 +18,9 @@ import { WORKFLOWS } from "@/lib/domain/workflows";
 // pick for the business that a catalog tool or an Anchored agent can take on.
 // Each card names the job, lists up to three tools rated for this business,
 // and offers one button to add the job with the best way in, plus Anchored as
-// a second way when a tool leads. The example business shows the jobs with a
-// link to set up a business of one's own instead of buttons.
+// a second way when a tool leads. The whole band shares one add at a time.
+// The example business shows the jobs with a link to set up a business of
+// one's own instead of buttons.
 
 const LISTED_TOOLS = 3;
 
@@ -62,7 +63,7 @@ function addOptions(job: NewJob, name: string): AddOption[] {
 function ToolLine({ tool, owned, total }: { readonly tool: Tool; readonly owned: boolean; readonly total: number | null }) {
   return (
     <li className={styles.tool}>
-      <span className={styles.toolName}>{owned ? `Your ${toolName(tool)}` : toolName(tool)}</span>
+      <span className={styles.toolName}>{toolName(tool)}</span>
       <span className={toolStyles.chip}>{owned ? "You have it" : priceChip(tool)}</span>
       {total !== null && <span className={styles.fit}>Fit {total}/100</span>}
     </li>
@@ -97,52 +98,53 @@ export function NewJobs({
           )}
         </div>
       </div>
-      <ul className={styles.grid}>
-        {jobs.map((job) => {
-          const name = WORKFLOWS[job.workflow].name;
-          const tools = [
-            ...job.owned.map((tool) => ({ tool, owned: true, total: null })),
-            ...job.buy.map(({ tool, rating }) => ({ tool, owned: false, total: rating.total })),
-          ].slice(0, LISTED_TOOLS);
-          const options = canAdd ? addOptions(job, name) : [];
-          return (
-            <li key={job.workflow} className={styles.item}>
-              <article className="card" aria-labelledby={`new-job-${job.workflow}`}>
-                <div className={styles.top}>
-                  <WorkflowTile id={job.workflow} />
-                  <h3 id={`new-job-${job.workflow}`}>{name}</h3>
-                </div>
-                {tools.length > 0 ? (
-                  <ul className={styles.tools} aria-label={`Tools for ${name.toLowerCase()}`}>
-                    {tools.map((line) => (
-                      <ToolLine key={line.tool.id} {...line} />
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="card-why">No tool in our catalog does this yet. Anchored drafts the work and you approve each piece.</p>
-                )}
-                {options.length > 0 && (
-                  <div className={styles.acts}>
-                    {options.map((option, index) => (
-                      <AddJobButton
-                        key={option.request.path}
-                        businessId={businessId}
-                        request={option.request}
-                        variant={index === 0 ? "secondary" : "quiet"}
-                        label={`${option.text} for ${name.toLowerCase()}`}
-                        done={option.done}
-                        workflowsHref={`${workflowsHref}#wf-${job.workflow}`}
-                      >
-                        {option.text}
-                      </AddJobButton>
-                    ))}
+      <AddJobsGroup businessId={businessId}>
+        <ul className={styles.grid}>
+          {jobs.map((job) => {
+            const name = WORKFLOWS[job.workflow].name;
+            const tools = [
+              ...job.owned.map((tool) => ({ tool, owned: true, total: null })),
+              ...job.buy.map(({ tool, rating }) => ({ tool, owned: false, total: rating.total })),
+            ].slice(0, LISTED_TOOLS);
+            const options = canAdd ? addOptions(job, name) : [];
+            return (
+              <li key={job.workflow} className={styles.item}>
+                <article className="card" aria-labelledby={`new-job-${job.workflow}`}>
+                  <div className={styles.top}>
+                    <WorkflowTile id={job.workflow} />
+                    <h3 id={`new-job-${job.workflow}`}>{name}</h3>
                   </div>
-                )}
-              </article>
-            </li>
-          );
-        })}
-      </ul>
+                  {tools.length > 0 ? (
+                    <ul className={styles.tools} aria-label={`Tools for ${name.toLowerCase()}`}>
+                      {tools.map((line) => (
+                        <ToolLine key={line.tool.id} {...line} />
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="card-why">No tool in our catalog does this yet. Anchored drafts the work and you approve each piece.</p>
+                  )}
+                  {options.length > 0 && (
+                    <div className={styles.acts}>
+                      {options.map((option, index) => (
+                        <AddJobButton
+                          key={option.request.path}
+                          request={option.request}
+                          variant={index === 0 ? "secondary" : "quiet"}
+                          label={`${option.text} for ${name.toLowerCase()}`}
+                          done={option.done}
+                          workflowsHref={`${workflowsHref}#wf-${job.workflow}`}
+                        >
+                          {option.text}
+                        </AddJobButton>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              </li>
+            );
+          })}
+        </ul>
+      </AddJobsGroup>
     </section>
   );
 }

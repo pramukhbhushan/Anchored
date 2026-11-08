@@ -40,9 +40,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const session = await getSessionId();
     const store = getStore();
-    await store.saveBusiness(session, withJob(business, body.workflow, checked.choice), "owner");
-    // A choice saved for this job before it was dropped would otherwise outrank the one the owner just made.
+    // The choice goes first: a choice for a job the profile lacks is ignored, so if the profile save then fails, a
+    // retry starts clean. In the other order, a choice left from when the business last had this job would win.
     await store.setChoice(session, business.id, body.workflow, checked.choice);
+    await store.saveBusiness(session, withJob(business, body.workflow, checked.choice), "owner");
     return json<AddJobResponse>({ workflow: body.workflow, choice: checked.choice });
   } catch (error) {
     return handleError(error, "POST /api/businesses/[id]/workflows");
