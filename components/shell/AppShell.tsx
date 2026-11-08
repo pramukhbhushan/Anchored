@@ -60,7 +60,8 @@ function useModKey(): string {
 
 /** Return what the top bar names at phone width: the open business, or the page. */
 function titleOf(location: ShellLocation, current: BusinessSummary | undefined): string {
-  if (current !== undefined) return current.kind === "case" ? `${current.name} (example)` : current.name;
+  // The Example pill beside the title marks the example, so a long name can't truncate the marker away.
+  if (current !== undefined) return current.name;
   return location.page === "new" ? "New business" : "All businesses";
 }
 

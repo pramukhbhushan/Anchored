@@ -97,6 +97,21 @@ describe("workflows from facts", () => {
     expect(why).not.toContain("don't usually reach you");
   });
 
+  it("chases 'let me think about it' for a business that sells through a first call", () => {
+    const coach = profileFromFacts({ ...BLANK_FACTS, trade: "Career coach", tradeKey: "coach", reach: ["Referrals", "Website form"] });
+    expect(coach.workflows.leads?.skills).toEqual(["inquiry", "callfollow"]);
+    expect(coach.workflows.leads?.why).toContain("let me think about it");
+    const salon = profileFromFacts({ ...BLANK_FACTS, trade: "Hair salon", tradeKey: "any", reach: ["Website form"] });
+    expect(salon.workflows.leads?.skills).toBeUndefined();
+  });
+
+  it("turns a field visit's spoken price into a quote follow-up for trades that quote on site", () => {
+    const hvac = profileFromFacts({ ...BLANK_FACTS, trade: "HVAC contractor", tradeKey: "home", signals: ["quotes"] });
+    expect(hvac.workflows.quotes?.skills).toEqual(["closer", "debrief"]);
+    const autoShop = profileFromFacts({ ...BLANK_FACTS, trade: "Auto repair shop", tradeKey: "any", signals: ["quotes"] });
+    expect(autoShop.workflows.quotes?.skills).toBeUndefined();
+  });
+
   it("treats catering requests as leads even when nothing arrives in writing", () => {
     const caterer = profileFromFacts({ ...BLANK_FACTS, reach: ["Walk-ins"], signals: ["catering"] });
     expect(caterer.workflows.leads?.fit).toBeGreaterThanOrEqual(2);

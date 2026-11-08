@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { AgentCard } from "@/components/business/AgentCard";
 import { ToastProvider } from "@/components/ui/Toast";
-import type { CardRecord, DecideCardResponse } from "@/lib/api/contract";
+import type { HandOffBusiness } from "@/components/business/handoff";
+import type { CardRecord, DecideCardResponse, OutboxEntry } from "@/lib/api/contract";
 import { router } from "@/test/next";
 import { deferred, json, sentJson, stubFetch } from "@/test/http";
 
@@ -13,7 +14,9 @@ import { deferred, json, sentJson, stubFetch } from "@/test/http";
 // One approvals card as the owner works it: Approve sends exactly the text on
 // screen, Edit lets them change it first, Skip drops it, "Rewrite in my voice"
 // shows only when AI is on, a send to many people asks once more, and a locked
-// allergy question offers no Approve at all. `fetch` plays the cards routes.
+// allergy question offers no Approve at all. Once a text or email is approved,
+// the toast opens the owner's own texting or email app with the words typed
+// out. `fetch` plays the cards routes.
 
 const CARD: CardRecord = {
   id: "card-1",
@@ -51,7 +54,24 @@ const ALLERGY: CardRecord = {
 
 const MASS: CardRecord = { ...CARD, id: "card-3", title: "Spring cleanup reminder", action: "Send to 118 customers" };
 
+const POST: CardRecord = {
+  ...CARD,
+  id: "card-4",
+  key: "marketing:posts:week",
+  title: "Nothing posted in 3 weeks",
+  body: 'Draft post for Greenfield Landscaping: "Thanks to everyone we worked with this week."',
+  action: "Copy post",
+  channel: "list",
+  to: undefined,
+};
+
 const SOURCE = "Follow-up agent, Closer skill";
+const BUSINESS: HandOffBusiness = { name: "Greenfield Landscaping", reach: ["Phone calls", "Instagram or Facebook"], tools: [] };
+
+/** The outbox entry the cards route writes when it approves `card`. */
+function outboxFor(card: CardRecord): OutboxEntry {
+  return { id: "out-1", businessId: card.businessId, cardId: card.id, channel: card.channel === "locked" ? "list" : card.channel, to: card.to ?? "customer", body: card.body, sentAt: "2026-11-07T15:00:00Z" };
+}
 
 /** The cards route answering a decision on `card`. */
 function decided(card: CardRecord, extra: Partial<DecideCardResponse> = {}): Response {
@@ -61,7 +81,7 @@ function decided(card: CardRecord, extra: Partial<DecideCardResponse> = {}): Res
 function renderCard(card: CardRecord, canRewrite = false) {
   return render(
     <ToastProvider>
-      <AgentCard card={card} source={SOURCE} canRewrite={canRewrite} />
+      <AgentCard card={card} source={SOURCE} canRewrite={canRewrite} business={BUSINESS} />
     </ToastProvider>,
   );
 }
@@ -86,16 +106,50 @@ describe("AgentCard", () => {
     expect(card).toHaveTextContent("Quiet hours respected");
   });
 
-  it("approves exactly the text on screen and points to the outbox", async () => {
-    const fetchSpy = stubFetch(() => decided(CARD));
+  it("approves exactly the text on screen, then offers to send it from the owner's phone", async () => {
+    const fetchSpy = stubFetch(() => decided(CARD, { outbox: outboxFor(CARD) }));
     renderCard(CARD);
 
     await userEvent.click(screen.getByRole("button", { name: /^Approve/ }));
 
-    const toast = await findToast(/Approved/);
+    const toast = await findToast("Approved. The text is ready to send.");
     expect(sentJson(fetchSpy, 0)).toEqual({ method: "POST", url: "/api/cards/card-1", body: { decision: "approve", body: CARD.body } });
-    expect(within(toast).getByRole("link", { name: "See outbox" })).toHaveAttribute("href", "#outbox");
+    expect(within(toast).getByRole("link", { name: "Send from your phone" })).toHaveAttribute("href", `sms:?&body=${encodeURIComponent(CARD.body)}`);
     expect(router.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers to send an approved email from the owner's own email app", async () => {
+    const email: CardRecord = { ...CARD, action: "Send email", channel: "email", to: "Sam Patel", body: "Hi Sam, could we talk tomorrow?" };
+    stubFetch(() => decided(email, { outbox: outboxFor(email) }));
+    renderCard(email);
+
+    await userEvent.click(screen.getByRole("button", { name: /^Approve/ }));
+
+    const toast = await findToast("Approved. The email is ready to send.");
+    expect(within(toast).getByRole("link", { name: "Send from your email" }).getAttribute("href")).toMatch(/^mailto:\?subject=A%20note%20from%20Greenfield%20Landscaping&body=Hi%20Sam/);
+  });
+
+  it("points to the outbox when the route logged no entry", async () => {
+    stubFetch(() => decided(CARD));
+    renderCard(CARD);
+
+    await userEvent.click(screen.getByRole("button", { name: /^Approve/ }));
+
+    const toast = await findToast("Approved and logged in your outbox.");
+    expect(within(toast).getByRole("link", { name: "See outbox" })).toHaveAttribute("href", "#outbox");
+  });
+
+  it("copies only a post's words, without the lead-in, when the owner approves it", async () => {
+    const user = userEvent.setup();
+    const fetchSpy = stubFetch(() => decided(POST, { outbox: outboxFor(POST) }));
+    renderCard(POST);
+
+    await user.click(screen.getByRole("button", { name: "Approve: Copy post" }));
+
+    const toast = await findToast("Approved. The post is on your clipboard, ready to paste.");
+    expect(await navigator.clipboard.readText()).toBe("Thanks to everyone we worked with this week.");
+    expect(sentJson(fetchSpy, 0).body).toEqual({ decision: "approve", body: POST.body });
+    expect(within(toast).getByRole("link", { name: "See outbox" })).toBeInTheDocument();
   });
 
   it("names the action on the Approve button", () => {
@@ -239,13 +293,15 @@ describe("AgentCard", () => {
   });
 
   it("sends to many people once the owner confirms", async () => {
-    const fetchSpy = stubFetch(() => decided(MASS));
+    const fetchSpy = stubFetch(() => decided(MASS, { outbox: outboxFor(MASS) }));
     renderCard(MASS);
 
     await userEvent.click(screen.getByRole("button", { name: /^Approve/ }));
-    await userEvent.click(screen.getByRole("button", { name: "Yes, send to 118 customers" }));
+    await userEvent.click(screen.getByRole("button", { name: "Yes, approve for 118 customers" }));
 
-    await findToast(/Approved/);
+    // A group text goes through a texting service with consent records, never the owner's own phone.
+    const toast = await findToast("Approved. Copy the text from your outbox.");
+    expect(within(toast).getByRole("link", { name: "See outbox" })).toBeInTheDocument();
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(sentJson(fetchSpy, 0).body).toEqual({ decision: "approve", body: MASS.body });
   });

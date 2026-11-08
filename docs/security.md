@@ -31,8 +31,9 @@ Each API route that takes a body reads it through `readBody` in `lib/server/http
 Routes also check path parameters against data the session owns:
 
 - A card or business id outside the session returns 404. The code-defined example business is the one exception, open to every session.
-- `POST /api/businesses/[id]/cards`, "Try an example event", runs only on the example business and returns 409 for an owner's own.
+- `POST /api/businesses/[id]/cards`, "Watch an agent draft", runs only on the example business and returns 409 for an owner's own.
 - `PUT /api/businesses/[id]/choices` accepts only a path and a tool that `pathOptions` offers for that workflow.
+- `PUT /api/businesses/[id]/plan` saves a plan approval only on the session's own business, and returns 409 for the example, whose approval lives in code.
 - `POST /api/ingest/[source]` accepts only the sources in its `SOURCE_SKILLS` map, each with its own payload schema.
 
 ## Rate limits
@@ -56,6 +57,10 @@ Each server instance keeps its own counts in memory. On Vercel, a client whose r
 `getBudgetedLlm` in `lib/server/ai-budget.ts` wraps the configured provider. Before each model call it runs `use_ai_call`, a SQL function from `20261107000500_ai_budget_and_chat_policies.sql` that adds one to today's row in `ai_usage` and reports whether the count is still under `AI_DAILY_CALL_CAP` (default 2,000, and 0 turns model calls off). The increment and the comparison are one statement, so concurrent calls can't overshoot, and every server instance shares the count. The day is UTC.
 
 Past the cap, onboarding, the intake chat and the business chat fall back to the rules, and a rewrite returns 429. The provider's own spend cap stays the backstop.
+
+## Discovery agent
+
+`npm run discover` is the only caller of `fetchPage` in `lib/server/fetch-page.ts`, and no route reaches it, so a visitor can't make the server load an address. `fetchPage` still loads only public http and https addresses on the default port. It refuses localhost, private and link-local IP ranges, IPv6 literals and single-label hosts, checks the address again after redirects, and drops replies that aren't HTML, are over 2 MB or take over 10 seconds. Page text is untrusted: the prompts mark it as data, and `vetCandidates` in `lib/domain/discovery.ts` keeps a tool only when its source is a page the run loaded and that page names it. Nothing the agent finds gets a score or reaches an owner's page until a person reviews the change to `lib/domain/discovered.json`.
 
 ## Cross-site request check
 
@@ -134,7 +139,7 @@ When `checkSend` refuses a card, `decideCard` looks for the first whole hour in 
 
 Two values are fixed in this build. Every business uses `OWNER_TIME_ZONE`, `America/New_York`, and `decideCard` passes `hasConsent: true` because drafted contacts come with consent. The consent rule exists in `checkSend` but never refuses a card in this build.
 
-An approved card writes a row to the `outbox` table, or to memory under `MemoryStore`, where it waits until texting and email are connected. Nothing leaves the app. No SMS or email provider is connected, and no route sends a message to a real recipient.
+An approved card writes a row to the `outbox` table, or to memory under `MemoryStore`. No SMS or email provider is connected, and no route sends a message to a real recipient. Each outbox row instead offers the owner an `sms:` or `mailto:` link, built in `components/business/handoff.ts`, that opens the owner's own texting or email app with the approved text typed out; the owner presses send there. The text goes into the link through `encodeURIComponent`, so it can't add a recipient or a header. A text held for quiet hours gets no link until its send time passes, so the link can't skip the hold.
 
 ## Known limits
 

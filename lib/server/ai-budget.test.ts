@@ -47,6 +47,15 @@ describe("withDailyBudget", () => {
     await expect(budgeted.generateText({ tier: "quick", prompt: "hi", maxTokens: 10 })).rejects.toBeInstanceOf(AiBudgetError);
     expect(provider.calls).toBe(0);
   });
+
+  it("counts a web search against the budget, and offers no search when the provider has none", async () => {
+    const searching = { ...fakeProvider(), searchWeb: async () => ({ text: "found", sources: [] }) };
+    const search = { tier: "default" as const, prompt: "find tools", maxTokens: 10, maxSearches: 1 };
+
+    await expect(withDailyBudget(searching, async () => false).searchWeb?.(search)).rejects.toBeInstanceOf(AiBudgetError);
+    expect(await withDailyBudget(searching, async () => true).searchWeb?.(search)).toEqual({ text: "found", sources: [] });
+    expect(withDailyBudget(fakeProvider(), async () => true).searchWeb).toBeUndefined();
+  });
 });
 
 describe("dailyCallCap", () => {

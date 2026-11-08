@@ -7,5 +7,5 @@ import { PageSkeleton } from "@/components/ui/Skeleton";
 
 /** Render the placeholder for your workflows. */
 export default function WorkflowsLoading() {
-  return <PageSkeleton layout="order" label="your workflows" />;
+  return <PageSkeleton layout="graph" label="your workflows" />;
 }

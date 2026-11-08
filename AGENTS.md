@@ -15,6 +15,7 @@ Use Node.js 26, the version in `.nvmrc`.
 | `npm run typecheck` | `next typegen` for the route types, then `tsc --noEmit` |
 | `npm run build` | `next build` |
 | `npm run check` | The type check, the tests, then the build. CI in `.github/workflows/ci.yml` runs the same steps on every PR and every push to `main` |
+| `npm run discover -- --workflow <id> --business "<kind>"` | The discovery agent: finds tools that do one workflow, keeps the ones a real page backs, and appends them to `lib/domain/discovered.json` for a person to review. Works with any AI provider. Set `AI_MODEL_COMPLEX` to a large model, or use `AI_PROVIDER=anthropic` to search the web |
 
 A fresh worktree has no `.env.local`, so it runs with accounts off, AI off and data in memory, and the rules draft every profile and card. Production on Vercel runs with Supabase for data and sign-in; the README's "Deploy to Vercel" lists the settings. The tests and the build need no keys. AI turns on with `AI_PROVIDER`, one `AI_API_KEY` and an optional `AI_BASE_URL`, the same names for every provider. The README's AI provider table lists the model settings. A production server with no Supabase settings throws on its first data read; `ANCHORED_ALLOW_MEMORY_STORE=1` lets it run on the in-memory store instead.
 
@@ -57,7 +58,7 @@ The owner wants every page to use the whole screen and adapt to it. `app/globals
 
 - **Fill the width.** Give pages and sections no `max-width`; lay repeated items in grids with `repeat(auto-fill, minmax(min(100%, <n>px), 1fr))`, and switch layouts with `@container app` queries, since the sidebar changes the space. Cap only running text, at about `65ch`. Phones get one column with no sideways scroll.
 - **Spacing and type come from tokens:** `--s-1` to `--s-8` (4 to 64px; 12px inside a card, 16 to 24px between cards, 48px between sections), `--pad` for card padding, and the seven `--fs-*` sizes.
-- **Say each thing once per page.** One filled button per region, at most one badge per card, boxes only for things the owner decides (approval cards, the brief, the bill), and secondary detail behind a `<details>`. Carbon yellow marks only the brief, the BUILD stamp, the active nav item and the approvals count.
+- **Say each thing once per page.** One filled button per region, at most one badge per card, boxes only for things the owner decides (approval cards, the brief, the bill), and secondary detail behind a `<details>`. Carbon yellow marks only the brief, the owner's OK step on the Workflows graph, the active nav item and the approvals count. Owner-facing pages say who handles each job ("Your OpenTable sends reminders", "Anchored drafts it, you approve") and never use the internal path names Turn on, Buy, Build or Skip; those stay in `lib/domain` and on the marketing pages.
 
 ## Working in parallel
 

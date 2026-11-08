@@ -195,7 +195,7 @@ export function Sidebar({
             <SideLink
               href={NEW_BUSINESS_HREF}
               icon={Plus}
-              label="Start a new business"
+              label="Set up a new business"
               current={location.page === "new"}
               tip={collapsed}
             />

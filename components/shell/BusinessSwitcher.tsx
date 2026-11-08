@@ -12,7 +12,7 @@ import type { BusinessSummary } from "@/components/shell/shell-data";
 // =============================================================================
 // The business picker in the top bar: a button that opens a panel of links,
 // with "All businesses" on top, the owner's businesses apart from the example,
-// and "Start a new business" at the foot. Each business shows its trade and
+// and "Set up a new business" at the foot. Each business shows its trade and
 // its approvals waiting, and a check marks the one that is open. Picking a
 // business keeps the section the owner is on. The panel is a disclosure of
 // links, not an ARIA menu, so a link still opens in a new tab. The arrow keys,
@@ -276,7 +276,7 @@ export function BusinessSwitcher({
           <Row
             href={NEW_BUSINESS_HREF}
             tile={<Plus size={14} />}
-            name="Start a new business"
+            name="Set up a new business"
             current={location.page === "new"}
             page
             onPick={close}

@@ -3,12 +3,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { NEW_BUSINESS_HREF, businessHref } from "@/components/routes";
 import { businessSummaries } from "@/components/shell/shell-data";
-import { Stamp } from "@/components/ui/Stamp";
 import { Badge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader, SectionHeader } from "@/components/ui/PageHeader";
 import { placeOf, topWorkflows } from "@/components/view-helpers";
+import { whoHandles } from "@/components/workflows/flow";
+import { resolveChoices } from "@/lib/domain/paths";
 import { WORKFLOWS } from "@/lib/domain/workflows";
 import type { BusinessProfile } from "@/lib/domain/types";
 import { listBusinesses } from "@/lib/server/data";
@@ -26,7 +27,7 @@ export const metadata: Metadata = { title: "Your businesses" };
 function waitingText(pending: number | null): string {
   if (pending === null) return "Approvals unavailable";
   if (pending === 0) return "All caught up";
-  return pending === 1 ? "1 approval waiting" : `${pending} approvals waiting`;
+  return pending === 1 ? "1 draft waiting" : `${pending} drafts waiting`;
 }
 
 /** Render one of the viewer's businesses as a row linking to its overview. */
@@ -55,6 +56,8 @@ function OwnRow({ business, pending }: { readonly business: BusinessProfile; rea
 
 /** Render the example business card: its headline number and top three workflows. */
 function SampleCard({ business }: { readonly business: BusinessProfile }) {
+  // The card shows Anchored's picks, not what this visitor changed in the example.
+  const picks = resolveChoices(business, {});
   return (
     <article className="case case-wide">
       <p className="who">Example</p>
@@ -69,13 +72,24 @@ function SampleCard({ business }: { readonly business: BusinessProfile }) {
           <p className="case-text">{business.caseStudy.statText}</p>
         </div>
       )}
+      {/* The title's link already covers the card; this says so where the eye lands, so it is hidden from screen readers. */}
+      <p className="case-go" aria-hidden="true">
+        Open the example
+        <ArrowRight size={16} />
+      </p>
       <ul>
-        {topWorkflows(business, 3).map((w) => (
-          <li key={w.id}>
-            <span>{WORKFLOWS[w.id].name}</span>
-            <Stamp path={w.plan.rec} />
-          </li>
-        ))}
+        {topWorkflows(business, 3).map((w) => {
+          const handler = whoHandles(business, picks, w.id);
+          return (
+            <li key={w.id}>
+              <span>{WORKFLOWS[w.id].name}</span>
+              <span className="ov-who" data-kind={handler.kind}>
+                <span className="sr">, </span>
+                {handler.short}
+              </span>
+            </li>
+          );
+        })}
       </ul>
     </article>
   );
@@ -97,7 +111,7 @@ export default async function BusinessesPage() {
           own.length === 0 ? undefined : (
             <ButtonLink href={NEW_BUSINESS_HREF}>
               <Plus aria-hidden="true" size={16} />
-              Start your own business
+              Set up your business
             </ButtonLink>
           )
         }
@@ -106,8 +120,8 @@ export default async function BusinessesPage() {
       {own.length === 0 ? (
         <EmptyState
           icon={<Store size={22} />}
-          title="Map your first business"
-          actions={<ButtonLink href={NEW_BUSINESS_HREF}>Start your own business</ButtonLink>}
+          title="Set up your first business"
+          actions={<ButtonLink href={NEW_BUSINESS_HREF}>Set up your business</ButtonLink>}
         >
           Answer a few questions in chat, and Anchored maps where AI can help. Until then, explore the example below.
         </EmptyState>
@@ -123,7 +137,7 @@ export default async function BusinessesPage() {
         <SectionHeader
           id="samples"
           title="Example business"
-          description="Explore it to see how Anchored works: change paths, approve cards and try an example event. What you change stays in your account and never reaches a real customer."
+          description="Explore it to see how Anchored works: change who handles a job, approve cards and watch an agent draft one. What you change stays in your account and never reaches a real customer."
         />
         <div className="cases">
           {samples.map((business) => (

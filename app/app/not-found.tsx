@@ -19,7 +19,7 @@ export default function BusinessNotFound() {
         <>
           <ButtonLink href={APP_HREF}>All businesses</ButtonLink>
           <ButtonLink href={NEW_BUSINESS_HREF} variant="secondary">
-            Start your own business
+            Set up your business
           </ButtonLink>
         </>
       }

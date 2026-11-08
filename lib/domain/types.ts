@@ -144,7 +144,11 @@ export interface DiscoveryListing {
   readonly data: string;
   readonly contract: string;
   readonly source: string;
+  /** The page the discovery agent found it on. Listings from the team's own research have none. */
+  readonly url?: string;
   readonly foundOn: string;
+  /** The kind of business the discovery agent searched for, such as "hair salon". */
+  readonly foundFor?: string;
 }
 
 // =============================================================================
@@ -264,6 +268,8 @@ export interface BusinessProfile {
   readonly cards?: Readonly<Partial<Record<SkillId, Omit<CardDraft, "agent" | "skill">>>>;
   /** Cards that lock a thread for the owner, shown when their skill is chosen. */
   readonly lockedCards?: readonly (Omit<CardDraft, "agent" | "skill"> & { readonly skill: SkillId })[];
+  /** The owner's yes to the plan as a whole, or absent while it waits for one. */
+  readonly planApproval?: PlanApproval;
   readonly caseStudy?: {
     readonly label: string;
     readonly stat: string;
@@ -316,6 +322,13 @@ export type Choice =
   | { readonly path: "skip" };
 
 export type ChoiceMap = Readonly<Partial<Record<WorkflowId, Choice>>>;
+
+/** When the owner approved the plan, and the pick for each workflow they said yes to. */
+export interface PlanApproval {
+  /** ISO timestamp. */
+  readonly approvedAt: string;
+  readonly choices: ChoiceMap;
+}
 
 /** The three paths available for one workflow at one business. */
 export interface PathOptions {

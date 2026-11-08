@@ -3,7 +3,9 @@ import type { Metadata } from "next";
 import { AgentCard } from "@/components/business/AgentCard";
 import { cardSource } from "@/components/agent-labels";
 import { ResizablePanel } from "@/components/resize/ResizablePanel";
+import { SendYourself } from "@/components/business/SendYourself";
 import { SimulateButton } from "@/components/business/SimulateButton";
+import { approvedDraft, handOff, type HandOff, type HandOffBusiness } from "@/components/business/handoff";
 import { buttonClass } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader, SectionHeader } from "@/components/ui/PageHeader";
@@ -19,8 +21,10 @@ import { getBusinessOrNotFound, getChoices, getFeed } from "@/lib/server/data";
 // Approvals: one reading column of the cards agents drafted, each with
 // approve, edit and skip, then the decided ones as rows in a closed
 // disclosure. In the right rail, pinned on wide screens, the outbox holds what
-// the owner approved, since Anchored isn't connected to texting or email yet,
-// and what quiet hours are holding. Only the example business offers an example event.
+// the owner approved and what quiet hours are holding. Anchored isn't connected
+// to texting or email, so each approved draft carries its send step: a link that
+// opens the owner's own texting or email app, or text to copy and paste. Only
+// the example business offers an example event.
 
 export const metadata: Metadata = { title: "Approvals" };
 
@@ -36,30 +40,40 @@ function logText(entry: OutboxEntry, card: CardRecord | undefined): string {
   return entry.channel === "email" ? `Email to ${entry.to}: ${card.title}` : `${card.action}: ${card.title}`;
 }
 
-/** Render one outbox entry: a text as a bubble, anything else as a log line. */
+/** Render one outbox entry: a text as a bubble, anything else as a log line, each with its send step once quiet hours allow. */
 function OutboxItem({
   entry,
   card,
   queued,
+  business,
 }: {
   readonly entry: OutboxEntry;
   readonly card?: CardRecord;
   readonly queued: boolean;
+  readonly business: HandOffBusiness;
 }) {
-  const when = queued ? <small className="queued">Queued for {sendTimeText(new Date(entry.sentAt))}</small> : null;
+  // A held text gets no send step yet: opening the texting app now would skip the quiet hours it waits for.
+  const when = queued ? <small className="queued">Ready to send at {sendTimeText(new Date(entry.sentAt))}</small> : null;
+  const draft = approvedDraft(entry, card);
+  const step: HandOff | null = queued || draft === null ? null : handOff(draft, business);
+  const send = step === null ? null : <SendYourself handOff={step} />;
   if (entry.channel === "sms") {
     return (
       <li className={`bubble${queued ? " is-queued" : ""}`}>
         <small>Text to {entry.to}</small>
         {entry.body}
         {when}
+        {send}
       </li>
     );
   }
   return (
     <li className={`logline${queued ? " is-queued" : ""}`}>
       {logText(entry, card)}
+      {/* A post or reply shows the words to paste; an email opens with its words already typed. */}
+      {step?.kind === "copy" && <p className="handoff-text">{step.text}</p>}
       {when}
+      {send}
     </li>
   );
 }
@@ -74,6 +88,7 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
   // Example events show a visitor how an agent drafts; an owner's own cards come from real events.
   const canSimulate = business.kind === "case" && chosenSkills(business, choices).length > 0;
   const canRewrite = isAiConfigured();
+  const handOffBusiness: HandOffBusiness = { name: business.name, reach: business.reach, tools: business.tools };
 
   const waiting = feed.cards.filter((c) => c.status === "pending");
   const decided = feed.cards.filter((c) => c.status !== "pending");
@@ -92,6 +107,7 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
       card={c}
       source={cardSource(c.agent === null ? null : agentName(business, c.agent))}
       canRewrite={canRewrite}
+      business={handOffBusiness}
     />
   );
 
@@ -99,6 +115,12 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
     <>
       <PageHeader
         title="Approvals"
+        description={
+          business.kind === "case"
+            ? "Agents draft each text, email and post. Nothing goes out until you approve it."
+            : // No connector is live yet, so every card here is an agent's sample.
+              "Sample drafts from your agents. Nothing goes out until you approve it."
+        }
         actions={
           <>
             <a className={buttonClass("quiet", "md", "only-narrow")} href="#outbox">
@@ -117,10 +139,10 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
           ) : (
             <EmptyState icon={<CheckCheck size={22} />} title="You're all caught up">
               {canSimulate
-                ? "New drafts land here as your agents work. Try an example event to see one arrive."
+                ? "New drafts land here as your agents work. Tap Watch an agent draft to see one arrive."
                 : chosenSkills(business, choices).length > 0
                   ? "New drafts land here as your agents work."
-                  : "Choose Build on a workflow and its agent starts drafting here."}
+                  : "On the Workflows page, let Anchored draft a job for your OK, and its drafts land here."}
             </EmptyState>
           )}
           {decided.length > 0 && (
@@ -144,11 +166,11 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
             <div className="phone">
               <div className="phone-bar">
                 <h2 id="outbox-title">Outbox</h2>
-                <span>Waits until you connect texting and email</span>
+                <span>You send each one yourself</span>
               </div>
               {outbox.length === 0 ? (
                 <p className="phone-empty">
-                  Approve a card and it waits here. Once you connect texting and email, it goes out from your own number or address.
+                  Approve a card and it lands here. Each one opens your own texting or email app with the message typed out, or gives you the words to paste.
                 </p>
               ) : (
                 <>
@@ -157,7 +179,7 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
                       <p className="phone-label">Held for quiet hours</p>
                       <ul className="phone-list">
                         {queued.map((entry) => (
-                          <OutboxItem key={entry.id} entry={entry} card={cardById.get(entry.cardId)} queued />
+                          <OutboxItem key={entry.id} entry={entry} card={cardById.get(entry.cardId)} queued business={handOffBusiness} />
                         ))}
                       </ul>
                     </>
@@ -167,7 +189,7 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
                       {queued.length > 0 && <p className="phone-label">Approved</p>}
                       <ul className="phone-list">
                         {sent.map((entry) => (
-                          <OutboxItem key={entry.id} entry={entry} card={cardById.get(entry.cardId)} queued={false} />
+                          <OutboxItem key={entry.id} entry={entry} card={cardById.get(entry.cardId)} queued={false} business={handOffBusiness} />
                         ))}
                       </ul>
                     </>

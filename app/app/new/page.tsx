@@ -15,15 +15,15 @@ import { aiLabel } from "@/lib/server/ai";
 // one-row header; `?form=1` swaps it for the one-page form, with "What happens
 // next" beside it. Both create the business the same way and open its plan.
 
-export const metadata: Metadata = { title: "Start a new business" };
+export const metadata: Metadata = { title: "Set up your business" };
 
 // Provider keys can be set after a build, so check them per request rather than once at build time.
 export const dynamic = "force-dynamic";
 
 const NEXT_STEPS: readonly string[] = [
   "Anchored writes a one-page profile you can check.",
-  "You get the five shared workflows, plus the ones your answers add.",
-  "Each workflow gets three paths and our pick.",
+  "Anchored maps the jobs your business does day to day and picks who handles each one.",
+  "You look the plan over, change any step, and approve it.",
   "Work only some businesses have, such as a SNAP stocking check, can get its own niche agent.",
   "Agents you choose start drafting cards for you to approve.",
 ];
@@ -51,7 +51,7 @@ export default async function NewBusinessPage({
     return (
       <>
         <PageHeader
-          title="Start a new business"
+          title="Set up your business"
           description="Answer what you can. Skip what you don't know."
           actions={
             <ButtonLink variant="secondary" href={NEW_BUSINESS_HREF}>
@@ -80,7 +80,7 @@ export default async function NewBusinessPage({
     <div className="fill-page">
       <PageHeader
         compact
-        title="Start a new business"
+        title="Set up your business"
         actions={
           <ButtonLink variant="quiet" href={`${NEW_BUSINESS_HREF}?form=1`}>
             Prefer a form?

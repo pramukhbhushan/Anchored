@@ -1,23 +1,55 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
-import type { BetaMessage, MessageCreateParamsNonStreaming } from "@anthropic-ai/sdk/resources/beta/messages/messages";
+import type {
+  BetaContentBlock,
+  BetaMessage,
+  BetaMessageParam,
+  MessageCreateParamsNonStreaming,
+} from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import type { ModelTier } from "@/lib/domain/types";
 import type { ProviderConfig } from "./config";
-import { LlmRefusalError, LlmRequestError, LlmResponseError, type LlmProvider, type ObjectRequest, type TextRequest } from "./types";
+import {
+  LlmRefusalError,
+  LlmRequestError,
+  LlmResponseError,
+  type LlmProvider,
+  type ObjectRequest,
+  type TextRequest,
+  type WebFindings,
+  type WebSearchRequest,
+  type WebSource,
+} from "./types";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
 // `AnthropicProvider` calls Claude through the official SDK. Structured output
 // uses the SDK's Zod helper, and the models that support it get server-side
-// refusal fallbacks, so a declined request can still be answered.
+// refusal fallbacks, so a declined request can still be answered. `searchWeb`
+// runs Claude's server-side web search and returns every page it found.
 
 // Models that accept server-side refusal fallbacks in their "default" form. Haiku 5.5 has none.
 const FALLBACK_MODELS = new Set(["claude-sonnet-5-5", "claude-opus-5-5"]);
 const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 // Current models that take `output_config.effort`; a custom model id might not, so it gets none.
 const EFFORT_MODELS = new Set(["claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"]);
+// Models that run the web search with dynamic filtering; any other model gets the basic search tool.
+const DYNAMIC_SEARCH_MODELS = new Set(["claude-sonnet-5-5", "claude-opus-5-5"]);
+// The server's search loop pauses at its own iteration limit; resume it at most this many times.
+const MAX_SEARCH_RESUMES = 3;
+
+/** Every page the searches in `content` returned, each URL once. A failed search returns an error object and adds none. */
+function searchSources(content: readonly BetaContentBlock[]): WebSource[] {
+  const seen = new Map<string, WebSource>();
+  for (const block of content) {
+    if (block.type !== "web_search_tool_result" || !Array.isArray(block.content)) continue;
+    for (const result of block.content) {
+      if (!seen.has(result.url)) seen.set(result.url, { url: result.url, title: result.title });
+    }
+  }
+  return [...seen.values()];
+}
 
 /** Return the reply's text, or throw `LlmRefusalError` on a refusal and `LlmResponseError` when it has no text. */
 function answerText(response: BetaMessage): string {
@@ -95,5 +127,26 @@ export class AnthropicProvider implements LlmProvider {
       // Invalid JSON, as from an answer cut off at `max_tokens`, and a schema mismatch both throw here.
       throw new LlmResponseError("Claude's answer did not match the expected shape.", { cause: error });
     }
+  }
+
+  async searchWeb(request: WebSearchRequest): Promise<WebFindings> {
+    const model = this.modelFor(request.tier);
+    const tool = DYNAMIC_SEARCH_MODELS.has(model)
+      ? ({ type: "web_search_20260209", name: "web_search", max_uses: request.maxSearches } as const)
+      : ({ type: "web_search_20250305", name: "web_search", max_uses: request.maxSearches } as const);
+    const question: BetaMessageParam = { role: "user", content: request.prompt };
+    const content: BetaContentBlock[] = [];
+    const ask = async (messages: BetaMessageParam[]): Promise<BetaMessage> => {
+      const response = await this.send({ model, max_tokens: request.maxTokens, ...this.modelOptions(model), tools: [tool], messages });
+      content.push(...response.content);
+      return response;
+    };
+    let response = await ask([question]);
+    // A paused turn resumes from the content so far; a new user message would start a new answer instead.
+    for (let resumes = 0; response.stop_reason === "pause_turn" && resumes < MAX_SEARCH_RESUMES; resumes++) {
+      response = await ask([question, { role: "assistant", content: [...content] }]);
+    }
+    const text = answerText({ ...response, content });
+    return { text, sources: searchSources(content) };
   }
 }

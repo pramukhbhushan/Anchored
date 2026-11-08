@@ -135,7 +135,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ sou
     const skill = candidates.find((candidate) => chosen.has(candidate));
     if (!skill) {
       const names = candidates.map((candidate) => SKILLS[candidate].name).join(" or ");
-      return fail(409, `No skill in this stack handles a ${source} event. Choose Build on the workflow that uses ${names}.`);
+      return fail(409, `Nothing in this plan handles a ${source} event. Let Anchored draft the workflow that uses ${names}.`);
     }
     // Store the event only once it is valid and some skill will act on it.
     await getStore().recordEvent(await getSessionId(), business.id, source, payload);

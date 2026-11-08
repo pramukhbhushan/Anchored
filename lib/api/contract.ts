@@ -1,5 +1,5 @@
 import type { IntakeQuestion, KnownFact, ProfileChange } from "@/lib/domain/intake";
-import type { BusinessProfile, CardDraft, Choice, OnboardingAnswers, SkillId, WorkflowId } from "@/lib/domain/types";
+import type { BusinessProfile, CardDraft, Choice, OnboardingAnswers, PlanApproval, SkillId, WorkflowId } from "@/lib/domain/types";
 
 // =============================================================================
 // Module Overview
@@ -26,7 +26,7 @@ export interface CardRecord extends CardDraft {
   readonly decidedAt: string | null;
 }
 
-/** One entry in the outbox. Approved messages wait here; Anchored isn't connected to texting or email yet. */
+/** One entry in the outbox. Anchored isn't connected to texting or email yet, so the owner sends each one from their own apps. */
 export interface OutboxEntry {
   readonly id: string;
   readonly businessId: string;
@@ -60,6 +60,14 @@ export interface DeleteBusinessesResponse {
 export type SetChoiceRequest = { readonly workflow: WorkflowId; readonly path: "turnon" | "buy"; readonly toolId: string } | { readonly workflow: WorkflowId; readonly path: "build" | "skip" };
 export interface SetChoiceResponse {
   readonly choice: Choice;
+}
+
+/** PUT /api/businesses/[id]/plan: the owner says yes to the plan as it stands. */
+export interface ApprovePlanRequest {
+  readonly approved: true;
+}
+export interface ApprovePlanResponse {
+  readonly planApproval: PlanApproval;
 }
 
 /** GET /api/businesses/[id]/cards: the card feed and the outbox. */

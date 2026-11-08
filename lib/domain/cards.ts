@@ -21,7 +21,7 @@ export type CardSkill = Exclude<SkillId, "brief">;
  * they never repeat it. `agents` are the agents at work here; triage hands email only to one of them.
  */
 export type CardTemplate = (
-  business: Pick<BusinessProfile, "name" | "reach" | "tools">,
+  business: Pick<BusinessProfile, "name" | "reach" | "tools" | "signals">,
   variant: number,
   agents?: readonly ActiveAgent[],
 ) => CardBody;
@@ -36,6 +36,27 @@ function pick<T>(variant: number, standing: T, ...simulated: readonly [T, ...T[]
   const index = (((variant - 1) % simulated.length) + simulated.length) % simulated.length;
   // `index` is always in range; the fallback only satisfies `noUncheckedIndexedAccess`.
   return simulated[index] ?? simulated[0];
+}
+
+/** Where a new inquiry arrives, from the first written channel the owner named, or `null` when they named none. */
+function inquiryChannel(business: Pick<BusinessProfile, "reach">): string | null {
+  if (business.reach.includes("Website form")) return "from your website";
+  if (business.reach.includes("Instagram or Facebook")) return "on social media";
+  if (business.reach.includes("Email")) return "by email";
+  return null;
+}
+
+/** One line of a post: an invitation to stop by for a business customers walk into, a message otherwise. */
+function postLine(business: Pick<BusinessProfile, "reach">, variant: number, google: boolean): string {
+  if (business.reach.includes("Walk-ins")) {
+    return google
+      ? pick(variant, "Stop by this week, or call ahead to book a time.", "Planning a visit? Check our listing for this week's hours before you stop by.", "A look at what we've been working on. Stop by and say hi.")
+      : pick(variant, "Stop by this week, or call ahead to book a time.", "Thanks to everyone who came by this week. See you soon.", "A look at what we've been working on. Stop by and say hi.");
+  }
+  // A coach or a field trade has no counter to stop by; the post asks for a message instead.
+  return google
+    ? pick(variant, "Taking new bookings this month. Send us a message to find a time.", "Getting in touch? Check our listing for this week's hours first.", "A look at what we've been working on. Send us a message with any questions.")
+    : pick(variant, "Taking new bookings this month. Send us a message to find a time.", "Thanks to everyone we worked with this week.", "A look at what we've been working on. Send us a message with any questions.");
 }
 
 /** Whether the owner said customers find them on Google or that they keep a Google Business Profile. */
@@ -63,8 +84,10 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
   },
   inquiry: (b, v) => {
     const name = pick(v, "Sam", "Alex", "Morgan");
+    const channel = inquiryChannel(b);
     return {
-      title: `New inquiry from your website: ${name}`,
+      // Name only a channel the owner said they have, so a business with no website never sees one.
+      title: channel === null ? `New inquiry from ${name}` : `New inquiry ${channel}: ${name}`,
       body: `Hi ${name}, thanks for reaching out to ${b.name}! Could we talk ${pick(v, "tomorrow at 10 a.m. or 3 p.m.", "Thursday at 9 a.m. or Friday at 1 p.m.", "Monday at 11 a.m. or 2 p.m.")}?`,
       reason: "Replies within the hour qualify far more often.",
       checks: ["Times match your calendar", "No price in a first reply"],
@@ -99,7 +122,7 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
     };
   },
   callfollow: (b, v) => {
-    const name = pick(v, "Sam", "Lee", "Jamie");
+    const name = pick(v, "Priya", "Lee", "Jamie");
     return {
       title: `${name} said 'let me think' after your call`,
       body: `Hi ${name}, good talking the other day. Any questions I can answer about getting started with ${b.name}?`,
@@ -107,7 +130,7 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
       checks: ["Check-in 2 of 3", "No new offer added"],
       action: "Send email",
       channel: "email",
-      to: pick(v, "Sam Ortiz", "Lee Park", "Jamie Wells"),
+      to: pick(v, "Priya Nair", "Lee Park", "Jamie Wells"),
     };
   },
   closer: (b, v) => ({
@@ -202,7 +225,7 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
             "Customers check your Google listing before they visit",
             "Your Google listing has no recent photos",
           ),
-          body: `Draft post for ${b.name}: "${pick(v, "Stop by this week, or call ahead to book a time.", "Planning a visit? Check our listing for this week's hours before you stop by.", "A look at what we've been working on. Stop by and say hi.")}"`,
+          body: `Draft post for ${b.name}: "${postLine(b, v, true)}"`,
           reason: "Customers skip a business when basic details are missing.",
           checks: ["You post it yourself", "No prices or offers in the post"],
           action: "Copy post",
@@ -210,7 +233,7 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
         }
       : {
           title: pick(v, "Nothing posted in 3 weeks", "A short post for this week", "Show customers what's new"),
-          body: `Draft post for ${b.name}: "${pick(v, "Stop by this week, or call ahead to book a time.", "Thanks to everyone who came by this week. See you soon.", "A look at what we've been working on. Stop by and say hi.")}"`,
+          body: `Draft post for ${b.name}: "${postLine(b, v, false)}"`,
           reason: "A short, regular post keeps you in front of customers.",
           checks: ["You post it yourself", "No prices or offers in the post"],
           action: "Copy post",
@@ -224,7 +247,22 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
     action: "Copy reply",
     channel: "list",
   }),
-  triage: (_b, _v, agents = []) => {
+  triage: (b, _v, agents = []) => {
+    // A business with no suppliers forwards customer mail instead, which is the Front Desk's work.
+    if (!b.signals.includes("suppliers")) {
+      const frontDesk = agents.find((agent) => agent.skills.includes("inquiry"));
+      return {
+        title: "Forwarded email: a question from a past customer",
+        body:
+          frontDesk === undefined
+            ? "None of your agents answers new questions, so this one is yours to read."
+            : `${frontDesk.name} will draft a reply for you to approve.`,
+        reason: "Each forwarded email goes to the agent that handles that work, or to you when none does.",
+        checks: ["Read from an email you forwarded", "No reply sent to anyone"],
+        action: frontDesk === undefined ? "Add it to your list" : `Route to ${frontDesk.name}`,
+        channel: "list",
+      };
+    }
     // A supplier price list is Price Watch's work. Without an agent here running it, the email goes to the owner.
     const handler = agents.find((agent) => agent.skills.includes("pricewatch"));
     return {

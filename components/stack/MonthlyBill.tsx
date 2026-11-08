@@ -17,10 +17,10 @@ const NAMED_SHARE = 0.2;
 
 /** What each group is called, and what it says when it has nothing in it. */
 const GROUP_COPY: Readonly<Record<BillGroupId, { readonly title: string; readonly none: string }>> = {
-  buy: { title: "New subscriptions", none: "Nothing new to sign up for." },
-  build: { title: "Anchored's agents", none: "No agents yet." },
-  turnon: { title: "Already yours", none: "Nothing to turn on." },
-  skip: { title: "Skipped for now", none: "Nothing skipped." },
+  buy: { title: "New tools", none: "Nothing new to sign up for." },
+  build: { title: "Anchored drafts, you approve", none: "Nothing for Anchored to draft yet." },
+  turnon: { title: "Tools you already have", none: "None of your tools are in the plan yet." },
+  skip: { title: "Not handled yet", none: "Every job has someone on it." },
 };
 
 /** Return the agents' price line, the one group hint that says something the amounts don't. */

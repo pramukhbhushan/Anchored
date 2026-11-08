@@ -15,7 +15,8 @@
 .avatar svg{width:16px;height:16px}
 
 .name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@media (max-width:520px){.name{max-width:110px}}
+/* At phone width the page title needs the room, so the name stays for screen readers only */
+@media (max-width:640px){.name{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}}
 
 .chevron{width:16px;height:16px;flex:none;color:var(--muted)}
 @media (prefers-reduced-motion:no-preference){.chevron{transition:transform .15s ease}}

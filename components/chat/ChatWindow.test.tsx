@@ -2,7 +2,8 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { ChatWindow } from "@/components/chat/ChatWindow";
-import type { BusinessChatResponse, ChatMessage } from "@/lib/api/contract";
+import type { BusinessChatResponse, ChatMessage, IntakeResponse, StartIntakeResponse } from "@/lib/api/contract";
+import type { IntakeOption, IntakeQuestion } from "@/lib/domain/intake";
 import { router } from "@/test/next";
 import { deferred, json, sentJson, stubFetch } from "@/test/http";
 
@@ -11,7 +12,9 @@ import { deferred, json, sentJson, stubFetch } from "@/test/http";
 // =============================================================================
 // The business chat as an owner uses it: tell Anchored what changed, see the
 // reply, wait while it is sending, recover when a send fails, and find no text
-// box on the read-only example. `fetch` plays the chat route.
+// box on the read-only example. Onboarding as an owner finishes it: pick
+// several chips at once, confirm, and open the new plan. `fetch` plays the
+// chat and intake routes.
 
 const CHAT_URL = "/api/businesses/greenfield/chat";
 
@@ -189,7 +192,7 @@ describe("ChatWindow, business mode", () => {
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Send" })).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Things you can tell Anchored" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Start your own business" })).toHaveAttribute("href", "/app/new");
+    expect(screen.getByRole("link", { name: "Set up your business" })).toHaveAttribute("href", "/app/new");
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });
@@ -234,5 +237,76 @@ describe("ChatWindow, text box size", () => {
     await renderLoadedChat();
 
     expect(textBox()).toHaveStyle({ height: "78px" });
+  });
+});
+
+// =============================================================================
+// Onboarding
+// =============================================================================
+
+const INTAKE_URL = "/api/intake";
+const INTAKE_ID = "intake-1";
+
+/** A chip as the intake route sends it. */
+function chip(value: string, label = value): IntakeOption {
+  return { value, label, selected: false, suggested: false };
+}
+
+const REACH: IntakeQuestion = {
+  field: "reach",
+  text: "How do customers usually reach you? Pick all that apply.",
+  multi: true,
+  options: [chip("Phone calls"), chip("Walk-ins"), chip("Email")],
+};
+
+const CONFIRM: IntakeQuestion = {
+  field: "confirm",
+  text: "Here's the profile I'll build your plan from. Does this look right?",
+  multi: false,
+  options: [chip("yes", "Looks right"), chip("change", "Change something")],
+};
+
+/** The intake as the route sends it while `question` waits for an answer. */
+function asking(question: IntakeQuestion): IntakeResponse {
+  return { messages: [{ id: "q", role: "anchored", text: question.text, at: "2026-11-07T14:00:00Z" }], known: [], question, done: false };
+}
+
+/** Play the intake routes: POST /api/intake opens on `first`, and each answer gets the next of `answers`. */
+function intakeRoute(first: IntakeQuestion, ...answers: IntakeResponse[]) {
+  return stubFetch((url) => {
+    if (url === INTAKE_URL) return json({ ...asking(first), intakeId: INTAKE_ID } satisfies StartIntakeResponse);
+    if (url !== `${INTAKE_URL}/${INTAKE_ID}`) throw new Error(`Unexpected request to ${url}`);
+    const next = answers.shift();
+    if (next === undefined) throw new Error("More answers than the test planned");
+    return json(next);
+  });
+}
+
+describe("ChatWindow, onboarding", () => {
+  it("lets the owner pick several chips, counts them on Done, and sends them together", async () => {
+    const fetchSpy = intakeRoute(REACH, asking(CONFIRM));
+    render(<ChatWindow mode="intake" />);
+    const chips = await screen.findByRole("group", { name: "Pick all that apply, then Done" });
+
+    await userEvent.click(within(chips).getByRole("button", { name: "Phone calls" }));
+    await userEvent.click(within(chips).getByRole("button", { name: "Email" }));
+
+    expect(within(chips).getByRole("button", { name: "Phone calls" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(chips).getByRole("button", { name: "Walk-ins" })).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(within(chips).getByRole("button", { name: "Done (2)" }));
+
+    await screen.findByRole("button", { name: "Looks right" });
+    expect(sentJson(fetchSpy, 1)).toMatchObject({ method: "POST", url: `${INTAKE_URL}/${INTAKE_ID}`, body: { picks: ["Phone calls", "Email"] } });
+  });
+
+  it("opens the new plan on the Workflows page once the owner confirms", async () => {
+    intakeRoute(CONFIRM, { ...asking(CONFIRM), question: null, done: true, businessId: "biz-7" });
+    render(<ChatWindow mode="intake" />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Looks right" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Open your plan" }));
+
+    expect(router.push).toHaveBeenCalledExactlyOnceWith("/app/b/biz-7/workflows");
+    expect(router.refresh).toHaveBeenCalled();
   });
 });

@@ -77,7 +77,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .never{font-size:13px}
 
 /* =====================================================================
-   DIRECTION A — Harbor Chart
+   DIRECTION A. Harbor Chart
    ===================================================================== */
 .A{background:#F3F5F4;color:#17233B;--boat-fill:#FFFFFF}
 .A .stage{background:
@@ -136,7 +136,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 }
 
 /* =====================================================================
-   DIRECTION B — Night Watch (dark, recede to horizon)
+   DIRECTION B. Night Watch (dark, recede to horizon)
    ===================================================================== */
 .B{background:#0B1220;color:#E6EBF3;--boat-fill:#0B1220;--signal:#F4CF48}
 .B .stage{background:linear-gradient(#0B1220 0 62%, #0F1A2C 62% 100%)}
@@ -184,7 +184,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 @media (max-width:820px){.B .watch{grid-template-columns:1fr}.B .mate{grid-template-columns:88px minmax(0,1fr)}.B .mate svg{width:88px}}
 
 /* =====================================================================
-   DIRECTION C — Shipyard Drawing (plan view, blueprint mono)
+   DIRECTION C. Shipyard Drawing (plan view, blueprint mono)
    ===================================================================== */
 .C{background:#F7F7F4;color:#17233B;--boat-fill:#F7F7F4}
 .C .stage{background:linear-gradient(rgba(23,35,59,.05) 1px,transparent 1px) 0 0/24px 24px,linear-gradient(90deg,rgba(23,35,59,.05) 1px,transparent 1px) 0 0/24px 24px}
@@ -247,7 +247,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 @media (max-width:520px){.C .crew{grid-template-columns:1fr}}
 
 /* =====================================================================
-   DIRECTION D — Regatta (hull-down, bright pennants)
+   DIRECTION D. Regatta (hull-down, bright pennants)
    ===================================================================== */
 .D{background:#FFFFFF;color:#17233B;--boat-fill:#FFFFFF}
 .D .nav .word{font-family:var(--brico);font-stretch:100%;font-weight:800;font-size:24px;letter-spacing:-.03em}
@@ -650,7 +650,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   const boat=(a,cls="")=>`<svg class="boat ${cls}" viewBox="0 0 200 140" style="--pc:${a.color}" aria-hidden="true"><use href="#${a.sym}"/></svg>`;
   const skills=(a,n)=>`<ul class="skills">${a.skills.slice(0,n).map(s=>`<li>${s}</li>`).join("")}${a.skills.length>n?`<li>+${a.skills.length-n}</li>`:""}</ul>`;
 
-  // A — chart cards
+  // A. chart cards
   document.querySelector('[data-crew="A"]').innerHTML=AGENTS.map(a=>`<article class="mate">${boat(a)}<p class="eyebrow">${a.boat}${a.always?" · always on":""}</p><h3>${a.name}</h3><p>${a.job}</p>${skills(a,3)}<p class="never">${a.never}</p></article>`).join("");
   document.querySelector('#d-chart [data-log]').innerHTML=FLOW.map(f=>`<li><span class="t">${f.t}</span><div><b><i class="dot" style="background:${byId[f.a].color}"></i>${f.what}</b><span>${f.how}</span></div></li>`).join("");
   (function chart(){
@@ -675,7 +675,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   document.querySelectorAll('[data-card]').forEach(el=>el.innerHTML=card);
   document.querySelector('#d-chart [data-rules]').innerHTML=RULES.map(r=>`<li>${r}</li>`).join("");
 
-  // B — formation
+  // B. formation
   (function fleet(){
     const pos=[[300,110],[300,250],[120,40],[120,320],[-40,180]]; // behind flagship, V
     let s=`<line x1="0" y1="190" x2="1000" y2="190" stroke="#E6EBF3" stroke-opacity=".08"/>`;
@@ -689,7 +689,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   document.querySelector('[data-fleetkey]').innerHTML=AGENTS.map(a=>`<div><h3><i style="background:${a.color}"></i>${a.name}</h3><p>${a.job}</p>${skills(a,2)}</div>`).join("");
   document.querySelector('[data-crew="B"]').innerHTML=AGENTS.map(a=>`<article class="mate">${boat(a)}<div><h3>${a.name}</h3><p>${a.job}</p><p class="never">${a.never}</p></div></article>`).join("");
 
-  // C — plan view + fleet list + watch bill
+  // C. plan view + fleet list + watch bill
   (function plan(){
     let s=`<defs><clipPath id="hullclip"><path d="M100 10 C160 90 176 200 176 330 L172 560 Q100 600 28 560 L24 330 C24 200 40 90 100 10Z"/></clipPath></defs>`;
     s+=`<path class="f s" d="M100 10 C160 90 176 200 176 330 L172 560 Q100 600 28 560 L24 330 C24 200 40 90 100 10Z" stroke-width="1.8"/>`;
@@ -713,7 +713,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   ];
   document.querySelector('[data-sched]').innerHTML=`<thead><tr><th>Time</th><th>Agent</th><th>Skill</th><th>What happens</th><th>Who sends</th></tr></thead><tbody>${SCHED.map(r=>{const a=byId[r[1]];return `<tr${r[4]?' class="you"':''}><td class="t">${r[0]}</td><td><span class="tag"><i style="background:${a.color}"></i>${a.name}</span></td><td class="mono" style="font-size:13px">${r[2]}</td><td>${r[3]}</td><td class="mono" style="font-size:13px">${r[4]?"You read it":"You, on Approve"}</td></tr>`}).join("")}</tbody>`;
 
-  // D — crew + course
+  // D. crew + course
   document.querySelector('[data-crew="D"]').innerHTML=AGENTS.map(a=>`<article class="mate" style="--pc:${a.color}">${boat(a)}<h3>${a.name}</h3><p>${a.job}</p>${skills(a,3)}<p class="never">${a.never}</p></article>`).join("");
   (function course(){
     const marks=[[90,150],[300,60],[500,150],[700,60],[900,140]];
