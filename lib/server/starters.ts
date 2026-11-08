@@ -1,7 +1,7 @@
 import "server-only";
 import { after } from "next/server";
 import { z } from "zod";
-import { customerNames, draftFeed, standingKey } from "@/lib/domain/cards";
+import { CALENDAR_CHECK, customerNames, draftFeed, standingKey } from "@/lib/domain/cards";
 import { ensureOptOut, mentionsAllergen } from "@/lib/domain/executor";
 import { resolveChoices } from "@/lib/domain/paths";
 import { STARTER_LIMIT, STARTER_RECIPIENT, starterSkills, startersDue, type WritableSkill } from "@/lib/domain/starters";
@@ -147,6 +147,8 @@ function withWords(template: KeyedCard, skill: WritableSkill, words: Written): K
   const { stake: _invented, ...card } = template;
   return {
     ...card,
+    // The prompt forbids clock times, so a written starter offers none for the calendar check to vouch for.
+    checks: card.checks.filter((check) => check !== CALENDAR_CHECK),
     title: words.title,
     body: template.channel === "sms" ? ensureOptOut(words.body) : words.body,
     reason: words.whyNow,
@@ -173,7 +175,8 @@ async function writtenWords(llm: LlmProvider, business: BusinessProfile, skills:
     const skill = skills.find((candidate) => candidate === raw.skill);
     // Code picked the skills: a starter for any other skill, or a second one for the same skill, is dropped.
     if (skill === undefined || accepted.has(skill)) continue;
-    const draft: Written = { skill, contact: tidy(raw.contact), title: tidy(raw.title), body: tidy(raw.body), whyNow: tidy(raw.whyNow) };
+    // A card title reads as a label, so a closing period the model added comes off.
+    const draft: Written = { skill, contact: tidy(raw.contact), title: tidy(raw.title).replace(/\.$/, ""), body: tidy(raw.body), whyNow: tidy(raw.whyNow) };
     const reason = rejection(draft, skill, channels.get(skill) ?? "list", facts, names, usedNames);
     if (reason !== null) {
       console.warn(`[Starters] Kept the template for ${business.id} ${skill}: ${reason}.`);

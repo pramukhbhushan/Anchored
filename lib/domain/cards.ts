@@ -67,6 +67,9 @@ function usesGoogle(business: Pick<BusinessProfile, "reach" | "tools">): boolean
 // Tools that hold the owner's open times. Only a business that keeps one gets a draft offering exact times.
 const CALENDAR_TOOL = /calendly|calendar|acuity|jobber|housecall|square appointments|vagaro|booksy|mindbody|opentable|resy|setmore|simplybook/i;
 
+/** The check on a draft that offers times read from the owner's calendar. */
+export const CALENDAR_CHECK = "Times match your calendar";
+
 /** Whether the owner named a tool that holds their calendar, so a draft may offer times from it. */
 function keepsCalendar(business: Pick<BusinessProfile, "tools">): boolean {
   return business.tools.some((tool) => CALENDAR_TOOL.test(tool));
@@ -229,7 +232,7 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
       title: channel === null ? `New inquiry from ${person.first}` : `New inquiry ${channel}: ${person.first}`,
       body: `Hi ${person.first}, thanks for asking ${b.name} about ${asked}! ${next}`,
       reason: "Replies within the hour qualify far more often.",
-      checks: calendar ? ["Times match your calendar", "No price in a first reply"] : ["No price in a first reply"],
+      checks: calendar ? [CALENDAR_CHECK, "No price in a first reply"] : ["No price in a first reply"],
       action: "Send email",
       channel: "email",
       to: person.full,

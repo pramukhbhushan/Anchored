@@ -174,13 +174,15 @@ describe("written starters", () => {
       key: template.key,
       channel: template.channel,
       action: template.action,
-      checks: template.checks,
       agent: template.agent,
       title: "Written title for inquiry",
       reason: "They asked this morning and are comparing options.",
       body: "Thanks for reaching out, we can help.",
     });
     expect(inquiry?.to).toMatch(/^[A-Z][a-z]+ [A-Z][a-z]+$/);
+    // The plumber keeps a calendar, so the template offers times; a written starter names none, so it claims no match.
+    expect(template.checks).toContain("Times match your calendar");
+    expect(inquiry?.checks).toEqual(template.checks.filter((check) => check !== "Times match your calendar"));
   });
 
   it("end every text with the opt-out line", async () => {
