@@ -291,6 +291,10 @@ export class MemoryStore implements Store {
     this.data(session).intakes.set(intake.id, intake);
   }
 
+  async findIntakeByBusiness(session: string, businessId: string): Promise<IntakeRecord | null> {
+    return [...(this.peek(session)?.intakes.values() ?? [])].find((intake) => intake.businessId === businessId) ?? null;
+  }
+
   async reset(session: string): Promise<void> {
     this.sessions.delete(session);
   }

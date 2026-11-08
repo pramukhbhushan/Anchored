@@ -466,6 +466,14 @@ export class SupabaseStore implements Store {
     if (error) fail("saveIntake", error);
   }
 
+  async findIntakeByBusiness(session: string, businessId: string): Promise<IntakeRecord | null> {
+    const { data, error } = await this.db.from("intake_drafts").select("id, draft, business_id").eq("session_id", session).eq("business_id", businessId).limit(1).maybeSingle();
+    if (error) fail("findIntakeByBusiness", error);
+    // `draft` is written only by `saveIntake` from a typed `IntakeDraft`.
+    const row = data as IntakeRow | null;
+    return row ? { id: row.id, draft: row.draft, businessId: row.business_id } : null;
+  }
+
   async reset(session: string): Promise<void> {
     // Outbox rows cascade from cards; the other tables are cleared one by one.
     for (const table of ["cards", "workflow_choices", "events", "chat_messages", "intake_drafts", "contacts", "connections", "profile_versions", "businesses"] as const) {

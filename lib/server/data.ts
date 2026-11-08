@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { notFound } from "next/navigation";
 import { cache } from "react";
-import type { CardRecord, EventCardResponse, OutboxEntry } from "@/lib/api/contract";
+import type { CardRecord, ChatMessage, EventCardResponse, OutboxEntry } from "@/lib/api/contract";
 import { draftFeed } from "@/lib/domain/cards";
 import { isSampleBusinessId, SAMPLE_BUSINESS } from "@/lib/domain/cases";
 import { chosenSkills, resolveChoices, workflowIdsOf } from "@/lib/domain/paths";
@@ -198,4 +198,13 @@ export async function isCardLive(card: CardRecord): Promise<boolean> {
   const business = await findBusiness(card.businessId);
   if (!business || card.skill === null) return false;
   return liveSkills(business, await getChoices(business)).has(card.skill);
+}
+
+/** The onboarding chat that set up `business`, oldest message first, or none for a business built from the form or an example. */
+export async function getSetupChat(business: BusinessProfile): Promise<ChatMessage[]> {
+  if (business.kind === "case") return [];
+  const session = await getSessionId();
+  const store = getStore();
+  const intake = await store.findIntakeByBusiness(session, business.id);
+  return intake === null ? [] : store.listMessages(session, { kind: "intake", id: intake.id }, 200);
 }

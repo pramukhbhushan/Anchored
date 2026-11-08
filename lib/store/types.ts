@@ -117,6 +117,8 @@ export interface Store {
   addMessages(session: string, thread: ChatThread, messages: readonly NewChatMessage[]): Promise<ChatMessage[]>;
   getIntake(session: string, id: string): Promise<IntakeRecord | null>;
   saveIntake(session: string, intake: IntakeRecord): Promise<void>;
+  /** The onboarding chat that built `businessId`, or `null` when the business came from the form or an example. */
+  findIntakeByBusiness(session: string, businessId: string): Promise<IntakeRecord | null>;
   /** Count one model call against the day's cap for every visitor together; `false` once the cap is reached. Deployment-wide. */
   useAiCall(day: string, cap: number): Promise<boolean>;
   /** Mark a queued entry as sending and return it; `null` when it isn't queued, so two senders can't both send it. */

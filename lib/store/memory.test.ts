@@ -210,3 +210,15 @@ describe("cancelInvoiceReminders", () => {
     expect((await store.listCards("s1", BUSINESS))[0]?.status).toBe("pending");
   });
 });
+
+describe("findIntakeByBusiness", () => {
+  it("finds the onboarding chat that built a business, in this session only", async () => {
+    const store = new MemoryStore();
+    const draft = { facts: { reach: [], tools: [], signals: [], languages: [] }, settled: [], followUp: null, followUps: 0, review: { stage: "confirmed" as const } };
+    await store.saveIntake("s1", { id: "intake-1", draft, businessId: null });
+    await store.saveIntake("s1", { id: "intake-2", draft, businessId: BUSINESS });
+    expect((await store.findIntakeByBusiness("s1", BUSINESS))?.id).toBe("intake-2");
+    expect(await store.findIntakeByBusiness("s1", "other")).toBeNull();
+    expect(await store.findIntakeByBusiness("s2", BUSINESS)).toBeNull();
+  });
+});
