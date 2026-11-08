@@ -7,7 +7,7 @@ import { AnchorMark } from "@/components/ui/AnchorMark";
 import { APP_HREF, NEW_BUSINESS_HREF, SECTIONS, businessHref } from "@/components/routes";
 import type { ShellLocation } from "@/components/shell/location";
 import { SECTION_ICON } from "@/components/shell/nav";
-import type { BusinessSummary } from "@/components/shell/shell-data";
+import type { BusinessSummary, SideAutomation } from "@/components/shell/shell-data";
 
 // =============================================================================
 // Module Overview
@@ -55,6 +55,38 @@ function SideLink({
       <span className="side-text">{label}</span>
       <Count value={count} />
     </Link>
+  );
+}
+
+/** Render a business's automations under Workflows, grouped by stage, like threads under a project. */
+function AutomationList({ automations, openKey }: { readonly automations: readonly SideAutomation[]; readonly openKey: string | null }) {
+  const stages = [...new Set(automations.map((a) => a.stage))];
+  return (
+    <ul className="side-sub" aria-label="Automations">
+      {stages.map((stage) => (
+        <li key={stage}>
+          <p className="side-sub-stage">{stage}</p>
+          <ul>
+            {automations
+              .filter((a) => a.stage === stage)
+              .map((a) => (
+                <li key={a.href}>
+                  <Link href={a.href} className="side-sub-link" aria-current={a.key === openKey ? "page" : undefined}>
+                    <span className="side-text">{a.name}</span>
+                    {a.waiting > 0 && (
+                      <span className="side-sub-wait">
+                        <span className="sr">, </span>
+                        {a.waiting}
+                        <span className="sr"> waiting for your OK</span>
+                      </span>
+                    )}
+                  </Link>
+                </li>
+              ))}
+          </ul>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -130,6 +162,7 @@ export function Sidebar({
   const own = businesses.filter((b) => b.kind === "custom");
   const samples = businesses.filter((b) => b.kind === "case");
   const section = location.page === "business" ? location.section : null;
+  const openKey = location.page === "business" ? (location.automation ?? null) : null;
   const CollapseIcon = collapsed ? PanelLeftOpen : PanelLeftClose;
   const collapseLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
 
@@ -174,10 +207,13 @@ export function Sidebar({
                     href={businessHref(current.id, item.section)}
                     icon={SECTION_ICON[item.section ?? "overview"]}
                     label={item.label}
-                    current={section === item.section}
+                    current={section === item.section && (item.section !== "workflows" || openKey === null)}
                     tip={collapsed}
                     count={item.section === "approvals" ? current.pending : null}
                   />
+                  {item.section === "workflows" && !collapsed && current.automations !== undefined && current.automations.length > 0 && (
+                    <AutomationList automations={current.automations} openKey={openKey} />
+                  )}
                 </li>
               ))}
             </ul>
