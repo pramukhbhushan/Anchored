@@ -188,7 +188,8 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
               </div>
               {outbox.length === 0 ? (
                 <p className="phone-empty">
-                  Approve a card and it lands here. Each one opens your own texting or email app with the message typed out, or gives you the words to paste.
+                  Approve a card and it lands here, with who sends it. Anchored sends through the texting and email you connect. Anything else opens your own
+                  texting or email app with the message typed out, or gives you the words to paste.
                 </p>
               ) : (
                 <>

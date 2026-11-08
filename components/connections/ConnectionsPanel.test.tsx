@@ -61,6 +61,16 @@ describe("ConnectionsPanel", () => {
     expect(block.getByRole("button", { name: "Disconnect" })).toBeInTheDocument();
   });
 
+  it("says what happens to approved messages until each service is connected, and drops it once connected", () => {
+    const email: ConnectionView = { kind: "email-out", connected: true, detail: "me@shop.com", setup: [], unavailable: null };
+    render(<ConnectionsPanel businessId="b1" blocked={null} connections={[off("texting"), email, off("email-in"), off("stripe")]} />);
+
+    expect(service("Texting and missed calls").getByText(/Until it is, Anchored sends no texts/)).toBeInTheDocument();
+    expect(service("Sending email").queryByText(/Until it is/)).not.toBeInTheDocument();
+    expect(service("Forwarded email").getByText(/Until it is/)).toBeInTheDocument();
+    expect(service("Stripe invoices").getByText(/Until it is/)).toBeInTheDocument();
+  });
+
   it("says why a service isn't offered and shows no form for it", () => {
     const views = ALL_OFF.map((view) => (view.kind === "email-out" ? { ...view, unavailable: "Email sending isn't set up on this server yet." } : view));
     render(<ConnectionsPanel businessId="b1" blocked={null} connections={views} />);
