@@ -85,3 +85,27 @@ describe("syncInvoiceSheet", () => {
     expect(await reminders()).toEqual([]);
   });
 });
+
+describe("connectInvoiceSheet", () => {
+  it("reads the sheet, saves it on the profile and says what it drafted", async () => {
+    const { connectInvoiceSheet } = await import("./invoice-sheet");
+    const reply = await connectInvoiceSheet(SESSION, SHOP, "sheet-1", ACCOUNT, read);
+    expect(reply).toMatch(/^Connected your invoice sheet\. I checked your invoice sheet: 3 invoices\. I drafted 1 reminder/);
+    expect((await state.store!.getBusiness(SESSION, SHOP.id))?.invoiceSheet?.id).toBe("sheet-1");
+  });
+
+  it("explains a sheet it can't open and saves nothing", async () => {
+    const { connectInvoiceSheet } = await import("./invoice-sheet");
+    const { ConnectorError } = await import("@/lib/connectors/errors");
+    const refuse = async () => {
+      throw new ConnectorError("I can't open that sheet yet. In Google Sheets, click Share, add robot@test.iam.gserviceaccount.com as a Viewer, then send me the link again.", false);
+    };
+    expect(await connectInvoiceSheet(SESSION, SHOP, "sheet-1", ACCOUNT, refuse)).toContain("click Share");
+    expect((await state.store!.getBusiness(SESSION, SHOP.id))?.invoiceSheet).toBeUndefined();
+  });
+
+  it("says when the server has no Google key", async () => {
+    const { connectInvoiceSheet } = await import("./invoice-sheet");
+    expect(await connectInvoiceSheet(SESSION, SHOP, "sheet-1", null, read)).toContain("Google Sheets isn't set up on this server yet");
+  });
+});

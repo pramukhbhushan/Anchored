@@ -1,7 +1,8 @@
 import "server-only";
+import { ConnectorError } from "@/lib/connectors/errors";
 import { readSheetValues, serviceAccountFrom, type ServiceAccount } from "@/lib/connectors/google-sheets";
 import { OWNER_TIME_ZONE } from "@/lib/domain/executor";
-import { dateIn, parseInvoiceRows, sheetEvents, type SheetSyncResult } from "@/lib/domain/invoice-sheet";
+import { dateIn, parseInvoiceRows, sheetEvents, sheetSyncReply, type SheetSyncResult } from "@/lib/domain/invoice-sheet";
 import type { BusinessProfile } from "@/lib/domain/types";
 import { ingestEvent } from "@/lib/server/ingest";
 import { getStore } from "@/lib/store";
@@ -14,7 +15,8 @@ import { getStore } from "@/lib/store";
 // row and each paid row through `ingestEvent`, the same path as the webhooks
 // and the chat, so the reminder cap, the payment cancel and the draft check all
 // apply. Each row's card is keyed by its invoice, so checking the sheet again
-// drafts nothing twice. `sheetsServiceAccount` names the robot an owner shares with.
+// drafts nothing twice. `connectInvoiceSheet` saves a sheet once it reads, for
+// onboarding and chat alike. `sheetsServiceAccount` names the robot an owner shares with.
 
 /** Anchored's Google robot account, or `null` when this server has no Google key. */
 export function sheetsServiceAccount(env: Readonly<Record<string, string | undefined>> = process.env): ServiceAccount | null {
@@ -60,4 +62,28 @@ export async function syncInvoiceSheet(session: string, business: BusinessProfil
   }
 
   return { invoices: parsed.invoices.length, drafted, stopped, alreadyDrafted, notDue: events.notDue, problems, missingColumns: [] };
+}
+
+/**
+ * Connect `sheetId` as the business's invoice sheet: read it, draft its reminders, and save it on the profile only
+ * once the read worked. Returns what to tell the owner, including how to share a sheet Anchored can't open yet.
+ */
+export async function connectInvoiceSheet(
+  session: string,
+  business: BusinessProfile,
+  sheetId: string,
+  account: ServiceAccount | null = sheetsServiceAccount(),
+  read = readSheetValues,
+): Promise<string> {
+  if (account === null) {
+    return 'Google Sheets isn\'t set up on this server yet, so I can\'t read your sheet. You can still tell me about invoices in chat, like "Sam Lee owes $240 on invoice 1042."';
+  }
+  try {
+    const result = await syncInvoiceSheet(session, business, sheetId, account, new Date(), read);
+    await getStore().saveBusiness(session, { ...business, invoiceSheet: { id: sheetId, connectedAt: new Date().toISOString() } }, "chat");
+    return `Connected your invoice sheet. ${sheetSyncReply(result)} Say "check my invoice sheet" any time to read it again.`;
+  } catch (error) {
+    if (!(error instanceof ConnectorError)) throw error;
+    return error.message;
+  }
 }

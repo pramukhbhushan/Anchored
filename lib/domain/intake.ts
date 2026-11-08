@@ -15,6 +15,7 @@ import {
 } from "@/lib/domain/details";
 import { detectTradeKey, hintFor, planWorkflows, profileFromAnswers, profileFromFacts, TRADE_HINTS } from "@/lib/domain/engine";
 import { FIELD_KEYS, FIELDS, isFilled } from "@/lib/domain/fields";
+import { sheetIdFromText } from "@/lib/domain/invoice-sheet";
 import { activeAgents } from "@/lib/domain/paths";
 import type {
   BusinessFacts,
@@ -56,7 +57,8 @@ export type GapStep = `gap:${FieldKey}`;
  * Where an intake stands: a planned question, picking a Google listing, a gap question, the closing confirm step,
  * or choosing what to change.
  */
-export type IntakeStep = IntakeField | "listing" | GapStep | "confirm" | "change";
+/** `sheet` asks for the invoice spreadsheet, only when the owner uses Google Sheets and Bookkeeping is in the plan. */
+export type IntakeStep = IntakeField | "listing" | GapStep | "sheet" | "confirm" | "change";
 
 /** One "Is this you?" match from Google Places. */
 export interface ListingChoice {
@@ -123,6 +125,8 @@ export interface IntakeDraft {
   readonly listing?: { readonly choices: readonly ListingChoice[]; readonly settled: boolean };
   /** Gap questions asked so far, answered or skipped. */
   readonly gaps?: readonly FieldKey[];
+  /** The invoice sheet question, once asked: the sheet's ID from the link the owner pasted, or `null` when they skipped it. */
+  readonly invoiceSheet?: { readonly id: string | null };
 }
 
 /** One quick-reply chip. `suggested` marks options common for this kind of business; it never selects one. */
@@ -610,6 +614,7 @@ function optionsFor(step: IntakeStep, draft: IntakeDraft): IntakeOption[] | unde
   const { facts } = draft;
   const hint = hintFor(`${facts.kind ?? ""} ${facts.what ?? ""} ${facts.name ?? ""}`);
   if (step === "listing") return listingOptions(draft);
+  if (step === "sheet") return [plainOption("skip", "Skip for now")];
   if (isGapStep(step)) return gapOptions(gapKeyOf(step), draft);
   switch (step) {
     case "kind": {
@@ -908,6 +913,8 @@ function questionText(step: IntakeStep, draft: IntakeDraft): string {
       return "What eats your week? Name the jobs you wish someone else did.";
     case "voice":
       return "Paste or type a reply you've sent a customer, so drafts sound like you.";
+    case "sheet":
+      return "You use Google Sheets. If you track invoices in a sheet, paste its link here. Bookkeeping will draft a reminder for each overdue invoice and stop it once you mark the invoice paid. I'll tell you how to share it with Anchored next. Or tap Skip for now.";
     case "confirm":
       return confirmText(draft);
     case "change":
@@ -939,7 +946,15 @@ export function nextQuestion(draft: IntakeDraft): IntakeQuestion | null {
   const open = INTAKE_FIELDS.find((field) => needsAsking(draft, field));
   if (open) return ask(open, draft);
   const gap = pendingGaps(draft)[0];
-  return ask(gap ? gapStep(gap) : "confirm", draft);
+  if (gap) return ask(gapStep(gap), draft);
+  if (wantsInvoiceSheet(draft)) return ask("sheet", draft);
+  return ask("confirm", draft);
+}
+
+/** Whether to ask for the invoice sheet: the owner runs on Google Sheets, Bookkeeping is in the plan, and it hasn't been asked. */
+export function wantsInvoiceSheet(draft: IntakeDraft): boolean {
+  if (draft.invoiceSheet !== undefined || !draft.facts.tools.includes("Google Sheets")) return false;
+  return plannedAgents(draft).includes("books");
 }
 
 /** Report whether the owner has answered everything and confirmed the profile. */
@@ -961,6 +976,7 @@ export function applyReading(draft: IntakeDraft, step: IntakeStep, picks: readon
   if (step === "confirm") return applyConfirm(draft, picks, reading);
   if (step === "change") return applyChange(draft, picks, reading);
   if (step === "listing") return applyListing(draft, pickedListing(draft, picks), []);
+  if (step === "sheet") return { ...draft, invoiceSheet: { id: picks?.includes("skip") ? null : sheetIdFromText(reading.text) } };
   if (isGapStep(step)) return applyGapAnswer(draft, gapKeyOf(step), picks, reading);
   return withAnswerDetails(draft, applyFieldAnswer(draft, step, picks, reading), step, reading);
 }
@@ -1129,6 +1145,10 @@ export function composeReply(before: IntakeDraft, after: IntakeDraft, step: Inta
   if (step === "confirm" || step === "change") {
     if (next.field === "change") return next.text;
     return next.field === "confirm" ? `Updated. ${next.text}` : `Sure. ${next.text}`;
+  }
+  if (step === "sheet") {
+    const ack = after.invoiceSheet?.id ? "Got it. I'll read that sheet as soon as your plan is built." : "No problem. You can paste the link in your business chat any time.";
+    return [ack, next.field === "confirm" ? "That's everything I need." : "", next.text].filter(Boolean).join(" ");
   }
   if (next.field === "confirm") return `${before.review.stage === "revisiting" ? "Updated." : "That's everything I need."} ${next.text}`;
   // The first gap question gets a line saying why a few more come.

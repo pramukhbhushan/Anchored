@@ -27,7 +27,7 @@ import { LlmResponseError, type LlmProvider } from "@/lib/llm";
 import { newFacts } from "@/lib/server/ai";
 import { getBudgetedLlm } from "@/lib/server/ai-budget";
 import { checkEvent, ingestEvent } from "@/lib/server/ingest";
-import { sheetsServiceAccount, syncInvoiceSheet } from "@/lib/server/invoice-sheet";
+import { connectInvoiceSheet, sheetsServiceAccount, syncInvoiceSheet } from "@/lib/server/invoice-sheet";
 import { quoted, shortPhrase } from "@/lib/server/intake-ai";
 import { getStore } from "@/lib/store";
 import type { ChatThread, NewChatMessage } from "@/lib/store/types";
@@ -216,15 +216,13 @@ async function answerInvoice(session: string, business: BusinessProfile, text: s
  */
 async function answerSheet(session: string, business: BusinessProfile, text: string, sheetId: string, connecting: boolean, thread: ThreadSoFar): Promise<BusinessChatResponse> {
   const store = getStore();
-  const account = sheetsServiceAccount();
   let reply: string;
-  if (account === null) {
-    reply = "Google Sheets isn't set up on this server yet, so I can't read your sheet. You can still tell me about invoices here, like \"Sam Lee owes $240 on invoice 1042.\"";
+  if (connecting) {
+    reply = await connectInvoiceSheet(session, business, sheetId);
   } else {
+    const account = sheetsServiceAccount();
     try {
-      const result = await syncInvoiceSheet(session, business, sheetId, account);
-      if (connecting) await store.saveBusiness(session, { ...business, invoiceSheet: { id: sheetId, connectedAt: new Date().toISOString() } }, "chat");
-      reply = `${connecting ? "Connected your invoice sheet. " : ""}${sheetSyncReply(result)}${connecting ? ' Say "check my invoice sheet" any time to read it again.' : ""}`;
+      reply = account === null ? await connectInvoiceSheet(session, business, sheetId, null) : sheetSyncReply(await syncInvoiceSheet(session, business, sheetId, account));
     } catch (error) {
       if (!(error instanceof ConnectorError)) throw error;
       reply = error.message;
