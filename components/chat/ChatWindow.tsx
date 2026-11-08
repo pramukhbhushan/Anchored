@@ -4,6 +4,7 @@ import { Anchor, ArrowLeftRight, ArrowUp, Check, ChevronDown, CircleAlert, Minus
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { callApi, errorText, getApi } from "@/components/api";
+import { BoxGrip, useBoxHeight } from "@/components/chat/BoxGrip";
 import { ResizablePanel } from "@/components/resize/ResizablePanel";
 import { businessHref, NEW_BUSINESS_HREF } from "@/components/routes";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -524,7 +525,7 @@ function QuickReplies({
   );
 }
 
-/** The text box: Enter sends, Shift+Enter starts a new line. */
+/** The text box: Enter sends, Shift+Enter starts a new line, and the grip above it makes it taller or shorter. */
 function Composer({
   inputRef,
   placeholder,
@@ -540,6 +541,7 @@ function Composer({
 }) {
   const [text, setText] = useState("");
   const id = useId();
+  const size = useBoxHeight();
   const ready = !disabled && !busy && text.trim() !== "";
 
   function submit(event?: FormEvent): void {
@@ -558,6 +560,7 @@ function Composer({
 
   return (
     <form className={styles.form} onSubmit={submit}>
+      <BoxGrip box={inputRef} controls={id} size={size} />
       <label htmlFor={id} className={styles.srOnly}>
         Message Anchored
       </label>
@@ -566,6 +569,8 @@ function Composer({
         ref={inputRef}
         className={styles.input}
         rows={1}
+        // A dragged height replaces growing with the words, and may go past the 168px that growth stops at.
+        style={size.height === null ? undefined : { height: size.height, maxHeight: "none" }}
         maxLength={2000}
         placeholder={placeholder}
         value={text}

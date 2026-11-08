@@ -76,7 +76,7 @@
    Composer: chips, the text box, errors and the finish
    ============================================================================= */
 
-.composer{grid-area:composer;display:flex;flex-direction:column;gap:12px;padding:12px clamp(12px,2cqi,24px) 16px;background:var(--sheet);border:1px solid var(--line);border-top:1px dashed var(--line);border-radius:0 0 var(--r) var(--r)}
+.composer{grid-area:composer;position:relative;display:flex;flex-direction:column;gap:12px;padding:12px clamp(12px,2cqi,24px) 16px;background:var(--sheet);border:1px solid var(--line);border-top:1px dashed var(--line);border-radius:0 0 var(--r) var(--r)}
 
 .chips{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .chip,.done{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:6px 14px;border:1.5px solid var(--line);border-radius:999px;background:var(--sheet);color:var(--ink);font-size:var(--fs-sm);font-weight:600;line-height:1.2;cursor:pointer}
@@ -90,6 +90,15 @@
 .hint{margin:-4px 0 0;font-size:var(--fs-fine);color:var(--muted)}
 
 .form{display:flex;align-items:flex-end;gap:10px}
+/* The text box's resize grip. `.form` isn't positioned, so it straddles the composer's dashed top edge.
+   The pill cuts a gap in the dashes and turns carbon on hover, focus and drag, like the panel handles. */
+.grip{position:absolute;top:-7px;left:0;right:0;z-index:1;height:14px;display:grid;place-items:center;cursor:row-resize;touch-action:none}
+.grip::before{content:"";width:40px;height:4px;border-radius:2px;background:var(--line);box-shadow:0 0 0 4px var(--sheet)}
+.grip:hover::before,.grip[data-dragging]::before{background:var(--carbon)}
+.grip:focus-visible{outline:none;box-shadow:none}
+.grip:focus-visible::before{background:var(--carbon);outline:2px solid var(--ink);outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){.grip::before{transition:background-color .15s ease}}
+@media (forced-colors:active){.grip::before{background:CanvasText}.grip:hover::before,.grip:focus-visible::before,.grip[data-dragging]::before{background:Highlight}}
 /* 16px text keeps phones from zooming into the box on focus. */
 .input{flex:1;min-width:0;min-height:46px;max-height:168px;padding:11px 14px;resize:none;field-sizing:content;border:1.5px solid var(--line);border-radius:var(--r);background:var(--paper);color:var(--ink);font:inherit;font-size:var(--fs-md);line-height:1.45}
 .input:focus{border-color:var(--ink)}
