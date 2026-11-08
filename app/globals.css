@@ -351,7 +351,7 @@ html[data-dev] .side-foot{padding-bottom:64px}
 /* The two sides grow equally from zero, so the Jump to bar sits at the true center.
    The bar leaves each side 320px, room for the switcher and the Example pill, and grows to 560px.
    Each side keeps its content's width, so on a narrow bar the Jump to bar shrinks first. */
-.topbar-start{flex:1 1 0;display:flex;align-items:center;gap:12px}
+.topbar-start{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:12px}
 
 /* ---------- business switcher: a trigger and a panel of links, matching the sidebar's business rows ---------- */
 .switcher{position:relative;display:inline-flex;flex:0 1 340px;min-width:0}
@@ -417,8 +417,8 @@ html[data-dev] .side-foot{padding-bottom:64px}
   .shell[data-drawer="open"] .side{transition:transform .2s ease}
 }
 @media (max-width:640px){
-  /* The title says "(example)" at this width, so the pill would repeat it */
-  .switcher,.palette-open,.sample-pill{display:none}
+  /* The title stands in for the switcher at this width; the Example pill stays beside it, where truncation can't cut it off */
+  .switcher,.palette-open{display:none}
   .topbar-end{flex:none}
   .topbar-mark{display:inline-flex;color:var(--ink)}
   .topbar-title{display:block;min-width:0;flex:1;font-weight:600;font-size:var(--fs-md);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
