@@ -144,6 +144,6 @@ describe("owner-facing copy", () => {
   });
 
   it("uses plain hyphens and straight quotes only", () => {
-    for (const phrase of [...lines, ...steps]) expect(phrase).not.toMatch(/[–—‘’“”]/);
+    for (const phrase of [...lines, ...steps]) expect(phrase).not.toMatch(/[\u2013\u2014\u2018\u2019\u201C\u201D]/);
   });
 });
