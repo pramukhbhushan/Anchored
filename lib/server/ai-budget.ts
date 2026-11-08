@@ -1,5 +1,5 @@
 import "server-only";
-import { getLlm, type LlmProvider, type ObjectRequest, type TextRequest } from "@/lib/llm";
+import { getLlm, type LlmProvider, type ObjectRequest, type TextRequest, type WebSearchRequest } from "@/lib/llm";
 import { getStore } from "@/lib/store";
 
 // =============================================================================
@@ -33,6 +33,7 @@ export function withDailyBudget(llm: LlmProvider, spend: () => Promise<boolean>)
   async function charge(): Promise<void> {
     if (!(await spend())) throw new AiBudgetError("Anchored has used today's AI calls. Drafts stay as written until tomorrow.");
   }
+  const search = llm.searchWeb?.bind(llm);
   return {
     name: llm.name,
     label: llm.label,
@@ -45,6 +46,15 @@ export function withDailyBudget(llm: LlmProvider, spend: () => Promise<boolean>)
       await charge();
       return llm.generateObject(request);
     },
+    // Only a provider with a search tool gets the method, so callers can still tell it apart.
+    ...(search
+      ? {
+          searchWeb: async (request: WebSearchRequest) => {
+            await charge();
+            return search(request);
+          },
+        }
+      : {}),
   };
 }
 

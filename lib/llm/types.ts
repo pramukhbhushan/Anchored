@@ -25,6 +25,24 @@ export interface ObjectRequest<T> extends TextRequest {
   readonly schemaName: string;
 }
 
+/** A request to answer `prompt` from the web, searching at most `maxSearches` times. */
+export interface WebSearchRequest extends TextRequest {
+  readonly maxSearches: number;
+}
+
+/** One page a web search returned. */
+export interface WebSource {
+  readonly url: string;
+  readonly title: string;
+}
+
+/** The model's answer from the web, with every page its searches returned. */
+export interface WebFindings {
+  readonly text: string;
+  /** Pages the provider's search returned, in the order it returned them, each URL once. */
+  readonly sources: readonly WebSource[];
+}
+
 /** One configured model provider. */
 export interface LlmProvider {
   readonly name: ProviderName;
@@ -34,6 +52,8 @@ export interface LlmProvider {
   modelFor(tier: ModelTier): string;
   generateText(request: TextRequest): Promise<string>;
   generateObject<T>(request: ObjectRequest<T>): Promise<T>;
+  /** Search the web and answer from it. Only providers with a search tool have it. */
+  searchWeb?(request: WebSearchRequest): Promise<WebFindings>;
 }
 
 /** Raised when the provider settings in the environment are missing or invalid. */
