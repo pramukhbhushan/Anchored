@@ -18,6 +18,23 @@ export interface PostPhoto {
   readonly url: string;
 }
 
+/** Most photo posts one business may draft in a day, so a busy chat can't spend the model budget. */
+export const MAX_POSTS_PER_DAY = 10;
+
+/** Count the photo posts drafted in the 24 hours before `now`. */
+export function postsInLastDay(cards: readonly { readonly post?: unknown; readonly createdAt: string }[], now: Date): number {
+  const since = now.getTime() - 24 * 60 * 60 * 1000;
+  return cards.filter((c) => c.post !== undefined && Date.parse(c.createdAt) > since).length;
+}
+
+/** A card title from the owner's words: "Post: " and the first words, cut at a word under 60 characters. */
+export function postTitle(text: string): string {
+  const words = text.replace(/\s+/g, " ").trim();
+  if (words.length <= 60) return `Post: ${words}`;
+  const cut = words.slice(0, 60);
+  return `Post: ${cut.slice(0, cut.lastIndexOf(" ") > 20 ? cut.lastIndexOf(" ") : 60).replace(/[,.;:]$/, "")}...`;
+}
+
 /** Who wrote a caption: the model, or the rules after the model was off or failed a check. */
 export type CaptionSource = "ai" | "template";
 

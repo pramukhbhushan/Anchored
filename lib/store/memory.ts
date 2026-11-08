@@ -320,6 +320,10 @@ export class MemoryStore implements Store {
     return photo && photo.businessId === businessId ? { contentType: photo.contentType, data: photo.data } : null;
   }
 
+  async photoExists(session: string, businessId: string, photoId: string): Promise<boolean> {
+    return this.peek(session)?.photos.get(photoId)?.businessId === businessId;
+  }
+
   async listPostPlaybook(niche: TradeKey): Promise<PostPlaybook> {
     return playbookForNiche(PLAYBOOK_SEED, niche);
   }

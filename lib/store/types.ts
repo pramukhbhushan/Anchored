@@ -155,6 +155,8 @@ export interface Store {
   savePhoto(session: string, businessId: string, data: Uint8Array, contentType: string): Promise<StoredPhoto>;
   /** A photo's bytes, or `null` when this session's business has no photo with that id. */
   getPhoto(session: string, businessId: string, photoId: string): Promise<PhotoFile | null>;
+  /** Report whether this session's business has a photo with this id, without reading its bytes. */
+  photoExists(session: string, businessId: string, photoId: string): Promise<boolean>;
   /** The post formats, hooks and hashtags that apply to `niche`. Shared reference rows, read-only. Deployment-wide. */
   listPostPlaybook(niche: TradeKey): Promise<PostPlaybook>;
   /** Delete everything the session created, as "Delete my businesses" asks. */

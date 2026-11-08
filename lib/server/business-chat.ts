@@ -4,6 +4,8 @@ import type { BusinessChatResponse, CardRecord, ChatMessage } from "@/lib/api/co
 import { SKILLS } from "@/lib/domain/agents";
 import { money } from "@/lib/domain/details";
 import { findPlaceholder, mentionsAllergen } from "@/lib/domain/executor";
+import { POST_PLATFORMS } from "@/lib/domain/playbook";
+import { MAX_POSTS_PER_DAY, postTitle, postsInLastDay, type PostDraft } from "@/lib/domain/posts";
 import { asksToCheckSheet, sheetIdFromText, sheetSyncReply } from "@/lib/domain/invoice-sheet";
 import { followUpQuestion, readInvoiceMessage, talksAboutInvoice, type InvoiceMessage } from "@/lib/domain/invoices";
 import { allowedLists, applyChanges, changeReply, readChanges, readDetailChanges, type FactChanges } from "@/lib/domain/intake";
@@ -29,6 +31,7 @@ import { getBudgetedLlm } from "@/lib/server/ai-budget";
 import { checkEvent, ingestEvent } from "@/lib/server/ingest";
 import { connectInvoiceSheet, sheetsServiceAccount, syncInvoiceSheet } from "@/lib/server/invoice-sheet";
 import { quoted, shortPhrase } from "@/lib/server/intake-ai";
+import { draftPhotoPost } from "@/lib/server/posts";
 import { getStore } from "@/lib/store";
 import type { ChatThread, NewChatMessage } from "@/lib/store/types";
 
@@ -90,8 +93,8 @@ export async function listBusinessChat(session: string, business: BusinessProfil
   return { messages: stored.length > 0 ? linkCards(business, stored, cards) : [unsaved("welcome", "anchored", welcomeText(business, chosen))], changes: [] };
 }
 
-/** Draft the work the owner asks for, or apply what they say changed, and return the chat with Anchored's reply. */
-export async function sendBusinessChat(session: string, business: BusinessProfile, text: string): Promise<BusinessChatResponse> {
+/** Draft the work the owner asks for, or apply what they say changed, and return the chat with Anchored's reply. `photos` makes it a photo post. */
+export async function sendBusinessChat(session: string, business: BusinessProfile, text: string, photos: readonly string[] = []): Promise<BusinessChatResponse> {
   if (business.kind === "case") {
     return {
       messages: [unsaved("welcome", "anchored", welcomeText(business, [])), unsaved("owner", "owner", text), unsaved("reply", "anchored", `${business.name} is an example, so I can't change it. Set up your business and tell me about it there.`)],
@@ -104,6 +107,8 @@ export async function sendBusinessChat(session: string, business: BusinessProfil
   const { stored, cards, chosen } = await readThread(session, business);
   // The welcome line is stored with the first exchange so the thread reads the same after a reload.
   const opening: NewChatMessage[] = stored.length === 0 ? [{ role: "anchored", text: welcomeText(business, chosen) }] : [];
+  // Photos always mean a post, whatever the words say, so they skip the request reader.
+  if (photos.length > 0) return answerPhotoPost(session, business, text, photos, chosen, { stored, cards, opening });
   // Money owed or paid goes to Bookkeeping first, before the general request reader sees it.
   if (chosen.includes("nudger")) {
     const sheetId = sheetIdFromText(text);
@@ -155,6 +160,60 @@ async function draftRequested(session: string, business: BusinessProfile, text: 
   const reply = saved.at(-1);
   if (reply === undefined) throw new Error("The store saved the chat but returned no reply.");
   const card: KeyedCard = { ...requestCard(business, request, words), agent, skill: request.skill, key: chatCardKey(business.id, reply.id) };
+  await store.ensureCards(session, business.id, [card]);
+  return { messages: linkCards(business, [...thread.stored, ...saved], [...thread.cards, { key: card.key, title: card.title, status: "pending" }]), changes: [] };
+}
+
+// =============================================================================
+// Photo posts
+// =============================================================================
+
+/** The card for a drafted photo post. Its body is the Instagram caption, so the plain Copy button still works. */
+function postCard(business: BusinessProfile, post: PostDraft, text: string): Omit<KeyedCard, "key" | "agent" | "skill"> {
+  const format = post.formats.instagram.name;
+  const byAi = POST_PLATFORMS.every((p) => post.written[p] === "ai");
+  return {
+    title: postTitle(text),
+    body: post.captions.instagram,
+    reason: `You sent ${post.photos.length} photo${post.photos.length === 1 ? "" : "s"} in chat.`,
+    checks: [`Follows the "${format}" format`, "Hashtags from your trade's list", "Adds nothing you didn't say", byAi ? "You post it yourself" : "Some captions use the template"],
+    action: "Copy post",
+    channel: "list",
+    post,
+  };
+}
+
+/**
+ * Draft a post from the owner's photos and words. Code checks the skill is on, the day's cap, and that every photo
+ * is this business's own before any model call; then the reply is stored and the card keyed to it.
+ */
+async function answerPhotoPost(session: string, business: BusinessProfile, text: string, photoIds: readonly string[], chosen: readonly SkillId[], thread: ThreadSoFar): Promise<BusinessChatResponse> {
+  const store = getStore();
+  const say = async (reply: string, cards: readonly CardLinkSource[] = thread.cards) => {
+    const saved = await store.addMessages(session, threadOf(business), [...thread.opening, { role: "owner", text }, { role: "anchored", text: reply }]);
+    return { saved, messages: linkCards(business, [...thread.stored, ...saved], cards) };
+  };
+  if (!chosen.includes("posts")) {
+    return { messages: (await say("Post drafts aren't turned on for your business yet. Choose Anchored for social posts in Workflows, then send the photos again.")).messages, changes: [] };
+  }
+  const all = await store.listCards(session, business.id);
+  if (postsInLastDay(all, new Date()) >= MAX_POSTS_PER_DAY) {
+    return { messages: (await say(`You've made ${MAX_POSTS_PER_DAY} photo posts in the last day, the most Anchored drafts in a day. Try again tomorrow, or edit one of the drafts waiting in Approvals.`)).messages, changes: [] };
+  }
+  const owned = await Promise.all(photoIds.map((id) => store.photoExists(session, business.id, id)));
+  if (owned.some((ok) => !ok)) {
+    return { messages: (await say("I couldn't find one of those photos. Add the photos again and resend.")).messages, changes: [] };
+  }
+
+  const photos = photoIds.map((id) => ({ id, url: `/api/businesses/${business.id}/photos/${id}` }));
+  const post = await draftPhotoPost(business, text, photos);
+  const agent = agentForSkill(business, "posts");
+  const { saved } = await say(
+    `${agentName(business, agent)} drafted a "${post.formats.instagram.name}" post from your ${photos.length} photo${photos.length === 1 ? "" : "s"}, with captions for Instagram, Facebook and LinkedIn. It's waiting in Approvals.`,
+  );
+  const reply = saved.at(-1);
+  if (reply === undefined) throw new Error("The store saved the chat but returned no reply.");
+  const card: KeyedCard = { ...postCard(business, post, text), agent, skill: "posts", key: chatCardKey(business.id, reply.id) };
   await store.ensureCards(session, business.id, [card]);
   return { messages: linkCards(business, [...thread.stored, ...saved], [...thread.cards, { key: card.key, title: card.title, status: "pending" }]), changes: [] };
 }

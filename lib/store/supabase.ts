@@ -536,6 +536,12 @@ export class SupabaseStore implements Store {
     return { contentType: data.type || "application/octet-stream", data: new Uint8Array(await data.arrayBuffer()) };
   }
 
+  async photoExists(session: string, businessId: string, photoId: string): Promise<boolean> {
+    const { data, error } = await this.db.storage.from(PHOTO_BUCKET).list(`${session}/${businessId}`, { search: photoId, limit: 1 });
+    if (error) fail("photoExists", error);
+    return (data ?? []).some((file) => file.name === photoId);
+  }
+
   async listPostPlaybook(niche: TradeKey): Promise<PostPlaybook> {
     const niches = [niche, "any"];
     const [formats, hooks, hashtags] = await Promise.all([

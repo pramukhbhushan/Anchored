@@ -14,6 +14,7 @@ import type {
 } from "@/lib/api/contract";
 import { SKILLS } from "@/lib/domain/agents";
 import { CONSENT_SOURCES, type ConsentSource } from "@/lib/domain/contacts";
+import { MAX_PHOTOS_PER_POST, PHOTO_ID_PATTERN } from "@/lib/domain/photos";
 import { SIGNALS, WORKFLOW_IDS } from "@/lib/domain/workflows";
 import type { SignalId, SkillId, WorkflowId } from "@/lib/domain/types";
 
@@ -96,7 +97,10 @@ export const intakeAnswerSchema = z
   .object({ text: chatText.optional(), picks: z.array(z.string().trim().min(1).max(80)).max(20).optional() })
   .refine((answer) => (answer.text ?? "") !== "" || answer.picks !== undefined, { message: "Type an answer or tap an option." }) satisfies z.ZodType<IntakeAnswerRequest>;
 
-export const businessChatSchema = z.object({ text: chatText.min(1, "Type a message.") }) satisfies z.ZodType<BusinessChatRequest>;
+export const businessChatSchema = z.object({
+  text: chatText.min(1, "Type a message."),
+  photos: z.array(z.string().regex(PHOTO_ID_PATTERN, "That photo id isn't valid.")).max(MAX_PHOTOS_PER_POST, `A post holds at most ${MAX_PHOTOS_PER_POST} photos.`).optional(),
+}) satisfies z.ZodType<BusinessChatRequest>;
 
 // -----------------------------------------------------------------
 // Connections and contacts

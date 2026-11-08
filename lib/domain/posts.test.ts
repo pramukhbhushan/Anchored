@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { profileFromFacts } from "./engine";
 import { POST_PLATFORMS, checkHashtags } from "./playbook";
 import { PLAYBOOK_SEED } from "./playbook-seed";
-import { aiTells, hasBlanks, planPost, ruleCaption, unbackedClaims } from "./posts";
+import { aiTells, hasBlanks, planPost, postTitle, postsInLastDay, ruleCaption, unbackedClaims } from "./posts";
 
 const hvac = profileFromFacts({ name: "College Park Heating & Air", trade: "HVAC", tradeKey: "home", place: "College Park, MD", reach: ["Phone calls"], tools: [], signals: [] });
 const bakery = profileFromFacts({ name: "Rise Bakery", trade: "bakery", tradeKey: "restaurant", place: "Hyattsville, MD", reach: ["Walk-ins"], tools: [], signals: [] });
@@ -73,5 +73,24 @@ describe("aiTells", () => {
 
   it("leaves plain writing alone", () => {
     expect(aiTells("Swapped out a rusted furnace in a 1950s house today. Message us if yours is making noise.")).toEqual([]);
+  });
+});
+
+describe("postsInLastDay and postTitle", () => {
+  it("counts only photo posts from the last 24 hours", () => {
+    const now = new Date("2026-11-08T12:00:00Z");
+    const cards = [
+      { post: {}, createdAt: "2026-11-08T11:00:00Z" },
+      { post: {}, createdAt: "2026-11-07T11:00:00Z" },
+      { createdAt: "2026-11-08T11:30:00Z" },
+    ];
+    expect(postsInLastDay(cards, now)).toBe(1);
+  });
+
+  it("keeps short titles whole and cuts long ones at a word", () => {
+    expect(postTitle("New furnace")).toBe("Post: New furnace");
+    const long = postTitle("Before and after of a furnace replacement in a 1950s house in College Park, the old unit was rusted");
+    expect(long.length).toBeLessThanOrEqual(70);
+    expect(long).toMatch(/^Post: Before and after .*\.\.\.$/);
   });
 });
