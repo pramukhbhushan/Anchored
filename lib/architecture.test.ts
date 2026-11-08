@@ -43,6 +43,11 @@ const RULES: readonly LayerRule[] = [
     why: "Provider adapters turn a prompt into text or an object; requests, storage and orchestration live above them.",
   },
   {
+    files: ["lib/connectors"],
+    never: ["lib/server", "lib/store", "lib/api", "lib/auth", "lib/llm", "next", "react"],
+    why: "Provider adapters turn one send or one webhook into plain values; storage, sessions and the send rules live above them.",
+  },
+  {
     files: ["lib/store"],
     never: ["lib/server", "lib/llm", "lib/auth", "next", "react"],
     why: "Persistence reads and writes one session's rows; it never reads a request or calls a model.",
@@ -74,7 +79,7 @@ const RULES: readonly LayerRule[] = [
   },
   {
     files: ['"use client"'],
-    never: ["lib/server", "lib/store", "lib/llm", "lib/auth/server", "server-only"],
+    never: ["lib/server", "lib/store", "lib/llm", "lib/connectors", "lib/auth/server", "server-only"],
     why: "Client files ship to the browser, which must never receive server code, secrets or the service-role store.",
   },
 ];
