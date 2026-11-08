@@ -98,7 +98,7 @@ export default function HomePage() {
           </div>
           <figure className={styles.shot}>
             <div className={styles.bar}>anchored / approvals</div>
-            <img src="/landing/approvals.png" alt="Approvals page: draft texts waiting for the owner, each with Approve, Edit and Skip" width={1600} height={1000} loading="lazy" />
+            <img src="/landing/approvals.png" alt="Approvals page for the example restaurant: drafts waiting for the owner, each with Approve, Edit and Skip, beside the outbox" width={1600} height={1000} loading="lazy" />
             <figcaption>
               <b>Approve, edit or skip</b>
               <span>Each card says who drafted it, who it&apos;s for, and why now. Quiet hours and consent are checked before anything goes.</span>
