@@ -253,9 +253,8 @@ const CASE_RESEARCH: readonly CaseResearch[] = [
       },
       noshows: {
         isNew: false,
-        why: "Reservation no-shows leave seats empty on your busiest nights. OpenTable has reminders, but we couldn't confirm them on your plan, so Show-up Keeper texts each party the day of.",
+        why: "Reservation no-shows leave seats empty on your busiest nights. You already pay for OpenTable, so turn on its confirmations and reminders first.",
         stake: "About $16,600 a year in sales before refills, modeled",
-        override: { rec: "build" },
       },
       scheduling: {
         isNew: false,

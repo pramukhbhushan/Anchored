@@ -16,7 +16,7 @@ type PathFields = Pick<WorkflowPlan, "fit" | "rec" | "skills" | "tool">;
 // Every place the research replaces the rules' pick. Each one's reason is in that workflow's `why`.
 const OVERRIDES: Readonly<Record<string, Partial<Record<WorkflowId, Partial<PathFields>>>>> = {
   hvac: { social: { skills: ["reactivator"] }, quotes: { skills: ["closer", "debrief"] }, reviews: { rec: "build" } },
-  restaurant: { calls: { rec: "buy", tool: "certus" }, books: { rec: "skip" }, leads: { rec: "skip" }, noshows: { rec: "build" } },
+  restaurant: { calls: { rec: "buy", tool: "certus" }, books: { rec: "skip" }, leads: { rec: "skip" } },
   coach: { books: { rec: "build" }, leads: { skills: ["inquiry", "callfollow"] }, noshows: { rec: "build" } },
 };
 
@@ -63,6 +63,10 @@ describe("case studies", () => {
     const restaurant = caseStudy("restaurant");
     expect(restaurant.workflows.calls?.why).toContain("can't wait for your tap");
     expect(defaultChoice(restaurant, "calls")).toEqual({ path: "buy", toolId: "certus" });
+  });
+
+  it("turns on the restaurant's own OpenTable for no-shows before building anything", () => {
+    expect(defaultChoice(caseStudy("restaurant"), "noshows")).toEqual({ path: "turnon", toolId: "opentable" });
   });
 
   it("carries the researched text and cards", () => {

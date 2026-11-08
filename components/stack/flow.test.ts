@@ -33,10 +33,11 @@ describe("workFlow", () => {
       ["agent", "Content and Social"],
       ["tool", "Certus"],
       ["tool", "Orders.co Dispute assistant"],
+      ["tool", "OpenTable"],
       ["tool", "Homebase"],
       ["tool", "Google Business Profile reply box"],
     ]);
-    expect(approvalRouteCount(lanes)).toBe(4);
+    expect(approvalRouteCount(lanes)).toBe(3);
   });
 
   it("leaves the daily brief and inbox sorting off the diagram", () => {
@@ -46,10 +47,7 @@ describe("workFlow", () => {
 
   it("starts each restaurant route from what a customer or supplier does", () => {
     const frontDesk = lane(workFlow(caseStudy("restaurant"), {}), "Front Desk");
-    expect(frontDesk.routes.map((r) => r.trigger)).toEqual([
-      "A guest books a table",
-      "Someone asks about catering for an event",
-    ]);
+    expect(frontDesk.routes.map((r) => r.trigger)).toEqual(["Someone asks about catering for an event"]);
     expect(lane(workFlow(caseStudy("restaurant"), {}), "Bookkeeping and Invoicing").routes[0]?.trigger).toBe(
       "A supplier sends an invoice",
     );
@@ -78,6 +76,7 @@ describe("workFlow", () => {
     expect(notes).toEqual([
       "New, $250 a month",
       "New, $29 a month",
+      "Already in OpenTable",
       "New, free plan",
       "Already in Google Business Profile",
     ]);
@@ -98,12 +97,12 @@ describe("workFlow", () => {
 
 describe("flowRows", () => {
   it("puts the restaurant's agent routes inside the band and its tools under the divider", () => {
-    // Front Desk 2 routes, Bookkeeping 1, Content 1, then four one-route tools.
+    // Front Desk 1 route, Bookkeeping 1, Content 1, then five one-route tools.
     const rows = flowRows(workFlow(caseStudy("restaurant"), {}));
-    expect(rows.band).toEqual({ foot: 6 });
-    expect(rows.divider).toBe(7);
-    expect(rows.agents.map((p) => p.start)).toEqual([2, 4, 5]);
-    expect(rows.tools.map((p) => p.start)).toEqual([8, 9, 10, 11]);
+    expect(rows.band).toEqual({ foot: 5 });
+    expect(rows.divider).toBe(6);
+    expect(rows.agents.map((p) => p.start)).toEqual([2, 3, 4]);
+    expect(rows.tools.map((p) => p.start)).toEqual([7, 8, 9, 10, 11]);
   });
 
   it("draws no band and no divider for an agents-only coach", () => {
