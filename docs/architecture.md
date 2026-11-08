@@ -10,7 +10,7 @@ The table lists the layers from the bottom up. A file may always import its own 
 
 | Layer | What it holds | May import |
 | --- | --- | --- |
-| `lib/domain/` | Workflows, agents and skills, the tool catalog, ratings, the rules engine, case studies, card templates, and the executor's `checkSend` | `zod` only |
+| `lib/domain/` | Workflows, agents and skills, the tool catalog, ratings, the rules engine, the example business, card templates, and the executor's `checkSend` | `zod` only |
 | `lib/api/` | `contract.ts`, the request and response types of every API route, and `schemas.ts`, the Zod schema for every request body | `lib/domain` and `zod` only |
 | `lib/llm/` | The model layer: the `LlmProvider` interface and one adapter per provider | Anything except `lib/server`, `lib/store`, `lib/api`, `lib/auth`, `next` and `react` |
 | `lib/store/` | The `Store` interface, with `SupabaseStore` for Postgres and `MemoryStore` for local runs | Anything except `lib/server`, `lib/llm`, `lib/auth`, `next` and `react` |

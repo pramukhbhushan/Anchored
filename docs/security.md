@@ -6,11 +6,11 @@ This page lists each control that protects visitors' data, the paid model calls,
 
 `getSessionId` in `lib/server/session.ts` returns the id that every `Store` method filters on. Its source depends on whether accounts are on.
 
-With `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` set, accounts are on. The id is the Supabase Auth user id, for email-link, Google and guest users alike. `findViewer` gets it from `supabase.auth.getUser()`, which has Supabase Auth check the token instead of trusting the cookie. `middleware.ts` refreshes the session on each request and redirects a visitor with no session from `/app` to `/login`. An API route reached with no session returns 401.
+With `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` set, accounts are on. The id is the Supabase Auth user id, for email-link, Google and guest users alike. `findViewer` gets it from `supabase.auth.getUser()`, which has Supabase Auth check the token instead of trusting the cookie. `middleware.ts` refreshes the session on each request and redirects a visitor with no session from `/app` and every page under it to `/login?next=<path>`. An API route reached with no session returns 401. "Sign out" in the account menu posts to `/auth/signout`, which takes POST only, checks `Origin`, ends this browser's Supabase session with `signOut({ scope: "local" })` and redirects to `/`.
 
-With those variables unset, accounts are off. `middleware.ts` gives each visitor an `anchored_session` cookie holding a random UUID from `crypto.randomUUID()`, and mints a new one when the value is missing or not a UUID. The cookie is `HttpOnly`, `SameSite=Lax`, scoped to `/`, and expires after 30 days (`SESSION_MAX_AGE_SECONDS` in `lib/session-cookie.ts`). In production it is also `Secure`. The cookie value is the only credential, so anyone who holds it can read and change that visitor's data.
+With those variables unset, accounts are off, as in local development and CI. `middleware.ts` gives each visitor an `anchored_session` cookie holding a random UUID from `crypto.randomUUID()`, and mints a new one when the value is missing or not a UUID. The cookie is `HttpOnly`, `SameSite=Lax`, scoped to `/`, and expires after 30 days (`SESSION_MAX_AGE_SECONDS` in `lib/session-cookie.ts`). In production it is also `Secure`. The cookie value is the only credential, so anyone who holds it can read and change that visitor's data.
 
-Either way, a visitor sees only the businesses, choices, cards, outbox entries, chats and events that their own session created. The three case studies live in code and are read-only. Choices and cards for a case study are stored per session.
+Either way, a visitor sees only the businesses, choices, cards, outbox entries, chats and events that their own session created. The example business, Linden Street Kitchen, lives in code and is read-only. Choices and cards for the example are stored per session. `DELETE /api/businesses`, behind "Delete my businesses" in the account menu, runs `Store.reset` and deletes every row the session created.
 
 ## Database access
 
@@ -30,7 +30,8 @@ Each API route that takes a body reads it through `readBody` in `lib/server/http
 
 Routes also check path parameters against data the session owns:
 
-- A card or business id outside the session returns 404. The code-defined case studies are the one exception, open to every session.
+- A card or business id outside the session returns 404. The code-defined example business is the one exception, open to every session.
+- `POST /api/businesses/[id]/cards`, "Try an example event", runs only on the example business and returns 409 for an owner's own.
 - `PUT /api/businesses/[id]/choices` accepts only a path and a tool that `pathOptions` offers for that workflow.
 - `POST /api/ingest/[source]` accepts only the sources in its `SOURCE_SKILLS` map, each with its own payload schema.
 
@@ -46,7 +47,7 @@ Routes also check path parameters against data the session owns:
 | `POST /api/businesses/[id]/cards` and `POST /api/ingest/[source]` | 60, shared | 300, shared | Creates a card |
 | Any other API request except GET and HEAD | 120 | 600 | Writes to the database |
 
-All limits use a 10-minute window. Per-IP limits are five to six times looser than per-session ones, because judges on one venue network share an address. A request over a limit gets a 429 with an `{ error }` body and a `Retry-After` header holding the seconds until the window resets.
+All limits use a 10-minute window. Per-IP limits are five to six times looser than per-session ones, because people on one office or venue network share an address. A request over a limit gets a 429 with an `{ error }` body and a `Retry-After` header holding the seconds until the window resets.
 
 Each server instance keeps its own counts in memory. On Vercel, a client whose requests spread over several instances gets each limit once per instance.
 
@@ -131,9 +132,9 @@ The model writes text only. Code sets every workflow, path, score and send decis
 
 When `checkSend` refuses a card, `decideCard` looks for the first whole hour in the next 24 when the card would pass. A text held back only by quiet hours is approved and queued for that hour. A card that no hour fixes, such as an allergy answer, stays pending, and the response carries the reason for the owner. `decideCard` still saves any edit the owner made to it.
 
-Two values are fixed for the demo. Every business uses the `America/New_York` time zone, and `decideCard` passes `hasConsent: true` because demo contacts are seeded with consent. The consent rule exists in `checkSend` but never refuses a card in this build.
+Two values are fixed in this build. Every business uses `OWNER_TIME_ZONE`, `America/New_York`, and `decideCard` passes `hasConsent: true` because drafted contacts come with consent. The consent rule exists in `checkSend` but never refuses a card in this build.
 
-An approved card writes a row to the `outbox` table, or to memory under `MemoryStore`. Nothing leaves the app. No SMS or email provider is connected, and no route sends a message to a real recipient.
+An approved card writes a row to the `outbox` table, or to memory under `MemoryStore`, where it waits until texting and email are connected. Nothing leaves the app. No SMS or email provider is connected, and no route sends a message to a real recipient.
 
 ## Known limits
 
