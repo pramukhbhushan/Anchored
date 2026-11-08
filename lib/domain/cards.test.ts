@@ -134,9 +134,20 @@ describe("triage", () => {
   });
 
   it("keeps the email for the owner when no agent here checks prices", () => {
-    const card = triageCard(hvacShop(), {});
+    const card = triageCard(restaurant, only(restaurant, {}));
+    expect(card.title).toContain("price list");
     expect(card.action).toBe("Add it to your list");
     expect(card.body).not.toContain("Bookkeeping");
+  });
+
+  it("forwards a customer's question, not a price list, for a business that buys from no suppliers", () => {
+    const coach = exampleProfile("coach");
+    expect(coach.signals).not.toContain("suppliers");
+    const card = triageCard(coach, {});
+    expect(card.title).not.toContain("supplier");
+    expect(card.title).toContain("question");
+    expect(card.action).toBe("Route to Front Desk");
+    expect(triageCard(coach, only(coach, {})).action).toBe("Add it to your list");
   });
 
   it("keeps the email for the owner when the template isn't told who is at work", () => {
@@ -195,6 +206,13 @@ describe("post cards", () => {
     expect(posts(exampleProfile("dental"))[0]?.title).toContain("Google");
     const listingOnly = { ...corner, tools: ["Google Business Profile"] };
     expect(posts(listingOnly)[0]?.title).toContain("Google");
+  });
+
+  it("invites customers to stop by only when they walk in", () => {
+    const stopBy = /stop by|came by|say hi/i;
+    for (const card of posts(exampleProfile("coach"))) expect(card.body).not.toMatch(stopBy);
+    for (const card of posts(exampleProfile("hvac"))) expect(card.body).not.toMatch(stopBy);
+    expect(posts(exampleProfile("corner")).some((card) => stopBy.test(card.body))).toBe(true);
   });
 
   it("never claims it read hours the post doesn't hold", () => {
