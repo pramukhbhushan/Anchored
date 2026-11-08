@@ -1,3 +1,4 @@
+import { stakeActedOn } from "@/lib/domain/brief";
 import { workflowIdsOf } from "@/lib/domain/paths";
 import type { BusinessProfile, Rating, WorkflowId, WorkflowPlan } from "@/lib/domain/types";
 import { NOT_GIVEN } from "@/lib/domain/workflows";
@@ -18,6 +19,8 @@ export interface PlannedWorkflow {
 
 /** What the views read from each card in a feed. */
 export interface FeedCard {
+  readonly key: string;
+  readonly title: string;
   readonly status: "pending" | "approved" | "skipped";
   readonly channel: "sms" | "email" | "list" | "locked";
   readonly edited: boolean;
@@ -33,7 +36,7 @@ export interface FeedStats {
   readonly edited: number;
   /** Share of approved cards the owner edited first, 0 to 100. */
   readonly editRate: number;
-  /** Dollars riding on the cards the owner approved. */
+  /** Dollars on the cards the owner approved, from their own events only; the example's are researched. */
   readonly actedOn: number;
 }
 
@@ -55,7 +58,7 @@ export function topWorkflows(business: BusinessProfile, count: number): PlannedW
 }
 
 /** Count the feed: waiting, approved, edited, the edit rate and the dollars on approved cards. */
-export function feedStats(cards: readonly FeedCard[]): FeedStats {
+export function feedStats(business: Pick<BusinessProfile, "kind">, cards: readonly FeedCard[]): FeedStats {
   // A locked card is decided by "I'll handle it", which takes the work back rather than approving a draft.
   const approved = cards.filter((c) => c.status === "approved" && c.channel !== "locked");
   const edited = approved.filter((c) => c.edited).length;
@@ -64,7 +67,7 @@ export function feedStats(cards: readonly FeedCard[]): FeedStats {
     approved: approved.length,
     edited,
     editRate: approved.length > 0 ? Math.round((edited / approved.length) * 100) : 0,
-    actedOn: approved.reduce((sum, c) => sum + (c.stake ?? 0), 0),
+    actedOn: stakeActedOn(business, cards),
   };
 }
 

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { SKILLS } from "@/lib/domain/agents";
 import { CARD_TEMPLATES, simulateCard } from "@/lib/domain/cards";
 import { ensureOptOut, mentionsAllergen } from "@/lib/domain/executor";
+import { eventCardKey } from "@/lib/domain/origin";
 import { activeAgents, chosenSkills, resolveChoices } from "@/lib/domain/paths";
 import type { BusinessProfile, KeyedCard, SkillId } from "@/lib/domain/types";
 import { choicesForSkill } from "@/lib/server/data";
@@ -205,7 +206,7 @@ export async function ingestEvent(session: string, business: BusinessProfile, so
   const message = text(payload, "message", 2000) ?? text(payload, "text", 2000) ?? "";
   const drafted = mentionsAllergen(message) ? allergyLock(card, payload) : personalize(card, source, business, payload);
   // The random suffix keeps two events arriving together from sharing a key.
-  const key = origin === "simulated" ? `${card.key}-${randomUUID().slice(0, 8)}` : `${business.id}:event:${randomUUID()}`;
+  const key = origin === "simulated" ? `${card.key}-${randomUUID().slice(0, 8)}` : eventCardKey(business.id, randomUUID());
   await store.ensureCards(session, business.id, [{ ...drafted, key }]);
   return { ok: true, key };
 }
