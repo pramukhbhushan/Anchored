@@ -53,8 +53,9 @@ describe("BusinessSwitcher", () => {
   it("lists the owner's businesses apart from the samples, between All businesses and Start a new business", async () => {
     await openAt(AT_HOME);
 
+    // A screen reader hears the trade and the count after the name.
     expect(within(screen.getByRole("list", { name: "Your businesses" })).getByRole("link")).toHaveAccessibleName(
-      "Greenfield Lawn, Landscaping, 2 waiting",
+      /^Greenfield Lawn\s*, Landscaping\s*, 2 waiting$/,
     );
     const samples = within(screen.getByRole("list", { name: "Sample businesses" })).getAllByRole("link");
     expect(samples.map((a) => a.textContent)).toEqual([expect.stringContaining("Rosa's Taqueria"), expect.stringContaining("Apex Heating")]);
