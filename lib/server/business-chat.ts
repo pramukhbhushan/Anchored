@@ -247,16 +247,25 @@ const changesSchema = z.object({
 /** Ask the model what changed. Only allowed option values survive. Throws on any provider failure or malformed reply. */
 async function readChangesWithModel(llm: LlmProvider, business: BusinessProfile, text: string, transcript: readonly ChatMessage[]): Promise<FactChanges> {
   const out = await llm.generateObject({ tier: "quick", schema: changesSchema, schemaName: "business_changes", prompt: changesPrompt(business, text, transcript), maxTokens: 700 });
+  // A model can read a change into a question; a new name, town, kind or voice counts only when the owner's message says it.
+  const stated = (value: string | undefined): string | undefined => (value !== undefined && statedIn(value, text) ? value : undefined);
   return {
     add: allowedLists(out.add),
     remove: allowedLists(out.remove),
     texts: {
-      name: shortPhrase(out.name, 10, 78),
-      place: shortPhrase(out.place, 5, 40),
-      kind: shortPhrase(out.kind, 8, 80),
-      voice: shortPhrase(out.voice, 120, 600),
+      name: stated(shortPhrase(out.name, 10, 78)),
+      place: stated(shortPhrase(out.place, 5, 40)),
+      kind: stated(shortPhrase(out.kind, 8, 80)),
+      voice: stated(shortPhrase(out.voice, 120, 600)),
     },
   };
+}
+
+/** Whether `message` contains a word of `value` that carries meaning, so the value came from the owner and not the model. */
+function statedIn(value: string, message: string): boolean {
+  const said = new Set(message.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []);
+  // Words of three letters or fewer ("and", "the", "co") say nothing about where the value came from.
+  return (value.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).some((word) => word.length > 3 && said.has(word));
 }
 
 /** The prompt for reading one chat message. Owner text sits inside tags, marked as data. */

@@ -8,6 +8,7 @@ import { toolName } from "@/lib/domain/catalog";
 import type { ChosenTool } from "@/lib/domain/paths";
 import { CHECKS, rateTool, usesSoftware } from "@/lib/domain/rating";
 import type { ActiveAgent, BusinessProfile, Tool } from "@/lib/domain/types";
+import { NOT_GIVEN } from "@/lib/domain/workflows";
 
 // =============================================================================
 // Module Overview
@@ -55,7 +56,8 @@ export function UnderTheHood({
             <dl className={styles.facts}>
               <dt>Business</dt>
               <dd>
-                {business.trade}, {business.size}
+                {business.trade}
+                {business.size === NOT_GIVEN ? "" : `, ${business.size}`}
               </dd>
               <dt>Languages</dt>
               <dd>{business.languages.join(" and ")}</dd>

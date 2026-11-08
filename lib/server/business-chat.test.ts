@@ -40,6 +40,17 @@ function modelSaying(reply: string): LlmProvider {
   } as unknown as LlmProvider;
 }
 
+/** A model that reads every chat message as changing only the text fields in `texts`. */
+function modelReading(texts: { kind: string | null; name: string | null; place: string | null; voice: string | null }): LlmProvider {
+  const none = { reach: [], tools: [], signals: [], languages: [] };
+  return {
+    generateText: async () => {
+      throw new Error("This test's model only reads changes.");
+    },
+    generateObject: async () => ({ add: none, remove: none, ...texts }),
+  } as unknown as LlmProvider;
+}
+
 describe("the example business's chat", () => {
   it("opens by saying what chat does for an owner and that the example can't change", async () => {
     const { messages } = await listBusinessChat(SESSION, SAMPLE_BUSINESS);
@@ -106,6 +117,23 @@ describe("an owner's own chat", () => {
 
     const [card] = await stores.current!.listCards(SESSION, shop.id);
     expect(card?.body).toBe(`Hi Dana, sorry, we're running 20 minutes late. See you soon! ${OPT_OUT_LINE}`);
+  });
+
+  it("changes nothing when the model reads a change into a question", async () => {
+    models.current = modelReading({ kind: "Plumbing", name: null, place: null, voice: null });
+
+    const sent = await sendBusinessChat(SESSION, shop, "What did you send to my customers today?");
+
+    expect(sent.changes).toEqual([]);
+    expect(sent.messages.at(-1)?.text).not.toContain("Updated your profile");
+  });
+
+  it("keeps a change the owner's own words state", async () => {
+    models.current = modelReading({ kind: "Plumbing and heating", name: null, place: null, voice: null });
+
+    const sent = await sendBusinessChat(SESSION, shop, "We do plumbing and heating now");
+
+    expect(sent.changes).toContainEqual(expect.objectContaining({ area: "kind", label: "Plumbing and heating" }));
   });
 
   it("falls back to the rules when the model adds a price", async () => {
