@@ -13,7 +13,8 @@ import type { BusinessProfile, CardDraft, Choice, OnboardingAnswers, PlanApprova
 // Stored records
 // =============================================================================
 
-export type CardStatus = "pending" | "approved" | "skipped";
+/** A card's decision state. `superseded` means a newer draft to the same customer replaced it before the owner decided. */
+export type CardStatus = "pending" | "approved" | "skipped" | "superseded";
 
 /** A card as stored: the draft plus its decision state. */
 export interface CardRecord extends CardDraft {
@@ -26,15 +27,25 @@ export interface CardRecord extends CardDraft {
   readonly decidedAt: string | null;
 }
 
-/** One entry in the outbox. Anchored isn't connected to texting or email yet, so the owner sends each one from their own apps. */
+/**
+ * One entry in the outbox. Texts and email go out from the owner's own apps; a Telegram reply goes out through
+ * Anchored's bot, which records whether Telegram took it.
+ */
 export interface OutboxEntry {
   readonly id: string;
   readonly businessId: string;
   readonly cardId: string;
-  readonly channel: "sms" | "email" | "list";
+  readonly channel: "sms" | "email" | "list" | "telegram";
   readonly to: string;
   readonly body: string;
+  /** When the entry may go out. A text held for quiet hours carries a later time. */
   readonly sentAt: string;
+  /** The customer key the entry goes to, such as a Telegram chat id. */
+  readonly contact?: string;
+  /** When Telegram took the message. Absent for channels the owner sends from their own apps. */
+  readonly deliveredAt?: string;
+  /** Why Telegram refused the message, in the owner's words. */
+  readonly deliveryError?: string;
 }
 
 // =============================================================================

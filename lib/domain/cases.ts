@@ -6,6 +6,7 @@ import type {
   BusinessProfile,
   CardDraft,
   PathKind,
+  ProfileDetails,
   SkillId,
   WorkflowId,
   WorkflowPlan,
@@ -21,8 +22,8 @@ import { WORKFLOW_IDS } from "@/lib/domain/workflows";
 // `profileFromFacts`, then lays the restaurant research on top: reasons, stakes
 // and cards, plus a path `override` only where the research's `why` gives a reason.
 
-/** An example business: onboarding facts plus a picker label. */
-export type Example = BusinessFacts & { readonly id: string; readonly label: string };
+/** An example business: onboarding facts plus a picker label, and the details its research supports. */
+export type Example = BusinessFacts & { readonly id: string; readonly label: string; readonly details?: ProfileDetails };
 
 /** Researched text for one workflow, and a researched path when it differs from the rules. */
 interface ResearchedPlan {
@@ -40,6 +41,8 @@ interface CaseResearch {
   readonly plans: Partial<Record<WorkflowId, ResearchedPlan>>;
   readonly cards: Partial<Record<SkillId, Omit<CardDraft, "agent" | "skill">>>;
   readonly lockedCards?: NonNullable<BusinessProfile["lockedCards"]>;
+  /** Details the research supports. Prices stay out unless the research gives them, so agents ask instead of guessing. */
+  readonly details?: ProfileDetails;
 }
 
 // =============================================================================
@@ -70,6 +73,10 @@ const RESTAURANT_RESEARCH: CaseResearch = {
       "Fight delivery refunds",
     ],
     voice: "Thanks for thinking of Linden Street Kitchen!",
+  },
+  details: {
+    vocabulary: { customer: "guest", workUnit: "order", priceTerm: "price", bookingTerm: "reservation" },
+    pricingMethod: "menu",
   },
   caseStudy: {
     label: "Restaurant",
@@ -225,6 +232,7 @@ function fromResearch(research: CaseResearch): BusinessProfile {
     cards: research.cards,
     lockedCards: research.lockedCards,
     caseStudy: research.caseStudy,
+    ...(research.details ? { details: research.details } : {}),
   };
 }
 
@@ -250,6 +258,11 @@ export const EXAMPLES: readonly [Example, ...Example[]] = [
     tools: ["Jobber", "QuickBooks Online", "Google Business Profile"],
     signals: ["quotes", "memberships"],
     languages: ["English", "Spanish"],
+    details: {
+      vocabulary: { customer: "homeowner", workUnit: "service call", priceTerm: "estimate", bookingTerm: "appointment" },
+      pricingMethod: "quote",
+      nextStep: { lead: "A homeowner asking about a repair or a new system", step: "book_visit" },
+    },
   },
   // From Pramukh Bhushan's coaching research: a solo coach sells packages through a discovery call,
   // leads start in DMs and referrals, and Calendly, Stripe and a spreadsheet make up the stack.
@@ -267,6 +280,11 @@ export const EXAMPLES: readonly [Example, ...Example[]] = [
     tools: ["Calendly", "Stripe", "Google Sheets", "Gmail"],
     signals: ["appointments"],
     languages: ["English"],
+    details: {
+      vocabulary: { customer: "client", workUnit: "session", priceTerm: "rate", bookingTerm: "discovery call" },
+      pricingMethod: "packages",
+      nextStep: { lead: "A professional asking about coaching", step: "book_call" },
+    },
   },
   {
     id: "dental",
@@ -397,7 +415,8 @@ export const EXAMPLES: readonly [Example, ...Example[]] = [
 /** The rules engine's profile for one example, with id `ex-<id>`. An unknown id falls back to the first example, as the prototype's picker did. */
 export function exampleProfile(id: string): BusinessProfile {
   const example = EXAMPLES.find((candidate) => candidate.id === id) ?? EXAMPLES[0];
-  return profileFromFacts({ ...example, id: `ex-${example.id}` });
+  const profile = profileFromFacts({ ...example, id: `ex-${example.id}` });
+  return example.details ? { ...profile, details: example.details } : profile;
 }
 
 /** Report whether `id` names the example business. */

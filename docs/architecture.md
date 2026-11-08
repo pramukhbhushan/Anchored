@@ -68,7 +68,7 @@ These hold everywhere in the code. A change that breaks one is a design change, 
 
 **`checkSend` gates every send.** `decideCard` is the only caller of `Store.addOutbox`, and it runs `checkSend` before every write. `checkSend` refuses a locked thread, an allergy answer, an unfilled `[placeholder]`, and a text with no opt-out line, no consent, or a send time in quiet hours. When quiet hours are the only problem, `decideCard` queues the text for the first hour that passes. Nothing leaves the app. The outbox is a table, and no SMS or email provider is connected.
 
-**Every `Store` query filters by session.** Every `Store` method takes the session id first, and `SupabaseStore` filters each query on `session_id`. The one exception is `useAiCall`, which counts model calls for the whole deployment on purpose. `docs/security.md` covers the row-level security that backs this up.
+**Every `Store` query filters by session.** Every `Store` method takes the session id first, and `SupabaseStore` filters each query on `session_id`. Four methods are exceptions on purpose. `useAiCall` counts model calls for the whole deployment. `resolveChannelLink`, `findConversation` and `listUndelivered` serve the Telegram webhook and the delivery job, which have no visitor session: each returns the session its record belongs to, and the caller uses that session for every later call. `docs/security.md` covers the row-level security that backs this up.
 
 **Migrations are append-only.** A file in `supabase/migrations/` never changes after it merges. A schema change is a new file with a later timestamp, as `20261107000400_retention_keeps_accounts.sql` shows by replacing a function that an earlier migration created.
 

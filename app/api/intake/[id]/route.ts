@@ -60,7 +60,7 @@ export async function POST(request: Request, { params }: Context) {
     let reply = turn.reply;
     if (reply === null) {
       const business = await buildProfileFromAnswers(draftToAnswers(turn.draft));
-      await store.saveBusiness(session, business);
+      await store.saveBusiness(session, business, "onboarding");
       businessId = business.id;
       reply = planReadyText(business);
     }

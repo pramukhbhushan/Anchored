@@ -32,6 +32,7 @@ const CHANNEL_LABEL: Readonly<Record<OutboxEntry["channel"], string>> = {
   sms: "Text",
   email: "Email",
   list: "Logged",
+  telegram: "Telegram",
 };
 
 /** Return the outbox line for an email or list entry, from its card when the feed still has it. */

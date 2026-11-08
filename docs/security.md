@@ -14,9 +14,11 @@ Either way, a visitor sees only the businesses, choices, cards, outbox entries, 
 
 ## Database access
 
-Every table has row-level security on: `businesses`, `workflow_choices`, `cards`, `outbox`, `events`, `intake_drafts`, `chat_messages` and `ai_usage`. The anon key alone reaches no row.
+Every table has row-level security on: `businesses`, `workflow_choices`, `cards`, `outbox`, `events`, `intake_drafts`, `chat_messages`, `profile_versions`, `channel_links`, `conversations` and `ai_usage`. The anon key alone reaches no row.
 
-`SupabaseStore` in `lib/store/supabase.ts` connects from the server with `SUPABASE_SERVICE_ROLE_KEY`, which bypasses row-level security. The `session_id` filter in each query is what keeps one session's rows from another. As a second layer, `20261107000200_auth_policies.sql` and `20261107000500_ai_budget_and_chat_policies.sql` let a signed-in user's own token reach only rows whose `session_id` is that user's id. `ai_usage` has no policy, so only the service role reads it.
+`SupabaseStore` in `lib/store/supabase.ts` connects from the server with `SUPABASE_SERVICE_ROLE_KEY`, which bypasses row-level security. The `session_id` filter in each query is what keeps one session's rows from another. As a second layer, `20261107000200_auth_policies.sql` and `20261107000500_ai_budget_and_chat_policies.sql` let a signed-in user's own token reach only rows whose `session_id` is that user's id. `20261107000600_profile_versions.sql` and `20261107000800_telegram.sql` give the newer tables the same policy. `ai_usage` has no policy, so only the service role reads it.
+
+Four `Store` methods skip the session filter on purpose. `useAiCall` counts model calls for the whole deployment. `resolveChannelLink` and `findConversation` serve the Telegram webhook, which carries no visitor session: they find the session a link code or a chat belongs to, and every later call in that request uses that session. `listUndelivered` serves the job that delivers Telegram replies held for quiet hours. Only the webhook, after it checks `TELEGRAM_WEBHOOK_SECRET`, and the delivery job, after it checks `CRON_SECRET`, may call these three. A link code is 16 random bytes, so it can't be guessed.
 
 With no store variables, `getStore` in `lib/store/index.ts` uses `MemoryStore`, which keeps data in process memory and holds at most 2,000 sessions, dropping the oldest. A production build throws on its first data read instead, unless `ANCHORED_ALLOW_MEMORY_STORE=1`, so a public deploy can't lose visitors' work in memory unnoticed.
 

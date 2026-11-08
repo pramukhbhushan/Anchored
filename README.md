@@ -130,6 +130,18 @@ On `featherless`, set `AI_MODEL=Qwen/Qwen3.6-35B-A3B`. In tests on Nov 7, 2026, 
 
 Past `AI_DAILY_CALL_CAP`, chats and onboarding fall back to the rules and rewrites return 429. Before a public deploy, also set a hard spend cap in your AI provider's billing settings, as the backstop.
 
+### Business lookup and Telegram
+
+Each of these is off until its keys are set, the same way AI is. The features that use them are still being built.
+
+| Variable | What it does |
+| --- | --- |
+| `GOOGLE_PLACES_API_KEY` | Turns on the "Is this you?" business lookup in onboarding. Restrict the key to the Places API in Google Cloud and give it a daily quota. It stays on the server |
+| `TELEGRAM_BOT_TOKEN` | The token @BotFather gives your bot. Customers message the bot, each message becomes a Front Desk card, and an approved reply goes back through it |
+| `TELEGRAM_BOT_USERNAME` | The bot's username, without the `@`, for each business's `t.me` link |
+| `TELEGRAM_WEBHOOK_SECRET` | A random string Telegram sends with every update, so the webhook can refuse anything else |
+| `CRON_SECRET` | Vercel sends it to the delivery job, which sends Telegram replies held for quiet hours |
+
 ## Set up Supabase
 
 Accounts and saved data both need a Supabase project. Do these steps in the Supabase dashboard unless a step says otherwise.

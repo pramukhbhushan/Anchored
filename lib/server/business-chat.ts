@@ -60,7 +60,7 @@ export async function sendBusinessChat(session: string, business: BusinessProfil
   const thread = threadOf(business);
   const stored = await store.listMessages(session, thread, THREAD_LIMIT);
   const { profile, changes } = applyChanges(business, await readOwnerChanges(business, text, stored));
-  if (changes.length > 0) await store.saveBusiness(session, profile);
+  if (changes.length > 0) await store.saveBusiness(session, profile, "chat");
 
   const fresh: NewChatMessage[] = [
     // The welcome line is stored with the first exchange so the thread reads the same after a reload.

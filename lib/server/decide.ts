@@ -30,7 +30,8 @@ function nextAllowedHour(card: CardDraft, now: Date): Date | null {
 
 /** Write the outbox entry for an approved card at `sentAt`. */
 async function send(store: Store, session: string, card: CardRecord, body: string, sentAt: Date): Promise<OutboxEntry | undefined> {
-  if (card.channel === "locked") return undefined;
+  // Neither kind sends: a locked card is the owner's to answer, and a flag card asks the owner for a fact.
+  if (card.channel === "locked" || card.channel === "flag") return undefined;
   // A list card's body is what the owner keeps, such as a post to copy, so the outbox logs it with any edits.
   const text = card.channel === "list" ? `${card.action}: ${body}` : body;
   return store.addOutbox(session, { businessId: card.businessId, cardId: card.id, channel: card.channel, to: card.to ?? "customer", body: text, sentAt: sentAt.toISOString() });
@@ -55,7 +56,7 @@ export async function decideCard(store: Store, session: string, card: CardRecord
   const edited = card.edited || body !== card.body;
   const draft: CardDraft = { ...card, body };
 
-  if (card.channel === "locked") {
+  if (card.channel === "locked" || card.channel === "flag") {
     const handled = await store.updatePendingCard(session, card.id, { status: "approved", decidedAt });
     return handled ? { ok: true, response: { card: handled } } : ALREADY_DECIDED;
   }
