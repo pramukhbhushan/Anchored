@@ -95,7 +95,10 @@ function personalize(card: KeyedCard, source: string, business: BusinessProfile,
       const item = text(payload, "item") ?? "an item";
       const before = amount(payload, "oldPrice");
       const after = amount(payload, "newPrice");
-      if (before === undefined || after === undefined || after <= before) return { ...card, title: `New invoice from ${supplier}` };
+      // Without two prices showing a rise, the template's "charges more" would be a guess, so the card says only what arrived.
+      if (before === undefined || after === undefined || after <= before) {
+        return { ...card, title: `New invoice from ${supplier}`, body: `A new invoice came in from ${supplier}. Check it against your last one?` };
+      }
       return { ...card, title: `${item} went up $${(after - before).toFixed(2)} at ${supplier}`, body: `${supplier}'s latest invoice charges $${after.toFixed(2)} for ${item}, up from $${before.toFixed(2)} last time. Add it to your list for the rep?` };
     }
     case "review": {
