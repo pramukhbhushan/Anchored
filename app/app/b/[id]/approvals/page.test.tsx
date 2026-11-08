@@ -95,6 +95,20 @@ describe("Approvals page", () => {
     expect(outbox).not.toHaveTextContent("Send it yourself");
   });
 
+  it("says when the acknowledgment rule or the bot sent a message, not a tap on a card", async () => {
+    const store = stores.current;
+    if (store === null) throw new Error("Missing store");
+    const sent = await store.addOutbox(SESSION, { businessId: hvacShop().id, cardId: null, channel: "telegram", to: "Dana Lewis", body: "Thanks, College Park Heating & Air got your message and will reply soon.", rule: "acknowledge", delivery: "queued" });
+    await store.settleOutbox(SESSION, sent.id, { delivery: "sent" });
+    await store.addOutbox(SESSION, { businessId: hvacShop().id, cardId: null, channel: "telegram", to: "Sam", body: "You're now messaging College Park Heating & Air.", rule: "protocol", delivery: "queued" });
+
+    await renderApprovals(hvacShop().id);
+
+    const outbox = screen.getByRole("complementary", { name: "Outbox" });
+    expect(within(outbox).getByText("Sent under your acknowledgment rule")).toBeInTheDocument();
+    expect(within(outbox).getByText("The bot's fixed answer to the customer's /start or /stop")).toBeInTheDocument();
+  });
+
   it("offers to send an approved text from the owner's phone", async () => {
     const body = "Sorry we missed you. Reply STOP to opt out.";
     await stores.current?.addOutbox(SESSION, { businessId: hvacShop().id, cardId: "card-1", channel: "sms", to: "(410) 555-0137", body, sentAt: "2026-11-07T15:00:00Z" });

@@ -11,11 +11,13 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { feedStats, money, placeOf } from "@/components/view-helpers";
 import { whoHandles } from "@/components/workflows/flow";
 import { newForOwner, samplesWaiting, stakeWaiting } from "@/lib/domain/brief";
-import { OWNER_TIME_ZONE } from "@/lib/domain/executor";
+import { OWNER_TIME_ZONE, sendTimeText } from "@/lib/domain/executor";
 import { activeAgents, chosenSkills, stackCost, workflowIdsOf } from "@/lib/domain/paths";
 import { groupByStage } from "@/lib/domain/stages";
 import { WORKFLOWS } from "@/lib/domain/workflows";
+import { readBrief } from "@/lib/server/brief";
 import { getBusinessOrNotFound, getChoices, getFeed } from "@/lib/server/data";
+import { getSessionId } from "@/lib/server/session";
 
 // =============================================================================
 // Module Overview
@@ -51,7 +53,7 @@ function joinAnd(names: readonly string[]): string {
 export default async function OverviewPage({ params }: { readonly params: Promise<{ id: string }> }) {
   const { id } = await params;
   const business = await getBusinessOrNotFound(id);
-  const [choices, feed] = await Promise.all([getChoices(business), getFeed(business)]);
+  const [choices, feed, dailyBrief] = await Promise.all([getChoices(business), getFeed(business), getSessionId().then((session) => readBrief(session, business))]);
   const stats = feedStats(feed.cards);
   const waiting = feed.cards.filter((card) => card.status === "pending");
   // An example's dollar figure is made up to show the card, so only real drafts count toward what rides on today.
@@ -158,6 +160,13 @@ export default async function OverviewPage({ params }: { readonly params: Promis
               </span>
               <Link href={businessHref(business.id, "stack")}>See stack</Link>
             </li>
+            {/* The daily brief's own counts live on Internal Communications' page, so the overview links there, not repeats them. */}
+            {dailyBrief.lastRunAt !== null && (
+              <li>
+                <span>Daily brief written {sendTimeText(new Date(dailyBrief.lastRunAt))}.</span>
+                <Link href={agentHref(business.id, "internal")}>Read it</Link>
+              </li>
+            )}
             {stats.approved > 0 && (
               <li>
                 So far: {stats.approved} approved, {stats.edited} edited

@@ -68,6 +68,13 @@ function deliveryLine(entry: DisplayEntry, held: boolean): string | null {
 }
 
 /** Render one outbox entry: a text as a bubble, anything else as a log line, each with its send step when the owner sends it. */
+/** Say what authorized an entry no card tap approved: the owner's acknowledgment rule, or the bot's fixed answer. */
+function ruleLine(entry: DisplayEntry): string | null {
+  if (entry.rule === "acknowledge") return entry.delivery === "sent" ? "Sent under your acknowledgment rule" : "Under your acknowledgment rule";
+  if (entry.rule === "protocol") return "The bot's fixed answer to the customer's /start or /stop";
+  return null;
+}
+
 function OutboxItem({
   entry,
   card,
@@ -93,6 +100,7 @@ function OutboxItem({
       <li className={`bubble${held ? " is-queued" : ""}`}>
         <small>{CHANNEL_LABEL[entry.channel]} to {entry.to}</small>
         {entry.body}
+        {ruleLine(entry) !== null && <small>{ruleLine(entry)}</small>}
         {when}
         {entry.channel === "telegram" && entry.delivery === "failed" && <a href={businessHref(entry.businessId, "connections")}>See connections</a>}
         {send}

@@ -4,6 +4,8 @@
    Agent workspaces extend the current full-width pages. Columns respond to
    the available app container, and only pending decisions receive boxes. */
 .workspace{display:grid;gap:var(--s-5);min-width:0}
+/* The grid gap already spaces the header from what follows; its own margin would double it. */
+.workspace > :global(.page-head){margin-bottom:0}
 .workspace h2{font-size:var(--fs-xl)}
 .workspace h3{font-size:var(--fs-lg)}
 .workspace nav{font-size:var(--fs-sm);overflow-wrap:anywhere}

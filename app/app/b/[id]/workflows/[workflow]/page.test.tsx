@@ -24,8 +24,8 @@ vi.mock("next/navigation", async () => ({
 const { default: AgentPage, generateMetadata } = await import("./page");
 const SHOP = hvacShop();
 
-function params(agent: string, id = SHOP.id) {
-  return { params: Promise.resolve({ id, workflow: agent }) };
+function params(agent: string, id = SHOP.id, contact?: string) {
+  return { params: Promise.resolve({ id, workflow: agent }), searchParams: Promise.resolve(contact === undefined ? {} : { contact }) };
 }
 
 beforeEach(async () => {
@@ -85,6 +85,39 @@ describe("agent landing page", () => {
     render(await AgentPage(params("niche:stock-check")));
     expect(screen.getByRole("heading", { level: 1, name: "Stock Check" })).toBeInTheDocument();
     await expect(generateMetadata(params("niche:stock-check"))).resolves.toEqual({ title: "Stock Check" });
+  });
+
+  it("shows the Customer's Telegram conversations from the server, never another session's", async () => {
+    const store = stores.current;
+    if (store === null) throw new Error("Missing store");
+    const dana = await store.saveContact(SESSION, { businessId: SHOP.id, name: "Dana Ruiz", phone: null, email: null, consent: { source: "messaged-first", at: "2026-11-08T10:00:00Z" }, optedOutAt: null, telegramChatId: "42" });
+    await store.addThreadMessage(SESSION, { businessId: SHOP.id, contactId: dana.id, direction: "in", text: "Do you service heat pumps?", skill: null, cardKey: null, outboxId: null, providerId: null, at: "2026-11-08T10:01:00Z" });
+    render(await AgentPage(params("customer", SHOP.id, dana.id)));
+    expect(screen.getAllByText("Do you service heat pumps?").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/aren't available here yet/)).not.toBeInTheDocument();
+  });
+
+  it("says why there's no Telegram link when the server has no bot, and offers the acknowledgment rule off", async () => {
+    render(await AgentPage(params("customer")));
+    expect(screen.getByText(/Telegram isn't set up on this server/)).toBeInTheDocument();
+    expect(screen.getByText(/got your message and will reply soon/)).toBeInTheDocument();
+  });
+
+  it("shows the business's Telegram link and a QR code for it when the server has a bot", async () => {
+    vi.stubEnv("TELEGRAM_BOT_TOKEN", "123:test");
+    vi.stubEnv("TELEGRAM_BOT_USERNAME", "AnchoredDemoBot");
+    try {
+      render(await AgentPage(params("customer")));
+      expect((screen.getByLabelText("Your business's test link") as HTMLInputElement).value).toMatch(/^https:\/\/t\.me\/AnchoredDemoBot\?start=/);
+      expect(screen.getByRole("img", { name: "QR code for your business's Telegram link" })).toBeInTheDocument();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("shows Internal Communications' brief with Run now", async () => {
+    render(await AgentPage(params("internal")));
+    expect(screen.getByRole("button", { name: /run now/i })).toBeInTheDocument();
   });
 
   it("does not open another session's business", async () => {

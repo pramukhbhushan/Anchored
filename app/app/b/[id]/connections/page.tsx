@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { TelegramQr } from "@/components/connections/TelegramQr";
 import { TelegramSetup } from "@/components/connections/TelegramSetup";
 import { ConnectionsPanel } from "@/components/connections/ConnectionsPanel";
 import { ContactsList } from "@/components/connections/ContactsList";
@@ -8,6 +9,7 @@ import { PageHeader, SectionHeader } from "@/components/ui/PageHeader";
 import { appBaseUrl, connectionsResponse } from "@/lib/server/connections";
 import { getBusinessOrNotFound } from "@/lib/server/data";
 import { findViewer, getSessionId } from "@/lib/server/session";
+import { telegramSetup } from "@/lib/server/telegram-setup";
 
 // =============================================================================
 // Module Overview
@@ -24,14 +26,14 @@ export default async function ConnectionsPage({ params }: { readonly params: Pro
   const { id } = await params;
   const business = await getBusinessOrNotFound(id);
   const [session, viewer, requestHeaders] = await Promise.all([getSessionId(), findViewer(), headers()]);
-  const data = await connectionsResponse(session, business, viewer, appBaseUrl(requestHeaders));
+  const [data, telegram] = await Promise.all([connectionsResponse(session, business, viewer, appBaseUrl(requestHeaders)), telegramSetup(session, business)]);
   const isSample = business.kind === "case";
 
   return (
     <>
       <PageHeader title="Connections" description="Connect your own texting number, email and Stripe. Anchored sends only what you approve." />
       <section className="section">
-        <TelegramSetup businessId={business.id} url={null} unavailableReason={isSample ? "Set up your own business to try Telegram when it is available." : "Telegram isn't available for this business yet. Existing email and invoice connections are listed below."} />
+        <TelegramSetup businessId={business.id} url={telegram.url} unavailableReason={telegram.unavailableReason ?? undefined} qrCode={telegram.url === null ? undefined : <TelegramQr url={telegram.url} />} />
       </section>
       <section className="section" aria-labelledby="services">
         <SectionHeader id="services" title="Services" />
