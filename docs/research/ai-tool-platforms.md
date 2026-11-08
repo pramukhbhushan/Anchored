@@ -172,7 +172,7 @@ Do not set the Census 19.8% beside the 58% to 82% survey figures as one trend. T
 - **It fills the gap with an agent.** Where no tool fits, an approve-first agent drafts the work as cards, and nothing goes out until the owner approves each one.
 - **It works alongside public help.** An SBDC advisor or a chamber trainer could use Anchored as a shortlist they can verify, which supports the House bill's "evaluating" duty without tying them to one sponsor.
 
-Limits to say out loud: G2 and Capterra have millions of reviews, and Anchored has a researched catalog from one session per trade. The "Proven in similar businesses" check often reads "Needs pilot data." A judge may ask how Anchored keeps its catalog current. The answer is the discovery agent: it searches the web for each workflow, keeps a tool only when its source is a page the search returned, and queues each find for a person to check before it gets a score.
+Limits to say out loud: G2 and Capterra have millions of reviews, and Anchored has a researched catalog from one session per trade. The "Proven in similar businesses" check often reads "Needs pilot data." A judge may ask how Anchored keeps its catalog current. The answer is the discovery agent: it finds tools for each workflow and kind of business, keeps a tool only when a real page backs it, either the tool's own site naming it or a page from a web search, and queues each find for a person to check before it gets a score.
 
 ## Not verified
 
