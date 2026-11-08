@@ -265,6 +265,8 @@ export interface WorkflowPlan {
   readonly skills?: readonly SkillId[];
   /** Preferred tool for the buy or turn-on path. */
   readonly tool?: string;
+  /** Set when the owner added the job from the tools page, which no onboarding fact accounts for. */
+  readonly addedBy?: "owner";
 }
 
 /** The context layer: everything an agent knows about one business. */
