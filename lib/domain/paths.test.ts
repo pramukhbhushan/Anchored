@@ -34,7 +34,7 @@ describe("default picks", () => {
   });
 
   it("builds with the plan's skills", () => {
-    expect(defaultChoice(hvacShop(), "quotes")).toEqual({ path: "build", skills: ["closer"] });
+    expect(defaultChoice(hvacShop(), "quotes")).toEqual({ path: "build", skills: ["closer", "debrief"] });
   });
 
   it("resolves only the business's workflows, and a saved pick wins", () => {
@@ -63,7 +63,7 @@ describe("agents", () => {
   it("lists core agents only when one of their skills is chosen", () => {
     const hvac = hvacShop();
     expect(activeAgents(hvac, {}).map((agent) => agent.id)).toEqual(["frontdesk", "followup", "content", "internal"]);
-    expect(chosenSkills(hvac, {})).toEqual(["callback", "inquiry", "posts", "closer", "keeper"]);
+    expect(chosenSkills(hvac, {})).toEqual(["callback", "inquiry", "posts", "closer", "debrief", "keeper"]);
   });
 
   it("runs the corner store's SNAP check on its spawned niche agent at every-card approval", () => {
