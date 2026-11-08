@@ -21,7 +21,7 @@ export type CardSkill = Exclude<SkillId, "brief">;
  * they never repeat it. `agents` are the agents at work here; triage hands email only to one of them.
  */
 export type CardTemplate = (
-  business: Pick<BusinessProfile, "id" | "name" | "trade" | "tradeKey" | "reach" | "tools" | "signals" | "details">,
+  business: Pick<BusinessProfile, "id" | "kind" | "name" | "trade" | "tradeKey" | "reach" | "tools" | "signals" | "details">,
   variant: number,
   agents?: readonly ActiveAgent[],
 ) => CardBody;
@@ -203,6 +203,14 @@ const TRADE_WORDS: Readonly<Record<TradeKey, TradeWords>> = {
   },
 };
 
+// Invoice lines for the example business's example events. Whole milk is the research's own example
+// (docs/research/corner-stores-and-restaurants.md); the rest follow the case study's avocado invoice.
+const EXAMPLE_RISES: readonly [{ readonly item: string; readonly was: number; readonly now: number }, ...{ readonly item: string; readonly was: number; readonly now: number }[]] = [
+  { item: "Whole milk", was: 31.4, now: 33.5 },
+  { item: "Limes", was: 38, now: 42 },
+  { item: "Cilantro", was: 24, now: 27 },
+];
+
 /** `text` with its first letter in capitals, for a booking word that starts a title. */
 function capitalized(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
@@ -366,15 +374,21 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
       to: person.full,
     };
   },
-  // Supplier invoices can't reach Anchored yet, so the starter names no item, price or rise.
-  pricewatch: () => ({
-    title: "An item on your supplier invoice went up",
-    body: "Your latest invoice charges more for an item than last time. Add it to your list for the rep?",
-    reason: "Price rises pass unseen until margins shrink.",
-    checks: ["You check the invoice yourself"],
-    action: "Add to rep list",
-    channel: "list",
-  }),
+  // Supplier invoices can't reach an owner's business yet, so its starter names no item, price or rise. The example
+  // business shows researched invoice lines instead, a different one per example event.
+  pricewatch: (b, v) => {
+    const rise = b.kind === "case" && v !== STANDING_VARIANT ? pick(v, EXAMPLE_RISES[0], ...EXAMPLE_RISES) : null;
+    return {
+      title: rise ? `${rise.item} up $${(rise.now - rise.was).toFixed(2)} a case` : "An item on your supplier invoice went up",
+      body: rise
+        ? `Your latest invoice charges $${rise.now.toFixed(2)} a case for ${rise.item.toLowerCase()}, up from $${rise.was.toFixed(2)} on the one before. Add it to your list for the rep?`
+        : "Your latest invoice charges more for an item than last time. Add it to your list for the rep?",
+      reason: "Price rises pass unseen until margins shrink.",
+      checks: rise ? ["Compared with your last invoice on file"] : ["You check the invoice yourself"],
+      action: "Add to rep list",
+      channel: "list",
+    };
+  },
   // Google listing posts only for a business that said it uses Google. No profile holds hours, so no post states them,
   // and no title claims how long the owner has gone without posting.
   posts: (b, v) =>

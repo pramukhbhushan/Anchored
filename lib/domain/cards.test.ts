@@ -185,6 +185,16 @@ describe("templates for work no connected source feeds", () => {
   });
 });
 
+describe("example events on the example business", () => {
+  it("name a real item and price for Price Watch, a different one each event, never the researched card again", () => {
+    const cards = [1, 2, 3].map((variant) => CARD_TEMPLATES.pricewatch(SAMPLE_BUSINESS, variant));
+
+    for (const card of cards) expect(`${card.title} ${card.body}`).toMatch(/\$\d/);
+    expect(new Set(cards.map((card) => card.title)).size).toBe(3);
+    expect(cards.map((card) => card.title)).not.toContain(SAMPLE_BUSINESS.cards?.pricewatch?.title);
+  });
+});
+
 describe("callback cards", () => {
   it("offer two open times, as the Callback skill promises", () => {
     expect(SKILLS.callback.does).toContain("Drafts one text with two open times");
