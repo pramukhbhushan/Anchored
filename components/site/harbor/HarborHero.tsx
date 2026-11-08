@@ -171,7 +171,7 @@ export function HarborHero({ children }: { readonly children: ReactNode }) {
         </svg>
         <canvas className={styles.back} ref={backRef} aria-hidden="true" />
         <div className={styles.big} ref={bigRef} aria-hidden="true">
-          <small>Return missed calls · Chase quotes · Get paid</small>
+          <small>AI that fits how you work</small>
           Anchored
         </div>
         <div className={styles.boat} ref={boatRef} aria-hidden="true">
