@@ -5,9 +5,11 @@ import {
   isSafeButtonUrl,
   readTelegramUpdate,
   sendTelegramMessage,
+  setTelegramWebhook,
   TelegramBlockedError,
   telegramBotFromEnv,
   telegramLink,
+  telegramWebhookInfo,
   verifyTelegramSecret,
   type TelegramBot,
 } from "./telegram";
@@ -191,5 +193,31 @@ describe("deleteTelegramMessage", () => {
     await deleteTelegramMessage(BOT, "42", "99", fetch);
     expect(fetch.calls[0]?.url).toBe("https://api.telegram.org/bot123:abc/deleteMessage");
     expect(sent(fetch.calls[0]?.init)).toEqual({ chat_id: "42", message_id: 99 });
+  });
+});
+
+describe("webhook registration", () => {
+  it("points the bot at an https address with the secret and only the updates the app handles", async () => {
+    const fetch = fakeFetch(200, { ok: true, result: true });
+    await setTelegramWebhook(BOT, "https://anchored.example/api/hooks/telegram", "s3cret_value", fetch);
+    expect(fetch.calls[0]?.url).toBe("https://api.telegram.org/bot123:abc/setWebhook");
+    expect(sent(fetch.calls[0]?.init)).toEqual({
+      url: "https://anchored.example/api/hooks/telegram",
+      secret_token: "s3cret_value",
+      allowed_updates: ["message", "my_chat_member"],
+      drop_pending_updates: true,
+    });
+  });
+
+  it("refuses a plain http address or a secret Telegram won't accept, before calling it", async () => {
+    const fetch = fakeFetch(200, { ok: true, result: true });
+    await rejection(setTelegramWebhook(BOT, "http://anchored.example/api/hooks/telegram", "s3cret", fetch));
+    await rejection(setTelegramWebhook(BOT, "https://anchored.example/api/hooks/telegram", "has spaces", fetch));
+    expect(fetch.calls).toHaveLength(0);
+  });
+
+  it("reads where the webhook points and Telegram's last error", async () => {
+    const fetch = fakeFetch(200, { ok: true, result: { url: "https://a.example/api/hooks/telegram", pending_update_count: 2, last_error_message: "Wrong response from the webhook: 404 Not Found", allowed_updates: ["message"] } });
+    expect(await telegramWebhookInfo(BOT, fetch)).toEqual({ url: "https://a.example/api/hooks/telegram", pendingUpdates: 2, lastError: "Wrong response from the webhook: 404 Not Found", allowedUpdates: ["message"] });
   });
 });

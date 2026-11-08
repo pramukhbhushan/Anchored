@@ -13,6 +13,8 @@ import { ConnectorError, type FetchLike } from "./errors";
 // sends on every webhook call. `sendTelegramMessage` sends plain text, never
 // Markdown or HTML, with optional link buttons; `deleteTelegramMessage` takes
 // one back. `telegramLink` builds the link a business shows its customers.
+// `setTelegramWebhook` and `telegramWebhookInfo` register and check where the
+// bot sends updates, for `scripts/telegram-webhook.ts`.
 
 /** The bot's token and username, both from server settings. */
 export interface TelegramBot {
@@ -207,4 +209,33 @@ export async function sendTelegramMessage(
 /** Delete a message the bot sent. Telegram allows it for 48 hours after sending. */
 export async function deleteTelegramMessage(bot: TelegramBot, chatId: string, messageId: string, fetchImpl: FetchLike = fetch): Promise<void> {
   await call(bot, "deleteMessage", { chat_id: chatId, message_id: Number(messageId) }, fetchImpl);
+}
+
+// =============================================================================
+// Webhook registration
+// =============================================================================
+
+/** What Telegram reports about the bot's webhook. */
+export interface TelegramWebhookInfo {
+  readonly url: string;
+  readonly pendingUpdates: number;
+  readonly lastError: string | null;
+  readonly allowedUpdates: readonly string[];
+}
+
+/** The update kinds the webhook handles: messages, and a customer blocking or unblocking the bot. */
+export const TELEGRAM_ALLOWED_UPDATES = ["message", "my_chat_member"] as const;
+
+/** Point the bot's webhook at `url`, with `secret` sent on every call, dropping updates that queued up meanwhile. */
+export async function setTelegramWebhook(bot: TelegramBot, url: string, secret: string, fetchImpl: FetchLike = fetch): Promise<void> {
+  if (!url.startsWith("https://")) throw new ConnectorError("Telegram only sends to an https address.", false);
+  // Telegram allows 1 to 256 of these characters in the secret.
+  if (!/^[A-Za-z0-9_-]{1,256}$/.test(secret)) throw new ConnectorError("The webhook secret must be 1 to 256 letters, digits, _ or -.", false);
+  await call(bot, "setWebhook", { url, secret_token: secret, allowed_updates: TELEGRAM_ALLOWED_UPDATES, drop_pending_updates: true }, fetchImpl);
+}
+
+/** Read where the bot's webhook points and whether Telegram had trouble reaching it. */
+export async function telegramWebhookInfo(bot: TelegramBot, fetchImpl: FetchLike = fetch): Promise<TelegramWebhookInfo> {
+  const info = (await call(bot, "getWebhookInfo", {}, fetchImpl)) as { url?: string; pending_update_count?: number; last_error_message?: string; allowed_updates?: string[] } | undefined;
+  return { url: info?.url ?? "", pendingUpdates: info?.pending_update_count ?? 0, lastError: info?.last_error_message ?? null, allowedUpdates: info?.allowed_updates ?? [] };
 }
