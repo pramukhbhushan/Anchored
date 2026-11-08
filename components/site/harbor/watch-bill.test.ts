@@ -9,7 +9,7 @@ describe("dayAt", () => {
   });
 
   it("waits for the owner before a draft goes out", () => {
-    const callback = DAY.findIndex((r) => r.skill === "Callback");
+    const callback = DAY.findIndex((r) => r.task === "Missed call");
     const at = DAY[callback]!.minute;
     expect(dayAt(at).rows[callback]!.chip.kind).toBe("draft");
     expect(dayAt(at + 45).rows[callback]!.chip.kind).toBe("wait");

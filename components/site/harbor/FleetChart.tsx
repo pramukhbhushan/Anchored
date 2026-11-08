@@ -26,11 +26,11 @@ const SOUNDINGS: readonly (readonly [number, number, string])[] = [
 
 /** The hand-offs, in the order one customer meets them. */
 const FLOW: readonly { readonly when: string; readonly agent: CoreAgentId; readonly what: string; readonly how: string }[] = [
-  { when: "9:12", agent: "frontdesk", what: "A call goes unanswered", how: "Front Desk drafts a text back with two open times." },
-  { when: "Day 3", agent: "followup", what: "The quote goes quiet", how: "Follow-up's Closer drafts a friendly check-in." },
-  { when: "Day 30", agent: "books", what: "The invoice runs late", how: "Bookkeeping's Payment Nudger drafts a reminder." },
-  { when: "Job done", agent: "content", what: "A review comes in", how: "Follow-up asks for the review. Content drafts your reply." },
-  { when: "7:00", agent: "internal", what: "Every morning", how: "Internal Communications sums up what needs you today and what it's worth." },
+  { when: "9:12", agent: "frontdesk", what: "A call goes unanswered", how: "A text back with two open times is ready for you to send." },
+  { when: "Day 3", agent: "followup", what: "The quote goes quiet", how: "A friendly check-in is drafted, so the job doesn't go to someone else." },
+  { when: "Day 30", agent: "books", what: "The invoice runs late", how: "A polite payment reminder waits for your OK." },
+  { when: "Job done", agent: "content", what: "A review comes in", how: "You approve the review request, and your reply to the review is drafted too." },
+  { when: "7:00", agent: "internal", what: "Every morning", how: "One summary of what needs you today and what it's worth." },
 ];
 
 /** Render the chart and the log side by side. */

@@ -17,11 +17,11 @@ export interface Chip {
   readonly label: string;
 }
 
-/** One row of the day. `steps` is one chip for info rows, or draft, wait and outcome for drafts. */
+/** One row of the day. `task` names the job in the owner's words; `steps` is one chip for info rows, or draft, wait and outcome for drafts. */
 export interface WatchRow {
   readonly minute: number;
   readonly agent: CoreAgentId;
-  readonly skill: string;
+  readonly task: string;
   readonly what: string;
   readonly steps: readonly Chip[];
 }
@@ -34,14 +34,14 @@ const draftFlow = (outcome: Chip): readonly Chip[] => [
 
 /** Example data based on the College Park Heating & Air case study. */
 export const DAY: readonly WatchRow[] = [
-  { minute: 420, agent: "internal", skill: "Daily Brief", what: "Four cards are waiting. $2,140 rides on them.", steps: [{ kind: "info", label: "In your brief" }] },
-  { minute: 552, agent: "frontdesk", skill: "Callback", what: "Missed call from a new number. Drafts a text with two open times.", steps: draftFlow({ kind: "sent", label: "Approved · sent 9:14" }) },
-  { minute: 640, agent: "internal", skill: "Inbox Triage", what: "A forwarded supplier email goes to Bookkeeping.", steps: [{ kind: "info", label: "Handed off" }] },
-  { minute: 665, agent: "books", skill: "Price Watch", what: "Filter price is up 18% from the last order.", steps: [{ kind: "info", label: "Flagged for you" }] },
-  { minute: 870, agent: "followup", skill: "Closer", what: "A $1,200 quote from last week went quiet. Drafts a check-in.", steps: draftFlow({ kind: "sent", label: "Edited · sent 2:41" }) },
-  { minute: 975, agent: "followup", skill: "Review Asker", what: "Job closed. Drafts a Google review ask.", steps: draftFlow({ kind: "sent", label: "Approved · sent 4:20" }) },
-  { minute: 1020, agent: "content", skill: "Review Drafter", what: "Drafts a reply to yesterday's four-star review.", steps: draftFlow({ kind: "sent", label: "Approved · posted" }) },
-  { minute: 1205, agent: "frontdesk", skill: "Callback", what: "Approved at 8:05 p.m. Quiet hours start at 8.", steps: draftFlow({ kind: "held", label: "Held until 8:00 a.m." }) },
+  { minute: 420, agent: "internal", task: "Morning summary", what: "Four replies are waiting on you, worth $2,140.", steps: [{ kind: "info", label: "In your summary" }] },
+  { minute: 552, agent: "frontdesk", task: "Missed call", what: "A new number called and hung up. A text with two open times is drafted.", steps: draftFlow({ kind: "sent", label: "Approved · sent 9:14" }) },
+  { minute: 640, agent: "internal", task: "Forwarded email", what: "A supplier email you forwarded goes to Bookkeeping.", steps: [{ kind: "info", label: "Handed off" }] },
+  { minute: 665, agent: "books", task: "Supplier prices", what: "Filter price is up 18% from the last order.", steps: [{ kind: "info", label: "Flagged for you" }] },
+  { minute: 870, agent: "followup", task: "Quote check-in", what: "A $1,200 quote from last week went quiet. A check-in is drafted.", steps: draftFlow({ kind: "sent", label: "Edited · sent 2:41" }) },
+  { minute: 975, agent: "followup", task: "Review request", what: "Job closed. A Google review request is drafted.", steps: draftFlow({ kind: "sent", label: "Approved · sent 4:20" }) },
+  { minute: 1020, agent: "content", task: "Review reply", what: "A reply to yesterday's four-star review is drafted.", steps: draftFlow({ kind: "sent", label: "Approved · posted" }) },
+  { minute: 1205, agent: "frontdesk", task: "Missed call", what: "Approved at 8:05 p.m. Quiet hours start at 8.", steps: draftFlow({ kind: "held", label: "Held until 8:00 a.m." }) },
 ];
 
 export const DAY_START = 420;

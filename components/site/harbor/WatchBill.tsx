@@ -73,7 +73,7 @@ export function WatchBill() {
   return (
     <div className={styles.bill}>
       <aside className={styles.clock}>
-        <p className={styles.eyebrow}>Watch bill · example day</p>
+        <p className={styles.eyebrow}>Example day</p>
         <div className={styles.now}>{clockLabel(minute)}</div>
         <p className={styles.day}>College Park Heating &amp; Air · Tuesday</p>
         <div className={styles.track}>
@@ -106,11 +106,11 @@ export function WatchBill() {
           {DAY.map((row, i) => {
             const rs = state.rows[i]!;
             return (
-              <li key={`${row.minute}-${row.skill}`} className={[rs.future ? styles.future : "", rs.live ? styles.live : ""].join(" ")}>
+              <li key={`${row.minute}-${row.task}`} className={[rs.future ? styles.future : "", rs.live ? styles.live : ""].join(" ")}>
                 <span className={styles.rowTime}>{clockLabel(row.minute)}</span>
                 <div className={styles.who}>
                   <b>{CORE_AGENTS[row.agent].name}</b>
-                  <span>{row.skill}</span>
+                  <span>{row.task}</span>
                 </div>
                 <p className={styles.what}>{row.what}</p>
                 <span className={`${styles.chip} ${CHIP_CLASS[rs.chip.kind] ?? ""}`}>{rs.chip.label}</span>
