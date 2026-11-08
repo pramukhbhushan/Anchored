@@ -697,6 +697,8 @@ function KnowsCard({
             <dt>{fact.label}</dt>
             <dd>
               {fact.state === "known" ? fact.value : fact.state === "skipped" ? "Skipped" : <span className={styles.placeholder}><span className={styles.srOnly}>Not answered yet</span></span>}
+              {fact.source && fact.source !== "From you" && <small className={styles.factSource}>{fact.source}</small>}
+              {fact.conflict && <small className={styles.factConflict}>{fact.conflict}</small>}
             </dd>
           </div>
         ))}

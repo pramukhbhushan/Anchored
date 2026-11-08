@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { BusinessChatResponse, CardRecord, ChatMessage } from "@/lib/api/contract";
 import { SKILLS } from "@/lib/domain/agents";
 import { findPlaceholder, mentionsAllergen } from "@/lib/domain/executor";
-import { allowedLists, applyChanges, changeReply, readChanges, type FactChanges } from "@/lib/domain/intake";
+import { allowedLists, applyChanges, changeReply, readChanges, readDetailChanges, type FactChanges } from "@/lib/domain/intake";
 import { agentForSkill, agentName, chosenSkills, resolveChoices } from "@/lib/domain/paths";
 import {
   askExample,
@@ -221,7 +221,8 @@ async function readOwnerChanges(business: BusinessProfile, text: string, transcr
   const llm = getBudgetedLlm();
   if (llm === null) return readChanges(text);
   try {
-    return await readChangesWithModel(llm, business, text, transcript);
+    // The model reads facts and lists; details such as a new minimum come from the rules either way.
+    return { ...(await readChangesWithModel(llm, business, text, transcript)), details: readDetailChanges(text) };
   } catch (error) {
     console.warn(`[Business chat AI] The model could not read this message; using the rules. Reason: ${error instanceof Error ? error.message : String(error)}`);
     return readChanges(text);

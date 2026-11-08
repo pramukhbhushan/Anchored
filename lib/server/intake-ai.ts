@@ -3,18 +3,26 @@ import { z } from "zod";
 import type { ChatMessage, IntakeResponse } from "@/lib/api/contract";
 import {
   allowedLists,
+  applyGapAnswer,
+  applyListing,
   applyReading,
   clip,
   composeReply,
+  gapKeyOf,
   INTAKE_FIELDS,
+  isGapStep,
   MAX_FOLLOW_UPS,
   mergeReadings,
   nextQuestion,
+  pickedListing,
   readAnswer,
   summarize,
+  withCandidates,
   withFollowUp,
+  withListingChoices,
   type AnswerReading,
   type FactLists,
+  type GapStep,
   type IntakeAnswer,
   type IntakeDraft,
   type IntakeField,
@@ -25,6 +33,9 @@ import {
 import { LANGUAGE_OPTIONS, REACH_OPTIONS, SIGNALS, TOOL_OPTIONS } from "@/lib/domain/workflows";
 import type { LlmProvider } from "@/lib/llm";
 import { getBudgetedLlm } from "@/lib/server/ai-budget";
+import { extractDetails } from "@/lib/server/extract";
+import { fetchPage } from "@/lib/server/fetch-page";
+import { isPlacesConfigured, placeDetails, searchPlaces } from "@/lib/server/places";
 import type { ChatThread, IntakeRecord } from "@/lib/store/types";
 
 // =============================================================================
@@ -34,6 +45,9 @@ import type { ChatThread, IntakeRecord } from "@/lib/store/types";
 // the rules and, when an AI provider is set up, with the model too, which may find
 // more facts and ask a short follow-up. Only allowed option values survive, any
 // model failure falls back to the rules, and the model never picks workflows.
+// Around that, the turn looks the business up on Google once the name and town
+// are known, reads the listing and website the owner picks, and lets the model
+// read a gap answer the rules couldn't. Every one of those steps may fail quietly.
 
 const NO_LISTS: FactLists = { reach: [], tools: [], signals: [], languages: [] };
 
@@ -68,6 +82,8 @@ export function intakeState(intake: IntakeRecord, messages: readonly ChatMessage
 export async function takeIntakeTurn(draft: IntakeDraft, question: IntakeQuestion, answer: IntakeAnswer, transcript: readonly ChatMessage[]): Promise<IntakeTurn> {
   const step = question.field;
   const rules = readAnswer(answer.text ?? "", step);
+  if (step === "listing") return listingTurn(draft, answer, rules);
+  if (isGapStep(step)) return gapTurn(draft, step, answer, rules);
   const llm = getBudgetedLlm();
   // Chips, skips and the review are exact already; a voice sample is kept whole, so there is nothing to read.
   if (llm === null || !isPlanField(step) || step === "voice" || rules.intent !== "answer" || rules.text === "") {
@@ -86,12 +102,54 @@ export async function takeIntakeTurn(draft: IntakeDraft, question: IntakeQuestio
   const answered = applyReading(draft, step, answer.picks, reading);
   // A follow-up from the model waits behind any the rules asked, and never follows another follow-up.
   const followed = read.followUp && answered.followUp === null && draft.followUp === null ? withFollowUp(answered, read.followUp.field, read.followUp.text) : null;
-  const after = followed ?? answered;
+  const after = await lookUp(draft, followed ?? answered, step, reading);
   return { draft: after, reply: composeReply(draft, after, step, reading, read.ack) };
 }
 
-function rulesTurn(draft: IntakeDraft, step: IntakeStep, answer: IntakeAnswer, reading: AnswerReading): IntakeTurn {
-  const after = applyReading(draft, step, answer.picks, reading);
+async function rulesTurn(draft: IntakeDraft, step: IntakeStep, answer: IntakeAnswer, reading: AnswerReading): Promise<IntakeTurn> {
+  const after = await lookUp(draft, applyReading(draft, step, answer.picks, reading), step, reading);
+  return { draft: after, reply: composeReply(draft, after, step, reading) };
+}
+
+// Fields the model may read from the "what do you sell" answer. The rules read prices too; the model catches more.
+const SALES_FIELDS = ["pricingMethod", "prices", "minimumCharge", "priceDrivers"] as const;
+
+/** Work an answer sets off before the reply is written, so the reply asks the right next question. */
+async function lookUp(before: IntakeDraft, after: IntakeDraft, step: IntakeStep, reading: AnswerReading): Promise<IntakeDraft> {
+  let next = after;
+  const { name, place } = next.facts;
+  // Once the name and town are known, look the business up on Google, once per intake.
+  if (next.listing === undefined && next.settled.includes("name") && name && place && isPlacesConfigured()) {
+    next = withListingChoices(next, await searchPlaces(name, place));
+  }
+  if (step === "what" && reading.intent === "answer" && reading.text !== "" && before.facts.what !== next.facts.what) {
+    next = withCandidates(next, await extractDetails("owner", reading.text, SALES_FIELDS));
+  }
+  return next;
+}
+
+/** The owner picked their Google listing, or said it isn't there. A pick reads the listing, then its website. */
+async function listingTurn(draft: IntakeDraft, answer: IntakeAnswer, reading: AnswerReading): Promise<IntakeTurn> {
+  const placeId = pickedListing(draft, answer.picks);
+  const facts = placeId === null ? null : await placeDetails(placeId);
+  let after = applyListing(draft, placeId, facts?.candidates ?? []);
+  // Only a model can read a website for facts, so without one the page isn't fetched at all.
+  if (facts?.website && getBudgetedLlm() !== null) {
+    const page = await fetchPage(facts.website);
+    if (page) after = withCandidates(after, await extractDetails("website", page.text));
+  }
+  return { draft: after, reply: composeReply(draft, after, "listing", reading) };
+}
+
+/** A gap answer: the rules read it, and the model tries only when the rules found nothing in typed words. */
+async function gapTurn(draft: IntakeDraft, step: GapStep, answer: IntakeAnswer, reading: AnswerReading): Promise<IntakeTurn> {
+  const key = gapKeyOf(step);
+  let after = applyGapAnswer(draft, key, answer.picks, reading);
+  const unread = JSON.stringify(after.details?.[key]) === JSON.stringify(draft.details?.[key]);
+  if (unread && answer.picks === undefined && reading.intent === "answer" && reading.text !== "") {
+    const extra = await extractDetails("owner", reading.text, [key]);
+    if (extra.length > 0) after = applyGapAnswer(draft, key, answer.picks, reading, extra);
+  }
   return { draft: after, reply: composeReply(draft, after, step, reading) };
 }
 

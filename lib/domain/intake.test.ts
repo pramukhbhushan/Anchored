@@ -19,6 +19,10 @@ import {
   type IntakeAnswer,
   type IntakeDraft,
   type IntakeQuestion,
+  applyListing,
+  draftDetails,
+  readDetailChanges,
+  withListingChoices,
 } from "@/lib/domain/intake";
 import { PATH_OUTCOME } from "@/lib/domain/workflows";
 
@@ -55,6 +59,17 @@ function converse(replies: readonly IntakeAnswer[]): { draft: IntakeDraft; asked
 const text = (value: string): IntakeAnswer => ({ text: value });
 const picks = (...values: string[]): IntakeAnswer => ({ picks: values });
 
+/** Skip each gap question until the review, returning the draft and the gap steps asked. */
+function throughGaps(start: IntakeDraft): { draft: IntakeDraft; gaps: string[] } {
+  let draft = start;
+  const gaps: string[] = [];
+  while (question(draft).field.startsWith("gap:")) {
+    gaps.push(question(draft).field);
+    draft = answer(draft, text("skip"));
+  }
+  return { draft, gaps };
+}
+
 describe("the question plan", () => {
   it("starts empty and asks for the name and town first", () => {
     const draft = newDraft();
@@ -76,11 +91,66 @@ describe("the question plan", () => {
       text("Hey! Thanks for reaching out. I can swing by Thursday."),
     ]);
     expect(asked.map((q) => q.field)).toEqual(["name", "kind", "what", "reach", "tools", "signals", "languages", "week", "voice"]);
-    const confirm = question(draft);
+    // The prices came from the "what" answer and the quotes fact gave the pricing method, so the gaps ask the rest.
+    expect(draft.details?.prices).toEqual([
+      { item: "Weekly mowing", low: 45 },
+      { item: "spring cleanups", low: 350 },
+    ]);
+    expect(draft.details?.pricingMethod).toBe("quote");
+    const firstGap = question(draft);
+    expect(firstGap.field).toBe("gap:vocabulary");
+    expect(firstGap.text).toContain('From what you told me ("Home services")');
+    expect(firstGap.options?.map((option) => option.label)).toEqual(["That's right"]);
+    const { draft: reviewed, gaps } = throughGaps(answer(draft, picks("yes")));
+    expect(reviewed.evidence?.vocabulary?.ownerConfirmed).toBe(true);
+    expect(gaps.length).toBeLessThanOrEqual(2);
+    const confirm = question(reviewed);
     expect(confirm.field).toBe("confirm");
     expect(confirm.text).toContain("Business: Greenfield Lawn & Landscape, Bowie, MD");
     expect(confirm.options?.map((option) => option.label)).toEqual(["Looks right", "Change something"]);
-    expect(isComplete(applyAnswer(draft, "confirm", picks("yes")))).toBe(true);
+    expect(confirm.text).toContain("Prices: Weekly mowing $45, spring cleanups $350");
+    expect(isComplete(applyAnswer(reviewed, "confirm", picks("yes")))).toBe(true);
+  });
+
+  it("asks at most three gap questions, plainly with a format example when nothing suggests a value", () => {
+    const { draft } = converse([
+      text("Ridge Dental, Laurel, MD"),
+      text("dental office"),
+      text("Cleanings and fillings"),
+      picks("Phone calls"),
+      picks(),
+      picks("appointments"),
+      picks("English"),
+      text("Reminder calls"),
+      text("See you Tuesday!"),
+    ]);
+    const first = question(draft);
+    expect(first.field).toMatch(/^gap:/);
+    // A dental office has no usual words, so the question carries a format example and no invented value.
+    expect(first.text).toMatch(/For example: /);
+    expect(first.options ?? []).not.toContainEqual(expect.objectContaining({ value: "yes" }));
+    const { gaps } = throughGaps(draft);
+    expect(gaps.length).toBe(3);
+  });
+
+  it("reads a typed gap answer into the detail, and keeps going when the owner skips", () => {
+    const start = converse([
+      text("Ridge Dental, Laurel, MD"),
+      text("dental office"),
+      text("Cleanings and fillings"),
+      picks("Phone calls"),
+      picks(),
+      picks("appointments"),
+      picks("English"),
+      text("Reminder calls"),
+      text("See you Tuesday!"),
+    ]).draft;
+    const step = question(start).field;
+    expect(step).toBe("gap:vocabulary");
+    const after = answer(start, text("patients, and a visit"));
+    expect(after.details?.vocabulary).toMatchObject({ customer: "patient", workUnit: "visit" });
+    expect(after.evidence?.vocabulary).toMatchObject({ sourceType: "owner", confidence: "high" });
+    expect(question(after).field).not.toBe("gap:vocabulary");
   });
 
   it("fills several facts from one sentence and skips the questions they answer", () => {
@@ -232,7 +302,7 @@ describe("reading answers", () => {
 });
 
 describe("the closing review", () => {
-  const finished = converse([
+  const planned = converse([
     text("Sunrise Bakery, Bowie, MD"),
     text("bakery"),
     text("Cakes and catering trays from $60"),
@@ -243,6 +313,7 @@ describe("the closing review", () => {
     text("Checking flour and butter prices on supplier invoices"),
     text("Thanks so much! Your order is ready at 3."),
   ]).draft;
+  const finished = throughGaps(planned).draft;
 
   it("lets the owner change one part, then confirms again", () => {
     let draft = applyAnswer(finished, "confirm", picks("change"));
@@ -357,5 +428,75 @@ describe("business chat changes", () => {
     const { changes } = applyChanges(cafe, readChanges("what's the weather like"));
     expect(changes).toEqual([]);
     expect(changeReply(changes, "Corner Cafe")).toContain("didn't spot a change");
+  });
+});
+
+describe("details in business chat", () => {
+  const shop = profileFromFacts({ name: "Apex Heating", trade: "HVAC contractor", tradeKey: "home", reach: ["Phone calls"], tools: [], signals: ["quotes"] });
+  const withHours = { ...shop, details: { hours: "Mon to Fri 8 to 6" }, evidence: { hours: { sourceType: "listing", quote: "8 to 6", confidence: "high", ownerConfirmed: true } }, placeId: "place-1", version: 3 } as const;
+
+  it("reads a new minimum and prices as the owner's own, confirmed", () => {
+    const { profile, changes } = applyChanges(withHours, readChanges("Our minimum is now $89, and a tune-up costs $129"));
+
+    expect(profile.details).toMatchObject({ minimumCharge: 89, prices: [{ item: "tune-up", low: 129 }], hours: "Mon to Fri 8 to 6" });
+    expect(profile.evidence?.minimumCharge).toMatchObject({ sourceType: "owner", ownerConfirmed: true });
+    expect(changes).toContainEqual({ op: "added", area: "detail", label: "Minimum charge", to: "$89" });
+    expect(changeReply(changes, profile.name)).toContain("minimum charge to $89");
+  });
+
+  it("keeps the details, listing and version when a chat message changes something else", () => {
+    const { profile } = applyChanges(withHours, readChanges("We started using QuickBooks Online"));
+
+    expect(profile.tools).toContain("QuickBooks Online");
+    expect(profile.details?.hours).toBe("Mon to Fri 8 to 6");
+    expect(profile.placeId).toBe("place-1");
+    expect(profile.version).toBe(3);
+  });
+
+  it("reads no detail from a message that states none", () => {
+    expect(readDetailChanges("We started doing catering")).toEqual([]);
+  });
+});
+
+describe("the listing step", () => {
+  const named = applyAnswer(newDraft(), "name", text("Apex Heating, Laurel, MD"));
+  const choices = [
+    { id: "place-a", name: "Apex Heating & Air", address: "1 Main St, Laurel, MD", rating: 4.8 },
+    { id: "place-b", name: "Apex Plumbing", address: "9 Elm St, Laurel, MD" },
+  ];
+
+  it("asks right after the name, with each match and a way to say none", () => {
+    const draft = withListingChoices(named, choices);
+    const listing = question(draft);
+
+    expect(listing.field).toBe("listing");
+    expect(listing.options?.map((option) => option.label)).toEqual(["Apex Heating & Air, 1 Main St, Laurel, MD", "Apex Plumbing, 9 Elm St, Laurel, MD", "Not listed"]);
+  });
+
+  it("keeps the pick and its facts as listing evidence, and moves on", () => {
+    const draft = withListingChoices(named, choices);
+    const after = applyListing(draft, "place-a", [{ key: "hours", value: "Mon to Fri 8 to 5", sourceType: "listing", quote: "Mon to Fri 8 to 5", confidence: "high" }]);
+
+    expect(after.placeId).toBe("place-a");
+    expect(after.evidence?.hours?.sourceType).toBe("listing");
+    expect(question(after).field).toBe("kind");
+    expect(summarize(after)).toContainEqual(expect.objectContaining({ field: "hours", value: "Mon to Fri 8 to 5", source: "From your Google listing" }));
+  });
+
+  it("ignores an id that wasn't offered, and skips the step when Google found nothing", () => {
+    const draft = withListingChoices(named, choices);
+
+    expect(applyListing(draft, "place-z", []).placeId).toBeUndefined();
+    expect(question(withListingChoices(named, [])).field).toBe("kind");
+  });
+
+  it("hands the confirmed details and listing to the business", () => {
+    const after = applyListing(withListingChoices(named, choices), "place-a", [{ key: "hours", value: "8 to 5", sourceType: "listing", quote: "8 to 5", confidence: "high" }]);
+
+    expect(draftDetails(after)).toEqual({
+      details: { hours: "8 to 5" },
+      evidence: { hours: { sourceType: "listing", quote: "8 to 5", confidence: "high", ownerConfirmed: true } },
+      placeId: "place-a",
+    });
   });
 });

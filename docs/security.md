@@ -114,6 +114,12 @@ The model writes text only. Code sets every workflow, path, score and send decis
 - `enrichProfile` in `lib/server/ai.ts` rewrites a rules-built profile's text during onboarding. Code trims and caps each field, and a failure keeps the rules-built profile. The prompt wraps the owner's answers in `<owner_answers>` tags and tells the model to treat them as information, not instructions.
 - `rewriteInVoice` redrafts a card. `newFacts` throws away a rewrite that adds a URL, email address, phone number, dollar amount or other number the draft did not have, and the route returns 422. Code adds back the "Reply STOP to opt out." line if the rewrite dropped it. The rewrite is saved only if the card is still pending when the model answers.
 - `lib/server/intake-ai.ts` and `lib/server/business-chat.ts` read chat answers into profile changes. Code validates each change against the allowed lists, and any model failure falls back to the rules for that turn.
+- `extractDetails` in `lib/server/extract.ts` reads profile details from an owner's answer or a website. The source sits in `<source_data>` tags marked as data. Code parses each value with the same rules as the gap questions, drops any fact whose quote isn't in the source, and retries once when the reply has the wrong shape. Text that `looksLikeSessionNotes` flags, such as coaching notes or a call transcript, is never sent.
+- A detail from a source never overrules the owner. `mergeCandidate` in `lib/domain/details.ts` ranks the owner's words first, then documents, then the listing or website, then reviews. A disagreeing source is kept as a conflict for the owner to settle.
+
+## Business lookup
+
+`lib/server/places.ts` calls Google Places with `GOOGLE_PLACES_API_KEY` from the server only. Restrict the key to the Places API and set a daily quota in Google Cloud. Each call asks for the fewest fields it uses, and a failure lets onboarding go on without it. Google's terms limit caching Places content, so a business keeps only its place id and the values the owner confirmed at the review. Review text is never requested.
 
 ## Executor rules and the simulated outbox
 

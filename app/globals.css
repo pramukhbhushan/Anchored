@@ -557,6 +557,14 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .prof-rows{margin:0}
 .prof-row{display:grid;grid-template-columns:104px minmax(0,1fr);gap:12px;padding:10px 0;border-bottom:1px dashed var(--line)}
 .prof-row:last-child{border-bottom:0}
+.prof-details{padding:0 var(--pad) var(--s-2)}
+.prof-source{margin-top:var(--s-1);font-size:var(--fs-fine);color:var(--muted)}
+.prof-source summary{cursor:pointer}
+.prof-source q{display:block;margin-top:var(--s-1);max-width:65ch}
+.prof-conflict{margin:var(--s-1) 0 0;font-size:var(--fs-sm)}
+.prof-history{padding:var(--s-2) var(--pad) var(--pad);border-top:1px solid var(--line);font-size:var(--fs-sm)}
+.prof-history summary{cursor:pointer;font-weight:600}
+.prof-history ol{margin:var(--s-2) 0 0;padding-left:var(--s-5)}
 .prof-row dt{font-size:var(--fs-fine);color:var(--muted);font-weight:600;padding-top:2px}
 .prof-row dd{margin:0;min-width:0;font-size:var(--fs-md)}
 .prof-voice{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic;color:var(--ink-2)}

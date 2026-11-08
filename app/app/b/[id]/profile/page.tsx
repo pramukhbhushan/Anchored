@@ -1,21 +1,24 @@
 import { MessageSquare, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import { ProfileCard } from "@/components/business/ProfileCard";
+import { ProfileDetails } from "@/components/business/ProfileDetails";
 import { RecentChanges } from "@/components/business/RecentChanges";
 import { NEW_BUSINESS_HREF, businessHref } from "@/components/routes";
 import { ButtonLink } from "@/components/ui/Button";
 import { PageHeader, SectionHeader } from "@/components/ui/PageHeader";
 import { rulesFor } from "@/lib/domain/agents";
-import type { BusinessProfile } from "@/lib/domain/types";
+import { activeAgents } from "@/lib/domain/paths";
+import type { BusinessProfile, CoreAgentId } from "@/lib/domain/types";
 import { listBusinessChat } from "@/lib/server/business-chat";
-import { getBusinessOrNotFound } from "@/lib/server/data";
+import { getBusinessOrNotFound, getChoices, getProfileVersions } from "@/lib/server/data";
 import { getSessionId } from "@/lib/server/session";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
 // The business profile, one job: what every agent knows. One card of facts,
-// then, for the owner's own business, the recent changes the chat made. The
+// the details agents work from with where each came from and what's still
+// needed, then, for the owner's own business, the recent changes the chat made. The
 // header sends the owner to Chat to change a fact, or the example's visitor to
 // start their own business.
 
@@ -35,6 +38,9 @@ export default async function ProfilePage({ params }: { readonly params: Promise
   const isSample = business.kind === "case";
   // The example's chat never changes anything, so it has no changes to list.
   const chat = isSample ? null : await listBusinessChat(await getSessionId(), business);
+  const choices = await getChoices(business);
+  const agents = activeAgents(business, choices).flatMap((agent) => (agent.id.startsWith("niche:") ? [] : [agent.id as CoreAgentId]));
+  const versions = await getProfileVersions(business);
 
   return (
     <div className="prof-page">
@@ -56,6 +62,7 @@ export default async function ProfilePage({ params }: { readonly params: Promise
         }
       />
       <ProfileCard business={business} rules={rulesFor(business)} footnote={authorship(business)} />
+      <ProfileDetails business={business} agents={agents} versions={versions} canChat={!isSample} />
       {chat !== null && (
         <section className="section" aria-labelledby="changes">
           <SectionHeader id="changes" title="Recent changes" />
