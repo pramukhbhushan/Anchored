@@ -1,4 +1,4 @@
-import { Inbox, Layers, LayoutDashboard, MessageSquare, Store, Workflow, Wrench, type LucideIcon } from "lucide-react";
+import { Inbox, Layers, LayoutDashboard, MessageSquare, Plug, Store, Workflow, Wrench, type LucideIcon } from "lucide-react";
 import type { Section } from "@/components/routes";
 
 // =============================================================================
@@ -19,6 +19,7 @@ export const SECTION_ICON: Readonly<Record<PageKey, LucideIcon>> = {
   workflows: Workflow,
   tools: Wrench,
   approvals: Inbox,
+  connections: Plug,
   stack: Layers,
   profile: Store,
 };

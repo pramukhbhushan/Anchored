@@ -1,4 +1,6 @@
-import type { CardRecord, CardStatus, ChatMessage, OutboxEntry } from "@/lib/api/contract";
+import type { CardRecord, CardStatus, ChatMessage, Delivery, OutboxEntry } from "@/lib/api/contract";
+import type { ConnectionKind } from "@/lib/domain/connections";
+import type { Contact } from "@/lib/domain/contacts";
 import type { IntakeDraft } from "@/lib/domain/intake";
 import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, WorkflowId } from "@/lib/domain/types";
 
@@ -17,8 +19,41 @@ export interface CardPatch {
   readonly decidedAt?: string | null;
 }
 
-/** A new outbox entry before the store assigns its id. */
-export type NewOutboxEntry = Omit<OutboxEntry, "id" | "sentAt"> & { readonly sentAt?: string };
+/** A new outbox entry before the store assigns its id. It is the owner's to send unless `delivery` says otherwise. */
+export type NewOutboxEntry = Omit<OutboxEntry, "id" | "sentAt" | "delivery" | "note"> & {
+  readonly sentAt?: string;
+  readonly delivery?: Delivery;
+  readonly note?: string | null;
+};
+
+/** What a finished or failed send changes on an outbox entry. */
+export interface OutboxPatch {
+  readonly delivery: Delivery;
+  readonly note?: string | null;
+  /** The provider's id for the message, such as Twilio's `SM...` sid. */
+  readonly providerId?: string;
+  /** When it actually went out. */
+  readonly sentAt?: string;
+}
+
+/** A connected service as stored. `secret` is encrypted by `lib/server/secrets.ts` before it reaches the store. */
+export interface StoredConnection {
+  readonly id: string;
+  readonly businessId: string;
+  readonly kind: ConnectionKind;
+  /** A random id that names this connection in webhook URLs and the forwarding address. Unique across every session. */
+  readonly hookId: string;
+  /** Settings safe to show, such as the texting number or the reply-to address. */
+  readonly settings: Readonly<Record<string, string>>;
+  readonly secret: string | null;
+  readonly createdAt: string;
+}
+
+/** A connection before the store assigns its id and time. */
+export type NewConnection = Omit<StoredConnection, "id" | "createdAt">;
+
+/** A contact before the store assigns its id; with `id` set, it replaces that contact. */
+export type NewContact = Omit<Contact, "id"> & { readonly id?: string };
 
 /** A chat thread: one onboarding intake, or one business's ongoing chat. */
 export interface ChatThread {
@@ -36,7 +71,10 @@ export interface IntakeRecord {
   readonly businessId: string | null;
 }
 
-/** Persistence for businesses, choices, cards, the outbox, raw events and chats. */
+/**
+ * Persistence for businesses, choices, cards, the outbox, raw events, chats, contacts and connections. Every method
+ * takes the session first and touches only its rows, except the three marked deployment-wide.
+ */
 export interface Store {
   readonly kind: "supabase" | "memory";
   /** Return the session's own businesses, oldest first. The example business lives in code and is not stored. */
@@ -61,8 +99,23 @@ export interface Store {
   addMessages(session: string, thread: ChatThread, messages: readonly NewChatMessage[]): Promise<ChatMessage[]>;
   getIntake(session: string, id: string): Promise<IntakeRecord | null>;
   saveIntake(session: string, intake: IntakeRecord): Promise<void>;
-  /** Count one model call against the day's cap for every visitor together; `false` once the cap is reached. */
+  /** Count one model call against the day's cap for every visitor together; `false` once the cap is reached. Deployment-wide. */
   useAiCall(day: string, cap: number): Promise<boolean>;
+  /** Mark a queued entry as sending and return it; `null` when it isn't queued, so two senders can't both send it. */
+  claimOutbox(session: string, entryId: string): Promise<OutboxEntry | null>;
+  settleOutbox(session: string, entryId: string, patch: OutboxPatch): Promise<void>;
+  /** Queued entries due by `now`, oldest first, from every session, for the scheduled sender. Deployment-wide. */
+  listDueOutbox(now: string, limit: number): Promise<{ readonly session: string; readonly entry: OutboxEntry }[]>;
+  listContacts(session: string, businessId: string): Promise<Contact[]>;
+  /** Add a contact, or replace the one with the same `id` or phone number. */
+  saveContact(session: string, contact: NewContact): Promise<Contact>;
+  deleteContact(session: string, businessId: string, contactId: string): Promise<void>;
+  listConnections(session: string, businessId: string): Promise<StoredConnection[]>;
+  /** Connect a service, replacing the business's connection of the same kind. */
+  saveConnection(session: string, connection: NewConnection): Promise<StoredConnection>;
+  deleteConnection(session: string, businessId: string, kind: ConnectionKind): Promise<void>;
+  /** The connection a webhook names, with the session that owns it, or `null`. Deployment-wide. */
+  findConnection(hookId: string): Promise<{ readonly session: string; readonly connection: StoredConnection } | null>;
   /** Delete everything the session created, as "Delete my businesses" asks. */
   reset(session: string): Promise<void>;
 }

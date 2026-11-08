@@ -13,15 +13,16 @@ The table lists the layers from the bottom up. A file may always import its own 
 | `lib/domain/` | Workflows, agents and skills, the tool catalog, ratings, the rules engine, the example business, card templates, and the executor's `checkSend` | `zod` only |
 | `lib/api/` | `contract.ts`, the request and response types of every API route, and `schemas.ts`, the Zod schema for every request body | `lib/domain` and `zod` only |
 | `lib/llm/` | The model layer: the `LlmProvider` interface and one adapter per provider | Anything except `lib/server`, `lib/store`, `lib/api`, `lib/auth`, `next` and `react` |
+| `lib/connectors/` | One adapter per connected service: Twilio texts and calls, Resend email out, Postmark email in, Stripe invoices. Each turns one send or one webhook into plain values | Anything except `lib/server`, `lib/store`, `lib/api`, `lib/auth`, `lib/llm`, `next` and `react` |
 | `lib/store/` | The `Store` interface, with `SupabaseStore` for Postgres and `MemoryStore` for local runs | Anything except `lib/server`, `lib/llm`, `lib/auth`, `next` and `react` |
 | `lib/auth/` | Supabase Auth clients, the sign-in paths, and the `Viewer` type | Anything except `lib/server`, `lib/store` and `lib/llm` |
-| `lib/server/` | Server-only orchestration: the session, data reads, model calls under a daily budget, card decisions, and request parsing | Any `lib` layer |
+| `lib/server/` | Server-only orchestration: the session, data reads, model calls under a daily budget, card decisions, the scheduled sender, turning events into cards, and request parsing | Any `lib` layer |
 | `components/` | React components, grouped by feature | Anything except `app/` and `middleware.ts` |
 | `app/` | Pages under `app/app/`, the marketing site, and API routes under `app/api/` | Anything except `middleware.ts` |
 
 No file under `lib/` imports `app/`, `components/` or `middleware.ts`. Three more rules cut across the layers:
 
-- A file marked `"use client"` never imports `lib/server`, `lib/store`, `lib/llm`, `lib/auth/server` or `server-only`. Client files ship to the browser, and the service-role store must never reach it.
+- A file marked `"use client"` never imports `lib/server`, `lib/store`, `lib/llm`, `lib/connectors`, `lib/auth/server` or `server-only`. Client files ship to the browser, and the service-role store must never reach it.
 - The modules that `middleware.ts` shares with the server and the browser import nothing at all: `lib/session-cookie.ts`, `lib/auth/config.ts`, `lib/auth/paths.ts`, `lib/auth/session-id.ts`, `lib/auth/viewer.ts`, `lib/server/origin.ts` and `lib/server/rate-limit.ts`. Middleware runs on the edge runtime, where most server code can't load.
 - Nothing imports `middleware.ts`. It is an entry point, so code that a route shares with it lives in `lib/server` or `lib/auth`.
 
@@ -54,6 +55,7 @@ flowchart LR
   server --> domain[lib/domain]
   server --> store[lib/store]
   server --> llm[lib/llm]
+  server --> connectors[lib/connectors]
 ```
 
 Approving a card shows the whole path. `POST /api/cards/[id]` parses the body with `readBody` and `decideCardSchema`, then calls `decideCard` in `lib/server/decide.ts`. `decideCard` runs `checkSend` from `lib/domain/executor.ts`, writes the decision through `Store.updatePendingCard`, and writes the outbox row through `Store.addOutbox`.
@@ -66,9 +68,11 @@ These hold everywhere in the code. A change that breaks one is a design change, 
 
 **The model writes text, and code decides.** `planWorkflows` in `lib/domain/engine.ts` picks the workflows, `pathOptions` and `defaultChoice` in `lib/domain/paths.ts` pick the paths, `rateTool` in `lib/domain/rating.ts` computes every score, and `readRequest` in `lib/domain/requests.ts` decides whether a business chat message asks for work and which chosen skill drafts it. The model features in `lib/server/ai.ts`, `lib/server/intake-ai.ts` and `lib/server/business-chat.ts` only rewrite text or read chat answers, and code validates each reply against the allowed values. With no provider configured, or past the daily budget in `lib/server/ai-budget.ts`, the rules run instead.
 
-**`checkSend` gates every send.** `decideCard` is the only caller of `Store.addOutbox`, and it runs `checkSend` before every write. `checkSend` refuses a locked thread, an allergy answer, an unfilled `[placeholder]`, and a text with no opt-out line, no consent, or a send time in quiet hours. When quiet hours are the only problem, `decideCard` queues the text for the first hour that passes. Nothing leaves the app. The outbox is a table, and no SMS or email provider is connected.
+**`checkSend` gates every send.** `decideCard` is the only caller of `Store.addOutbox`, and it runs `checkSend` before every write. `checkSend` refuses a locked thread, an allergy answer, an unfilled `[placeholder]`, and a text with no opt-out line, no consent, or a send time in quiet hours. When quiet hours are the only problem, `decideCard` queues the text for the first hour that passes.
 
-**Every `Store` query filters by session.** Every `Store` method takes the session id first, and `SupabaseStore` filters each query on `session_id`. The one exception is `useAiCall`, which counts model calls for the whole deployment on purpose. `docs/security.md` covers the row-level security that backs this up.
+Each outbox row carries a `delivery`: `yours` when the owner sends it from their own phone or email, or `queued`, `sending`, `sent` and `failed` when Anchored sends it. `deliveryFor` in `lib/domain/contacts.ts` picks Anchored only when the business has connected the service, and then texts only a number with a consent record and no STOP reply, and emails only a real address. The dispatcher in `lib/server/dispatch.ts` sends queued rows through the adapters in `lib/connectors/` and runs `checkSend` again at send time, since a queued text can cross into quiet hours and a customer can text STOP after the owner approves.
+
+**Every `Store` query filters by session.** Every `Store` method takes the session id first, and `SupabaseStore` filters each query on `session_id`. Three methods work across the deployment on purpose: `useAiCall` counts model calls, `listDueOutbox` gives the scheduled sender every queued row that is due, and `findConnection` lets a webhook find its business by hook id. Each of the last two returns the session id with the row, and the caller uses that id for every later call. `docs/security.md` covers the row-level security that backs this up.
 
 **Migrations are append-only.** A file in `supabase/migrations/` never changes after it merges. A schema change is a new file with a later timestamp, as `20261107000400_retention_keeps_accounts.sql` shows by replacing a function that an earlier migration created.
 
@@ -88,11 +92,12 @@ TypeScript does much of the bookkeeping. Most catalogs are `Record` types keyed 
 | A model provider with its own API | Write an adapter that implements `LlmProvider`, as `lib/llm/anthropic.ts` does. | Choose it in `build` in `lib/llm/index.ts`. Features keep calling `getBudgetedLlm` and never import a vendor SDK. |
 | A business page | Add a folder under `app/app/b/[id]/` with `page.tsx`, `loading.tsx` and `error.tsx`. | Add the section to `Section` and `SECTIONS` in `components/routes.ts`, then fill `SECTION_ICON` in `components/shell/nav.ts`. Put the page's components in a feature folder under `components/`. |
 | An API route | Add the request and response types to `lib/api/contract.ts` and a schema that `satisfies` the request type to `lib/api/schemas.ts`. | Write `app/api/.../route.ts` to parse with `readBody` and call `lib/server`. Give it a rate limit in `limitFor` in `middleware.ts` if it calls a model or creates rows. |
+| A connector | Add the adapter under `lib/connectors/` with a test that hands it a fake `fetch`, and a kind to `ConnectionKind` in `lib/domain/connections.ts`. | Add a webhook route under `app/api/hooks/` that verifies the provider's signature and finds the business with `Store.findConnection`, and the delivery branch in `lib/server/dispatch.ts`. |
 | A migration | Add `supabase/migrations/<timestamp>_<what>.sql` with a later timestamp than every other file. | Turn on row-level security for a new table. Add any new query to the `Store` interface in `lib/store/types.ts` and to both `MemoryStore` and `SupabaseStore`, with a test in `memory.test.ts`. |
 
 ## Known gaps
 
 The rules describe the code as it is, and two places sit below the bar the layers set.
 
-- Several API routes call `getStore()` directly for one read or write, such as `setChoice` or `recordEvent`. The intake route in `app/api/intake/[id]/route.ts` goes further and runs a multi-step flow that belongs in `lib/server`. Moving it there would leave every route as parse, call and answer.
+- Several API routes call `getStore()` directly for one read or write, such as `setChoice` or `recordEvent`. The intake route in `app/api/intake/[id]/route.ts` goes further and runs a multi-step flow that belongs in `lib/server`. Moving it there would leave every route as parse, call and answer, as the ingest flow already is: it lives in `lib/server/ingest.ts`, which the simulator route and the webhooks share.
 - `components/shell/shell-data.ts` is a server module that lives in `components/`, because it reads the data only the app shell shows.

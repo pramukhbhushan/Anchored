@@ -2,14 +2,17 @@ import { z } from "zod";
 import type {
   ApprovePlanRequest,
   BusinessChatRequest,
+  ConnectRequest,
   CreateBusinessRequest,
   DecideCardRequest,
   IngestRequest,
   IntakeAnswerRequest,
+  SaveContactRequest,
   SetChoiceRequest,
   SimulateRequest,
 } from "@/lib/api/contract";
 import { SKILLS } from "@/lib/domain/agents";
+import { CONSENT_SOURCES, type ConsentSource } from "@/lib/domain/contacts";
 import { SIGNALS, WORKFLOW_IDS } from "@/lib/domain/workflows";
 import type { SignalId, SkillId, WorkflowId } from "@/lib/domain/types";
 
@@ -91,3 +94,29 @@ export const intakeAnswerSchema = z
   .refine((answer) => (answer.text ?? "") !== "" || answer.picks !== undefined, { message: "Type an answer or tap an option." }) satisfies z.ZodType<IntakeAnswerRequest>;
 
 export const businessChatSchema = z.object({ text: chatText.min(1, "Type a message.") }) satisfies z.ZodType<BusinessChatRequest>;
+
+// -----------------------------------------------------------------
+// Connections and contacts
+// -----------------------------------------------------------------
+
+const secretText = z.string().trim().min(8, "That looks too short. Paste the whole value.").max(200);
+
+export const connectSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("texting"),
+    accountSid: z.string().trim().regex(/^AC[0-9a-f]{32}$/i, "A Twilio Account SID starts with AC and has 34 characters."),
+    authToken: secretText,
+    phone: z.string().trim().min(7).max(24),
+  }),
+  z.object({ kind: z.literal("email-out"), replyTo: z.string().trim().email("Enter the email address replies should go to.").max(200) }),
+  z.object({ kind: z.literal("email-in") }),
+  z.object({ kind: z.literal("stripe"), signingSecret: z.string().trim().regex(/^whsec_[A-Za-z0-9]{8,120}$/, "A Stripe signing secret starts with whsec_.") }),
+]) satisfies z.ZodType<ConnectRequest>;
+
+export const saveContactSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(1, "Enter the customer's name.").max(80),
+  phone: z.string().trim().max(24).optional(),
+  email: z.string().trim().max(200).optional(),
+  consent: z.enum(CONSENT_SOURCES as [ConsentSource, ...ConsentSource[]]).nullable(),
+}) satisfies z.ZodType<SaveContactRequest>;

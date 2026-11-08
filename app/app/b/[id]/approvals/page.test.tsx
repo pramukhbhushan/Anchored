@@ -12,7 +12,9 @@ import { hvacShop } from "@/test/trades";
 // own business has no live connector yet, so the page says its cards are
 // samples; the example business says how approving works instead, and is the
 // only one that offers to watch an agent draft. Each approved text in the
-// outbox opens the owner's own texting app, except one quiet hours still hold.
+// outbox opens the owner's own texting app, except one quiet hours still hold
+// and one Anchored sent itself. A text that failed says why and offers the
+// owner's texting app, and one Anchored left for the owner says why.
 // The page reads a real in-memory store under a fixed session.
 
 const SESSION = "owner-session";
@@ -69,5 +71,48 @@ describe("Approvals page", () => {
     const outbox = screen.getByRole("complementary", { name: "Outbox" });
     expect(within(outbox).getByText(/^Ready to send at/)).toBeInTheDocument();
     expect(within(outbox).queryByRole("link", { name: "Send from your phone" })).not.toBeInTheDocument();
+  });
+
+  it("says Anchored sent a text through a connected number, with no send step for the owner", async () => {
+    await stores.current?.addOutbox(SESSION, { businessId: hvacShop().id, cardId: "card-1", channel: "sms", to: "+14105550137", body: "Hi Dana. Reply STOP to opt out.", sentAt: "2026-11-07T15:00:00Z", delivery: "sent" });
+
+    await renderApprovals(hvacShop().id);
+
+    const outbox = screen.getByRole("complementary", { name: "Outbox" });
+    expect(within(outbox).getByText("Anchored sends what it can")).toBeInTheDocument();
+    expect(within(outbox).getByText("Sent by Anchored")).toBeInTheDocument();
+    expect(within(outbox).queryByRole("link", { name: "Send from your phone" })).not.toBeInTheDocument();
+  });
+
+  it("says why a text didn't send and offers to send it from the owner's phone", async () => {
+    const body = "Hi Dana. Reply STOP to opt out.";
+    await stores.current?.addOutbox(SESSION, {
+      businessId: hvacShop().id,
+      cardId: "card-1",
+      channel: "sms",
+      to: "+14105550137",
+      body,
+      sentAt: "2026-11-07T15:00:00Z",
+      delivery: "failed",
+      note: "Twilio refused the number.",
+    });
+
+    await renderApprovals(hvacShop().id);
+
+    const outbox = screen.getByRole("complementary", { name: "Outbox" });
+    expect(within(outbox).getByText("Didn't send: Twilio refused the number.")).toBeInTheDocument();
+    expect(within(outbox).getByRole("link", { name: "Send from your phone" })).toHaveAttribute("href", `sms:+14105550137?&body=${encodeURIComponent(body)}`);
+  });
+
+  it("says why Anchored left a text for the owner to send", async () => {
+    const note = "No texting OK on file for this number. Add it in Connections, or send it from your phone.";
+    await stores.current?.addOutbox(SESSION, { businessId: hvacShop().id, cardId: "card-1", channel: "sms", to: "(410) 555-0137", body: "Hi. Reply STOP to opt out.", sentAt: "2026-11-07T15:00:00Z", delivery: "yours", note });
+
+    await renderApprovals(hvacShop().id);
+
+    const outbox = screen.getByRole("complementary", { name: "Outbox" });
+    expect(within(outbox).getByText("You send each one yourself")).toBeInTheDocument();
+    expect(within(outbox).getByText(note)).toBeInTheDocument();
+    expect(within(outbox).getByRole("link", { name: "Send from your phone" })).toBeInTheDocument();
   });
 });

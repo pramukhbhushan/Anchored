@@ -21,12 +21,13 @@ A fresh worktree has no `.env.local`, so it runs with accounts off, AI off and d
 
 ## Where things live
 
-Each layer imports only the layers below it: `lib/domain` at the bottom with `zod` alone, then `lib/api`, `lib/llm`, `lib/store`, `lib/auth` and `lib/server`, with `components/` and `app/` on top. [`lib/architecture.test.ts`](lib/architecture.test.ts) fails `npm test` on any import that breaks a rule. [`docs/architecture.md`](docs/architecture.md) holds the full rule table and a "Where to add things" table; read it before you add a module, a cross-folder import, or a new workflow, skill, tool, provider, page, route or migration.
+Each layer imports only the layers below it: `lib/domain` at the bottom with `zod` alone, then `lib/api`, `lib/llm`, `lib/connectors`, `lib/store`, `lib/auth` and `lib/server`, with `components/` and `app/` on top. [`lib/architecture.test.ts`](lib/architecture.test.ts) fails `npm test` on any import that breaks a rule. [`docs/architecture.md`](docs/architecture.md) holds the full rule table and a "Where to add things" table; read it before you add a module, a cross-folder import, or a new workflow, skill, tool, provider, page, route or migration.
 
 | Path | Holds |
 | --- | --- |
 | `lib/domain/` | Pure rules: workflows, agents, the catalog, ratings, cards, the executor |
 | `lib/llm/` | The provider-agnostic model layer, one adapter per provider |
+| `lib/connectors/` | One adapter per connected service: Twilio texts and calls, Resend email, Postmark inbound email, Stripe invoices |
 | `lib/store/` | Persistence behind the `Store` interface, with a Supabase and an in-memory backend |
 | `lib/server/` | Server-only orchestration: sessions, model calls, card decisions, route helpers |
 | `lib/api/` | API request and response types, and the Zod schema for every request body |
@@ -45,10 +46,11 @@ Each rule protects an owner's customers or data, and breaking one can pass every
 
 - **The model writes text only.** Code decides every workflow, path, score and send, and validates each model reply before using it. `lib/server/ai.ts`, `intake-ai.ts` and `business-chat.ts` hold the model features. When an owner asks for work in the business chat, `readRequest` in `lib/domain/requests.ts` picks the skill from the ones they chose, and the model writes only the draft's words.
 - **`checkSend` gates every send.** `checkSend` in `lib/domain/executor.ts` enforces quiet hours, the allergy lock, the opt-out line, unfilled `[placeholders]` and consent. `decideCard` in `lib/server/decide.ts` runs it, and is the one code path that writes to the outbox.
+- **Anchored sends only through `lib/server/dispatch.ts`.** It runs `checkSend` again at send time and sends a text only to a number with a consent record and no STOP.
 - **Card decisions and rewrites go through `Store.updatePendingCard`.** It writes only while the card is still pending, so a double tap decides and sends once.
-- **Every `Store` method filters by session.** Each one takes the session id and filters on it. Callers get the id from `getSessionId` in `lib/server/session.ts`, not from request input. `useAiCall`, the daily model call counter, is the one deployment-wide method. A new method lands in `lib/store/types.ts`, `memory.ts` and `supabase.ts` together, and `reset`, which "Delete my businesses" runs, clears any table it adds.
+- **Every `Store` method filters by session.** Each one takes the session id and filters on it. Callers get the id from `getSessionId` in `lib/server/session.ts`, not from request input. Three methods are deployment-wide on purpose: `useAiCall`, the daily model call counter; `listDueOutbox`, for the scheduled sender; and `findConnection`, which webhooks use to find their business by hook id. The last two return each row's session id, and their callers use that id. A new method lands in `lib/store/types.ts`, `memory.ts` and `supabase.ts` together, and `reset`, which "Delete my businesses" runs, clears any table it adds.
 - **Every model call goes through `getBudgetedLlm`** in `lib/server/ai-budget.ts`, which counts it against `AI_DAILY_CALL_CAP`. `getLlm` from `lib/llm` has that one caller.
-- **Server code imports `server-only`.** Each `lib/server` and `lib/llm` module that reads a secret or calls the store or a provider starts with `import "server-only"`, so a client component that imports it fails the build. The edge middleware's helpers import nothing at all: `lib/server/origin.ts`, `lib/server/rate-limit.ts`, `lib/session-cookie.ts` and `lib/auth/{config,paths,session-id,viewer}.ts`. The layer test enforces that list.
+- **Server code imports `server-only`.** Each `lib/server`, `lib/llm` and `lib/connectors` module that reads a secret or calls the store or a provider starts with `import "server-only"`, so a client component that imports it fails the build. The edge middleware's helpers import nothing at all: `lib/server/origin.ts`, `lib/server/rate-limit.ts`, `lib/session-cookie.ts` and `lib/auth/{config,paths,session-id,viewer}.ts`. The layer test enforces that list.
 - **Migrations are append-only.** Name a new one `YYYYMMDDHHMMSS_name.sql`, with a timestamp after the newest file on `main`. Once merged, a migration is frozen; change the schema with a new file.
 - **Rate-limit each new API mutation in `middleware.ts`.** A route that calls a model or creates rows gets its own entry in `LIMITS` and a match in `limitFor`; any other falls into the shared `mutation` bucket. The route reads its body through `readBody` in `lib/server/http.ts` with a schema from `lib/api/schemas.ts`.
 

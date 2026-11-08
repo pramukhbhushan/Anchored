@@ -155,6 +155,22 @@ describe("limitFor", () => {
     expect(ingest.bucket).toBe(simulate.bucket);
   });
 
+  it("gives connecting a service and saving a contact their own bucket", () => {
+    for (const [method, path] of [
+      ["PUT", "/api/businesses/b_1/connections"],
+      ["DELETE", "/api/businesses/b_1/connections"],
+      ["POST", "/api/businesses/b_1/contacts"],
+      ["DELETE", "/api/businesses/b_1/contacts/c_1"],
+    ] as const) {
+      expect(limitFor(method, path), `${method} ${path}`).toMatchObject({ bucket: "connect", perSession: 60, perIp: 300 });
+    }
+  });
+
+  it("lets provider webhooks through on a loose per-IP limit", () => {
+    expect(limitFor("POST", "/api/hooks/twilio/abc/sms")).toMatchObject({ bucket: "hook", perIp: 3000 });
+    expect(limitFor("POST", "/api/hooks/email")).toMatchObject({ bucket: "hook" });
+  });
+
   it("puts every other mutation under the general limits", () => {
     for (const [method, path] of [
       ["PUT", "/api/businesses/b_1/choices"],
@@ -176,6 +192,10 @@ describe("isBodyTooLarge", () => {
     expect(isBodyTooLarge(String(64 * 1024 + 1))).toBe(true);
     expect(isBodyTooLarge(String(64 * 1024))).toBe(false);
     expect(isBodyTooLarge(null)).toBe(false);
+  });
+
+  it("takes a larger cap for a route that allows one", () => {
+    expect(isBodyTooLarge(String(1024 * 1024), 4 * 1024 * 1024)).toBe(false);
   });
 });
 
