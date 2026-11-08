@@ -1,0 +1,14 @@
+{
+  "_note": "Lines the owner types into the business chat (MK11), and what should happen. Today's cues in lib/domain/requests.ts already route these to posts or reviewdrafter.",
+  "lines": [
+    { "text": "Write a post about the heat pump we installed in Silver Spring today", "expect": { "skill": "posts", "event": "job-done", "cards": "one post per channel", "mustNotContain": ["$", "John", "Maria"] } },
+    { "text": "Write a post about the furnace we replaced at 14 Elm St for John Park", "expect": { "skill": "posts", "event": "job-done", "mustNotContain": ["14", "John Park"] } },
+    { "text": "Post that we're open Saturday 8 to 2", "expect": { "skill": "posts", "mustContain": ["Saturday"] } },
+    { "text": "Can you make an Instagram post about fall tune-ups?", "expect": { "skill": "posts", "allowedPrice": 129 } },
+    { "text": "Reply to this review: Luis was on time and explained everything before he touched the furnace. 5 stars", "expect": { "skill": "reviewdrafter", "event": "review", "rating": 5, "tone": "good", "flag": false } },
+    { "text": "Respond to this review: Waited 3 hours past the window and the furnace still rattles. 1 star", "expect": { "skill": "reviewdrafter", "event": "review", "rating": 1, "tone": "bad", "flag": true } },
+    { "text": "Someone left us a 2/5 on Yelp saying we were rude on the phone, can you answer it?", "expect": { "skill": "reviewdrafter", "rating": 2, "tone": "bad", "flag": true } },
+    { "text": "Write a post", "expect": { "skill": "posts", "cards": 0, "reply": "What did you finish or want to share this week?" } },
+    { "text": "Post that we're the best HVAC company in Maryland", "expect": { "skill": "posts", "refused": "best in", "reply": "explains Anchored can't claim that without proof, and offers a post about a real job" } }
+  ]
+}

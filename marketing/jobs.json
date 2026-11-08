@@ -1,0 +1,40 @@
+{
+  "_note": "job-done event payloads (new source in MK4) plus what buildPostContext should keep. payload must pass the strict schema: summary (max 280), optional area, optional contactName.",
+  "jobs": [
+    {
+      "id": "job-1",
+      "payload": { "summary": "Installed a new heat pump in Silver Spring. Swapped out a 20 year old oil furnace.", "area": "Silver Spring" },
+      "expect": { "accepted": true, "keptSummary": "Installed a new heat pump in Silver Spring. Swapped out a 20 year old oil furnace.", "post": true }
+    },
+    {
+      "id": "job-2",
+      "payload": { "summary": "Replaced a furnace at 14 Elm St for John Park", "contactName": "John Park" },
+      "expect": { "accepted": true, "keptSummary": "Replaced a furnace on Elm St", "stripped": ["14", "John Park"], "post": true }
+    },
+    {
+      "id": "job-3",
+      "payload": { "summary": "Fall tune-ups for 12 homes in Hyattsville this week", "area": "Hyattsville" },
+      "expect": { "accepted": true, "keptSummary": "Fall tune-ups for 12 homes in Hyattsville this week", "post": true, "note": "12 comes from the job, so a post may use it" }
+    },
+    {
+      "id": "job-4",
+      "payload": { "summary": "Fixed a no-heat call for Priya Shah at 9 p.m., cracked igniter", "contactName": "Priya Shah" },
+      "expect": { "accepted": true, "keptSummary": "Fixed a late no-heat call, cracked igniter", "stripped": ["Priya Shah"], "post": true, "note": "Priya is a STOP contact; her name and thread never reach a post" }
+    },
+    {
+      "id": "job-5",
+      "payload": { "summary": "Duct cleaning in Greenbelt", "area": "Greenbelt" },
+      "expect": { "accepted": true, "post": false, "note": "Second job-done on the same day: capped at one finished-job post per business per day" }
+    },
+    {
+      "id": "job-bad-1",
+      "payload": { "summary": "Installed a mini split", "price": 4200 },
+      "expect": { "accepted": false, "reason": "extra field price" }
+    },
+    {
+      "id": "job-bad-2",
+      "payload": { "area": "Laurel" },
+      "expect": { "accepted": false, "reason": "missing summary" }
+    }
+  ]
+}
