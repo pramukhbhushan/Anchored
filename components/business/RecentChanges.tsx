@@ -52,7 +52,7 @@ export function RecentChanges({ messages, isSample }: { readonly messages: reado
     return (
       <p className="muted">
         {isSample
-          ? "The example business doesn't change. Start your own business to see your edits here."
+          ? "The example business doesn't change. Set up your business to see your edits here."
           : "Nothing changed yet. Tell Anchored about a new service, tool or channel in the chat, and each change lands here."}
       </p>
     );

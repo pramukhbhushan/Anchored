@@ -45,7 +45,7 @@ export default async function ProfilePage({ params }: { readonly params: Promise
           isSample ? (
             <ButtonLink href={NEW_BUSINESS_HREF} variant="secondary">
               <Plus aria-hidden="true" size={16} />
-              Start your own business
+              Set up your business
             </ButtonLink>
           ) : (
             <ButtonLink href={businessHref(business.id, "chat")} variant="secondary">

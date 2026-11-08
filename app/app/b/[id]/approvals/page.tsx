@@ -117,7 +117,7 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
           ) : (
             <EmptyState icon={<CheckCheck size={22} />} title="You're all caught up">
               {canSimulate
-                ? "New drafts land here as your agents work. Try an example event to see one arrive."
+                ? "New drafts land here as your agents work. Tap Watch an agent draft to see one arrive."
                 : chosenSkills(business, choices).length > 0
                   ? "New drafts land here as your agents work."
                   : "Choose Build on a workflow and its agent starts drafting here."}

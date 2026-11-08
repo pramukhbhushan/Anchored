@@ -6,7 +6,7 @@ Built for the University of Maryland AI for Small Business Hack-a-thon, Fall 202
 
 ## How it works
 
-To look around without typing anything, open the app and explore the example business, Linden Street Kitchen, a restaurant built from our research. Then start your own.
+To look around without typing anything, open the app and explore the example business, Linden Street Kitchen, a restaurant built from our research. Then set up your own.
 
 ### 1. Describe your business
 

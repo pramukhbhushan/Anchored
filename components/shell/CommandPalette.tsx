@@ -52,7 +52,7 @@ function commandsFor(businesses: readonly BusinessSummary[], location: ShellLoca
   }));
   const app: Command[] = [
     { id: "app:all", group: "Anchored", label: "All businesses", href: APP_HREF, icon: LayoutGrid },
-    { id: "app:new", group: "Anchored", label: "Start a new business", href: NEW_BUSINESS_HREF, icon: Plus },
+    { id: "app:new", group: "Anchored", label: "Set up a new business", href: NEW_BUSINESS_HREF, icon: Plus },
     { id: "app:built", group: "Anchored", label: "How it's built", href: "/built", icon: BookOpen },
   ];
   return [...pages, ...places, ...app];

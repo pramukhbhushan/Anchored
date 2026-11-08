@@ -347,7 +347,7 @@ function BusinessChat({
             // Anchored's own message in the thread says why the example can't change; the footer only offers the way out.
             <div className={styles.readOnly}>
               <ButtonLink variant="secondary" size="sm" href={NEW_BUSINESS_HREF}>
-                Start your own business
+                Set up your business
               </ButtonLink>
             </div>
           ) : (

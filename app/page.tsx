@@ -54,7 +54,7 @@ const DECIDED: readonly (readonly [found: string, does: string])[] = [
 export default function HomePage() {
   // `middleware.ts` sends a signed-out visitor to sign in first and then on to this page.
   const startHref = NEW_BUSINESS_HREF;
-  const startLabel = "Start your own business";
+  const startLabel = "Set up your business";
   const example = SAMPLE_BUSINESS;
 
   return (
@@ -193,11 +193,11 @@ export default function HomePage() {
               <ol>
                 <li>Change a workflow&apos;s path, and watch the stack and its monthly cost follow.</li>
                 <li>Approve, edit or skip the cards waiting in Approvals.</li>
-                <li>Try an example event, and watch an agent draft a new card for you to approve.</li>
+                <li>Tap Watch an agent draft, and see a new card arrive for you to approve.</li>
               </ol>
               <p>
                 What you change in the example stays in your account and never reaches a real customer. When it makes
-                sense, map your own business.
+                sense, set up your own.
               </p>
               <div className="row">
                 <Link className="btn" href={startHref}>
@@ -239,7 +239,7 @@ export default function HomePage() {
             See what Anchored would do for your business.
           </h2>
           <p className={styles.closeText}>
-            Mapping a business in the box above takes one sentence. Start your own for the full plan: your workflows,
+            Mapping a business in the box above takes one sentence. Set up your own for the full plan: your workflows,
             the tools rated for you and the agents ready to draft.
           </p>
           <div className={`row ${styles.closeCtas}`}>

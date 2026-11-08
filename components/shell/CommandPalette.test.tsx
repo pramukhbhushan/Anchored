@@ -80,7 +80,7 @@ describe("CommandPalette", () => {
     await userEvent.keyboard("{Meta>}k{/Meta}");
 
     expect(results()).toEqual(
-      expect.arrayContaining(["Rosa's Taqueria (example)", "Apex Heating", "Greenfield Lawn", "All businesses", "Start a new business"]),
+      expect.arrayContaining(["Rosa's Taqueria (example)", "Apex Heating", "Greenfield Lawn", "All businesses", "Set up a new business"]),
     );
   });
 
@@ -150,7 +150,7 @@ describe("CommandPalette", () => {
     renderShell();
     await userEvent.keyboard("{Meta>}k{/Meta}");
 
-    await userEvent.click(within(palette()).getByRole("option", { name: "Start a new business" }));
+    await userEvent.click(within(palette()).getByRole("option", { name: "Set up a new business" }));
 
     expect(router.push).toHaveBeenCalledExactlyOnceWith("/app/new");
   });

@@ -15,7 +15,7 @@ import { aiLabel } from "@/lib/server/ai";
 // one-row header; `?form=1` swaps it for the one-page form, with "What happens
 // next" beside it. Both create the business the same way and open its plan.
 
-export const metadata: Metadata = { title: "Start a new business" };
+export const metadata: Metadata = { title: "Set up your business" };
 
 // Provider keys can be set after a build, so check them per request rather than once at build time.
 export const dynamic = "force-dynamic";
@@ -51,7 +51,7 @@ export default async function NewBusinessPage({
     return (
       <>
         <PageHeader
-          title="Start a new business"
+          title="Set up your business"
           description="Answer what you can. Skip what you don't know."
           actions={
             <ButtonLink variant="secondary" href={NEW_BUSINESS_HREF}>
@@ -80,7 +80,7 @@ export default async function NewBusinessPage({
     <div className="fill-page">
       <PageHeader
         compact
-        title="Start a new business"
+        title="Set up your business"
         actions={
           <ButtonLink variant="quiet" href={`${NEW_BUSINESS_HREF}?form=1`}>
             Prefer a form?

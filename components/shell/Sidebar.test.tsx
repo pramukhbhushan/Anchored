@@ -50,10 +50,10 @@ describe("Sidebar", () => {
     expect(nav().querySelectorAll('[aria-current="page"]')).toHaveLength(1);
   });
 
-  it("marks Start a new business as the current page during onboarding", () => {
+  it("marks Set up a new business as the current page during onboarding", () => {
     renderSidebar(AT_NEW);
 
-    expect(within(nav()).getByRole("link", { name: "Start a new business" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav()).getByRole("link", { name: "Set up a new business" })).toHaveAttribute("aria-current", "page");
     expect(within(nav()).getByRole("link", { name: "All businesses" })).not.toHaveAttribute("aria-current");
   });
 
