@@ -1492,8 +1492,8 @@ function samePlan(a: WorkflowPlan | undefined, b: WorkflowPlan | undefined): boo
 }
 
 /**
- * Rebuild `business` from its facts with `changes` applied. The id, `builtBy`, researched cards and the
- * owner's plan approval carry over, and a workflow whose rules reasoning didn't change keeps its written text, which may be the model's.
+ * Rebuild `business` from its facts with `changes` applied. The id, `builtBy`, researched cards, the
+ * owner's plan approval and the jobs they added from the tools page carry over, and a workflow whose rules reasoning didn't change keeps its written text, which may be the model's.
  */
 export function applyChanges(business: BusinessProfile, changes: FactChanges): { profile: BusinessProfile; changes: ProfileChange[] } {
   const before = factsFromProfile(business);
@@ -1502,8 +1502,12 @@ export function applyChanges(business: BusinessProfile, changes: FactChanges): {
   const workflows: Partial<Record<WorkflowId, WorkflowPlan>> = {};
   for (const id of WORKFLOW_IDS) {
     const plan = rebuilt.workflows[id];
-    if (plan === undefined) continue;
     const stored = business.workflows[id];
+    if (plan === undefined) {
+      // No fact put an owner-added job there, so the rebuild alone would drop it.
+      if (stored?.addedBy === "owner") workflows[id] = stored;
+      continue;
+    }
     workflows[id] = stored !== undefined && samePlan(oldRules[id], plan) ? stored : plan;
   }
   const profile: BusinessProfile = {
