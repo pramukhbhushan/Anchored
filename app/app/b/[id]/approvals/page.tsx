@@ -21,10 +21,11 @@ import { getBusinessOrNotFound, getChoices, getFeed } from "@/lib/server/data";
 // Approvals: one reading column of the cards agents drafted, each with
 // approve, edit and skip, then the decided ones as rows in a closed
 // disclosure. In the right rail, pinned on wide screens, the outbox holds what
-// the owner approved and what quiet hours are holding. Anchored isn't connected
-// to texting or email, so each approved draft carries its send step: a link that
-// opens the owner's own texting or email app, or text to copy and paste. Only
-// the example business offers an example event.
+// the owner approved and what quiet hours are holding. Anchored sends a draft
+// itself through a connected service and says so; a draft it won't or couldn't
+// send carries the owner's send step: a link that opens their own texting or
+// email app, or text to copy and paste. Only the example business offers an
+// example event.
 
 export const metadata: Metadata = { title: "Approvals" };
 
@@ -40,7 +41,16 @@ function logText(entry: OutboxEntry, card: CardRecord | undefined): string {
   return entry.channel === "email" ? `Email to ${entry.to}: ${card.title}` : `${card.action}: ${card.title}`;
 }
 
-/** Render one outbox entry: a text as a bubble, anything else as a log line, each with its send step once quiet hours allow. */
+/** Say where one outbox entry stands, or `null` when the owner sends it and there is nothing to add. */
+function deliveryLine(entry: OutboxEntry, held: boolean): string | null {
+  if (entry.delivery === "sent") return "Sent by Anchored";
+  if (entry.delivery === "failed") return entry.note === null ? "Didn't send. Send it yourself." : `Didn't send: ${entry.note}`;
+  if (held) return `Ready to send at ${sendTimeText(new Date(entry.sentAt))}`;
+  if (entry.delivery === "queued" || entry.delivery === "sending") return "Sending now";
+  return entry.note;
+}
+
+/** Render one outbox entry: a text as a bubble, anything else as a log line, each with its send step when the owner sends it. */
 function OutboxItem({
   entry,
   card,
@@ -52,14 +62,18 @@ function OutboxItem({
   readonly queued: boolean;
   readonly business: HandOffBusiness;
 }) {
-  // A held text gets no send step yet: opening the texting app now would skip the quiet hours it waits for.
-  const when = queued ? <small className="queued">Ready to send at {sendTimeText(new Date(entry.sentAt))}</small> : null;
+  const held = queued && (entry.delivery === "yours" || entry.delivery === "queued");
+  const line = deliveryLine(entry, held);
+  const when = line === null ? null : <small className="queued">{line}</small>;
+  // The owner sends only what Anchored won't or couldn't. A held text gets no send step yet:
+  // opening the texting app now would skip the quiet hours it waits for.
+  const ownerSends = entry.delivery === "failed" || (entry.delivery === "yours" && !held);
   const draft = approvedDraft(entry, card);
-  const step: HandOff | null = queued || draft === null ? null : handOff(draft, business);
+  const step: HandOff | null = !ownerSends || draft === null ? null : handOff(draft, business);
   const send = step === null ? null : <SendYourself handOff={step} />;
   if (entry.channel === "sms") {
     return (
-      <li className={`bubble${queued ? " is-queued" : ""}`}>
+      <li className={`bubble${held ? " is-queued" : ""}`}>
         <small>Text to {entry.to}</small>
         {entry.body}
         {when}
@@ -68,7 +82,7 @@ function OutboxItem({
     );
   }
   return (
-    <li className={`logline${queued ? " is-queued" : ""}`}>
+    <li className={`logline${held ? " is-queued" : ""}`}>
       {logText(entry, card)}
       {/* A post or reply shows the words to paste; an email opens with its words already typed. */}
       {step?.kind === "copy" && <p className="handoff-text">{step.text}</p>}
@@ -99,6 +113,8 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
   // A send time still ahead means quiet hours are holding it.
   const queued = outbox.filter((entry) => entry.sentAt > now).reverse();
   const sent = outbox.filter((entry) => entry.sentAt <= now);
+  // An entry Anchored took on means a service is connected, so the owner no longer sends every one.
+  const anchoredSends = outbox.some((entry) => entry.delivery !== "yours");
 
   const renderCard = (c: CardRecord) => (
     // `key`, not `id`: a draft's id changes when it is first decided, and remounting would drop the card's note.
@@ -166,7 +182,7 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
             <div className="phone">
               <div className="phone-bar">
                 <h2 id="outbox-title">Outbox</h2>
-                <span>You send each one yourself</span>
+                <span>{anchoredSends ? "Anchored sends what it can" : "You send each one yourself"}</span>
               </div>
               {outbox.length === 0 ? (
                 <p className="phone-empty">

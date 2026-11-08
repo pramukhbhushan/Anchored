@@ -1,0 +1,52 @@
+/* =============================================================================
+   Module Overview
+   =============================================================================
+   The Connections page: the services in a grid of blocks that fills the width,
+   each with its status, form fields and copyable setup addresses, then the
+   customer list and its add form. Form fields sit in an auto-fill grid too, so
+   a wide screen puts them side by side and a phone stacks them. */
+
+.stack{display:flex;flex-direction:column;gap:var(--s-4);min-width:0}
+.services{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr));gap:var(--s-5);align-items:start}
+
+/* =============================================================================
+   One service
+   ============================================================================= */
+
+.service{display:flex;flex-direction:column;gap:var(--s-3)}
+.does{color:var(--ink-2);font-size:var(--fs-sm);max-width:65ch}
+.on,.off{font-size:var(--fs-sm);font-weight:700;overflow-wrap:anywhere}
+.on{color:var(--good)}
+.off{color:var(--muted)}
+.reason{color:var(--warn);font-size:var(--fs-sm);max-width:65ch}
+.setup{display:flex;flex-direction:column;gap:var(--s-3)}
+.change > summary{cursor:pointer;font-size:var(--fs-sm);font-weight:600;color:var(--link)}
+.change[open] > summary{margin-bottom:var(--s-3)}
+
+/* =============================================================================
+   Forms
+   ============================================================================= */
+
+.form{display:flex;flex-direction:column;gap:var(--s-3)}
+.fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:var(--s-3)}
+.field{display:flex;flex-direction:column;gap:var(--s-1);min-width:0}
+.field label{font-weight:600;font-size:var(--fs-sm)}
+.input{width:100%;min-width:0;min-height:40px;border:1.5px solid var(--line);border-radius:var(--r);padding:var(--s-2) var(--s-3);background:var(--sheet);font-size:var(--fs-md);color:var(--ink)}
+.input:hover{border-color:var(--ink-2)}
+.input:focus{border-color:var(--ink)}
+.input[readonly]{background:var(--paper);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--fs-sm)}
+.hint{color:var(--muted);font-size:var(--fs-fine)}
+.hint:empty{display:none}
+.copyRow{display:flex;gap:var(--s-2);align-items:center}
+.acts{display:flex;flex-wrap:wrap;gap:var(--s-2);align-items:center}
+.error{color:var(--warn);font-size:var(--fs-sm);font-weight:600;max-width:65ch}
+
+/* =============================================================================
+   The visitor who can't connect, and the customer list
+   ============================================================================= */
+
+.blocked{max-width:65ch;font-weight:600}
+.lead{color:var(--ink-2);max-width:65ch}
+.empty{color:var(--muted)}
+.stopped{display:block;color:var(--warn);font-weight:700;font-size:var(--fs-fine)}
+.srOnly{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
