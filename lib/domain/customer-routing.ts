@@ -31,12 +31,18 @@ export type CustomerRoute =
 // A question about money the customer owes or paid. Bookkeeping answers those with amounts from Stripe, never a guess.
 // "What do you charge?" asks for a price, which Inquiry answers, so only the past tense "charged" counts here.
 const BILLING = /\b(bill(?:ed|ing)?|invoices?|receipts?|refunds?|charged|payments?|paid|pay(?:ing)?|owe[ds]?|balance)\b/i;
+const PRICE_REQUEST = /\b(how much|what (?:does|do|would|will|is|are).{0,30}(?:cost|charge)|price|pricing|rate|rates|estimate|quote)\b/i;
 // A request for catering, in the words customers use for it.
 const CATERING = /\b(cater(?:ing|er|ed)?|party (?:of|for) \d+|\d+ (?:people|guests|persons))\b/i;
 
 /** Whether the customer's message asks about a bill or a payment. */
 export function asksAboutBilling(text: string): boolean {
   return BILLING.test(text);
+}
+
+/** Whether a customer is asking what the business charges for new work. */
+export function asksForPrice(text: string): boolean {
+  return PRICE_REQUEST.test(text);
 }
 
 /**
@@ -47,7 +53,7 @@ export function routeCustomerMessage(text: string, chosen: ReadonlySet<SkillId>,
   if (asksAboutBilling(text)) return { kind: "billing" };
   const live = new Set(cards.filter((card) => card.status === "pending" || card.status === "approved").map((card) => card.skill));
   const applies: Readonly<Record<ThreadSkill, boolean>> = {
-    closer: live.has("closer"),
+    closer: live.has("closer") || asksForPrice(text),
     showup: live.has("showup"),
     catering: live.has("catering") || CATERING.test(text),
     inquiry: true,

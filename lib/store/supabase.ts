@@ -1,3 +1,4 @@
+import type { RecordedFollowup } from "@/lib/domain/followups";
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { CardRecord, CardStatus, ChatMessage, OutboxEntry } from "@/lib/api/contract";
@@ -7,7 +8,7 @@ import type { BriefSnapshot } from "@/lib/domain/brief";
 import type { IntakeDraft, ProfileChange } from "@/lib/domain/intake";
 import type { OutboxRule, StandingRuleId, StandingRuleState } from "@/lib/domain/rules";
 import type { NewThreadMessage, ThreadDirection, ThreadMessage } from "@/lib/domain/threads";
-import type { BusinessProfile, CardDraft, Choice, ChoiceMap, KeyedCard, ProfileChangeSource, SkillId, WorkflowId } from "@/lib/domain/types";
+import type { BusinessProfile, CardDraft, Choice, ChoiceMap, ConversationOwner, KeyedCard, ProfileChangeSource, SkillId, WorkflowId } from "@/lib/domain/types";
 import {
   NotFoundError,
   type CardPatch,
@@ -22,6 +23,7 @@ import {
   type ProfileVersion,
   type Store,
   type StoredConnection,
+  type StoredEvent,
   type TelegramChat,
   type BriefRunResult,
   type BriefState,
@@ -61,6 +63,9 @@ interface OutboxRow {
   delivery_note: string | null;
   rule: OutboxRule | null;
   contact_id: string | null;
+  provider_id: string | null;
+  deletion_state: "deleting" | "deleted" | "failed" | null;
+  deletion_note: string | null;
 }
 
 interface ContactRow {
@@ -131,7 +136,7 @@ interface IntakeRow {
 }
 
 const CARD_COLUMNS = "id, business_id, key, draft, status, edited, created_at, decided_at";
-const OUTBOX_COLUMNS = "id, business_id, card_id, channel, recipient, body, sent_at, delivery, delivery_note, rule, contact_id";
+const OUTBOX_COLUMNS = "id, business_id, card_id, channel, recipient, body, sent_at, delivery, delivery_note, rule, contact_id, provider_id, deletion_state, deletion_note";
 const CONTACT_COLUMNS = "id, business_id, name, phone, email, consent_source, consent_at, opted_out_at, telegram_chat_id, telegram_name";
 const THREAD_COLUMNS = "id, business_id, contact_id, direction, body, skill, card_key, outbox_id, provider_id, created_at";
 const CHAT_COLUMNS = "chat_id, session_id, business_id, contact_id, bound_at, blocked_at";
@@ -154,6 +159,9 @@ function toOutbox(row: OutboxRow): OutboxEntry {
     sentAt: row.sent_at,
     delivery: row.delivery,
     note: row.delivery_note,
+    ...(row.provider_id == null ? {} : { providerId: row.provider_id }),
+    ...(row.deletion_state == null ? {} : { deletionState: row.deletion_state }),
+    ...(row.deletion_note == null ? {} : { deletionNote: row.deletion_note }),
     ...(row.rule === null ? {} : { rule: row.rule }),
     ...(row.contact_id === null ? {} : { contactId: row.contact_id }),
   };
@@ -235,6 +243,17 @@ export class SupabaseStore implements Store {
 
   constructor(url: string, serviceRoleKey: string) {
     this.db = createClient(url, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  }
+
+  async listFollowups(session: string, businessId: string): Promise<RecordedFollowup[]> {
+    const { data, error } = await this.db.from("customer_followups").select("record").eq("session_id", session).eq("business_id", businessId);
+    if (error) fail("listFollowups", error);
+    return (data ?? []).map((row) => row.record as RecordedFollowup);
+  }
+
+  async saveFollowup(session: string, followup: RecordedFollowup): Promise<void> {
+    const { error } = await this.db.from("customer_followups").upsert({ session_id: session, business_id: followup.businessId, id: followup.id, record: followup }, { onConflict: "session_id,business_id,id" });
+    if (error) fail("saveFollowup", error);
   }
 
   async listBusinesses(session: string): Promise<BusinessProfile[]> {
@@ -452,6 +471,12 @@ export class SupabaseStore implements Store {
     return (data ?? []).map((row) => toOutbox(row as OutboxRow));
   }
 
+  async claimTelegramDeletion(session: string, businessId: string, entryId: string): Promise<OutboxEntry | null> {
+    const { data, error } = await this.db.from("outbox").update({ deletion_state: "deleting" }).eq("session_id", session).eq("business_id", businessId).eq("id", entryId).eq("channel", "telegram").eq("delivery", "sent").or("deletion_state.is.null,deletion_state.eq.failed").select(OUTBOX_COLUMNS).maybeSingle();
+    if (error) fail("claimTelegramDeletion", error);
+    return data ? toOutbox(data as OutboxRow) : null;
+  }
+
   async claimOutbox(session: string, entryId: string): Promise<OutboxEntry | null> {
     // `delivery = queued` in the filter makes the check and the write one statement: a second sender matches no row.
     const { data, error } = await this.db.from("outbox").update({ delivery: "sending" }).eq("session_id", session).eq("id", entryId).eq("delivery", "queued").select(OUTBOX_COLUMNS).maybeSingle();
@@ -463,6 +488,8 @@ export class SupabaseStore implements Store {
     const update = {
       delivery: patch.delivery,
       ...(patch.note === undefined ? {} : { delivery_note: patch.note }),
+      ...(patch.deletionState === undefined ? {} : { deletion_state: patch.deletionState }),
+      ...(patch.deletionNote === undefined ? {} : { deletion_note: patch.deletionNote }),
       ...(patch.providerId === undefined ? {} : { provider_id: patch.providerId }),
       ...(patch.sentAt === undefined ? {} : { sent_at: patch.sentAt }),
     };
@@ -532,6 +559,22 @@ export class SupabaseStore implements Store {
   async recordEvent(session: string, businessId: string, source: string, payload: Readonly<Record<string, unknown>>): Promise<void> {
     const { error } = await this.db.from("events").insert({ session_id: session, business_id: businessId, source, payload });
     if (error) fail("recordEvent", error);
+  }
+
+  async listEvents(session: string, businessId: string, since?: string): Promise<StoredEvent[]> {
+    let query = this.db
+      .from("events")
+      .select("id, business_id, source, payload, received_at")
+      .eq("session_id", session)
+      .eq("business_id", businessId)
+      .order("received_at");
+    if (since !== undefined) query = query.gt("received_at", since);
+    const { data, error } = await query;
+    if (error) fail("listEvents", error);
+    return (data ?? []).map((row) => {
+      const event = row as { id: string; business_id: string; source: string; payload: Readonly<Record<string, unknown>>; received_at: string };
+      return { id: event.id, businessId: event.business_id, source: event.source, payload: event.payload, receivedAt: event.received_at };
+    });
   }
 
   async listMessages(session: string, thread: ChatThread, limit: number): Promise<ChatMessage[]> {
@@ -609,6 +652,12 @@ export class SupabaseStore implements Store {
     if (error) fail("setTelegramChatBlocked", error);
   }
 
+  async telegramUpdateDone(updateId: number): Promise<boolean> {
+    const { data, error } = await this.db.from("telegram_updates").select("status").eq("update_id", updateId).maybeSingle();
+    if (error) fail("telegramUpdateDone", error);
+    return data?.status === "done";
+  }
+
   async claimTelegramUpdate(updateId: number, now: string, retakeAfterMs: number): Promise<boolean> {
     // `claim_telegram_update` claims in one statement, so two deliveries of one update can't both process it.
     const retakeBefore = new Date(Date.parse(now) - retakeAfterMs).toISOString();
@@ -652,6 +701,26 @@ export class SupabaseStore implements Store {
       .limit(limit);
     if (error) fail("listThreadMessages", error);
     return (data ?? []).map((row) => toThreadMessage(row as ThreadMessageRow)).reverse();
+  }
+
+  async getConversationOwner(session: string, businessId: string, contactId: string): Promise<ConversationOwner> {
+    const { data, error } = await this.db
+      .from("conversation_states")
+      .select("owner")
+      .eq("session_id", session)
+      .eq("business_id", businessId)
+      .eq("contact_id", contactId)
+      .maybeSingle();
+    if (error) fail("getConversationOwner", error);
+    return (data as { owner: ConversationOwner } | null)?.owner ?? "frontdesk";
+  }
+
+  async setConversationOwner(session: string, businessId: string, contactId: string, owner: ConversationOwner, at: string): Promise<void> {
+    const { error } = await this.db.from("conversation_states").upsert(
+      { session_id: session, business_id: businessId, contact_id: contactId, owner, updated_at: at },
+      { onConflict: "session_id,business_id,contact_id" },
+    );
+    if (error) fail("setConversationOwner", error);
   }
 
   async getStandingRules(session: string, businessId: string): Promise<StandingRuleState[]> {
@@ -714,9 +783,11 @@ export class SupabaseStore implements Store {
       "chat_messages",
       "intake_drafts",
       "thread_messages",
+      "conversation_states",
       "telegram_chats",
       "standing_rules",
       "brief_runs",
+      "customer_followups",
       "contacts",
       "connections",
       "profile_versions",

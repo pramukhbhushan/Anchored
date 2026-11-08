@@ -1,4 +1,5 @@
 import "server-only";
+import { runBusinessAgentWork } from "@/lib/server/agent-work";
 import type { BriefResponse } from "@/lib/api/contract";
 import { briefLines, briefSnapshot, type BriefSnapshot } from "@/lib/domain/brief";
 import { OWNER_TIME_ZONE } from "@/lib/domain/executor";
@@ -22,6 +23,7 @@ const RETAKE_AFTER_MS = 2 * 60 * 1000;
 
 // The scheduled brief comes once a day, from this hour on, in the owner's time zone.
 const BRIEF_HOUR = 7;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Return the last finished brief for `business`, or what stands in for it before the first one. */
 export async function readBrief(session: string, business: BusinessProfile): Promise<BriefResponse> {
@@ -38,14 +40,27 @@ export async function runBrief(session: string, business: BusinessProfile, now =
     return { ...(await readBrief(session, business)), running: true };
   }
   try {
-    const [before, cards, outbox, contacts] = await Promise.all([
+    await runBusinessAgentWork(store, session, business, now);
+    const windowStart = new Date(now.getTime() - DAY_MS).toISOString();
+    const [before, cards, outbox, contacts, events] = await Promise.all([
       store.getBriefState(session, business.id),
       store.listCards(session, business.id),
       store.listOutbox(session, business.id),
       store.listContacts(session, business.id),
+      store.listEvents(session, business.id, windowStart),
     ]);
     const at = now.toISOString();
-    const snapshot = briefSnapshot({ cards, outbox, optedOutAt: contacts.map((contact) => contact.optedOutAt), since: before?.lastSuccessAt ?? null, now: at });
+    const snapshot = briefSnapshot({
+      cards,
+      outbox,
+      optedOutAt: contacts.map((contact) => contact.optedOutAt),
+      since: before?.lastSuccessAt ?? null,
+      now: at,
+      windowStart,
+      events: events
+        .filter((event) => event.source !== "onboarding_raw")
+        .map((event) => ({ id: event.id, source: event.source, at: event.receivedAt })),
+    });
     const key = `${business.id}:brief:${now.getTime()}`;
     await store.ensureCards(session, business.id, [briefCard(business, snapshot, key)]);
     // One brief waits at a time: the new one replaces any the owner hasn't read.

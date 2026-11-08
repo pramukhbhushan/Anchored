@@ -160,6 +160,14 @@ An owner can connect a Twilio number for texts and missed calls, email in and ou
 - **Calls are never recorded.** Maryland requires every party's consent to record a call, so the voice webhook answers with `twimlSayAndHangUp`, which at most says a short message before it hangs up, and nothing records or transcribes the call.
 - **The scheduled sender needs a secret.** `GET /api/cron/dispatch` sends due rows only for a request with `Authorization: Bearer <CRON_SECRET>`.
 
+## Recorded work and Telegram recovery
+
+- Customer follow-up and license routes derive session ownership on the server, validate bodies with Zod and `readBody`, and have a dedicated mutation rate limit. Contact and timer identities must belong to the current business. Saved dates and sources create approval cards only.
+- `customer_followups` has owner RLS, session/business filters in both stores, explicit reset coverage and a cascading business foreign key for retention. Licenses are part of the existing versioned profile and share its retention.
+- `listBriefTargets` is a documented deployment-wide lookup for the brief and recorded-work schedulers. It returns business/session pairs; every subsequent read and write uses that session. `telegramUpdateDone` is another narrow global read, returning only completion status for one update id. Busy updates answer 503 so Telegram retries until work is durably finished.
+- Every non-protocol Telegram send rechecks persistent allergy locks. A timeout, transport exception or unreadable success reply is an uncertain send, fails without blind retry, and asks the owner to check the conversation. Explicit 429 or server-error responses may be retried once. A database failure after provider acceptance also reports uncertainty.
+- Telegram removal accepts only stored outbox identity and explicit confirmation. Session/business ownership, sent status, the 48-hour window and current server settings are checked before the atomic removal claim. Chat and provider identities are read from storage, never request input. Sent text is retained for audit; confirmed removal does not claim it was unread. A crashed removal claim stays in progress for operator review rather than claiming success.
+
 ## Known limits
 
 - Rate limits apply per server instance, not across the deployment. The AI call budget is the one deployment-wide limit.

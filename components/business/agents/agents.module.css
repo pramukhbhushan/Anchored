@@ -21,4 +21,7 @@
 .details{border-top:1px solid var(--line);padding-top:var(--s-4)}
 .details summary{font-weight:600}
 .details ul{display:grid;gap:var(--s-3);padding-inline-start:var(--s-5)}
+.workspace :global(.agent-details){border-top:1px solid var(--line);padding-top:var(--s-4);min-width:0}
+.workspace :global(.agent-details)>summary{font-weight:600}
+.workspace :global(.agent-details-body){display:flex;flex-direction:column;gap:var(--s-4);margin-top:var(--s-3);min-width:0}
 @container app (min-width:960px){.columns{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}}

@@ -62,6 +62,26 @@ describe("useAiCall", () => {
   });
 });
 
+describe("retained events and conversation ownership", () => {
+  it("keeps raw event payloads scoped to the business", async () => {
+    const store = new MemoryStore();
+    await store.recordEvent("s1", BUSINESS, "onboarding_raw", { sentence: "I run a bakery" });
+    await store.recordEvent("s1", "other", "text", { body: "hello" });
+
+    expect(await store.listEvents("s1", BUSINESS)).toMatchObject([
+      { businessId: BUSINESS, source: "onboarding_raw", payload: { sentence: "I run a bakery" } },
+    ]);
+  });
+
+  it("starts a conversation at Front Desk and saves a handoff", async () => {
+    const store = new MemoryStore();
+
+    expect(await store.getConversationOwner("s1", BUSINESS, "contact-1")).toBe("frontdesk");
+    await store.setConversationOwner("s1", BUSINESS, "contact-1", "followup", "2026-11-08T12:00:00Z");
+    expect(await store.getConversationOwner("s1", BUSINESS, "contact-1")).toBe("followup");
+  });
+});
+
 describe("session bound", () => {
   it("drops the oldest session once 2000 sessions have written, and reads never count", async () => {
     const store = new MemoryStore();

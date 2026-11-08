@@ -61,7 +61,7 @@ function BriefControl({ brief, run, unavailableReason }: BriefRunButtonProps) {
   return (
     <section aria-labelledby={`${id}-title`}>
       <div className="section-head"><h2 id={`${id}-title`}>Daily brief</h2>{run !== undefined && <Button variant="secondary" size="sm" onClick={() => void refresh()} disabled={busy}>{busy ? "Updating..." : "Run now"}</Button>}</div>
-      {latest === null ? <p>{run === undefined ? "Your daily brief is not available yet." : "No daily brief has been generated yet."}</p> : <><p className="prose">{latest.text}</p>{when !== null && Number.isFinite(when.getTime()) && <p className="fine">Last updated <time dateTime={latest.generatedAt}>{when.toLocaleString("en-US", { timeZone: OWNER_TIME_ZONE, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</time>.</p>}</>}
+      {latest === null ? <p>{run === undefined ? "Your daily brief is not available yet." : "No daily brief has been generated yet."}</p> : <><p className="prose" style={{ whiteSpace: "pre-line" }}>{latest.text}</p>{when !== null && Number.isFinite(when.getTime()) && <p className="fine">Last updated <time dateTime={latest.generatedAt}>{when.toLocaleString("en-US", { timeZone: OWNER_TIME_ZONE, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</time>.</p>}</>}
       {run === undefined && <p className="fine">{unavailableReason ?? "Run now isn't available yet. Your saved brief stays here."}</p>}
       {error !== null && <p role="alert">The brief didn't update. {error} Try Run now again.</p>}
       <p role="status">{notice}</p>

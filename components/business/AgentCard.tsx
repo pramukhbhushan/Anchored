@@ -7,7 +7,7 @@ import { ApiCallError, callApi, errorText } from "@/components/api";
 import { businessHref, cardAnchor } from "@/components/routes";
 import { useToast, type ToastLink } from "@/components/ui/Toast";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
 import { copyText } from "@/components/business/SendYourself";
 import { approvedDraft, copiedThing, copyTextFor, handOff, massAudience, type HandOffBusiness } from "@/components/business/handoff";
 import type { CardRecord, DecideCardRequest, DecideCardResponse, RewriteResponse } from "@/lib/api/contract";
@@ -98,6 +98,7 @@ export function AgentCard({
   // Keeps the buttons disabled until the refreshed feed arrives.
   const [refreshing, startRefresh] = useTransition();
   const locked = card.channel === "locked";
+  const flag = card.channel === "flag";
   const pending = card.status === "pending";
   const audience = massAudience(card.action);
   // Covers the clipboard promise as well as the request, before React paints disabled buttons.
@@ -151,6 +152,11 @@ export function AgentCard({
     if (copiedThing(card.action) === null) {
       void decide({ decision: "approve", body });
       return;
+    }
+    if (copiedThing(card.action) === "post") {
+      const step = handOff({ channel: "list", to: card.to ?? "customer", body, title: card.title, action: card.action }, business);
+      const instagram = step?.kind === "copy" ? step.places.find((place) => /instagram/i.test(place.label)) : undefined;
+      if (instagram !== undefined) window.open(instagram.href, "_blank", "noopener,noreferrer");
     }
     void decide({ decision: "approve", body }, body);
   }
@@ -241,11 +247,16 @@ export function AgentCard({
         </div>
       </div>
     );
-  } else if (locked) {
+  } else if (locked || flag) {
     actions = (
       <div className="card-acts">
+        {flag && card.missingField !== undefined && (
+          <ButtonLink href={businessHref(card.businessId, "chat")} variant="secondary" size="sm">
+            Tell Anchored
+          </ButtonLink>
+        )}
         <Button size="sm" onClick={() => approve(card.body)} disabled={disabled}>
-          I&apos;ll handle it
+          {locked ? "I'll handle it" : "Done"}
         </Button>
       </div>
     );
@@ -272,7 +283,7 @@ export function AgentCard({
     actions = (
       <div className="card-acts">
         <Button size="sm" onClick={() => approve(card.body)} disabled={disabled}>
-          Approve: {card.action}
+          Approve: {copiedThing(card.action) === "post" ? "Copy caption and open Instagram" : card.action}
         </Button>
         <Button
           variant="quiet"

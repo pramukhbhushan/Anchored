@@ -1,5 +1,8 @@
 # Eric's three-agent work split
 
+Current implementation status: see [Eric remaining implementation checkpoint](./Eric%20Remaining%20Implementation.md). Its November 8 decisions and verification distinguish completed code from teammate and live-deployment gates. Historical unchecked task lists below are not the current progress tracker.
+
+
 Revised November 8, 2026 after Eric and Pramukh agreed to divide execution by product agent.
 
 ## Settled ownership

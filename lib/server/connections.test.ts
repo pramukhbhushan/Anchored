@@ -118,6 +118,19 @@ describe("connecting texting", () => {
     expect(await stored("texting")).toBeUndefined();
   });
 
+  it("stores the optional phone that rings before a missed-call draft", async () => {
+    vi.stubEnv("CONNECTOR_SECRET_KEY", KEY);
+    await connect(SESSION, business, {
+      kind: "texting",
+      accountSid: SID,
+      authToken: "token-123",
+      phone: "301 555 0192",
+      forwardTo: "301 555 0101",
+    });
+
+    expect((await stored("texting"))?.settings.forwardTo).toBe("+13015550101");
+  });
+
   it("refuses credentials the Twilio check rejects, with its reason", async () => {
     vi.stubEnv("CONNECTOR_SECRET_KEY", KEY);
     const check = vi.fn(async () => "Twilio didn't accept that auth token.");

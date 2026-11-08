@@ -182,3 +182,17 @@ describe("CompareBoard", () => {
     expect(screen.getByRole("region", { name: "Tools to compare" })).toHaveTextContent("Jobber");
   });
 });
+
+
+it("keeps comparison open while switching between costs and evidence", async () => {
+  renderBoard();
+  await userEvent.click(screen.getByRole("button", { name: "Compare Jobber" }));
+  await userEvent.click(screen.getByRole("button", { name: "Compare QuickBooks Online" }));
+  await userEvent.click(screen.getByRole("button", { name: "Compare side by side" }));
+  const dialog = screen.getByRole("dialog", { name: "Side by side" });
+  await userEvent.click(within(dialog).getByRole("tab", { name: "Costs" }));
+  expect(within(dialog).getByRole("tabpanel")).toHaveTextContent("Jobber price");
+  expect(within(dialog).getByRole("tabpanel")).toHaveTextContent("You already have this tool");
+  await userEvent.click(within(dialog).getByRole("tab", { name: "Fit and evidence" }));
+  expect(within(dialog).getByRole("table")).toBeInTheDocument();
+});

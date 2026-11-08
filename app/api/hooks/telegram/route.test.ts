@@ -419,3 +419,56 @@ describe("the acknowledgment rule", () => {
     expect(telegram.calls).toEqual([]);
   });
 });
+
+
+describe("Telegram recovery and dispatch safety", () => {
+  it("keeps Telegram retrying a busy update until it is durably finished", async () => {
+    const update = message(1201, "Hello", 90001);
+    await store().claimTelegramUpdate(90001, new Date().toISOString(), 120000);
+    expect((await post(update)).status).toBe(503);
+    await store().finishTelegramUpdate(90001, "done");
+    expect((await post(update)).status).toBe(200);
+  });
+
+  it("does not send an older approved reply after a new allergy lock", async () => {
+    await post(message(1202, `/start ${HOOK}`));
+    await post(message(1202, "Can you help with a repair?"));
+    const card = (await cards()).find((item) => item.channel === "telegram" && item.status === "pending")!;
+    const result = await decideCard(store(), SESSION, card, { decision: "approve" }, DAYTIME);
+    expect(result.ok).toBe(true);
+    if (!result.ok || result.response.outbox === undefined) throw new Error("Missing queued reply");
+    await post(message(1202, "Is this safe with a peanut allergy?"));
+    telegram.reset();
+    expect(await dispatchEntry(store(), SESSION, result.response.outbox.id, DAYTIME, { env: ENV, fetch: telegram.fetch.bind(telegram) })).toBe("failed");
+    expect(telegram.calls).toEqual([]);
+    expect((await store().listOutbox(SESSION, SHOP.id)).find((entry) => entry.id === result.response.outbox!.id)?.note).toContain("allergy");
+  });
+
+  it("never blindly retries a send whose request timed out", async () => {
+    await post(message(1203, `/start ${HOOK}`));
+    await post(message(1203, "Can you help with a repair?"));
+    const card = (await cards()).find((item) => item.channel === "telegram" && item.status === "pending")!;
+    const result = await decideCard(store(), SESSION, card, { decision: "approve" }, DAYTIME);
+    if (!result.ok || result.response.outbox === undefined) throw new Error("Missing queued reply");
+    const fetch = vi.fn(async () => { throw new DOMException("Timed out", "TimeoutError"); });
+    expect(await dispatchEntry(store(), SESSION, result.response.outbox.id, DAYTIME, { env: ENV, fetch })).toBe("failed");
+    expect(await dispatchEntry(store(), SESSION, result.response.outbox.id, DAYTIME, { env: ENV, fetch })).toBe("skipped");
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect((await store().listOutbox(SESSION, SHOP.id)).find((entry) => entry.id === result.response.outbox!.id)?.note).toContain("may have sent");
+  });
+
+  it("preserves uncertainty if Telegram accepted but saving the send result failed", async () => {
+    await post(message(1204, `/start ${HOOK}`));
+    await post(message(1204, "Can you help with a repair?"));
+    const card = (await cards()).find((item) => item.channel === "telegram" && item.status === "pending")!;
+    const result = await decideCard(store(), SESSION, card, { decision: "approve" }, DAYTIME);
+    if (!result.ok || result.response.outbox === undefined) throw new Error("Missing queued reply");
+    vi.spyOn(store(), "settleOutbox").mockRejectedValueOnce(new Error("Database write failed"));
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    telegram.reset();
+    expect(await dispatchEntry(store(), SESSION, result.response.outbox.id, DAYTIME, { env: ENV, fetch: telegram.fetch.bind(telegram) })).toBe("failed");
+    expect(telegram.calls).toHaveLength(1);
+    expect((await store().listOutbox(SESSION, SHOP.id)).find((entry) => entry.id === result.response.outbox!.id)?.note).toContain("may have sent");
+    log.mockRestore();
+  });
+});

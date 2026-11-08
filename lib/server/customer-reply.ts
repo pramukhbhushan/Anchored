@@ -1,12 +1,14 @@
 import "server-only";
-import { SKILLS } from "@/lib/domain/agents";
+import { agentProfileSlice } from "@/lib/domain/agent-config";
 import type { Contact } from "@/lib/domain/contacts";
-import { routeCustomerMessage, type ThreadSkill } from "@/lib/domain/customer-routing";
+import { handoffConversation, isConversationOwner } from "@/lib/domain/conversation";
+import { asksForPrice, routeCustomerMessage, type ThreadSkill } from "@/lib/domain/customer-routing";
 import { findPlaceholder, mentionsAllergen } from "@/lib/domain/executor";
 import { agentForSkill, chosenSkills, resolveChoices } from "@/lib/domain/paths";
 import { THREAD_CONTEXT_LIMIT, type ThreadMessage } from "@/lib/domain/threads";
 import type { BusinessProfile, KeyedCard, SkillId } from "@/lib/domain/types";
 import { LlmResponseError, type LlmProvider } from "@/lib/llm";
+import { tierForTask } from "@/lib/llm/task-tier";
 import { newFacts } from "@/lib/server/ai";
 import { getBudgetedLlm } from "@/lib/server/ai-budget";
 import { quoted } from "@/lib/server/intake-ai";
@@ -47,8 +49,44 @@ export async function draftTelegramCard(session: string, business: BusinessProfi
   const contact = contacts.find((candidate) => candidate.id === message.contactId);
   if (contact === undefined) return null;
   const chosen = new Set(chosenSkills(business, resolveChoices(business, saved)));
-  const card = await cardFor(business, contact, message.text, thread, chosen, cards.filter((record) => record.contact === contact.id));
-  await store.ensureCards(session, business.id, [{ ...card, key: message.key }]);
+  const contactCards = cards.filter((record) => record.contact === contact.id);
+  let card = await cardFor(business, contact, message.text, thread, chosen, contactCards);
+  if (card.handoff !== undefined) {
+    if (!isConversationOwner(card.handoff.to)) {
+      console.warn(`[Customer reply] Rejected conversation handoff for ${contact.id}: ${card.handoff.to} does not own conversations.`);
+      const { handoff: _handoff, ...withoutHandoff } = card;
+      card = withoutHandoff;
+    } else {
+      const current = await store.getConversationOwner(session, business.id, contact.id);
+      const moved = handoffConversation(current, card.handoff.to);
+      if (!moved.ok) {
+        console.warn(`[Customer reply] Rejected conversation handoff for ${contact.id}: ${moved.reason}`);
+        const { handoff: _handoff, ...withoutHandoff } = card;
+        card = withoutHandoff;
+      } else {
+        await store.setConversationOwner(session, business.id, contact.id, moved.owner, new Date().toISOString());
+      }
+    }
+  }
+  const needsPrice = asksForPrice(message.text) && !business.details?.prices?.length && business.details?.minimumCharge === undefined;
+  const drafts: KeyedCard[] = [{ ...card, key: message.key }];
+  if (needsPrice && (card.skill === "closer" || card.skill === "inquiry")) {
+    const flagKey = `${message.key}:missing:prices`;
+    drafts.push({
+      key: flagKey,
+      to: contact.name,
+      agent: card.agent,
+      skill: card.skill,
+      title: `Price needed for ${contact.name}`,
+      body: `${contact.name} asked what the work costs. Add your usual prices so the next reply can answer from facts instead of guessing.`,
+      reason: "The profile has no price for this question.",
+      checks: ["Nothing is sent from this card"],
+      action: "Add prices",
+      channel: "flag",
+      missingField: "prices",
+    });
+  }
+  await store.ensureCards(session, business.id, drafts);
   // One reply waits per customer: a newer reply replaces the older draft the owner hasn't decided. Only reply drafts
   // carry the contact, so an allergy lock or a note for the owner stays until the owner handles it.
   if (card.contact !== undefined) await store.supersedePendingCards(session, business.id, contact.id, message.key);
@@ -81,6 +119,7 @@ async function cardFor(
       checks: ["Thread locked until you write the reply"],
       action: "I'll handle it",
       channel: "locked",
+      lockedContact: contact.id,
     };
   }
   if (contact.optedOutAt !== null) {
@@ -95,6 +134,7 @@ async function cardFor(
     return ownerNote(business, name, "triage", `Telegram message from ${name}`, `${name} messaged you on Telegram, and none of your agents answers customer messages. Reply to them yourself, or let Anchored draft your inquiry replies. ${said}`);
   }
   const { body, byModel } = await replyWords(business, contact, route.skill, text, thread);
+  const priceQuestion = asksForPrice(text);
   return {
     to: name,
     contact: contact.id,
@@ -106,6 +146,9 @@ async function cardFor(
     checks: ["They messaged the business first", byModel ? "Adds no price, time or link your profile doesn't have" : "Written from a template, with no facts added"],
     action: "Send on Telegram",
     channel: "telegram",
+    fieldsUsed: ["vocabulary", ...(business.details?.prices?.length ? ["prices" as const] : []), ...(business.details?.minimumCharge === undefined ? [] : ["minimumCharge" as const])],
+    ...(priceQuestion ? { editMap: { body: "prices" as const } } : {}),
+    ...(route.skill === "closer" && priceQuestion ? { handoff: { to: "followup" as const, reason: "The customer asked for a price that needs a quote." } } : {}),
   };
 }
 
@@ -181,7 +224,7 @@ function knownFacts(business: BusinessProfile, text: string, thread: readonly Th
 
 /** The profile facts a reply may draw on, one per line, as the prompt shows them and the check reads them. */
 function profileFacts(business: BusinessProfile): string {
-  const details = business.details;
+  const details = agentProfileSlice(business, "frontdesk");
   const prices = details?.prices?.map((price) => `${price.item}: $${price.low}${price.high === undefined ? "" : ` to $${price.high}`}`) ?? [];
   const faqs = details?.faqs?.map((faq) => `Q: ${faq.q} A: ${faq.a}`) ?? [];
   return [
@@ -207,7 +250,7 @@ const SKILL_TASK: Readonly<Record<ThreadSkill, string>> = {
 
 /** Ask the model for the reply's words, and refuse one that adds a fact, mentions an allergen, leaves a blank or runs long. */
 async function wordsFromModel(llm: LlmProvider, business: BusinessProfile, contact: Contact, skill: ThreadSkill, text: string, thread: readonly ThreadMessage[]): Promise<string> {
-  const raw = await llm.generateText({ tier: SKILLS[skill].tier, prompt: replyPrompt(business, contact, skill, text, thread), maxTokens: 400 });
+  const raw = await llm.generateText({ tier: tierForTask("live_reply"), prompt: replyPrompt(business, contact, skill, text, thread), maxTokens: 400 });
   const words = raw.trim().replace(/^["“]|["”]$/g, "").trim();
   if (words === "") throw new LlmResponseError("The reply came back empty.");
   if (words.length > REPLY_MAX) throw new LlmResponseError(`The reply ran to ${words.length} characters.`);

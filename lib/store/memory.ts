@@ -1,10 +1,11 @@
+import type { RecordedFollowup } from "@/lib/domain/followups";
 import { randomUUID } from "node:crypto";
 import type { CardRecord, ChatMessage, OutboxEntry } from "@/lib/api/contract";
 import type { ConnectionKind } from "@/lib/domain/connections";
 import type { Contact } from "@/lib/domain/contacts";
 import { defaultRuleState, type OutboxRule, type StandingRuleId, type StandingRuleState } from "@/lib/domain/rules";
 import { inOrder, type NewThreadMessage, type ThreadMessage } from "@/lib/domain/threads";
-import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
+import type { BusinessProfile, Choice, ChoiceMap, ConversationOwner, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
 import {
   NotFoundError,
   type CardPatch,
@@ -18,6 +19,7 @@ import {
   type OutboxPatch,
   type ProfileVersion,
   type Store,
+  type StoredEvent,
   type StoredConnection,
   type TelegramChat,
   type BriefRunResult,
@@ -32,13 +34,14 @@ import {
 // each serverless instance has its own copy, so production uses `SupabaseStore`.
 
 interface SessionData {
+  readonly followups: Map<string, RecordedFollowup>;
   readonly businesses: Map<string, BusinessProfile>;
   readonly choices: Map<string, Map<WorkflowId, Choice>>;
   readonly cards: Map<string, CardRecord>;
   readonly outbox: OutboxEntry[];
   readonly contacts: Map<string, Contact>;
   readonly connections: Map<string, StoredConnection>;
-  readonly events: { businessId: string; source: string; payload: Readonly<Record<string, unknown>>; receivedAt: string }[];
+  readonly events: StoredEvent[];
   /** Chat messages by thread, keyed `${kind}:${id}`. */
   readonly threads: Map<string, ChatMessage[]>;
   readonly intakes: Map<string, IntakeRecord>;
@@ -46,6 +49,8 @@ interface SessionData {
   readonly versions: Map<string, ProfileVersion[]>;
   /** Customer thread messages, in the order they were added. */
   readonly threadMessages: ThreadMessage[];
+  /** Conversation owner by `${businessId}:${contactId}`. */
+  readonly conversationOwners: Map<string, ConversationOwner>;
   /** Standing rules, keyed `${businessId}:${rule}`. */
   readonly rules: Map<string, StandingRuleState>;
   /** Telegram hook ids by business id. */
@@ -88,6 +93,7 @@ export class MemoryStore implements Store {
         if (oldest !== undefined) this.sessions.delete(oldest);
       }
       found = {
+        followups: new Map(),
         businesses: new Map(),
         choices: new Map(),
         cards: new Map(),
@@ -99,6 +105,7 @@ export class MemoryStore implements Store {
         intakes: new Map(),
         versions: new Map(),
         threadMessages: [],
+        conversationOwners: new Map(),
         rules: new Map(),
         telegramHooks: new Map(),
         ruleKeys: new Set(),
@@ -112,6 +119,17 @@ export class MemoryStore implements Store {
   /** Return the session's data for a read, without creating an entry for a visitor who has stored nothing. */
   private peek(session: string): SessionData | undefined {
     return this.sessions.get(session);
+  }
+
+  async listFollowups(session: string, businessId: string): Promise<RecordedFollowup[]> {
+    return [...(this.peek(session)?.followups.values() ?? [])].filter((record) => record.businessId === businessId).map((record) => ({ ...record }));
+  }
+
+  async saveFollowup(session: string, followup: RecordedFollowup): Promise<void> {
+    const records = this.data(session).followups;
+    const before = records.get(followup.id);
+    if (before !== undefined && before.businessId !== followup.businessId) throw new NotFoundError("Follow-up not found in this business.");
+    records.set(followup.id, { ...followup });
   }
 
   async listBusinesses(session: string): Promise<BusinessProfile[]> {
@@ -153,6 +171,7 @@ export class MemoryStore implements Store {
     const existingKeys = new Set([...cards.values()].map((card) => card.key));
     for (const draft of drafts) {
       if (existingKeys.has(draft.key)) continue;
+      existingKeys.add(draft.key);
       const id = randomUUID();
       cards.set(id, { ...draft, id, businessId, status: "pending", edited: false, createdAt: new Date().toISOString(), decidedAt: null });
     }
@@ -239,6 +258,16 @@ export class MemoryStore implements Store {
     return this.addOutbox(session, rest);
   }
 
+  async claimTelegramDeletion(session: string, businessId: string, entryId: string): Promise<OutboxEntry | null> {
+    const outbox = this.peek(session)?.outbox ?? [];
+    const index = outbox.findIndex((entry) => entry.id === entryId && entry.businessId === businessId && entry.channel === "telegram" && entry.delivery === "sent" && entry.deletionState !== "deleting" && entry.deletionState !== "deleted");
+    const entry = outbox[index];
+    if (entry === undefined) return null;
+    const claimed: OutboxEntry = { ...entry, deletionState: "deleting" };
+    outbox[index] = claimed;
+    return claimed;
+  }
+
   async claimOutbox(session: string, entryId: string): Promise<OutboxEntry | null> {
     // Check and write happen with no await between them, so a second sender finds it already sending.
     const outbox = this.peek(session)?.outbox ?? [];
@@ -255,7 +284,7 @@ export class MemoryStore implements Store {
     const index = outbox.findIndex((entry) => entry.id === entryId);
     const entry = outbox[index];
     if (entry === undefined) throw new NotFoundError(`Outbox entry ${entryId} not found in this session.`);
-    outbox[index] = { ...entry, delivery: patch.delivery, note: patch.note === undefined ? entry.note : patch.note, sentAt: patch.sentAt ?? entry.sentAt };
+    outbox[index] = { ...entry, ...patch, delivery: patch.delivery, note: patch.note === undefined ? entry.note : patch.note, sentAt: patch.sentAt ?? entry.sentAt };
   }
 
   async listDueOutbox(now: string, limit: number): Promise<{ readonly session: string; readonly entry: OutboxEntry }[]> {
@@ -321,7 +350,11 @@ export class MemoryStore implements Store {
   }
 
   async recordEvent(session: string, businessId: string, source: string, payload: Readonly<Record<string, unknown>>): Promise<void> {
-    this.data(session).events.push({ businessId, source, payload, receivedAt: new Date().toISOString() });
+    this.data(session).events.push({ id: randomUUID(), businessId, source, payload, receivedAt: new Date().toISOString() });
+  }
+
+  async listEvents(session: string, businessId: string, since?: string): Promise<StoredEvent[]> {
+    return (this.peek(session)?.events ?? []).filter((event) => event.businessId === businessId && (since === undefined || event.receivedAt > since)).map((event) => ({ ...event }));
   }
 
   async listMessages(session: string, thread: ChatThread, limit: number): Promise<ChatMessage[]> {
@@ -381,6 +414,10 @@ export class MemoryStore implements Store {
     if (chat !== undefined) this.telegramChats.set(chatId, { ...chat, blockedAt: at });
   }
 
+  async telegramUpdateDone(updateId: number): Promise<boolean> {
+    return this.telegramUpdates.get(updateId)?.status === "done";
+  }
+
   async claimTelegramUpdate(updateId: number, now: string, retakeAfterMs: number): Promise<boolean> {
     // Check and write happen with no await between them, so two deliveries of one update can't both claim it.
     const claim = this.telegramUpdates.get(updateId);
@@ -404,6 +441,14 @@ export class MemoryStore implements Store {
   async listThreadMessages(session: string, businessId: string, contactId: string, limit: number): Promise<ThreadMessage[]> {
     const thread = (this.peek(session)?.threadMessages ?? []).filter((message) => message.businessId === businessId && message.contactId === contactId);
     return inOrder(thread).slice(-limit);
+  }
+
+  async getConversationOwner(session: string, businessId: string, contactId: string): Promise<ConversationOwner> {
+    return this.peek(session)?.conversationOwners.get(`${businessId}:${contactId}`) ?? "frontdesk";
+  }
+
+  async setConversationOwner(session: string, businessId: string, contactId: string, owner: ConversationOwner, _at: string): Promise<void> {
+    this.data(session).conversationOwners.set(`${businessId}:${contactId}`, owner);
   }
 
   async getStandingRules(session: string, businessId: string): Promise<StandingRuleState[]> {

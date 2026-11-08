@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { BusinessProfile } from "@/lib/domain/types";
 import type { TextRequest } from "@/lib/llm";
 import { MemoryStore } from "@/lib/store/memory";
 import { hvacShop } from "@/test/trades";
@@ -44,12 +45,12 @@ function store(): MemoryStore {
 }
 
 /** Draft the reply to `text` from Dana and return the stored card. */
-async function draft(text: string) {
+async function draft(text: string, business: BusinessProfile = SHOP) {
   const contact = (await store().listContacts(SESSION, SHOP.id))[0];
   if (contact === undefined) throw new Error("test setup: no contact");
   const key = `${SHOP.id}:event:tg-${state.prompts.length}-${Math.random()}`;
   await store().addThreadMessage(SESSION, { businessId: SHOP.id, contactId: contact.id, direction: "in", text, skill: null, cardKey: key, outboxId: null, providerId: null, at: new Date().toISOString() });
-  await draftTelegramCard(SESSION, SHOP, { contactId: contact.id, text, key });
+  await draftTelegramCard(SESSION, business, { contactId: contact.id, text, key });
   return (await store().listCards(SESSION, SHOP.id)).find((card) => card.key === key);
 }
 
@@ -74,6 +75,29 @@ describe("a reply written by the model", () => {
     const card = await draft("How much is a heat pump check?");
     expect(card?.body).not.toContain("149");
     expect(card?.checks).toContain("Written from a template, with no facts added");
+  });
+
+  it("asks the customer to wait and flags the missing price for the owner", async () => {
+    state.reply = "Hi Dana, we'll confirm the price and get back to you.";
+    const noPrices = { ...SHOP, details: { hours: SHOP.details.hours } };
+    const card = await draft("How much is a heat pump check?", noPrices);
+    const flag = (await store().listCards(SESSION, SHOP.id)).find((candidate) => candidate.missingField === "prices");
+
+    expect(card?.body).not.toMatch(/\$\d/);
+    expect(flag).toMatchObject({ channel: "flag", title: "Price needed for Dana Ruiz", missingField: "prices" });
+  });
+
+  it("moves a quote question from Front Desk to Follow-up", async () => {
+    await store().setChoice(SESSION, SHOP.id, "quotes", { path: "build", skills: ["closer"] });
+    state.reply = "Hi Dana, the furnace tune-up is $89. What would you like to know?";
+    const card = await draft("How much is a furnace tune-up?");
+    const contact = (await store().listContacts(SESSION, SHOP.id))[0]!;
+
+    expect(card).toMatchObject({
+      skill: "closer",
+      handoff: { to: "followup", reason: "The customer asked for a price that needs a quote." },
+    });
+    expect(await store().getConversationOwner(SESSION, SHOP.id, contact.id)).toBe("followup");
   });
 
   it("is thrown out when it grants a discount the customer asked for", async () => {

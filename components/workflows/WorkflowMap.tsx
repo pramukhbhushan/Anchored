@@ -1,5 +1,8 @@
 "use client";
 
+import { Sheet } from "@/components/ui/Sheet";
+import inspection from "@/components/ui/inspection.module.css";
+
 import { ArrowLeft, ArrowRight, CalendarCheck, CircleDashed, CircleDollarSign, MessageSquareText, Users, Wrench, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -191,7 +194,7 @@ export function WorkflowMap({ businessName, stages }: { readonly businessName: s
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (peek) { setPeek(null); return; }
+      if (peek) return;
       const v = viewRef.current;
       if (v.level === 2) go({ level: 1, stage: v.stage });
       else if (v.level === 1) go({ level: 0 });
@@ -587,39 +590,17 @@ export function WorkflowMap({ businessName, stages }: { readonly businessName: s
 
 /** Render the short overview of one automation, with the link to its own page. */
 function Peek({ auto, job, stageName, onClose }: { readonly auto: MapAutomation; readonly job: MapJob; readonly stageName: string; readonly onClose: () => void }) {
-  const openRef = useRef<HTMLAnchorElement>(null);
-  const [shown, setShown] = useState(false);
-  useEffect(() => {
-    const back = document.activeElement as HTMLElement | null;
-    openRef.current?.focus();
-    const t = requestAnimationFrame(() => setShown(true));
-    return () => { cancelAnimationFrame(t); back?.focus?.(); };
-  }, []);
-  const Icon = AUTO_ICON[job.kind];
   return (
-    <div className={styles.scrim} data-shown={shown ? "true" : "false"} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={styles.peek} role="dialog" aria-modal="true" aria-labelledby="peek-title">
-        <header className={styles.peekHead}>
-          <span className={styles.bub} data-wait={auto.waiting > 0 ? "true" : undefined} data-kind={job.kind}><Icon aria-hidden="true" size={22} strokeWidth={1.7} /></span>
-          <div>
-            <h3 id="peek-title">{auto.name}</h3>
-            <p>{stageName} › {job.name}</p>
-          </div>
-          <button type="button" className={styles.panelX} aria-label="Close" onClick={onClose}><X aria-hidden="true" size={18} /></button>
-        </header>
-        <div className={styles.peekBody}>
-          {auto.waiting > 0 && <p><span className={styles.wait}>{auto.waiting === 1 ? "1 message needs your OK" : `${auto.waiting} messages need your OK`}</span></p>}
-          <p className={styles.peekLede}>{auto.summary}</p>
-          <dl className={styles.flow}>
-            <dt>Who does it</dt><dd>{auto.handler}</dd>
-            <dt>Result</dt><dd>{auto.result ?? "Nothing yet. You do this yourself."}</dd>
-          </dl>
-          <div className={styles.peekActs}>
-            <Link ref={openRef} href={auto.href} className="btn">Open {auto.name.toLowerCase()} <ArrowRight aria-hidden="true" size={16} /></Link>
-            <button type="button" className="btn ghost" onClick={onClose}>Close</button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <Sheet open onOpenChange={(open) => { if (!open) onClose(); }} title={auto.name} description={`${stageName} / ${job.name}`}>
+      <p className={styles.peekLede}>{auto.summary}</p>
+      {auto.waiting > 0 && <p className={styles.wait}>{auto.waiting} waiting for your OK</p>}
+      <ol className={inspection.steps} aria-label="How this work moves">
+        <li><div><strong>Who handles it</strong>{auto.handler}</div></li>
+        {job.kind === "agent" && <li data-owner=""><div><strong>You review the draft</strong>Read the words, make any changes, then give your OK in Approvals.</div></li>}
+        <li><div><strong>What this job is set up to do</strong>{auto.result ?? "Nothing yet. You do this yourself."}</div></li>
+      </ol>
+      <p className="fine">This is the workflow's plan. Open the job to see its drafts and recorded activity.</p>
+      <Link href={auto.href} className="btn">Open {auto.name.toLowerCase()} <ArrowRight aria-hidden="true" size={16} /></Link>
+    </Sheet>
   );
 }

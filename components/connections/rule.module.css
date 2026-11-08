@@ -10,3 +10,4 @@
 .saved{font-weight:600}
 .choice{display:flex;align-items:flex-start;gap:var(--s-2);font-size:var(--fs-sm)}
 .choice input{margin-top:var(--s-1);flex:none}
+.rule>[role="status"]:empty{margin-top:calc(-1 * var(--s-3))}

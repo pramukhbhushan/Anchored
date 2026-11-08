@@ -3,12 +3,15 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 import { AgentWorkspace } from "@/components/business/agents/AgentWorkspace";
 import { BriefRun } from "@/components/business/agents/BriefRun";
+import { FollowupSchedule } from "@/components/business/agents/FollowupSchedule";
+import { LicenseDates } from "@/components/business/agents/LicenseDates";
+import { getStore } from "@/lib/store";
 import { CustomerThreads } from "@/components/business/agents/CustomerThreads";
 import { cardsForAgent, presentAgents } from "@/components/business/agents/view-model";
 import { AcknowledgmentRuleControl } from "@/components/connections/AcknowledgmentRuleControl";
 import { TelegramQr } from "@/components/connections/TelegramQr";
 import { TelegramSetup } from "@/components/connections/TelegramSetup";
-import { activeAgents } from "@/lib/domain/paths";
+import { activeAgents, chosenSkills } from "@/lib/domain/paths";
 import { readBrief } from "@/lib/server/brief";
 import { customerThreads } from "@/lib/server/customer-threads";
 import { getBusinessOrNotFound, getChoices, getFeed } from "@/lib/server/data";
@@ -33,7 +36,7 @@ const findWorkspace = cache(async (id: string, agentSegment: string) => {
   const choices = await getChoices(business);
   const agent = presentAgents(activeAgents(business, choices)).find((item) => item.id === agentSegment);
   if (!agent) notFound();
-  return { business, agent };
+  return { business, agent, choices };
 });
 
 /** Name the tab after the active agent. */
@@ -46,29 +49,33 @@ export async function generateMetadata({ params }: { readonly params: Params }):
 /** Show an active agent with its drafts, plus Customer's conversations and Internal's brief. */
 export default async function AgentPage({ params, searchParams }: { readonly params: Params; readonly searchParams: SearchParams }) {
   const { id, workflow: agentSegment } = await params;
-  const { business, agent } = await findWorkspace(id, agentSegment);
+  const { business, agent, choices } = await findWorkspace(id, agentSegment);
   const [feed, session] = await Promise.all([getFeed(business), getSessionId()]);
   const contact = (await searchParams).contact;
   const selected = typeof contact === "string" && contact !== "" ? contact.slice(0, 64) : null;
-  const [threads, telegram, rules, brief] = await Promise.all([
+  const [threads, telegram, rules, brief, followups, contacts] = await Promise.all([
     agent.id === "customer" ? customerThreads(session, business, selected) : null,
     agent.id === "customer" ? telegramSetup(session, business) : null,
     agent.id === "customer" ? readStandingRules(session, business) : null,
     agent.id === "internal" ? readBrief(session, business) : null,
+    agent.id === "customer" && business.kind === "custom" ? getStore().listFollowups(session, business.id) : null,
+    agent.id === "customer" && business.kind === "custom" ? getStore().listContacts(session, business.id) : [],
   ]);
   return (
     <AgentWorkspace businessId={business.id} agent={agent} cards={cardsForAgent(feed.cards, agent.id)} outbox={feed.outbox}>
       {threads !== null && <CustomerThreads businessId={business.id} data={threads} />}
       {telegram !== null && rules !== null && (
-        <details>
+        <details className="agent-details">
           <summary>Telegram link and acknowledgment</summary>
-          <div className="section">
+          <div className="agent-details-body">
             <TelegramSetup businessId={business.id} url={telegram.url} unavailableReason={telegram.unavailableReason ?? undefined} qrCode={telegram.url === null ? undefined : <TelegramQr url={telegram.url} />} />
+            <AcknowledgmentRuleControl businessId={business.id} businessName={business.name} state={rules.acknowledge} unavailableReason={rules.unavailableReason ?? undefined} />
           </div>
-          <AcknowledgmentRuleControl businessId={business.id} businessName={business.name} state={rules.acknowledge} unavailableReason={rules.unavailableReason ?? undefined} />
         </details>
       )}
+      {followups !== null && <FollowupSchedule businessId={business.id} records={followups} contacts={contacts.filter((contact) => contact.telegramChatId !== undefined)} skills={chosenSkills(business, choices)} />}
       {brief !== null && <BriefRun businessId={business.id} brief={brief} />}
+      {agent.id === "internal" && business.kind === "custom" && <LicenseDates businessId={business.id} licenses={business.details?.licenses ?? []} enabled={chosenSkills(business, choices).includes("license")} />}
     </AgentWorkspace>
   );
 }

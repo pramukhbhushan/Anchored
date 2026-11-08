@@ -162,7 +162,14 @@ export class TelegramBlockedError extends ConnectorError {
   }
 }
 
-/** Call one Bot API method and return its `result`. Throws `ConnectorError` for a refusal or an unreachable API. */
+/** Explain an unknown provider outcome without promising a safe retry. */
+function uncertainResponse(method: string): ConnectorError {
+  if (method === "sendMessage") return new ConnectorError("Telegram may have sent this message. Check the conversation before sending again.", false);
+  if (method === "deleteMessage") return new ConnectorError("Telegram may have removed this message. Check the conversation before trying again.", false);
+  return new ConnectorError("Anchored couldn't confirm Telegram's response. Check the Telegram setup before trying again.", false);
+}
+
+/** Call one Bot API method, preserving an uncertain outcome when transport or response reading fails. */
 async function call(bot: TelegramBot, method: string, payload: Readonly<Record<string, unknown>>, fetchImpl: FetchLike): Promise<unknown> {
   let response: Response;
   try {
@@ -172,11 +179,17 @@ async function call(bot: TelegramBot, method: string, payload: Readonly<Record<s
       body: JSON.stringify(payload),
     });
   } catch {
-    // The request may not have left; the caller decides whether a retry is safe.
-    throw new ConnectorError("Anchored couldn't reach Telegram. It will try again shortly.", true);
+    // A lost response, an abort and a connection reset can all follow a successful remote send.
+    throw uncertainResponse(method);
   }
   if (!response.ok) throw await telegramFailure(response);
-  const answer = (await response.json()) as { ok?: boolean; result?: unknown };
+  let answer: { ok?: boolean; result?: unknown } | null;
+  try {
+    answer = (await response.json()) as typeof answer;
+  } catch {
+    throw uncertainResponse(method);
+  }
+  if (answer === null || typeof answer !== "object") throw uncertainResponse(method);
   if (answer.ok !== true) throw new ConnectorError("Telegram answered without confirming it.", false);
   return answer.result;
 }
@@ -202,13 +215,14 @@ export async function sendTelegramMessage(
     ...(buttons.length > 0 ? { reply_markup: { inline_keyboard: buttons.map((button) => [{ text: button.text.slice(0, 64), url: button.url }]) } } : {}),
   };
   const result = (await call(bot, "sendMessage", payload, fetchImpl)) as { message_id?: unknown } | undefined;
-  if (typeof result?.message_id !== "number") throw new ConnectorError("Telegram accepted the message but sent back no message id.", false);
+  if (typeof result?.message_id !== "number" || !Number.isSafeInteger(result.message_id) || result.message_id <= 0) throw uncertainResponse("sendMessage");
   return { id: String(result.message_id) };
 }
 
 /** Delete a message the bot sent. Telegram allows it for 48 hours after sending. */
 export async function deleteTelegramMessage(bot: TelegramBot, chatId: string, messageId: string, fetchImpl: FetchLike = fetch): Promise<void> {
-  await call(bot, "deleteMessage", { chat_id: chatId, message_id: Number(messageId) }, fetchImpl);
+  const result = await call(bot, "deleteMessage", { chat_id: chatId, message_id: Number(messageId) }, fetchImpl);
+  if (result !== true) throw uncertainResponse("deleteMessage");
 }
 
 // =============================================================================

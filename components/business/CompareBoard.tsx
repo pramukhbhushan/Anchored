@@ -1,11 +1,21 @@
 "use client";
 
+import { Tabs } from "radix-ui";
+import inspect from "@/components/ui/inspection.module.css";
 import { Check, ChevronDown, Square, SquareCheck, X } from "lucide-react";
 import { useId, useRef, useState, type CSSProperties } from "react";
-import { CheckDots, CheckGrid, StatusBadge } from "@/components/business/CheckGrid";
+import {
+  CheckDots,
+  CheckGrid,
+  StatusBadge,
+} from "@/components/business/CheckGrid";
 import { ChooseButton } from "@/components/business/ChooseButton";
-import { FitRing } from "@/components/business/FitRing";
-import { monogram, nameHue, priceChip } from "@/components/business/tool-visuals";
+import { FitExplanation } from "@/components/business/FitExplanation";
+import {
+  monogram,
+  nameHue,
+  priceChip,
+} from "@/components/business/tool-visuals";
 import styles from "@/components/business/tools.module.css";
 import { WorkflowTile } from "@/components/business/WorkflowTile";
 import { Button, buttonClass } from "@/components/ui/Button";
@@ -50,57 +60,80 @@ function shortUrl(url: string): string {
 /** Render the comparison table for two or three tools; each cell carries its tool's name for the phone layout. */
 function SideBySide({ items }: { readonly items: readonly CompareItem[] }) {
   return (
-    <div className="scroll">
-      <table className="rtable cmp-table">
-        <thead>
-          <tr>
-            <th scope="col">Check</th>
-            {items.map((item) => (
-              <th scope="col" key={item.tool.id}>
-                {item.name}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <th scope="row">Fit for you</th>
-            {items.map((item) => (
-              <td className="num" data-label={item.name} key={item.tool.id}>
-                {/* One child per cell: at phone width the cell is a two-column grid of label and content */}
-                <span>
-                  <b>{item.rating.total}</b>/100
-                </span>
-              </td>
-            ))}
-          </tr>
-          <tr>
-            <th scope="row">Price</th>
-            {items.map((item) => (
-              <td data-label={item.name} key={item.tool.id}>
-                {item.tool.price}
-              </td>
-            ))}
-          </tr>
-          {CHECKS.map(({ key, label }) => (
-            <tr key={key}>
-              <th scope="row">{label}</th>
-              {items.map((item) => {
-                const [status, , note] = item.rating.checks[key];
-                return (
-                  <td data-label={item.name} key={item.tool.id}>
-                    <div>
-                      <StatusBadge status={status} />
-                      <span className="cmp-note">{note}</span>
-                    </div>
+    <Tabs.Root defaultValue="checks">
+      <Tabs.List className={inspect.tabs} aria-label="Compare tools">
+        <Tabs.Trigger value="checks">Fit and evidence</Tabs.Trigger>
+        <Tabs.Trigger value="cost">Costs</Tabs.Trigger>
+      </Tabs.List>
+      <Tabs.Content value="checks">
+        <div className="scroll">
+          <table className="rtable cmp-table">
+            <thead>
+              <tr>
+                <th scope="col">Check</th>
+                {items.map((item) => (
+                  <th scope="col" key={item.tool.id}>
+                    {item.name}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Fit for you</th>
+                {items.map((item) => (
+                  <td className="num" data-label={item.name} key={item.tool.id}>
+                    {/* One child per cell: at phone width the cell is a two-column grid of label and content */}
+                    <span>
+                      <b>{item.rating.total}</b>/100
+                    </span>
                   </td>
-                );
-              })}
-            </tr>
+                ))}
+              </tr>
+              <tr>
+                <th scope="row">Price</th>
+                {items.map((item) => (
+                  <td data-label={item.name} key={item.tool.id}>
+                    {item.tool.price}
+                  </td>
+                ))}
+              </tr>
+              {CHECKS.map(({ key, label }) => (
+                <tr key={key}>
+                  <th scope="row">{label}</th>
+                  {items.map((item) => {
+                    const [status, , note] = item.rating.checks[key];
+                    return (
+                      <td data-label={item.name} key={item.tool.id}>
+                        <div>
+                          <StatusBadge status={status} />
+                          <span className="cmp-note">{note}</span>
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Tabs.Content>
+      <Tabs.Content value="cost">
+        <div className={inspect.costs}>
+          {items.map((item) => (
+            <div key={item.tool.id}>
+              <h3>{item.name}</h3>
+              <p>{item.tool.price}</p>
+              <p>
+                {item.owned
+                  ? "You already have this tool. Check your plan for any extra charges."
+                  : "Check the vendor's current price before signing up."}
+              </p>
+            </div>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </div>
+      </Tabs.Content>
+    </Tabs.Root>
   );
 }
 
@@ -114,7 +147,9 @@ const AI_TEXT: Readonly<Record<"yes" | "no" | "unstated", string>> = {
 /** Render a tool's letter tile on a color worked out from its name, in place of a vendor logo. */
 function Monogram({ name }: { readonly name: string }) {
   // React types `style` without custom properties; the intersection names the one this tile reads.
-  const hue: CSSProperties & { readonly "--hue": number } = { "--hue": nameHue(name) };
+  const hue: CSSProperties & { readonly "--hue": number } = {
+    "--hue": nameHue(name),
+  };
   return (
     <span className={styles.mono} style={hue} aria-hidden="true">
       {monogram(name)}
@@ -141,17 +176,30 @@ function ToolRow({
   const { tool, rating, owned, chosenFor } = item;
   const verb = owned ? "Use" : "Choose";
   // Offer only workflows this tool doesn't already run, so a tap never moves a workflow it already covers.
-  const open = (filter === "all" ? item.workflows : [filter]).filter((w) => !chosenFor.includes(w));
+  const open = (filter === "all" ? item.workflows : [filter]).filter(
+    (w) => !chosenFor.includes(w),
+  );
   const [target] = open;
-  const shownStack = filter === "all" ? chosenFor : chosenFor.filter((w) => w === filter);
+  const shownStack =
+    filter === "all" ? chosenFor : chosenFor.filter((w) => w === filter);
   const verified = CHECKS.length - rating.unknown;
-  const ai = tool.ai === true ? AI_TEXT.yes : tool.ai === false ? AI_TEXT.no : AI_TEXT.unstated;
+  const ai =
+    tool.ai === true
+      ? AI_TEXT.yes
+      : tool.ai === false
+        ? AI_TEXT.no
+        : AI_TEXT.unstated;
   const CompareIcon = comparing ? SquareCheck : Square;
 
   return (
     <article className={styles.row}>
       <div className={styles.fit}>
-        <FitRing total={rating.total} />
+        <FitExplanation
+          name={item.name}
+          rating={rating}
+          checkedOn={tool.checkedOn}
+          sourceUrl={tool.source.url ?? null}
+        />
       </div>
       <div className={styles.tool}>
         <Monogram name={item.name} />
@@ -162,13 +210,19 @@ function ToolRow({
               <span className="sr">Price: </span>
               {priceChip(tool)}
             </span>
-            {!item.forThisBusiness && <span className={styles.other}>Built for other businesses</span>}
+            {!item.forThisBusiness && (
+              <span className={styles.other}>Built for other businesses</span>
+            )}
           </p>
         </div>
       </div>
       <ul className={styles.covers} aria-label={`What ${item.name} covers`}>
         {item.workflows.map((w) => (
-          <li key={w} className={styles.cover} data-active={filter === w ? "" : undefined}>
+          <li
+            key={w}
+            className={styles.cover}
+            data-active={filter === w ? "" : undefined}
+          >
             <WorkflowTile id={w} small />
             {WORKFLOWS[w].name}
           </li>
@@ -194,13 +248,20 @@ function ToolRow({
         {shownStack.length > 0 ? (
           <span className={styles.status}>
             <Check aria-hidden="true" size={16} />
-            In your stack for {shownStack.map((w) => WORKFLOWS[w].name.toLowerCase()).join(" and ")}
+            In your stack for{" "}
+            {shownStack
+              .map((w) => WORKFLOWS[w].name.toLowerCase())
+              .join(" and ")}
           </span>
         ) : (
           target !== undefined && (
             <ChooseButton
               businessId={businessId}
-              request={{ workflow: target, path: owned ? "turnon" : "buy", toolId: tool.id }}
+              request={{
+                workflow: target,
+                path: owned ? "turnon" : "buy",
+                toolId: tool.id,
+              }}
               className={buttonClass("secondary", "sm")}
               label={`${verb} ${item.name} for ${WORKFLOWS[target].name.toLowerCase()}`}
               runner={item.name}
@@ -256,26 +317,35 @@ export function CompareBoard({
   const [compared, setCompared] = useState<readonly string[]>([]);
   const [showOthers, setShowOthers] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
+  const backdropPress = useRef(false);
 
   function toggle(id: string) {
     setCompared((current) =>
-      current.includes(id) ? current.filter((x) => x !== id) : [...current, id].slice(-MAX_COMPARED),
+      current.includes(id)
+        ? current.filter((x) => x !== id)
+        : [...current, id].slice(-MAX_COMPARED),
     );
   }
 
   // The tray looks up every rated tool, so a compared tool stays in it when the filter hides its row.
   const byId = new Map(items.map((item) => [item.tool.id, item]));
   const comparedItems = compared.flatMap((id) => byId.get(id) ?? []);
-  const inFilter = filter === "all" ? items : items.filter((item) => item.workflows.includes(filter));
+  const inFilter =
+    filter === "all"
+      ? items
+      : items.filter((item) => item.workflows.includes(filter));
   const otherCount = inFilter.filter((item) => !item.forThisBusiness).length;
-  const visible = showOthers ? inFilter : inFilter.filter((item) => item.forThisBusiness);
+  const visible = showOthers
+    ? inFilter
+    : inFilter.filter((item) => item.forThisBusiness);
 
   return (
     <div className={styles.board}>
       {visible.length === 0 ? (
         <p className={styles.none}>
-          No catalog tool built for your kind of business covers this workflow yet. That&apos;s a gap an Anchored agent
-          can fill on the Workflows page.
+          No catalog tool built for your kind of business covers this workflow
+          yet. That&apos;s a gap an Anchored agent can fill on the Workflows
+          page.
         </p>
       ) : (
         <div className={styles.rows}>
@@ -299,23 +369,39 @@ export function CompareBoard({
       )}
       {otherCount > 0 && (
         <label className="toggle">
-          <input type="checkbox" checked={showOthers} onChange={(event) => setShowOthers(event.target.checked)} />
+          <input
+            type="checkbox"
+            checked={showOthers}
+            onChange={(event) => setShowOthers(event.target.checked)}
+          />
           Show tools built for other businesses ({otherCount})
         </label>
       )}
 
       {comparedItems.length > 0 && (
-        <div className="compare-tray" role="region" aria-label="Tools to compare">
+        <div
+          className="compare-tray"
+          role="region"
+          aria-label="Tools to compare"
+        >
           <p aria-live="polite">
             {comparedItems.length === 1
               ? `${comparedItems[0]?.name} picked. Pick one more to compare.`
               : `Comparing ${comparedItems.map((item) => item.name).join(", ")}.`}
           </p>
           <div className="row">
-            <Button size="sm" disabled={comparedItems.length < 2} onClick={() => dialog.current?.showModal()}>
+            <Button
+              size="sm"
+              disabled={comparedItems.length < 2}
+              onClick={() => dialog.current?.showModal()}
+            >
               Compare side by side
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => setCompared([])}>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setCompared([])}
+            >
               Clear
             </Button>
           </div>
@@ -326,14 +412,22 @@ export function CompareBoard({
         ref={dialog}
         className="dialog"
         aria-labelledby="compare-title"
-        // A click on the backdrop lands on the dialog element itself; clicks inside land on its children.
+        // A tab can resize this centered dialog between pointer down and click.
+        // Close only when the press began on the backdrop as well.
+        onPointerDown={(event) => { backdropPress.current = event.target === event.currentTarget; }}
         onClick={(event) => {
-          if (event.target === event.currentTarget) dialog.current?.close();
+          if (backdropPress.current && event.target === event.currentTarget) dialog.current?.close();
+          backdropPress.current = false;
         }}
       >
         <div className="dialog-head">
           <h2 id="compare-title">Side by side</h2>
-          <button type="button" className="icon-btn" aria-label="Close comparison" onClick={() => dialog.current?.close()}>
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label="Close comparison"
+            onClick={() => dialog.current?.close()}
+          >
             <X aria-hidden="true" size={18} />
           </button>
         </div>

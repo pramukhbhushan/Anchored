@@ -53,11 +53,19 @@ describe("searchPlaces", () => {
 describe("placeDetails", () => {
   it("turns opening hours into plain words, adds the review link, and passes the website on", async () => {
     vi.stubEnv("GOOGLE_PLACES_API_KEY", "test-key");
-    stubFetch(() =>
+    const spy = stubFetch(() =>
       json({
         id: "place-a",
+        displayName: { text: "Apex Heating" },
+        formattedAddress: "1 Main St, Laurel, MD 20707",
+        nationalPhoneNumber: "(301) 555-0192",
         regularOpeningHours: { weekdayDescriptions: ["Monday: 8:00\u202fAM \u2013 5:00\u202fPM", "Sunday: Closed"] },
         websiteUri: "https://apexheating.example",
+        types: ["hvac_contractor"],
+        editorialSummary: { text: "Repairs and replaces home heating systems." },
+        rating: 4.8,
+        userRatingCount: 42,
+        reviews: [{ text: { text: "They explained the repair clearly." } }],
       }),
     );
 
@@ -65,9 +73,17 @@ describe("placeDetails", () => {
 
     expect(facts?.website).toBe("https://apexheating.example");
     expect(facts?.candidates).toEqual([
+      { key: "address", value: "1 Main St, Laurel, MD 20707", sourceType: "listing", quote: "1 Main St, Laurel, MD 20707", confidence: "high" },
+      { key: "businessPhone", value: "(301) 555-0192", sourceType: "listing", quote: "(301) 555-0192", confidence: "high" },
       { key: "hours", value: "Monday: 8:00 AM to 5:00 PM; Sunday: Closed", sourceType: "listing", quote: "Monday: 8:00 AM to 5:00 PM; Sunday: Closed", confidence: "high" },
       { key: "reviewLink", value: reviewLinkFor("place-a"), sourceType: "listing", quote: "Your Google listing's review link", confidence: "high" },
     ]);
+    expect(facts?.listingText).toContain("Repairs and replaces home heating systems.");
+    expect(facts?.reviewText).toContain("Overall rating: 4.8 from 42 reviews.");
+    expect(facts?.reviewText).toContain("They explained the repair clearly.");
+    const headers = spy.mock.calls[0]?.[1]?.headers as Record<string, string>;
+    expect(headers["X-Goog-FieldMask"]).toContain("reviews");
+    expect(headers["X-Goog-FieldMask"]).toContain("nationalPhoneNumber");
   });
 
   it("returns null when the lookup fails", async () => {

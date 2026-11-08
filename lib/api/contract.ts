@@ -1,5 +1,8 @@
+import type { FollowupInput, RecordedFollowup } from "@/lib/domain/followups";
+import type { License } from "@/lib/domain/renewals";
 import type { ConnectionKind } from "@/lib/domain/connections";
 import type { ConsentSource, Contact } from "@/lib/domain/contacts";
+import type { DetailCandidate } from "@/lib/domain/details";
 import type { IntakeQuestion, KnownFact, ProfileChange } from "@/lib/domain/intake";
 import type { BriefSnapshot } from "@/lib/domain/brief";
 import type { OutboxRule } from "@/lib/domain/rules";
@@ -55,6 +58,12 @@ export interface OutboxEntry {
   readonly rule?: OutboxRule;
   /** The contact a Telegram entry goes to. `to` holds their name for the owner to read; the chat id stays server side. */
   readonly contactId?: string;
+  /** Provider identity for server-side operations. Never accepted from deletion request input. */
+  readonly providerId?: string;
+  readonly deletionState?: "deleting" | "deleted" | "failed";
+  readonly deletionNote?: string;
+  /** Computed by the server at read time, then checked again on the delete request. */
+  readonly canDeleteTelegram?: boolean;
 }
 
 // =============================================================================
@@ -145,12 +154,24 @@ export interface TelegramSetupResponse {
 
 /** POST /api/businesses: build a profile from onboarding answers, an example, or one sentence. */
 export type CreateBusinessRequest =
-  | { readonly from: "answers"; readonly answers: OnboardingAnswers }
+  | { readonly from: "answers"; readonly answers: OnboardingAnswers; readonly placeId?: string }
   | { readonly from: "example"; readonly exampleId: string }
   | { readonly from: "sentence"; readonly sentence: string };
 export interface CreateBusinessResponse {
   readonly id: string;
   readonly business: BusinessProfile;
+}
+
+/** POST /api/onboarding/lookup: find up to three Google listing matches. */
+export interface PlacesLookupRequest { readonly name: string; readonly city: string }
+export interface PlacesLookupResponse { readonly choices: readonly { readonly id: string; readonly name: string; readonly address: string; readonly rating?: number }[] }
+
+/** POST /api/onboarding/place: read the selected listing into profile candidates. */
+export interface PlacesDetailRequest { readonly placeId: string }
+export interface PlacesDetailResponse {
+  readonly placeId: string;
+  readonly candidates: readonly DetailCandidate[];
+  readonly website: string | null;
 }
 
 /** DELETE /api/businesses: everything the visitor saved is gone. */
@@ -308,7 +329,7 @@ export interface ConnectionsResponse {
 
 /** PUT /api/businesses/[id]/connections: connect one service. */
 export type ConnectRequest =
-  | { readonly kind: "texting"; readonly accountSid: string; readonly authToken: string; readonly phone: string }
+  | { readonly kind: "texting"; readonly accountSid: string; readonly authToken: string; readonly phone: string; readonly forwardTo?: string }
   | { readonly kind: "email-out"; readonly replyTo: string }
   | { readonly kind: "email-in" }
   | { readonly kind: "stripe"; readonly signingSecret: string };
@@ -322,3 +343,14 @@ export interface SaveContactRequest {
   /** Where their OK to get texts came from, or `null` for none. */
   readonly consent: ConsentSource | null;
 }
+
+/** POST /api/businesses/[id]/outbox/[entry]/delete: confirm removal from Telegram, preserving the audit record. */
+export interface DeleteTelegramRequest { readonly confirm: true }
+export interface DeleteTelegramResponse { readonly deleted: boolean; readonly message: string }
+
+/** Owner-entered future work, not permission to send. */
+export type ScheduleFollowupRequest = FollowupInput;
+export interface CancelFollowupRequest { readonly id: string }
+export interface FollowupsResponse { readonly records: readonly RecordedFollowup[] }
+export interface SaveLicensesRequest { readonly licenses: readonly License[] }
+export interface LicensesResponse { readonly licenses: readonly License[] }

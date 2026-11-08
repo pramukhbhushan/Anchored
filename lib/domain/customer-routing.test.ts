@@ -5,8 +5,8 @@ import { asksAboutBilling, routeCustomerMessage, type ThreadCard } from "./custo
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Behavior of Customer routing: a bill question goes to Bookkeeping, an open
-// quote to Closer, a booking to Show-up Keeper, catering to Catering Responder
+// Behavior of Customer routing: a bill question goes to Bookkeeping, a price
+// question or open quote to Closer, a booking to Show-up Keeper, catering to Catering Responder
 // and anything else to Inquiry, only among the skills the business chose, and
 // a message no chosen skill answers goes to the owner.
 
@@ -18,8 +18,8 @@ describe("routeCustomerMessage", () => {
     expect(routeCustomerMessage("Do you do weekend tune-ups?", ALL, [])).toEqual({ kind: "skill", skill: "inquiry" });
   });
 
-  it("sends a price question to Inquiry, not Bookkeeping", () => {
-    expect(routeCustomerMessage("What do you charge for a furnace check?", ALL, [])).toEqual({ kind: "skill", skill: "inquiry" });
+  it("hands a new-work price question to Closer, not Bookkeeping", () => {
+    expect(routeCustomerMessage("What do you charge for a furnace check?", ALL, [])).toEqual({ kind: "skill", skill: "closer" });
   });
 
   it("sends a bill question to Bookkeeping before anything else", () => {

@@ -1,8 +1,9 @@
 import "server-only";
+import { customerLocked, followupStillAllowed } from "@/lib/server/agent-work";
 import type { CardRecord, OutboxEntry } from "@/lib/api/contract";
 import { ConnectorError, type FetchLike } from "@/lib/connectors/errors";
 import { emailAccountFromEnv, sendEmail } from "@/lib/connectors/email";
-import { sendTelegramMessage, TelegramBlockedError, telegramBotFromEnv } from "@/lib/connectors/telegram";
+import { deleteTelegramMessage, sendTelegramMessage, TelegramBlockedError, telegramBotFromEnv } from "@/lib/connectors/telegram";
 import { sendTwilioText } from "@/lib/connectors/twilio";
 import { deliveryFor, type Delivery, type PlannedMessage, type SendingSetup } from "@/lib/domain/contacts";
 import { checkProtocolNotice, checkSend, OWNER_TIME_ZONE, sendTimeText } from "@/lib/domain/executor";
@@ -74,6 +75,14 @@ export async function dispatchEntry(
       store.listConnections(session, entry.businessId),
       store.listContacts(session, entry.businessId),
     ]);
+    if (entry.channel === "telegram" && entry.rule !== "protocol" && entry.contactId !== undefined && await customerLocked(store, session, entry.businessId, entry.contactId)) {
+      await settle("failed", "This customer has an allergy question waiting. Handle it yourself before sending another reply.");
+      return "failed";
+    }
+    if (card !== null && business !== null && !(await followupStillAllowed(store, session, business, card, now))) {
+      await settle("failed", "This follow-up was canceled or its recorded facts changed, so it wasn't sent.");
+      return "failed";
+    }
     // An entry a rule authorized has no card; any other entry without one lost it to a deletion.
     if (business === null || (card === null && entry.rule === undefined)) {
       await settle("failed", "The card or business behind this message was deleted, so it wasn't sent.");
@@ -109,7 +118,7 @@ export async function dispatchEntry(
   } catch (error) {
     // A provider's refusal is written for the owner; anything else gets a plain fallback and a log line.
     if (!(error instanceof ConnectorError)) console.error(`[Dispatch] Sending outbox entry ${entry.id} failed.`, error);
-    await settle("failed", error instanceof ConnectorError ? error.message : "Anchored couldn't send this one. Send it yourself, or try again later.");
+    await settle("failed", error instanceof ConnectorError ? error.message : "Sending was not confirmed. It may have sent. Check the conversation before trying again.");
     return "failed";
   }
 }
@@ -221,4 +230,35 @@ export async function dispatchDue(store: Store, now: Date, limit = 50, deps: Par
     counts[await dispatchEntry(store, session, entry.id, now, deps)] += 1;
   }
   return counts;
+}
+
+/** Whether Telegram can still remove this stored message. The provider checks its own limits too. */
+export function canDeleteTelegram(entry: OutboxEntry, now: Date, env: Readonly<Record<string, string | undefined>> = process.env): boolean {
+  const age = now.getTime() - Date.parse(entry.sentAt);
+  return entry.channel === "telegram" && entry.delivery === "sent" && entry.deletionState !== "deleted" && entry.deletionState !== "deleting"
+    && /^[1-9][0-9]*$/.test(entry.providerId ?? "") && age >= 0 && age < 48 * HOUR_MS && telegramBotFromEnv(env) !== null;
+}
+
+/** Remove an owned, previously sent Telegram message, retaining its original text and send audit. */
+export async function deleteDispatchedTelegram(store: Store, session: string, businessId: string, entryId: string, now = new Date(), deps: Parameters<typeof dispatchEntry>[4] = {}): Promise<{ status: number; deleted: boolean; message: string }> {
+  const entry = (await store.listOutbox(session, businessId)).find((item) => item.id === entryId);
+  if (entry === undefined) return { status: 404, deleted: false, message: "Message not found in this business." };
+  if (entry.deletionState === "deleted") return { status: 200, deleted: true, message: "Removed from Telegram. Someone may already have read it." };
+  const env = deps.env ?? process.env;
+  if (!canDeleteTelegram(entry, now, env)) return { status: 409, deleted: false, message: entry.deletionState === "deleting" ? "Removal is still being checked. Refresh before trying again." : "This message cannot be removed. Telegram allows removal for 48 hours after sending, while the bot is connected." };
+  const contact = (await store.listContacts(session, businessId)).find((item) => item.id === entry.contactId);
+  if (contact?.telegramChatId === undefined) return { status: 409, deleted: false, message: "The original Telegram chat is no longer available." };
+  if (await store.claimTelegramDeletion(session, businessId, entry.id) === null) return { status: 409, deleted: false, message: "Another removal request already took this message. Refresh to see its result." };
+  try {
+    await deleteTelegramMessage(telegramBotFromEnv(env)!, contact.telegramChatId, entry.providerId!, deps.fetch);
+  } catch (error) {
+    // Telegram reports an already absent message this way. Removal is idempotent, but never claims it was unread.
+    if (!(error instanceof ConnectorError && /message to delete not found/i.test(error.message))) {
+      const message = error instanceof ConnectorError ? error.message : "Telegram did not confirm removal. Refresh, then try again.";
+      await store.settleOutbox(session, entry.id, { delivery: "sent", deletionState: "failed", deletionNote: message });
+      return { status: 502, deleted: false, message };
+    }
+  }
+  await store.settleOutbox(session, entry.id, { delivery: "sent", deletionState: "deleted", deletionNote: "Removed from Telegram. Someone may already have read it." });
+  return { status: 200, deleted: true, message: "Removed from Telegram. Someone may already have read it." };
 }

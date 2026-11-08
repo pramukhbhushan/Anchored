@@ -179,11 +179,36 @@ describe("sendTelegramMessage", () => {
     expect(error.message).not.toContain("123:abc");
   });
 
-  it("reports an unreachable API as worth retrying", async () => {
+  it("does not retry an unknown transport failure that could follow provider acceptance", async () => {
     const offline: FetchLike = async () => {
       throw new TypeError("fetch failed");
     };
-    expect((await rejection(sendTelegramMessage(BOT, "42", "hi", [], offline))).retryable).toBe(true);
+    const error = await rejection(sendTelegramMessage(BOT, "42", "hi", [], offline));
+    expect(error.retryable).toBe(false);
+    expect(error.message).toContain("may have sent");
+    expect(error.message).toContain("Check the conversation");
+  });
+
+  it.each(["AbortError", "TimeoutError"])("does not retry a %s after a request may have left", async (name) => {
+    const stopped: FetchLike = async () => { throw new DOMException(`Request to ${BOT.token} stopped`, name); };
+    const error = await rejection(sendTelegramMessage(BOT, "42", "hi", [], stopped));
+    expect(error.retryable).toBe(false);
+    expect(error.message).toContain("may have sent");
+    expect(error.message).not.toContain(BOT.token);
+  });
+
+  it("reports an unreadable success response as uncertain without retrying", async () => {
+    const unreadable: FetchLike = async () => new Response("interrupted JSON", { status: 200 });
+    const error = await rejection(sendTelegramMessage(BOT, "42", "hi", [], unreadable));
+    expect(error).toBeInstanceOf(ConnectorError);
+    expect(error.retryable).toBe(false);
+    expect(error.message).toContain("may have sent");
+  });
+
+  it.each([null, {}, { message_id: -1 }, { message_id: 1.5 }])("does not retry acceptance without a valid message identity: %j", async (result) => {
+    const error = await rejection(sendTelegramMessage(BOT, "42", "hi", [], fakeFetch(200, { ok: true, result })));
+    expect(error.retryable).toBe(false);
+    expect(error.message).toContain("may have sent");
   });
 });
 
@@ -193,6 +218,14 @@ describe("deleteTelegramMessage", () => {
     await deleteTelegramMessage(BOT, "42", "99", fetch);
     expect(fetch.calls[0]?.url).toBe("https://api.telegram.org/bot123:abc/deleteMessage");
     expect(sent(fetch.calls[0]?.init)).toEqual({ chat_id: "42", message_id: 99 });
+  });
+
+  it("does not describe uncertain deletion as a failed send", async () => {
+    const interrupted: FetchLike = async () => { throw new DOMException("Stopped", "TimeoutError"); };
+    const error = await rejection(deleteTelegramMessage(BOT, "42", "99", interrupted));
+    expect(error.retryable).toBe(false);
+    expect(error.message).toContain("may have removed");
+    expect(error.message).not.toContain("may have sent");
   });
 });
 

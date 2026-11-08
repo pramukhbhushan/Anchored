@@ -55,11 +55,12 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllEnvs();
 });
 
 /** Post a Twilio webhook for `event`, signed with `token` unless told otherwise. */
-function fromTwilio(event: "sms" | "voice", fields: Record<string, string>, token = TOKEN, hookId = TEXT_HOOK) {
+function fromTwilio(event: "sms" | "voice" | "voice-result", fields: Record<string, string>, token = TOKEN, hookId = TEXT_HOOK) {
   const url = `https://anchored.test/api/hooks/twilio/${hookId}/${event}`;
   const request = new Request(`http://localhost/api/hooks/twilio/${hookId}/${event}`, {
     method: "POST",
@@ -106,6 +107,17 @@ describe("Twilio texts", () => {
 
     expect((await store().listCards(SESSION, SHOP.id))[0]).toMatchObject({ channel: "locked" });
   });
+
+  it("keeps only the newest reply pending when texts arrive quickly", async () => {
+    await fromTwilio("sms", { From: "+13015550192", Body: "First question" });
+    await fromTwilio("sms", { From: "+13015550192", Body: "Second question" });
+    await fromTwilio("sms", { From: "+13015550192", Body: "Third question" });
+
+    const cards = await store().listCards(SESSION, SHOP.id);
+    expect(cards.filter((card) => card.status === "pending")).toHaveLength(1);
+    expect(cards.filter((card) => card.status === "superseded")).toHaveLength(2);
+    expect(cards.find((card) => card.status === "pending")?.reason).toContain("Third question");
+  });
 });
 
 describe("Twilio calls", () => {
@@ -118,6 +130,28 @@ describe("Twilio calls", () => {
     expect(await cardTitles()).toEqual(["Missed call from +13015550177"]);
     // A caller hasn't agreed to texts, so they are kept with no consent.
     expect((await store().listContacts(SESSION, SHOP.id))[0]).toMatchObject({ phone: "+13015550177", consent: null });
+  });
+
+  it("rings the owner for 20 seconds, then drafts only when the call was not answered", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-09T15:00:00Z"));
+    await store().saveConnection(SESSION, {
+      businessId: SHOP.id,
+      kind: "texting",
+      hookId: TEXT_HOOK,
+      settings: { phone: "+13015550100", accountSid: `AC${"0".repeat(32)}`, forwardTo: "+13015550101" },
+      secret: encryptSecret(JSON.stringify({ authToken: TOKEN }), { CONNECTOR_SECRET_KEY: KEY }),
+    });
+
+    const ringing = await fromTwilio("voice", { From: "+13015550177", CallStatus: "ringing" });
+    const dial = await ringing.text();
+    expect(dial).toContain('<Dial timeout="20"');
+    expect(dial).toContain("<Number>+13015550101</Number>");
+    expect(dial).toContain("/voice-result");
+    expect(await cardTitles()).toEqual([]);
+
+    await fromTwilio("voice-result", { From: "+13015550177", DialCallStatus: "no-answer" });
+    expect(await cardTitles()).toEqual(["Missed call from +13015550177"]);
   });
 });
 

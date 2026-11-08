@@ -109,7 +109,11 @@ describe("handOff", () => {
     const coach = handOff(post, COACH);
 
     expect(shop?.kind === "copy" && shop.places.map((place) => place.label)).toEqual(["Open Instagram", "Open Facebook", "Open your Google listing"]);
-    expect(coach).toMatchObject({ kind: "copy", text: "Thanks to everyone we worked with this week.", places: [] });
+    expect(coach).toMatchObject({
+      kind: "copy",
+      text: "Thanks to everyone we worked with this week.",
+      places: [{ label: "Open Instagram", href: "https://www.instagram.com/" }],
+    });
   });
 
   it("points a review reply to Google when the business uses Google", () => {

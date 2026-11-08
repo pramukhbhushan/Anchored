@@ -1,6 +1,8 @@
 import "server-only";
+import { customerLocked, followupStillAllowed } from "@/lib/server/agent-work";
 import type { CardRecord, DecideCardRequest, DecideCardResponse, OutboxEntry } from "@/lib/api/contract";
 import type { Contact } from "@/lib/domain/contacts";
+import { candidateFor, confirmAll, mergeCandidate } from "@/lib/domain/details";
 import { checkProtocolNotice, checkSend, OWNER_TIME_ZONE, ensureOptOut, sendTimeText } from "@/lib/domain/executor";
 import { acknowledgmentKey, acknowledgmentText, ruleEnabled } from "@/lib/domain/rules";
 import type { BusinessProfile, CardDraft } from "@/lib/domain/types";
@@ -60,6 +62,18 @@ async function send(store: Store, session: string, card: CardRecord, body: strin
   });
 }
 
+/** Save an approved mapped body edit as an owner-confirmed profile fact. */
+async function applyMappedEdit(store: Store, session: string, card: CardRecord, body: string): Promise<void> {
+  const field = card.editMap?.body;
+  if (field === undefined || body === card.body) return;
+  const candidate = candidateFor(field, body, "owner", "high");
+  if (candidate === null) return;
+  const business = await store.getBusiness(session, card.businessId);
+  if (business === null) return;
+  const merged = confirmAll(mergeCandidate({ details: business.details ?? {}, evidence: business.evidence ?? {} }, candidate));
+  await store.saveBusiness(session, { ...business, details: merged.details, evidence: merged.evidence }, "card_edit");
+}
+
 /**
  * Queue the bot's fixed answer to a customer's own /start or /stop, due at once, for `dispatchEntry` to send. Fixed text
  * the customer asked for, so no card stands behind it. Returns `null` when the text fails the content rules.
@@ -97,6 +111,12 @@ export async function decideCard(store: Store, session: string, card: CardRecord
     return skipped ? { ok: true, response: { card: skipped } } : ALREADY_DECIDED;
   }
 
+  if (card.recordedFollowup !== undefined) {
+    const business = await store.getBusiness(session, card.businessId);
+    if (business === null || !(await followupStillAllowed(store, session, business, card, now))) return { ok: false, status: 409, error: "This follow-up's facts changed or it was canceled. Refresh before deciding." };
+  }
+  if (card.channel === "telegram" && card.contact !== undefined && await customerLocked(store, session, card.businessId, card.contact)) return { ok: false, status: 409, error: "This customer has an allergy question waiting. Handle it yourself before approving another reply." };
+
   // The opt-out line is the law's job, not the owner's: code puts it back if an edit dropped it.
   const shown = request.body ?? card.body;
   const body = card.channel === "sms" ? ensureOptOut(shown) : shown;
@@ -112,6 +132,7 @@ export async function decideCard(store: Store, session: string, card: CardRecord
   if (check.ok) {
     const approved = await store.updatePendingCard(session, card.id, { status: "approved", body, edited, decidedAt });
     if (!approved) return ALREADY_DECIDED;
+    await applyMappedEdit(store, session, card, body);
     return { ok: true, response: { card: approved, outbox: await send(store, session, approved, body, now) } };
   }
 
@@ -124,6 +145,7 @@ export async function decideCard(store: Store, session: string, card: CardRecord
   }
   const queued = await store.updatePendingCard(session, card.id, { status: "approved", body, edited, decidedAt });
   if (!queued) return ALREADY_DECIDED;
+  await applyMappedEdit(store, session, card, body);
   const outbox = await send(store, session, queued, body, later);
   return { ok: true, response: { card: queued, outbox, blocked: `${check.reason} Queued for ${sendTimeText(later)}.` } };
 }

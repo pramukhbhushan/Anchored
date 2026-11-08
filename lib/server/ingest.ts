@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { SKILLS } from "@/lib/domain/agents";
 import { CARD_TEMPLATES, liveEventKey, simulateCard } from "@/lib/domain/cards";
+import { contactByPhone, normalizePhone } from "@/lib/domain/contacts";
 import { money } from "@/lib/domain/details";
 import { ensureOptOut, mentionsAllergen } from "@/lib/domain/executor";
 import { canRemind, checkReminderDraft, invoiceKey, matchPaidInvoice, reminderRecords } from "@/lib/domain/invoices";
@@ -333,6 +334,15 @@ export async function ingestEvent(
   const drafted = canceled !== null ? paidCard(card, payload, canceled) : mentionsAllergen(message) ? allergyLock(card, payload) : personalize(card, source, business, payload);
   // The random suffix keeps two events arriving together from sharing a key.
   const key = options.key ?? (origin === "simulated" ? `${card.key}-${randomUUID().slice(0, 8)}` : liveEventKey(business.id, randomUUID()));
-  await store.ensureCards(session, business.id, [{ ...drafted, key }]);
+  const from = text(payload, "from", 40);
+  const phone = from === undefined ? null : normalizePhone(from);
+  const contact = phone === null ? undefined : contactByPhone(await store.listContacts(session, business.id), phone);
+  const identified = contact === undefined
+    ? drafted
+    : drafted.channel === "locked"
+      ? { ...drafted, lockedContact: contact.id }
+      : { ...drafted, contact: contact.id };
+  await store.ensureCards(session, business.id, [{ ...identified, key }]);
+  if (identified.contact !== undefined) await store.supersedePendingCards(session, business.id, identified.contact, key);
   return canceled === null ? { ok: true, key } : { ok: true, key, canceled };
 }

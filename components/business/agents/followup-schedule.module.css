@@ -1,0 +1,22 @@
+/* =============================================================================
+   Module Overview
+   =============================================================================
+   Follow-up records sit in a disclosure on the existing Customer page. The
+   form fills its container and keeps long evidence and references readable. */
+
+.schedule{min-width:0;display:block;border-top:1px solid var(--line);padding-top:var(--s-4)}
+.schedule>summary{cursor:pointer;font-weight:600}
+.schedule>p,.schedule>form,.schedule>ul{margin-top:var(--s-3)}
+.schedule>[role="status"]:empty{margin-top:0}
+.schedule p{font-size:var(--fs-sm);color:var(--ink-2);overflow-wrap:anywhere}
+.fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:var(--s-3);padding:0;margin:0;border:0;min-width:0}
+.fields label{display:flex;flex-direction:column;gap:var(--s-1);font-size:var(--fs-sm);min-width:0}
+.fields input,.fields select,.fields textarea{width:100%;min-width:0;box-sizing:border-box;padding:var(--s-2);font:inherit;color:var(--ink);border:1px solid var(--line);border-radius:var(--r);background:var(--sheet)}
+.fields textarea{min-height:6rem;resize:vertical}
+.wide{grid-column:1/-1}
+.fields .confirm{flex-direction:row;align-items:flex-start;gap:var(--s-2)}
+.confirm input{width:auto;flex:none;margin-top:var(--s-1)}
+.records{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--s-3)}
+.records li{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--s-3);padding-top:var(--s-3);border-top:1px solid var(--line);min-width:0}
+.records li>div{flex:1 1 220px;min-width:0}
+.records strong{font-size:var(--fs-sm);overflow-wrap:anywhere}

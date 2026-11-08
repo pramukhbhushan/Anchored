@@ -30,7 +30,7 @@ export async function customerThreads(session: string, business: BusinessProfile
   const customers = contacts.filter((contact) => contact.telegramChatId !== undefined).slice(0, MAX_CUSTOMERS);
   const recent = await Promise.all(customers.map((contact) => store.listThreadMessages(session, business.id, contact.id, SUMMARY_MESSAGES)));
   const summaries = customers
-    .map((contact, i) => summary(contact, recent[i] ?? [], lockedKeys))
+    .map((contact, i) => summary(contact, recent[i] ?? [], lockedKeys, cards.some((card) => card.channel === "locked" && card.status === "pending" && card.lockedContact === contact.id)))
     .sort((a, b) => (b.lastAt ?? "").localeCompare(a.lastAt ?? ""));
 
   // Only a customer of this business can be selected; anything else is no selection, never another business's thread.
@@ -42,14 +42,14 @@ export async function customerThreads(session: string, business: BusinessProfile
 }
 
 /** One customer's line in the list. */
-function summary(contact: Contact, messages: readonly ThreadMessage[], lockedKeys: ReadonlySet<string>): CustomerSummary {
+function summary(contact: Contact, messages: readonly ThreadMessage[], lockedKeys: ReadonlySet<string>, locked = false): CustomerSummary {
   const last = messages.at(-1);
   return {
     id: contact.id,
     name: contact.name,
     ...(last === undefined ? {} : { lastText: last.text.slice(0, 140), lastAt: last.at }),
     stopped: contact.optedOutAt !== null,
-    locked: messages.some((message) => message.direction === "in" && message.cardKey !== null && lockedKeys.has(message.cardKey)),
+    locked: locked || messages.some((message) => message.direction === "in" && message.cardKey !== null && lockedKeys.has(message.cardKey)),
   };
 }
 
@@ -64,7 +64,7 @@ function view(message: ThreadMessage, entry: OutboxEntry | undefined): ThreadMes
     ...(message.skill === null ? {} : { skill: message.skill }),
     ...(message.cardKey === null ? {} : { cardKey: message.cardKey }),
     ...(delivery === undefined || delivery === "yours" ? {} : { delivery }),
-    ...(entry?.note ? { note: entry.note } : {}),
+    ...(entry?.deletionNote ? { note: entry.deletionNote } : entry?.note ? { note: entry.note } : {}),
     ...(entry?.rule === undefined ? {} : { rule: entry.rule }),
   };
 }

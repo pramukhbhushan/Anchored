@@ -1,3 +1,4 @@
+import type { RecordedFollowup } from "@/lib/domain/followups";
 import type { CardRecord, CardStatus, ChatMessage, Delivery, OutboxEntry } from "@/lib/api/contract";
 import type { ConnectionKind } from "@/lib/domain/connections";
 import type { Contact } from "@/lib/domain/contacts";
@@ -5,7 +6,7 @@ import type { IntakeDraft } from "@/lib/domain/intake";
 import type { BriefSnapshot } from "@/lib/domain/brief";
 import type { OutboxRule, StandingRuleId, StandingRuleState } from "@/lib/domain/rules";
 import type { NewThreadMessage, ThreadMessage } from "@/lib/domain/threads";
-import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
+import type { BusinessProfile, Choice, ChoiceMap, ConversationOwner, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
 
 // =============================================================================
 // Module Overview
@@ -35,6 +36,8 @@ export interface OutboxPatch {
   readonly note?: string | null;
   /** The provider's id for the message, such as Twilio's `SM...` sid. */
   readonly providerId?: string;
+  readonly deletionState?: "deleting" | "deleted" | "failed";
+  readonly deletionNote?: string;
   /** When it actually went out. */
   readonly sentAt?: string;
 }
@@ -107,6 +110,15 @@ export interface ProfileVersion {
   readonly snapshot: BusinessProfile;
 }
 
+/** One raw outside or onboarding input retained so code can recount or re-extract it later. */
+export interface StoredEvent {
+  readonly id: string;
+  readonly businessId: string;
+  readonly source: string;
+  readonly payload: Readonly<Record<string, unknown>>;
+  readonly receivedAt: string;
+}
+
 /**
  * Persistence for businesses, choices, cards, the outbox, raw events, chats, contacts, connections, customer threads,
  * Telegram chats and standing rules. Every method takes the session first and touches only its rows, except the ones
@@ -114,6 +126,10 @@ export interface ProfileVersion {
  */
 export interface Store {
   readonly kind: "supabase" | "memory";
+  /** Read only this business's recorded follow-up facts. */
+  listFollowups(session: string, businessId: string): Promise<RecordedFollowup[]>;
+  /** Save an owner-recorded timer or its cancellation, retaining its source. */
+  saveFollowup(session: string, followup: RecordedFollowup): Promise<void>;
   /** Return the session's own businesses, oldest first. The example business lives in code and is not stored. */
   listBusinesses(session: string): Promise<BusinessProfile[]>;
   getBusiness(session: string, id: string): Promise<BusinessProfile | null>;
@@ -145,6 +161,8 @@ export interface Store {
   addRuleOutbox(session: string, entry: NewOutboxEntry & { readonly rule: OutboxRule; readonly ruleKey: string }): Promise<OutboxEntry | null>;
   listOutbox(session: string, businessId: string): Promise<OutboxEntry[]>;
   recordEvent(session: string, businessId: string, source: string, payload: Readonly<Record<string, unknown>>): Promise<void>;
+  /** Return this business's retained raw inputs, oldest first, optionally from `since`. */
+  listEvents(session: string, businessId: string, since?: string): Promise<StoredEvent[]>;
   /** Return the latest `limit` messages of a thread, oldest first. */
   listMessages(session: string, thread: ChatThread, limit: number): Promise<ChatMessage[]>;
   /** Append messages to a thread in order, and return them as stored. */
@@ -156,6 +174,8 @@ export interface Store {
   /** Count one model call against the day's cap for every visitor together; `false` once the cap is reached. Deployment-wide. */
   useAiCall(day: string, cap: number): Promise<boolean>;
   /** Mark a queued entry as sending and return it; `null` when it isn't queued, so two senders can't both send it. */
+  /** Claim deletion of a sent Telegram message once, scoped to its business and session. */
+  claimTelegramDeletion(session: string, businessId: string, entryId: string): Promise<OutboxEntry | null>;
   claimOutbox(session: string, entryId: string): Promise<OutboxEntry | null>;
   settleOutbox(session: string, entryId: string, patch: OutboxPatch): Promise<void>;
   /** Queued entries due by `now`, oldest first, from every session, for the scheduled sender. Deployment-wide. */
@@ -187,6 +207,8 @@ export interface Store {
    * Claim a Telegram update so it is processed once: `true` for the caller that should process it. A failed update, or
    * one claimed more than `retakeAfterMs` ago and never finished, can be claimed again. Deployment-wide.
    */
+  /** Deployment-wide status only: distinguish a finished update from a worker still processing it. */
+  telegramUpdateDone(updateId: number): Promise<boolean>;
   claimTelegramUpdate(updateId: number, now: string, retakeAfterMs: number): Promise<boolean>;
   /** Record how processing a claimed update ended. Deployment-wide. */
   finishTelegramUpdate(updateId: number, status: "done" | "failed"): Promise<void>;
@@ -194,6 +216,10 @@ export interface Store {
   addThreadMessage(session: string, message: NewThreadMessage): Promise<ThreadMessage>;
   /** Return the latest `limit` messages of a customer's thread, oldest first. */
   listThreadMessages(session: string, businessId: string, contactId: string, limit: number): Promise<ThreadMessage[]>;
+  /** Return which agent owns a customer's conversation. A new conversation starts at Front Desk. */
+  getConversationOwner(session: string, businessId: string, contactId: string): Promise<ConversationOwner>;
+  /** Save the code-validated owner of a customer's conversation. */
+  setConversationOwner(session: string, businessId: string, contactId: string, owner: ConversationOwner, at: string): Promise<void>;
   /** Return the business's saved standing rules. A rule with no saved state is off. */
   getStandingRules(session: string, businessId: string): Promise<StandingRuleState[]>;
   /** Turn a standing rule on or off at `at`, and return it as saved. */

@@ -151,11 +151,15 @@ export async function connect(session: string, business: BusinessProfile, reques
     case "texting": {
       const phone = normalizePhone(request.phone);
       if (phone === null) throw new ConnectError(400, "Enter the Twilio number in a form like +1 301 555 0192.");
+      const rawForwardTo = request.forwardTo?.trim() ?? "";
+      const forwardTo = rawForwardTo === "" ? null : normalizePhone(rawForwardTo);
+      if (rawForwardTo !== "" && forwardTo === null) throw new ConnectError(400, "Enter the phone that should ring in a form like +1 301 555 0192.");
+      if (forwardTo === phone) throw new ConnectError(400, "Use the owner's phone for ringing, not the Twilio number itself.");
       const problem = await verifyTexting(request.accountSid, request.authToken, phone);
       if (problem !== null) throw new ConnectError(400, problem);
       await store.saveConnection(session, {
         ...base,
-        settings: { phone, accountSid: request.accountSid },
+        settings: { phone, accountSid: request.accountSid, ...(forwardTo === null ? {} : { forwardTo }) },
         secret: encryptSecret(JSON.stringify({ authToken: request.authToken })),
       });
       return;

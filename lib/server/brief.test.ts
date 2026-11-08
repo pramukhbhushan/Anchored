@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SAMPLE_BUSINESS } from "@/lib/domain/cases";
 import { MemoryStore } from "@/lib/store/memory";
 import { hvacShop } from "@/test/trades";
@@ -28,6 +28,8 @@ function store(): MemoryStore {
 }
 
 beforeEach(async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(TEN_AM);
   state.store = new MemoryStore();
   await store().saveBusiness(SESSION, SHOP);
   await store().ensureCards(SESSION, SHOP.id, [
@@ -36,13 +38,17 @@ beforeEach(async () => {
   ]);
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe("runBrief", () => {
   it("writes one owner-only card from the counts and remembers it as the last brief", async () => {
     const brief = await runBrief(SESSION, SHOP, TEN_AM);
     expect(brief.lines).toEqual([
       "1 needs you personally: Allergy question from Sam.",
       "2 drafts wait for your OK, worth about $4,200. Start with: Quote to the Lees.",
-      "So far: 2 new drafts.",
+      "In the past 24 hours: 2 new drafts.",
     ]);
     const card = (await store().listCards(SESSION, SHOP.id)).find((c) => c.skill === "brief");
     expect(card).toMatchObject({ key: brief.cardKey, channel: "flag", status: "pending", body: brief.lines.join("\n") });

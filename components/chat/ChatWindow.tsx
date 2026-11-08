@@ -8,6 +8,7 @@ import { callApi, errorText, getApi } from "@/components/api";
 import { BoxGrip, useBoxHeight } from "@/components/chat/BoxGrip";
 import { ResizablePanel } from "@/components/resize/ResizablePanel";
 import { businessHref, cardAnchor, NEW_BUSINESS_HREF } from "@/components/routes";
+import { FactProgress } from "@/components/ui/FactProgress";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { GENERIC_STARTERS } from "@/components/chat/starters";
 import type { BusinessChatResponse, CardStatus, ChatCardLink, ChatMessage, IntakeAnswerRequest, IntakeResponse, StartIntakeResponse } from "@/lib/api/contract";
@@ -710,11 +711,8 @@ function KnowsCard({
         <span className={styles.count}>{progress}</span>
         <ChevronDown size={18} strokeWidth={2.2} aria-hidden="true" />
       </button>
-      <ol className={styles.meter} aria-hidden="true">
-        {known.map((fact) => (
-          <li key={fact.field} data-state={fact.state} />
-        ))}
-      </ol>
+      <FactProgress reviewed={answered} total={known.length} />
+
       <dl className={styles.facts} id={listId}>
         {known.map((fact) => (
           <div key={`${fact.field}:${fact.value ?? fact.state}`} className={styles.fact} data-state={fact.state} data-fresh={fresh.has(fact.field) || undefined}>

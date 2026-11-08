@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { CardRecord } from "@/lib/api/contract";
+import { profileFromFacts } from "@/lib/domain/engine";
 import type { KeyedCard } from "@/lib/domain/types";
 import { MemoryStore } from "@/lib/store/memory";
 import { decideCard } from "./decide";
@@ -93,6 +94,30 @@ describe("decideCard", () => {
     const [entry] = await store.listOutbox(SESSION, BUSINESS);
     expect(entry?.body).toContain("Tamales are back on Thursdays.");
     expect(entry?.body).not.toContain("hasn't changed in 3 months");
+  });
+
+  it("saves an approved mapped edit back to the profile", async () => {
+    await store.saveBusiness(SESSION, profileFromFacts({
+      id: BUSINESS,
+      name: "Apex Heating",
+      trade: "HVAC",
+      tradeKey: "home",
+      reach: [],
+      tools: [],
+      signals: ["quotes"],
+    }));
+    const card = await addCard({
+      ...missedCallText,
+      key: `${BUSINESS}:quote-edit`,
+      channel: "telegram",
+      body: "We'll confirm the price.",
+      editMap: { body: "prices" },
+    });
+
+    await decideCard(store, SESSION, card, { decision: "approve", body: "Replacement visit: $200 to $300." }, TEN_AM_EASTERN);
+
+    expect((await store.getBusiness(SESSION, BUSINESS))?.details?.prices).toEqual([{ item: "Replacement visit", low: 200, high: 300 }]);
+    expect((await store.listProfileVersions(SESSION, BUSINESS))[0]?.changedBy).toBe("card_edit");
   });
 
   it("refuses an email that answers an allergy question and leaves it pending", async () => {

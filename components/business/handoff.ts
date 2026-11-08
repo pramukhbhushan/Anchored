@@ -83,7 +83,7 @@ function usesGoogle(business: HandOffBusiness): boolean {
 /** Return where a post can go, from the places the owner said customers find them; a Google post lists Google first. */
 function postPlaces(business: HandOffBusiness, title: string): PastePlace[] {
   const google = usesGoogle(business) ? [GOOGLE] : [];
-  const social = business.reach.includes("Instagram or Facebook") ? [INSTAGRAM, FACEBOOK] : [];
+  const social = business.reach.includes("Instagram or Facebook") ? [INSTAGRAM, FACEBOOK] : [INSTAGRAM];
   return /google/i.test(title) ? [...google, ...social] : [...social, ...google];
 }
 

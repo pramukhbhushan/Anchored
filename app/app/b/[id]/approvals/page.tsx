@@ -1,6 +1,8 @@
+import { DeleteTelegramMessage } from "@/components/business/DeleteTelegramMessage";
 import { CheckCheck, Plug } from "lucide-react";
 import type { Metadata } from "next";
 import { AgentCard } from "@/components/business/AgentCard";
+import { CardFeedRealtime } from "@/components/business/CardFeedRealtime";
 import { OpenFromHash } from "@/components/business/OpenFromHash";
 import { cardSource } from "@/components/agent-labels";
 import { businessHref } from "@/components/routes";
@@ -55,6 +57,9 @@ function logText(entry: DisplayEntry, card: CardRecord | undefined): string {
 
 /** Say where one outbox entry stands, or `null` when the owner sends it and there is nothing to add. */
 function deliveryLine(entry: DisplayEntry, held: boolean): string | null {
+  if (entry.deletionState === "deleted") return "Removed from Telegram. Someone may already have read it.";
+  if (entry.deletionState === "deleting") return "Removal is being checked. The original sent record is kept here.";
+  if (entry.deletionState === "failed") return `Sent by Anchored. Removal was not confirmed: ${entry.deletionNote ?? "Try again."}`;
   if (entry.delivery === "sent") return "Sent by Anchored";
   if (entry.delivery === "failed") {
     if (entry.channel === "telegram") return entry.note === null ? "Didn't send. Check the Telegram connection." : `Didn't send: ${entry.note} Check the Telegram connection.`;
@@ -102,7 +107,14 @@ function OutboxItem({
         {entry.body}
         {ruleLine(entry) !== null && <small>{ruleLine(entry)}</small>}
         {when}
-        {entry.channel === "telegram" && entry.delivery === "failed" && <a href={businessHref(entry.businessId, "connections")}>See connections</a>}
+        {entry.channel === "telegram" && entry.delivery === "failed" && (
+          <div className="handoff">
+            <div className="handoff-acts">
+              <a className={buttonClass("secondary", "sm")} href={businessHref(entry.businessId, "connections")}>See connections</a>
+            </div>
+          </div>
+        )}
+        {entry.canDeleteTelegram && <DeleteTelegramMessage businessId={entry.businessId} entryId={entry.id} />}
         {send}
       </li>
     );
@@ -156,6 +168,7 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
 
   return (
     <>
+      <CardFeedRealtime businessId={business.id} />
       <OpenFromHash />
       <PageHeader
         title="Approvals"

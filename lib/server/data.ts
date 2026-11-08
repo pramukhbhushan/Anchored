@@ -1,4 +1,5 @@
 import "server-only";
+import { canDeleteTelegram } from "@/lib/server/dispatch";
 import { randomUUID } from "node:crypto";
 import { notFound } from "next/navigation";
 import { cache } from "react";
@@ -183,7 +184,7 @@ export async function getFeed(business: BusinessProfile): Promise<Feed> {
   );
   const due = isAiConfigured() && startersDue(business, choices, stored, connected);
   if (due) scheduleStarters(session, business);
-  return { cards: cards.sort(feedOrder), outbox, connected, examplesHidden: hidden, writingStarters: due || isWritingStarters(session, business.id) };
+  return { cards: cards.sort(feedOrder), outbox: outbox.map((entry) => { const { providerId: _provider, ...publicEntry } = entry; return { ...publicEntry, canDeleteTelegram: business.kind === "custom" && canDeleteTelegram(entry, new Date()) }; }), connected, examplesHidden: hidden, writingStarters: due || isWritingStarters(session, business.id) };
 }
 
 // Standing drafts sort below every real event: new calls, leads and invoices should lead the feed.

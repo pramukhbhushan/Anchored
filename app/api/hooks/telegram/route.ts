@@ -32,7 +32,11 @@ export async function POST(request: Request) {
   const store = getStore();
   const now = new Date();
   try {
-    if (!(await store.claimTelegramUpdate(update.updateId, now.toISOString(), RETAKE_AFTER_MS))) return json({ received: true, duplicate: true });
+    if (!(await store.claimTelegramUpdate(update.updateId, now.toISOString(), RETAKE_AFTER_MS))) {
+      if (await store.telegramUpdateDone(update.updateId)) return json({ received: true, duplicate: true });
+      // Another worker may still fail or crash. Keep Telegram retrying until durable completion.
+      return json({ error: "This update is still being processed. Retry shortly." }, 503);
+    }
   } catch (error) {
     return handleError(error, "POST /api/hooks/telegram");
   }

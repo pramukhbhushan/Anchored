@@ -88,11 +88,25 @@ export interface SnapshotSend {
   readonly delivery: "yours" | "queued" | "sending" | "sent" | "failed";
   readonly channel: string;
   readonly sentAt: string;
+  /** The first confirmed clipboard copy, not an assumption from an owner-send entry. */
+  readonly copiedAt?: string | null;
+  /** Set by orchestration when the entry belongs to an example draft. */
+  readonly example?: true;
+}
+
+/** One recorded event. A missing link is unknown history, not proof that no draft was made. */
+export interface SnapshotEvent {
+  readonly id: string;
+  readonly source: string;
+  readonly at: string;
+  readonly cardKey?: string | null;
+  readonly sourceKey?: string | null;
+  readonly origin?: "live" | "simulated" | "owner";
 }
 
 /** What one brief counted, all by code. Every number the owner reads comes from here. */
 export interface BriefSnapshot {
-  /** The window's start, the last successful brief; `null` for a first brief, which counts everything so far. */
+  /** The last successful brief; `null` for a first brief. `windowStart` may cap the activity read. */
   readonly from: string | null;
   readonly to: string;
   readonly waiting: number;
@@ -109,6 +123,14 @@ export interface BriefSnapshot {
   readonly failed: number;
   /** Customers who sent STOP or /stop, or blocked the bot, in the window. */
   readonly stops: number;
+  /** The effective activity floor when orchestration caps the read, currently at 24 hours. */
+  readonly windowStart?: string;
+  /** Drafts with a confirmed clipboard copy during the activity window. This never means sent. */
+  readonly copied?: number;
+  /** Events naming a draft key that is absent from the business's real cards. */
+  readonly eventsWithoutCards?: number;
+  /** Legacy events without a recorded draft link. Whether they made a draft is unknown. */
+  readonly eventsUnlinked?: number;
 }
 
 /** What the snapshot reads. Brief cards themselves are left out, so a brief never counts the brief before it. */
@@ -118,12 +140,18 @@ export interface SnapshotInput {
   readonly optedOutAt: readonly (string | null)[];
   readonly since: string | null;
   readonly now: string;
+  readonly windowStart?: string;
+  readonly events?: readonly SnapshotEvent[];
 }
 
 /** Count the business's state for one brief. */
 export function briefSnapshot(input: SnapshotInput): BriefSnapshot {
   const { since, now } = input;
-  const inWindow = (at: string) => (since === null || at > since) && at <= now;
+  const activityFloor = input.windowStart === undefined || (since !== null && Date.parse(since) > Date.parse(input.windowStart)) ? since : input.windowStart;
+  const inWindow = (at: string) => {
+    const time = Date.parse(at);
+    return Number.isFinite(time) && (activityFloor === null || time > Date.parse(activityFloor)) && time <= Date.parse(now);
+  };
   const cards = input.cards.filter((card) => card.skill !== "brief");
   const pending = cards.filter((card) => card.status === "pending");
   const real = pending.filter((card) => card.example !== true);
@@ -131,7 +159,10 @@ export function briefSnapshot(input: SnapshotInput): BriefSnapshot {
     .sort((a, b) => (b.stake ?? 0) - (a.stake ?? 0) || a.createdAt.localeCompare(b.createdAt))
     .slice(0, 3)
     .map((card) => (card.stake === undefined ? { title: card.title } : { title: card.title, stake: card.stake }));
-  const sends = input.outbox.filter((entry) => inWindow(entry.sentAt));
+  const realOutbox = input.outbox.filter((entry) => entry.example !== true);
+  const sends = realOutbox.filter((entry) => entry.channel !== "list" && inWindow(entry.sentAt));
+  const tracked = input.events !== undefined || input.outbox.some((entry) => entry.copiedAt !== undefined);
+  const eventCounts = input.events === undefined ? {} : eventAccounting(input.events, cards, inWindow);
   return {
     from: since,
     to: now,
@@ -139,13 +170,44 @@ export function briefSnapshot(input: SnapshotInput): BriefSnapshot {
     waitingStake: stakeWaiting(cards),
     examplesWaiting: samplesWaiting(cards),
     top,
-    flags: pending.filter((card) => card.channel === "locked" || card.channel === "flag").map((card) => card.title),
-    newCards: cards.filter((card) => inWindow(card.createdAt)).length,
+    flags: real.filter((card) => card.channel === "locked" || card.channel === "flag").map((card) => card.title),
+    newCards: cards.filter((card) => card.example !== true && inWindow(card.createdAt)).length,
     sent: sends.filter((entry) => entry.delivery === "sent").length,
-    queued: input.outbox.filter((entry) => entry.delivery === "queued").length,
+    queued: realOutbox.filter((entry) => entry.channel !== "list" && entry.delivery === "queued").length,
     failed: sends.filter((entry) => entry.delivery === "failed").length,
     stops: input.optedOutAt.filter((at): at is string => at !== null && inWindow(at)).length,
+    ...(input.windowStart === undefined ? {} : { windowStart: activityFloor ?? input.windowStart }),
+    ...(tracked ? { copied: realOutbox.filter((entry) => entry.copiedAt != null && inWindow(entry.copiedAt)).length } : {}),
+    ...eventCounts,
   };
+}
+
+/** Count linked, unlinked and absent-draft events using saved identities alone. */
+function eventAccounting(events: readonly SnapshotEvent[], cards: readonly SnapshotCard[], inWindow: (at: string) => boolean): { eventsWithoutCards: number; eventsUnlinked: number } {
+  const realKeys = new Set(cards.filter((card) => card.example !== true).map((card) => card.key));
+  const exampleKeys = new Set(cards.filter((card) => card.example === true).map((card) => card.key));
+  const seenIds = new Set<string>();
+  const seenSources = new Set<string>();
+  const counts = { eventsWithoutCards: 0, eventsUnlinked: 0 };
+  for (const event of events) {
+    if (event.origin === "simulated" || !inWindow(event.at)) continue;
+    if (event.cardKey != null && exampleKeys.has(event.cardKey)) continue;
+    const sourceKey = event.sourceKey == null ? null : JSON.stringify([event.source, event.sourceKey]);
+    if (seenIds.has(event.id) || (sourceKey !== null && seenSources.has(sourceKey))) continue;
+    seenIds.add(event.id);
+    if (sourceKey !== null) seenSources.add(sourceKey);
+    if (event.cardKey == null || event.cardKey === "") counts.eventsUnlinked += 1;
+    else if (!realKeys.has(event.cardKey)) counts.eventsWithoutCards += 1;
+  }
+  return counts;
+}
+
+/** Describe a capped first or stale brief without pretending the window includes older history. */
+function activityLabel(snapshot: BriefSnapshot): string {
+  if (snapshot.windowStart !== undefined && (snapshot.from === null || Date.parse(snapshot.windowStart) > Date.parse(snapshot.from))) {
+    return Date.parse(snapshot.to) - Date.parse(snapshot.windowStart) === 24 * 60 * 60 * 1000 ? "In the past 24 hours" : "In this brief's activity window";
+  }
+  return snapshot.from === null ? "So far" : "Since your last brief";
 }
 
 /** The brief as short plain lines, the one thing that matters most first. Every number comes from `snapshot`. */
@@ -162,14 +224,18 @@ export function briefLines(snapshot: BriefSnapshot): string[] {
     lines.push(`${snapshot.waiting} ${snapshot.waiting === 1 ? "draft waits" : "drafts wait"} for your OK${worth}.${first === undefined ? "" : ` Start with: ${first.title}.`}`);
   }
   if (snapshot.examplesWaiting > 0) lines.push(`${snapshot.examplesWaiting} of them ${snapshot.examplesWaiting === 1 ? "is an example" : "are examples"}, with made-up names and amounts.`);
-  const since = snapshot.from === null ? "So far" : "Since your last brief";
+  const since = activityLabel(snapshot);
   const done = [
     snapshot.newCards > 0 ? `${snapshot.newCards} new ${snapshot.newCards === 1 ? "draft" : "drafts"}` : null,
     snapshot.sent > 0 ? `${snapshot.sent} sent` : null,
+    (snapshot.copied ?? 0) > 0 ? `${snapshot.copied} ${snapshot.copied === 1 ? "draft copied" : "drafts copied"}` : null,
     snapshot.failed > 0 ? `${snapshot.failed} failed to send` : null,
     snapshot.stops > 0 ? `${snapshot.stops} ${snapshot.stops === 1 ? "customer" : "customers"} asked to stop getting messages` : null,
+    (snapshot.eventsWithoutCards ?? 0) > 0 ? `${snapshot.eventsWithoutCards} ${snapshot.eventsWithoutCards === 1 ? "event has" : "events have"} no matching draft` : null,
+    (snapshot.eventsUnlinked ?? 0) > 0 ? `${snapshot.eventsUnlinked} ${snapshot.eventsUnlinked === 1 ? "event has" : "events have"} no recorded draft link` : null,
   ].filter((part) => part !== null);
   lines.push(done.length === 0 ? `${since}: nothing new.` : `${since}: ${done.join(", ")}.`);
+  if ((snapshot.eventsWithoutCards ?? 0) > 0 || (snapshot.eventsUnlinked ?? 0) > 0) lines.push("Check recent activity before making another draft. An event with no recorded link may already have been handled.");
   if (snapshot.queued > 0) lines.push(`${snapshot.queued} approved ${snapshot.queued === 1 ? "message waits" : "messages wait"} to send, such as replies held for quiet hours.`);
   return lines;
 }

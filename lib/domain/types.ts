@@ -1,3 +1,5 @@
+import type { License } from "@/lib/domain/renewals";
+
 // =============================================================================
 // Module Overview
 // =============================================================================
@@ -211,6 +213,11 @@ export interface ActiveAgent {
 
 /** A drafted action waiting for the owner's tap. */
 export interface CardDraft {
+  /** Allergy lock identity stays separate from supersedable reply drafts. */
+  readonly lockedContact?: string;
+  /** Recorded follow-up facts are checked again before approval and delivery. */
+  readonly recordedFollowup?: { readonly id: string; readonly dueAt: string; readonly sourceId: string };
+  readonly renewal?: { readonly licenseId: string; readonly expiresOn: string };
   /** Agent that drafted it. `null` only for cards Anchored itself raises. */
   readonly agent: AgentRef | null;
   readonly skill: SkillId | null;
@@ -229,6 +236,10 @@ export interface CardDraft {
   readonly contact?: string;
   /** Profile fields the draft drew on, so an owner's edit to one of them can update the profile. */
   readonly fieldsUsed?: readonly FieldKey[];
+  /** A card field whose approved edit becomes an owner-confirmed profile fact. */
+  readonly editMap?: Readonly<Partial<Record<"body", FieldKey>>>;
+  /** A fact this owner-only flag asks for. */
+  readonly missingField?: FieldKey;
   /** Set when this card moves the conversation to another agent, such as Front Desk handing a price question to Follow-up. */
   readonly handoff?: { readonly to: CoreAgentId; readonly reason: string };
   /** Set on a payment reminder: the invoice it's about, so reminders can be counted and canceled once it's paid. */
@@ -342,6 +353,7 @@ export interface OnboardingAnswers {
   readonly what: string;
   readonly week: string;
   readonly voice: string;
+  readonly website?: string;
   readonly reach: readonly string[];
   readonly tools: readonly string[];
   readonly signals: readonly SignalId[];
@@ -394,8 +406,12 @@ export interface OwnerExample {
 
 /** Facts agents need beyond the onboarding answers. Every field is optional: a missing one is a gap to ask about. */
 export interface ProfileDetails {
+  /** Structured expiry dates and their sources, entered by the owner rather than inferred by a model. */
+  readonly licenses?: readonly License[];
   readonly ownerName?: string;
   readonly vocabulary?: Vocabulary;
+  readonly address?: string;
+  readonly businessPhone?: string;
   readonly hours?: string;
   readonly pricingMethod?: PricingMethod;
   readonly prices?: readonly PriceItem[];

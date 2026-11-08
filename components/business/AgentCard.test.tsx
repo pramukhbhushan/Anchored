@@ -171,23 +171,26 @@ describe("AgentCard", () => {
 
   it("copies only a post's words, without the lead-in, when the owner approves it", async () => {
     const user = userEvent.setup();
+    const opened = vi.spyOn(window, "open").mockReturnValue(null);
     const fetchSpy = stubFetch(() => decided(POST, { outbox: outboxFor(POST) }));
     renderCard(POST);
 
-    await user.click(screen.getByRole("button", { name: "Approve: Copy post" }));
+    await user.click(screen.getByRole("button", { name: "Approve: Copy caption and open Instagram" }));
 
     const toast = await findToast("Approved. The post is on your clipboard, ready to paste.");
     expect(await navigator.clipboard.readText()).toBe("Thanks to everyone we worked with this week.");
     expect(sentJson(fetchSpy, 0).body).toEqual({ decision: "approve", body: POST.body });
+    expect(opened).toHaveBeenCalledWith("https://www.instagram.com/", "_blank", "noopener,noreferrer");
     expect(within(toast).getByRole("link", { name: "See outbox" })).toBeInTheDocument();
   });
 
   it("says copying did not record approval when the approval request fails", async () => {
     const user = userEvent.setup();
+    vi.spyOn(window, "open").mockReturnValue(null);
     stubFetch(() => json({ error: "The draft changed. Reload it." }, 409));
     renderCard(POST);
 
-    await user.click(screen.getByRole("button", { name: "Approve: Copy post" }));
+    await user.click(screen.getByRole("button", { name: "Approve: Copy caption and open Instagram" }));
 
     expect(await screen.findByText(/The text was copied, but approval wasn't recorded/)).toHaveTextContent("The draft changed. Reload it.");
     expect(await navigator.clipboard.readText()).toBe("Thanks to everyone we worked with this week.");
@@ -198,12 +201,13 @@ describe("AgentCard", () => {
 
   it("locks all actions while clipboard permission is pending and records approval once", async () => {
     const user = userEvent.setup();
+    vi.spyOn(window, "open").mockReturnValue(null);
     const copied = deferred<void>();
     const clipboard = vi.spyOn(navigator.clipboard, "writeText").mockReturnValue(copied.promise);
     const fetchSpy = stubFetch(() => decided(POST, { outbox: outboxFor(POST) }));
     renderCard(POST);
 
-    const approve = screen.getByRole("button", { name: "Approve: Copy post" });
+    const approve = screen.getByRole("button", { name: "Approve: Copy caption and open Instagram" });
     await user.dblClick(approve);
 
     for (const button of within(screen.getByRole("article")).getAllByRole("button")) expect(button).toBeDisabled();
@@ -347,6 +351,22 @@ describe("AgentCard", () => {
     const toast = await findToast("Marked as yours");
     expect(within(toast).queryByRole("link")).not.toBeInTheDocument();
     expect(sentJson(fetchSpy, 0).body).toEqual({ decision: "approve", body: ALLERGY.body });
+  });
+
+  it("links a missing-info flag to Chat and offers no message edit", () => {
+    renderCard({
+      ...CARD,
+      id: "card-price",
+      key: "frontdesk:missing:prices",
+      channel: "flag",
+      missingField: "prices",
+      action: "Add prices",
+    });
+
+    const card = screen.getByRole("article");
+    expect(within(card).getByRole("link", { name: "Tell Anchored" })).toHaveAttribute("href", "/app/b/greenfield/chat");
+    expect(within(card).getByRole("button", { name: "Done" })).toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: /^Edit:/ })).not.toBeInTheDocument();
   });
 
   it("asks once more before a send to many people, and sends nothing on Cancel", async () => {

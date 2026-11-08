@@ -7,6 +7,7 @@ import { resolveChoices } from "@/lib/domain/paths";
 import { STARTER_LIMIT, STARTER_RECIPIENT, starterSkills, startersDue, type WritableSkill } from "@/lib/domain/starters";
 import type { BusinessProfile, KeyedCard } from "@/lib/domain/types";
 import type { LlmProvider } from "@/lib/llm";
+import { tierForTask } from "@/lib/llm/task-tier";
 import { newFacts } from "@/lib/server/ai";
 import { getBudgetedLlm } from "@/lib/server/ai-budget";
 import { getStore } from "@/lib/store";
@@ -165,7 +166,7 @@ async function writtenWords(llm: LlmProvider, business: BusinessProfile, skills:
   const names = customerNames(business.id, OFFERED_NAMES);
   let reply: z.infer<typeof replySchema>;
   try {
-    reply = await llm.generateObject({ tier: "default", schema: replySchema, schemaName: "starter_drafts", prompt: starterPrompt(business, skills, channels, names), maxTokens: 2000 });
+    reply = await llm.generateObject({ tier: tierForTask("draft"), schema: replySchema, schemaName: "starter_drafts", prompt: starterPrompt(business, skills, channels, names), maxTokens: 2000 });
   } catch (error) {
     console.warn(`[Starters] Writing starters for ${business.id} failed; keeping the trade's templates. Reason: ${error instanceof Error ? error.message : String(error)}`);
     return new Map();

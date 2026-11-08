@@ -32,7 +32,7 @@ export default async function ConnectionsPage({ params }: { readonly params: Pro
   return (
     <>
       <PageHeader title="Connections" description="Connect your own texting number, email and Stripe. Anchored sends only what you approve." />
-      <section className="section">
+      <section className="section panel">
         <TelegramSetup businessId={business.id} url={telegram.url} unavailableReason={telegram.unavailableReason ?? undefined} qrCode={telegram.url === null ? undefined : <TelegramQr url={telegram.url} />} />
       </section>
       <section className="section" aria-labelledby="services">

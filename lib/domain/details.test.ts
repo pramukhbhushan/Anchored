@@ -106,6 +106,8 @@ describe("parseDetail", () => {
   });
 
   it("reads how a business charges, a minimum, lists and a review link", () => {
+    expect(parseDetail("address", "10 Main St, Bowie, MD 20715.")).toBe("10 Main St, Bowie, MD 20715");
+    expect(parseDetail("businessPhone", "Call (301) 555-0192 today")).toBe("(301) 555-0192");
     expect(parseDetail("pricingMethod", "Every job gets a quote")).toBe("quote");
     expect(parseDetail("pricingMethod", "We charge by the hour")).toBe("hourly");
     expect(parseDetail("minimumCharge", "Our minimum is $75")).toBe(75);
