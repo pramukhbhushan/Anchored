@@ -103,6 +103,11 @@ export interface Store {
   updatePendingCard(session: string, cardId: string, patch: CardPatch): Promise<CardRecord | null>;
   /** Mark every pending card to `contact` as `superseded`, except the one keyed `exceptKey`, and return how many changed. */
   supersedePendingCards(session: string, businessId: string, contact: string, exceptKey: string): Promise<number>;
+  /**
+   * An invoice was paid: mark its pending reminders `superseded`, and stop its reminders still queued to send by
+   * marking them `failed` with `note`. A reminder already sending or sent is left alone. Returns how many of each changed.
+   */
+  cancelInvoiceReminders(session: string, businessId: string, invoiceKey: string, note: string): Promise<{ readonly cards: number; readonly outbox: number }>;
   addOutbox(session: string, entry: NewOutboxEntry): Promise<OutboxEntry>;
   listOutbox(session: string, businessId: string): Promise<OutboxEntry[]>;
   recordEvent(session: string, businessId: string, source: string, payload: Readonly<Record<string, unknown>>): Promise<void>;

@@ -164,3 +164,49 @@ describe("supersedePendingCards", () => {
     expect(byKey.get(`${BUSINESS}:other`)).toBe("pending");
   });
 });
+
+describe("cancelInvoiceReminders", () => {
+  const reminder = (n: number, key: string): KeyedCard => ({
+    ...card,
+    key: `${BUSINESS}:nudger:${n}`,
+    agent: "books",
+    skill: "nudger",
+    channel: "email",
+    to: "maya.chen@example.com",
+    invoice: { key, number: key.slice(2), amount: 450 },
+  });
+
+  it("stops pending and queued reminders for the paid invoice only, and leaves sent ones alone", async () => {
+    const store = new MemoryStore();
+    await store.ensureCards("s1", BUSINESS, [reminder(1, "n:1042"), reminder(2, "n:1042"), reminder(3, "n:1046"), { ...card, key: `${BUSINESS}:other` }]);
+    const byKey = async () => new Map((await store.listCards("s1", BUSINESS)).map((c) => [c.key, c]));
+    const first = (await byKey()).get(`${BUSINESS}:nudger:1`);
+    if (!first) throw new Error("test setup: reminder was not stored");
+    // The first reminder was approved: one copy already went out, a second is queued.
+    await store.updatePendingCard("s1", first.id, { status: "approved" });
+    await store.addOutbox("s1", { businessId: BUSINESS, cardId: first.id, channel: "email", to: "maya.chen@example.com", body: "sent", delivery: "sent" });
+    await store.addOutbox("s1", { businessId: BUSINESS, cardId: first.id, channel: "email", to: "maya.chen@example.com", body: "queued", delivery: "queued" });
+
+    expect(await store.cancelInvoiceReminders("s1", BUSINESS, "n:1042", "Not sent: invoice 1042 was paid.")).toEqual({ cards: 1, outbox: 1 });
+
+    const cards = await byKey();
+    expect(cards.get(`${BUSINESS}:nudger:1`)?.status).toBe("approved");
+    expect(cards.get(`${BUSINESS}:nudger:2`)?.status).toBe("superseded");
+    expect(cards.get(`${BUSINESS}:nudger:3`)?.status).toBe("pending");
+    expect(cards.get(`${BUSINESS}:other`)?.status).toBe("pending");
+    const outbox = await store.listOutbox("s1", BUSINESS);
+    expect(outbox.map((entry) => [entry.body, entry.delivery, entry.note])).toEqual(
+      expect.arrayContaining([
+        ["sent", "sent", null],
+        ["queued", "failed", "Not sent: invoice 1042 was paid."],
+      ]),
+    );
+  });
+
+  it("touches no other session", async () => {
+    const store = new MemoryStore();
+    await store.ensureCards("s1", BUSINESS, [reminder(1, "n:1042")]);
+    expect(await store.cancelInvoiceReminders("s2", BUSINESS, "n:1042", "paid")).toEqual({ cards: 0, outbox: 0 });
+    expect((await store.listCards("s1", BUSINESS))[0]?.status).toBe("pending");
+  });
+});

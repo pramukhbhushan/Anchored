@@ -6,9 +6,12 @@ import {
   followUpQuestion,
   invoiceKey,
   isPriceIncrease,
+  matchPaidInvoice,
   priceChange,
   readInvoiceMessage,
+  reminderRecords,
   remindersFor,
+  type InvoiceCard,
   type InvoiceFacts,
   type ReminderRecord,
 } from "@/lib/domain/invoices";
@@ -239,5 +242,41 @@ describe("priceChange", () => {
     expect(priceChange(10, -1)).toBeNull();
     expect(priceChange(Number.NaN, 10)).toBeNull();
     expect(isPriceIncrease(null, 10)).toBe(false);
+  });
+});
+
+describe("matchPaidInvoice", () => {
+  const reminder = (key: string, status: InvoiceCard["status"], extra: Partial<InvoiceCard["invoice"]> = {}): InvoiceCard => ({
+    skill: "nudger",
+    status,
+    invoice: { key, amount: 450, customer: "maya chen", ...extra },
+  });
+  const cards = [reminder("n:1042", "pending", { number: "1042" }), reminder("n:1046", "approved", { number: "1046", amount: 90 }), reminder("n:2000", "pending", { customer: "sam lee" })];
+
+  it("matches by number, or by email or name with the amount", () => {
+    expect(matchPaidInvoice(cards, { number: "INV-1042" })).toEqual({ kind: "match", key: "n:1042" });
+    expect(matchPaidInvoice(cards, { name: "Dev Rao", amount: 175 })).toEqual({ kind: "match", key: "p:dev rao:175.00" });
+  });
+
+  it("matches a name alone to that customer's one open invoice", () => {
+    expect(matchPaidInvoice(cards, { name: "Sam Lee" })).toEqual({ kind: "match", key: "n:2000" });
+  });
+
+  it("asks which one when the customer has two open invoices", () => {
+    expect(matchPaidInvoice(cards, { name: "maya  Chen" })).toEqual({ kind: "ambiguous", options: ["invoice 1042", "invoice 1046"] });
+  });
+
+  it("ignores closed reminders and finds nothing for an unknown customer", () => {
+    expect(matchPaidInvoice([reminder("n:1042", "superseded")], { name: "Maya Chen" })).toEqual({ kind: "none" });
+    expect(matchPaidInvoice(cards, { name: "Nobody" })).toEqual({ kind: "none" });
+    expect(matchPaidInvoice(cards, {})).toEqual({ kind: "none" });
+  });
+
+  it("counts only reminder cards for the cap", () => {
+    expect(reminderRecords([...cards, { skill: "posts", status: "pending" }])).toEqual([
+      { invoiceKey: "n:1042", status: "pending" },
+      { invoiceKey: "n:1046", status: "approved" },
+      { invoiceKey: "n:2000", status: "pending" },
+    ]);
   });
 });

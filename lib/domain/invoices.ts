@@ -1,4 +1,5 @@
 import { amountsIn, money } from "@/lib/domain/details";
+import type { InvoiceRef } from "@/lib/domain/types";
 
 // =============================================================================
 // Module Overview
@@ -9,7 +10,8 @@ import { amountsIn, money } from "@/lib/domain/details";
 // asks for it. `invoiceKey` names one invoice so its reminders can be counted,
 // and `canRemind` stops a third one. `checkReminderDraft` refuses a reminder
 // whose numbers didn't come from the invoice or that adds a fee or a threat.
-// `priceChange` compares a supplier's old and new price. Every value here comes
+// `matchPaidInvoice` finds the invoice a payment settles, and asks when a
+// customer has two open. `priceChange` compares a supplier's old and new price. Every value here comes
 // from the owner's words or the invoice; nothing is guessed.
 
 /** The most reminders one invoice ever gets. */
@@ -150,6 +152,44 @@ export function checkReminderDraft(body: string, invoice: InvoiceFacts, allowed:
   const stray = (body.replace(/,(?=\d{3}\b)/g, "").match(/\d+/g) ?? []).find((digits) => !knownDigits.has(stripZeros(digits)));
   if (stray !== undefined) return { ok: false, reason: `The draft has the number ${stray}, which isn't on the invoice.` };
   return { ok: true };
+}
+
+/** A card as the payment rules read it: a reminder carries its invoice. */
+export interface InvoiceCard {
+  readonly skill: string | null;
+  readonly status: ReminderRecord["status"];
+  readonly invoice?: InvoiceRef;
+}
+
+/** The reminders among `cards`, in the shape `canRemind` counts. */
+export function reminderRecords(cards: readonly InvoiceCard[]): ReminderRecord[] {
+  return cards.flatMap((card) => (card.skill === "nudger" && card.invoice ? [{ invoiceKey: card.invoice.key, status: card.status }] : []));
+}
+
+/** Which invoice a payment settles: one key, nothing open to match, or several the owner must choose between. */
+export type PaidMatch =
+  | { readonly kind: "match"; readonly key: string }
+  | { readonly kind: "none" }
+  | { readonly kind: "ambiguous"; readonly options: readonly string[] };
+
+/**
+ * Find the invoice a payment settles. A number, or an email or name with the amount, names it directly. A name
+ * alone matches the customer's one open reminder; two open invoices for that customer make the owner choose.
+ */
+export function matchPaidInvoice(cards: readonly InvoiceCard[], paid: { readonly number?: string | null; readonly email?: string | null; readonly name?: string | null; readonly amount?: number | null }): PaidMatch {
+  const direct = invoiceKey(paid);
+  if (direct !== null) return { kind: "match", key: direct };
+  const name = paid.name?.trim().toLowerCase().replace(/\s+/g, " ");
+  if (!name) return { kind: "none" };
+  const open = new Map<string, InvoiceRef>();
+  for (const card of cards) {
+    if (card.skill !== "nudger" || !card.invoice || card.invoice.customer !== name) continue;
+    if (card.status === "pending" || card.status === "approved") open.set(card.invoice.key, card.invoice);
+  }
+  const refs = [...open.values()];
+  if (refs.length === 0) return { kind: "none" };
+  if (refs.length === 1) return { kind: "match", key: refs[0]?.key ?? "" };
+  return { kind: "ambiguous", options: refs.map((ref) => (ref.number ? `invoice ${ref.number}` : `the ${money(ref.amount)} invoice`)) };
 }
 
 /** How a supplier's price moved. */

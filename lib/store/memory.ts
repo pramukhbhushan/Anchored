@@ -153,6 +153,27 @@ export class MemoryStore implements Store {
     return changed;
   }
 
+  async cancelInvoiceReminders(session: string, businessId: string, invoiceKey: string, note: string): Promise<{ readonly cards: number; readonly outbox: number }> {
+    const data = this.peek(session);
+    if (!data) return { cards: 0, outbox: 0 };
+    const ids = new Set<string>();
+    let cards = 0;
+    for (const [id, card] of data.cards) {
+      if (card.businessId !== businessId || card.skill !== "nudger" || card.invoice?.key !== invoiceKey) continue;
+      ids.add(id);
+      if (card.status !== "pending") continue;
+      data.cards.set(id, { ...card, status: "superseded", decidedAt: new Date().toISOString() });
+      cards += 1;
+    }
+    let outbox = 0;
+    data.outbox.forEach((entry, index) => {
+      if (!ids.has(entry.cardId) || entry.delivery !== "queued") return;
+      data.outbox[index] = { ...entry, delivery: "failed", note };
+      outbox += 1;
+    });
+    return { cards, outbox };
+  }
+
   async useAiCall(day: string, cap: number): Promise<boolean> {
     const used = this.aiCalls.get(day) ?? 0;
     if (used >= cap) return false;

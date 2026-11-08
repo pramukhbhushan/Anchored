@@ -3,9 +3,11 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { SKILLS } from "@/lib/domain/agents";
 import { CARD_TEMPLATES, liveEventKey, simulateCard } from "@/lib/domain/cards";
+import { money } from "@/lib/domain/details";
 import { ensureOptOut, mentionsAllergen } from "@/lib/domain/executor";
+import { canRemind, checkReminderDraft, invoiceKey, matchPaidInvoice, reminderRecords } from "@/lib/domain/invoices";
 import { activeAgents, chosenSkills, resolveChoices } from "@/lib/domain/paths";
-import type { BusinessProfile, KeyedCard, SkillId } from "@/lib/domain/types";
+import type { BusinessProfile, InvoiceRef, KeyedCard, SkillId } from "@/lib/domain/types";
 import { choicesForSkill } from "@/lib/server/data";
 import { getStore } from "@/lib/store";
 
@@ -31,6 +33,8 @@ const SOURCE_SKILLS: Readonly<Record<string, readonly SkillId[]>> = {
   // A customer's text gets a reply from whichever front-desk skill is working.
   text: ["inquiry", "callback"],
   "invoice-late": ["nudger"],
+  // A payment cancels the invoice's waiting reminders, so the reminder skill answers for it.
+  "invoice-paid": ["nudger"],
 };
 
 /** Every source an event can come from. */
@@ -54,7 +58,18 @@ const PAYLOADS: Readonly<Record<string, z.ZodType<Readonly<Record<string, unknow
     amount: z.number().nonnegative(),
     number: z.string().trim().max(40).optional(),
     kind: z.enum(["overdue", "failed"]),
+    // The due date as the owner or the invoice wrote it, such as "Oct 20".
+    due: z.string().trim().max(40).optional(),
   }),
+  // A payment must name its invoice: by number, or by the customer, with or without the amount.
+  "invoice-paid": z
+    .strictObject({
+      name: shortText.optional(),
+      email: z.string().trim().max(200).optional(),
+      amount: z.number().nonnegative().optional(),
+      number: z.string().trim().max(40).optional(),
+    })
+    .refine((paid) => paid.number !== undefined || paid.name !== undefined || paid.email !== undefined, "Name the invoice number or the customer who paid."),
 };
 
 /** Read a string field from a validated payload, cut to `max`, or `undefined`. */
@@ -67,11 +82,6 @@ function text(payload: Readonly<Record<string, unknown>>, name: string, max = 80
 function amount(payload: Readonly<Record<string, unknown>>, name: string): number | undefined {
   const value = payload[name];
   return typeof value === "number" ? value : undefined;
-}
-
-/** Write dollars as "$240" or "$240.50". */
-function dollars(value: number): string {
-  return `$${Number.isInteger(value) ? value : value.toFixed(2)}`;
 }
 
 /** Put the event's own details into the template card, so the owner sees what actually arrived. */
@@ -138,27 +148,73 @@ function personalize(card: KeyedCard, source: string, business: BusinessProfile,
         to: from,
       };
     }
-    case "invoice-late": {
-      const owed = amount(payload, "amount") ?? 0;
-      const number = text(payload, "number", 40);
-      const invoice = number ? `invoice ${number}` : "your invoice";
-      const first = name?.split(/\s+/)[0];
-      const state = payload.kind === "failed" ? "is still open because the last payment didn't go through" : "is now past due";
-      return {
-        ...card,
-        title: `${name ?? "A customer"} owes ${dollars(owed)}${number ? ` on invoice ${number}` : ""}`,
-        body: `Hi${first ? ` ${first}` : ""}, a quick reminder that ${invoice} from ${business.name} for ${dollars(owed)} ${state}. Reply here with any questions. Thanks!`,
-        reason: payload.kind === "failed" ? "Stripe couldn't collect the payment." : "Stripe marked the invoice overdue.",
-        checks: ["Amount read from Stripe", "No late fee added"],
-        action: "Send email",
-        channel: "email",
-        to: text(payload, "email", 200) ?? name ?? "customer",
-        stake: owed,
-      };
-    }
+    case "invoice-late":
+      return reminderCard(card, business, payload);
     default:
       return card;
   }
+}
+
+/** The invoice a reminder event is about, or `null` when nothing tells it apart from the business's other invoices. */
+function invoiceRef(payload: Readonly<Record<string, unknown>>): InvoiceRef | null {
+  const owed = amount(payload, "amount") ?? 0;
+  const number = text(payload, "number", 40);
+  const name = text(payload, "name");
+  const key = invoiceKey({ number, email: text(payload, "email", 200), name, amount: owed });
+  if (key === null) return null;
+  return { key, amount: owed, ...(number ? { number } : {}), ...(name ? { customer: name.toLowerCase().replace(/\s+/g, " ") } : {}) };
+}
+
+/**
+ * Draft a payment reminder from the invoice's own facts: its amount, number and due date, and nothing else.
+ * `checkReminderDraft` reads the words back; if they ever fail it, a reminder with no numbers goes out instead.
+ */
+function reminderCard(card: KeyedCard, business: BusinessProfile, payload: Readonly<Record<string, unknown>>): KeyedCard {
+  const owed = amount(payload, "amount") ?? 0;
+  const number = text(payload, "number", 40);
+  const name = text(payload, "name");
+  const due = text(payload, "due", 40);
+  const first = name?.split(/\s+/)[0];
+  const invoice = number ? `invoice ${number}` : "your invoice";
+  const state = payload.kind === "failed" ? "is still open because the last payment didn't go through" : due ? `was due ${due}` : "is now past due";
+  const drafted = `Hi${first ? ` ${first}` : ""}, a quick reminder that ${invoice} from ${business.name} for ${money(owed)} ${state}. Reply here with any questions. Thanks!`;
+  const check = checkReminderDraft(drafted, { name: name ?? null, amount: owed, number: number ?? null, due: due ?? null }, [business.name]);
+  const body = check.ok ? drafted : `Hi${first ? ` ${first}` : ""}, a quick reminder about your open invoice from ${business.name}. Reply here with any questions. Thanks!`;
+  const ref = invoiceRef(payload);
+  return {
+    ...card,
+    title: `${name ?? "A customer"} owes ${money(owed)}${number ? ` on invoice ${number}` : ""}`,
+    body,
+    reason: payload.kind === "failed" ? "The last payment on this invoice didn't go through." : due ? `The invoice was due ${due}.` : "The invoice is past due.",
+    checks: ["Amount read from the invoice", "No late fee added", "At most 2 reminders per invoice"],
+    action: "Send email",
+    channel: "email",
+    to: text(payload, "email", 200) ?? name ?? "customer",
+    stake: owed,
+    ...(ref ? { invoice: ref } : {}),
+  };
+}
+
+/** The note the owner sees on a payment: which invoice, and how many waiting reminders it stopped. */
+function paidCard(card: KeyedCard, payload: Readonly<Record<string, unknown>>, canceled: { readonly cards: number; readonly outbox: number }): KeyedCard {
+  const name = text(payload, "name");
+  const number = text(payload, "number", 40);
+  const paid = amount(payload, "amount");
+  const which = number ? `Invoice ${number}` : "The invoice";
+  const stopped = canceled.cards + canceled.outbox;
+  const { to: _to, stake: _stake, invoice: _invoice, ...rest } = card;
+  return {
+    ...rest,
+    title: `${name ?? which} paid${paid === undefined ? "" : ` ${money(paid)}`}${name && number ? ` on invoice ${number}` : ""}`,
+    body:
+      stopped === 0
+        ? `${which}${name ? ` from ${name}` : ""} is marked paid. No reminders were waiting.`
+        : `${which}${name ? ` from ${name}` : ""} is marked paid. Anchored stopped ${stopped} reminder${stopped === 1 ? "" : "s"} that ${stopped === 1 ? "was" : "were"} waiting.`,
+    reason: "You marked this invoice paid.",
+    checks: ["No message sent to the customer"],
+    action: "Got it",
+    channel: "list",
+  };
 }
 
 /** Turn an event that asks about allergies into a locked card the owner must answer personally. */
@@ -206,6 +262,22 @@ export async function ingestEvent(session: string, business: BusinessProfile, so
 
   const stored = await store.listCards(session, business.id);
   const turn = stored.filter((card) => card.key.includes(":sim:")).length + 1;
+
+  // Bookkeeping's two rules run before any card is drafted: at most two reminders per invoice, and a payment stops the rest.
+  let canceled: { readonly cards: number; readonly outbox: number } | null = null;
+  if (source === "invoice-late") {
+    const ref = invoiceRef(payload);
+    if (ref === null) return { ok: false, status: 409, error: "Anchored can't tell this invoice apart from the others, so it won't draft a reminder. Add the invoice number or the customer's name or email." };
+    if (!canRemind(reminderRecords(stored), ref.key)) {
+      return { ok: false, status: 409, error: `${ref.number ? `Invoice ${ref.number}` : "This invoice"} already has 2 reminders. Anchored won't send a third. Call the customer if it's still unpaid.` };
+    }
+  }
+  if (source === "invoice-paid") {
+    const match = matchPaidInvoice(stored, { number: text(payload, "number", 40), email: text(payload, "email", 200), name: text(payload, "name"), amount: amount(payload, "amount") });
+    if (match.kind === "ambiguous") return { ok: false, status: 409, error: `${text(payload, "name") ?? "This customer"} has more than one open invoice: ${match.options.join(" and ")}. Which one was paid?` };
+    const which = text(payload, "number", 40);
+    canceled = match.kind === "match" ? await store.cancelInvoiceReminders(session, business.id, match.key, `Not sent: ${which ? `invoice ${which}` : "the invoice"} was paid.`) : { cards: 0, outbox: 0 };
+  }
   // Triage has no workflow to narrow to, so its card comes straight from the template,
   // told which agents are at work so it only routes to one that exists.
   const card: KeyedCard | null =
@@ -215,7 +287,7 @@ export async function ingestEvent(session: string, business: BusinessProfile, so
   if (!card) return { ok: false, status: 409, error: "That skill has no card to draft for this event yet." };
   // An allergy question gets no drafted answer at all: the thread is locked for the owner to reply.
   const message = text(payload, "message", 2000) ?? text(payload, "text", 2000) ?? "";
-  const drafted = mentionsAllergen(message) ? allergyLock(card, payload) : personalize(card, source, business, payload);
+  const drafted = canceled !== null ? paidCard(card, payload, canceled) : mentionsAllergen(message) ? allergyLock(card, payload) : personalize(card, source, business, payload);
   // The random suffix keeps two events arriving together from sharing a key.
   const key = origin === "simulated" ? `${card.key}-${randomUUID().slice(0, 8)}` : liveEventKey(business.id, randomUUID());
   await store.ensureCards(session, business.id, [{ ...drafted, key }]);
