@@ -110,7 +110,7 @@ export const SKILL_STEPS: Readonly<Record<SkillId, WorkSteps>> = {
   },
   triage: {
     trigger: "You forward an email to Anchored",
-    draft: "A card for the right agent",
+    draft: "The email, as a card for you",
     result: "Nothing lost in your inbox",
   },
   license: {

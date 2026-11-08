@@ -27,7 +27,7 @@ export const CONNECTION_COPY: Readonly<Record<ConnectionKind, { readonly name: s
   },
   "email-in": {
     name: "Forwarded email",
-    does: "Forward an email to your Anchored address and the right agent drafts a reply.",
+    does: "Forward an email to your Anchored address and it lands in Approvals as a card for you.",
     until: "Until it is, Anchored reads none of your email.",
   },
   stripe: {

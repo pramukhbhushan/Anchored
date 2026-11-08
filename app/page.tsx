@@ -26,7 +26,7 @@ const NEVER: Readonly<Record<CoreAgentId, string>> = {
   followup: "Never sends without your tap.",
   books: "Never sends a reminder you haven't approved.",
   content: "Never publishes. You post what you approve.",
-  internal: "Always on. Hands each forwarded email to the right agent.",
+  internal: "Always on. Never sends anything to a customer.",
 };
 
 /** Figures from docs/research/coaching-operations.md, each with its source. */

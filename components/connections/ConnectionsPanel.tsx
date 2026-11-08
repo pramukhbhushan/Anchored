@@ -143,7 +143,7 @@ function ServiceBlock({
       </h3>
       <p className={styles.does}>{copy.does}</p>
       <p className={view.connected ? styles.on : styles.off}>{status}</p>
-      {!view.connected && <p className={styles.reason}>{copy.until}</p>}
+      {!view.connected && <p className={styles.does}>{copy.until}</p>}
       {view.unavailable !== null && <p className={styles.reason}>{view.unavailable}</p>}
 
       {view.setup.length > 0 && (
