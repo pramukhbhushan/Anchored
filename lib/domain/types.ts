@@ -1,3 +1,4 @@
+import type { PostDraft } from "@/lib/domain/posts";
 import type { License } from "@/lib/domain/renewals";
 
 // =============================================================================
@@ -242,6 +243,8 @@ export interface CardDraft {
   readonly missingField?: FieldKey;
   /** Set when this card moves the conversation to another agent, such as Front Desk handing a price question to Follow-up. */
   readonly handoff?: { readonly to: CoreAgentId; readonly reason: string };
+  /** Set on a photo post: the photos and a caption per platform. `body` holds the Instagram caption. */
+  readonly post?: PostDraft;
   /** Set on a payment reminder: the invoice it's about, so reminders can be counted and canceled once it's paid. */
   readonly invoice?: InvoiceRef;
 }

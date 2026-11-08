@@ -3,9 +3,11 @@ import { randomUUID } from "node:crypto";
 import type { CardRecord, ChatMessage, OutboxEntry } from "@/lib/api/contract";
 import type { ConnectionKind } from "@/lib/domain/connections";
 import type { Contact } from "@/lib/domain/contacts";
+import { playbookForNiche, type PostPlaybook } from "@/lib/domain/playbook";
+import { PLAYBOOK_SEED } from "@/lib/domain/playbook-seed";
 import { defaultRuleState, type OutboxRule, type StandingRuleId, type StandingRuleState } from "@/lib/domain/rules";
 import { inOrder, type NewThreadMessage, type ThreadMessage } from "@/lib/domain/threads";
-import type { BusinessProfile, Choice, ChoiceMap, ConversationOwner, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
+import type { BusinessProfile, Choice, ChoiceMap, ConversationOwner, KeyedCard, ProfileChangeSource, TradeKey, WorkflowId } from "@/lib/domain/types";
 import {
   NotFoundError,
   type CardPatch,
@@ -17,10 +19,12 @@ import {
   type NewOutboxEntry,
   type NewTelegramChat,
   type OutboxPatch,
+  type PhotoFile,
   type ProfileVersion,
   type Store,
   type StoredEvent,
   type StoredConnection,
+  type StoredPhoto,
   type TelegramChat,
   type BriefRunResult,
   type BriefState,
@@ -59,6 +63,8 @@ interface SessionData {
   readonly ruleKeys: Set<string>;
   /** Each business's brief state, by business id. */
   readonly briefs: Map<string, BriefState>;
+  /** Uploaded photos by id. */
+  readonly photos: Map<string, StoredPhoto & PhotoFile>;
 }
 
 /** A Telegram update's processing state. */
@@ -66,6 +72,9 @@ interface UpdateClaim {
   status: "claimed" | "done" | "failed";
   claimedAt: string;
 }
+
+// Past this many photos a session's oldest is dropped, so photos can't fill a server's memory.
+const MAX_PHOTOS_PER_SESSION = 60;
 
 // Past this many sessions the oldest is dropped, so a server on memory can't grow without bound.
 const MAX_SESSIONS = 2000;
@@ -110,6 +119,7 @@ export class MemoryStore implements Store {
         telegramHooks: new Map(),
         ruleKeys: new Set(),
         briefs: new Map(),
+        photos: new Map(),
       };
       this.sessions.set(session, found);
     }
@@ -488,6 +498,30 @@ export class MemoryStore implements Store {
 
   async findIntakeByBusiness(session: string, businessId: string): Promise<IntakeRecord | null> {
     return [...(this.peek(session)?.intakes.values() ?? [])].find((intake) => intake.businessId === businessId) ?? null;
+  }
+
+  async savePhoto(session: string, businessId: string, data: Uint8Array, contentType: string): Promise<StoredPhoto> {
+    const photos = this.data(session).photos;
+    if (photos.size >= MAX_PHOTOS_PER_SESSION) {
+      const oldest = photos.keys().next().value;
+      if (oldest !== undefined) photos.delete(oldest);
+    }
+    const photo = { id: randomUUID(), businessId, contentType, size: data.byteLength };
+    photos.set(photo.id, { ...photo, data: data.slice() });
+    return photo;
+  }
+
+  async getPhoto(session: string, businessId: string, photoId: string): Promise<PhotoFile | null> {
+    const photo = this.peek(session)?.photos.get(photoId);
+    return photo && photo.businessId === businessId ? { contentType: photo.contentType, data: photo.data } : null;
+  }
+
+  async photoExists(session: string, businessId: string, photoId: string): Promise<boolean> {
+    return this.peek(session)?.photos.get(photoId)?.businessId === businessId;
+  }
+
+  async listPostPlaybook(niche: TradeKey): Promise<PostPlaybook> {
+    return playbookForNiche(PLAYBOOK_SEED, niche);
   }
 
   async reset(session: string): Promise<void> {

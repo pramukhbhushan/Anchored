@@ -90,8 +90,8 @@ export class OpenAICompatibleProvider implements LlmProvider {
     return this.config.models[tier];
   }
 
-  /** POST a chat completion and return the first choice's text. */
-  private async complete(request: TextRequest, prompt: string, extraBody: Readonly<Record<string, unknown>>): Promise<string> {
+  /** POST a chat completion and return the first choice's text. With `cutOffMatters`, a reply stopped at the token limit throws. */
+  private async complete(request: TextRequest, prompt: string, extraBody: Readonly<Record<string, unknown>>, cutOffMatters = false): Promise<string> {
     const headers: Record<string, string> = { Authorization: `Bearer ${this.config.apiKey}`, "Content-Type": "application/json" };
     if (this.dialect.titleHeader) headers[this.dialect.titleHeader] = APP_TITLE;
     if (this.config.appUrl) headers["HTTP-Referer"] = this.config.appUrl;
@@ -116,6 +116,9 @@ export class OpenAICompatibleProvider implements LlmProvider {
     if (choice.message.refusal || choice.finish_reason === "content_filter") throw new LlmRefusalError(`${this.label} declined this request.`);
     const text = choice.message.content?.trim();
     if (!text) throw new LlmResponseError(`${this.label} returned no text.`);
+    // A model that thinks before it answers can spend the token budget and stop mid-answer. Cut-off JSON never
+    // parses, so say so plainly instead of "not JSON".
+    if (cutOffMatters && choice.finish_reason === "length") throw new LlmResponseError(`${this.label} ran out of room and stopped mid-answer. Raise \`maxTokens\`.`);
     return text;
   }
 
@@ -130,10 +133,10 @@ export class OpenAICompatibleProvider implements LlmProvider {
       text = await this.complete(request, request.prompt, {
         response_format: { type: "json_schema", json_schema: { name: request.schemaName, strict: true, schema: jsonSchema } },
         ...this.dialect.structuredBody,
-      });
+      }, true);
     } else {
       const prompt = `${request.prompt}\n\nReply with only one JSON object that matches this JSON Schema, and no other text:\n${JSON.stringify(jsonSchema)}`;
-      text = await this.complete(request, prompt, {});
+      text = await this.complete(request, prompt, {}, true);
     }
 
     let value: unknown;

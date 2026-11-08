@@ -58,10 +58,12 @@ describe("recorded work stores", () => {
     const calls: URL[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: string | URL) => {
       calls.push(new URL(String(input)));
-      return new Response(null, { status: 204 });
+      // Reset also lists the session's post photos in Storage, which answers with a JSON list; tables answer 204.
+      return String(input).includes("/storage/v1/") ? Response.json([]) : new Response(null, { status: 204 });
     }));
     await new SupabaseStore("https://database.test", "service-test").reset("owner");
-    expect(calls.some((url) => url.pathname.endsWith("/customer_followups") && url.searchParams.get("session_id") === "eq.owner")).toBe(true);
-    expect(calls.every((url) => url.searchParams.get("session_id") === "eq.owner")).toBe(true);
+    const tables = calls.filter((url) => url.pathname.includes("/rest/v1/"));
+    expect(tables.some((url) => url.pathname.endsWith("/customer_followups") && url.searchParams.get("session_id") === "eq.owner")).toBe(true);
+    expect(tables.every((url) => url.searchParams.get("session_id") === "eq.owner")).toBe(true);
   });
 });

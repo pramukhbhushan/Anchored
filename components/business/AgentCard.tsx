@@ -8,7 +8,9 @@ import { businessHref, cardAnchor } from "@/components/routes";
 import { useToast, type ToastLink } from "@/components/ui/Toast";
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
+import { PostPreview, type PostSelection } from "@/components/business/PostPreview";
 import { copyText } from "@/components/business/SendYourself";
+import { PLATFORM_RULES } from "@/lib/domain/playbook";
 import { approvedDraft, copiedThing, copyTextFor, handOff, massAudience, type HandOffBusiness } from "@/components/business/handoff";
 import type { CardRecord, DecideCardRequest, DecideCardResponse, RewriteResponse } from "@/lib/api/contract";
 
@@ -90,6 +92,8 @@ export function AgentCard({
   const editId = useId();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(card.body);
+  // On a photo post, the caption on screen: approving copies exactly this text.
+  const [postPick, setPostPick] = useState<PostSelection>({ platform: "instagram", caption: card.post?.captions.instagram ?? card.body });
   // The body waiting on "Yes, send to N customers", or `null` when no confirmation is open.
   const [confirming, setConfirming] = useState<string | null>(null);
   const [note, setNote] = useState("");
@@ -153,7 +157,8 @@ export function AgentCard({
       void decide({ decision: "approve", body });
       return;
     }
-    if (copiedThing(card.action) === "post") {
+    // A photo post's owner picks the platform on the card, so only a text post opens Instagram.
+    if (copiedThing(card.action) === "post" && card.post === undefined) {
       const step = handOff({ channel: "list", to: card.to ?? "customer", body, title: card.title, action: card.action }, business);
       const instagram = step?.kind === "copy" ? step.places.find((place) => /instagram/i.test(place.label)) : undefined;
       if (instagram !== undefined) window.open(instagram.href, "_blank", "noopener,noreferrer");
@@ -282,21 +287,30 @@ export function AgentCard({
   } else {
     actions = (
       <div className="card-acts">
-        <Button size="sm" onClick={() => approve(card.body)} disabled={disabled}>
-          Approve: {copiedThing(card.action) === "post" ? "Copy caption and open Instagram" : card.action}
-        </Button>
-        <Button
-          variant="quiet"
-          size="sm"
-          aria-label={`Edit: ${card.title}`}
-          onClick={() => {
-            setDraft(card.body);
-            setEditing(true);
-          }}
-          disabled={disabled}
-        >
-          Edit
-        </Button>
+        {card.post ? (
+          <Button size="sm" onClick={() => approve(postPick.caption.trim() === "" ? card.body : postPick.caption)} disabled={disabled}>
+            Approve: Copy {PLATFORM_RULES[postPick.platform].label} caption
+          </Button>
+        ) : (
+          <Button size="sm" onClick={() => approve(card.body)} disabled={disabled}>
+            Approve: {copiedThing(card.action) === "post" ? "Copy caption and open Instagram" : card.action}
+          </Button>
+        )}
+        {/* A photo post edits its captions in place, so it has no separate edit step. */}
+        {!card.post && (
+          <Button
+            variant="quiet"
+            size="sm"
+            aria-label={`Edit: ${card.title}`}
+            onClick={() => {
+              setDraft(card.body);
+              setEditing(true);
+            }}
+            disabled={disabled}
+          >
+            Edit
+          </Button>
+        )}
         <Button
           variant="quiet"
           size="sm"
@@ -328,6 +342,8 @@ export function AgentCard({
           </label>
           <textarea id={editId} value={draft} onChange={(event) => setDraft(event.target.value)} autoFocus />
         </div>
+      ) : card.post ? (
+        <PostPreview post={card.post} disabled={disabled} onChange={setPostPick} />
       ) : (
         <p className="draft">{card.body}</p>
       )}

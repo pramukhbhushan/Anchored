@@ -1,5 +1,6 @@
 import { WORKFLOW_SKILLS } from "@/lib/domain/agents";
 import { ensureOptOut, mentionsAllergen, QUIET_HOURS_RULE } from "@/lib/domain/executor";
+import { POST_BRIEF_QUESTION } from "@/lib/domain/posts";
 import type { BusinessProfile, CardDraft, Channel, SkillId, WorkflowId } from "@/lib/domain/types";
 import { WORKFLOW_IDS, WORKFLOWS } from "@/lib/domain/workflows";
 
@@ -542,6 +543,13 @@ const ASK_EXAMPLES: readonly { readonly skill: AskableSkill; readonly text: stri
 /** The example request for one skill, such as "Write a post for our Google listing", or `null` when chat can't ask it for work. */
 export function askExampleFor(skill: string): string | null {
   return ASK_EXAMPLES.find((example) => example.skill === skill)?.text ?? null;
+}
+
+/** The question Anchored asks in chat when the owner turns on `skill`, inviting its first piece of work. */
+export function automationQuestion(skill: SkillId, jobName: string): string | null {
+  if (skill === "posts") return `${jobName} is on. Want to make a post now? ${POST_BRIEF_QUESTION} Add your photos with the photo button next to the text box and send them with your intro.`;
+  const example = askExampleFor(skill);
+  return example === null ? null : `${jobName} is on. Want me to draft one now? Tell me what you need, like "${example}."`;
 }
 
 export function askExample(chosen: readonly SkillId[]): string {

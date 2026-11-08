@@ -3,10 +3,11 @@ import type { CardRecord, CardStatus, ChatMessage, Delivery, OutboxEntry } from 
 import type { ConnectionKind } from "@/lib/domain/connections";
 import type { Contact } from "@/lib/domain/contacts";
 import type { IntakeDraft } from "@/lib/domain/intake";
+import type { PostPlaybook } from "@/lib/domain/playbook";
 import type { BriefSnapshot } from "@/lib/domain/brief";
 import type { OutboxRule, StandingRuleId, StandingRuleState } from "@/lib/domain/rules";
 import type { NewThreadMessage, ThreadMessage } from "@/lib/domain/threads";
-import type { BusinessProfile, Choice, ChoiceMap, ConversationOwner, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
+import type { BusinessProfile, Choice, ChoiceMap, ConversationOwner, KeyedCard, ProfileChangeSource, TradeKey, WorkflowId } from "@/lib/domain/types";
 
 // =============================================================================
 // Module Overview
@@ -60,6 +61,20 @@ export type NewConnection = Omit<StoredConnection, "id" | "createdAt">;
 
 /** A contact before the store assigns its id; with `id` set, it replaces that contact. */
 export type NewContact = Omit<Contact, "id"> & { readonly id?: string };
+
+/** A photo an owner uploaded for a post, without its bytes. */
+export interface StoredPhoto {
+  readonly id: string;
+  readonly businessId: string;
+  readonly contentType: string;
+  readonly size: number;
+}
+
+/** A photo's bytes and type, as `getPhoto` returns them. */
+export interface PhotoFile {
+  readonly contentType: string;
+  readonly data: Uint8Array;
+}
 
 /** A chat thread: one onboarding intake, or one business's ongoing chat. */
 export interface ChatThread {
@@ -121,8 +136,8 @@ export interface StoredEvent {
 
 /**
  * Persistence for businesses, choices, cards, the outbox, raw events, chats, contacts, connections, customer threads,
- * Telegram chats and standing rules. Every method takes the session first and touches only its rows, except the ones
- * marked deployment-wide, which webhooks and the scheduled sender use and which return the owning session.
+ * Telegram chats, standing rules and post photos. Every method takes the session first and touches only its rows, except
+ * the ones marked deployment-wide, which webhooks, the scheduled sender and the shared post playbook use.
  */
 export interface Store {
   readonly kind: "supabase" | "memory";
@@ -190,6 +205,14 @@ export interface Store {
   deleteConnection(session: string, businessId: string, kind: ConnectionKind): Promise<void>;
   /** The connection a webhook names, with the session that owns it, or `null`. Deployment-wide. */
   findConnection(hookId: string): Promise<{ readonly session: string; readonly connection: StoredConnection } | null>;
+  /** Save a photo the owner uploaded for a post. `data` has already passed `checkPhoto`. */
+  savePhoto(session: string, businessId: string, data: Uint8Array, contentType: string): Promise<StoredPhoto>;
+  /** A photo's bytes, or `null` when this session's business has no photo with that id. */
+  getPhoto(session: string, businessId: string, photoId: string): Promise<PhotoFile | null>;
+  /** Report whether this session's business has a photo with this id, without reading its bytes. */
+  photoExists(session: string, businessId: string, photoId: string): Promise<boolean>;
+  /** The post formats, hooks and hashtags that apply to `niche`. Shared reference rows, read-only. Deployment-wide. */
+  listPostPlaybook(niche: TradeKey): Promise<PostPlaybook>;
   /**
    * Return the business's Telegram hook id, the random id in its customer link. The first call saves `candidate`;
    * later calls return the saved one. Throws `NotFoundError` when the business isn't the session's.

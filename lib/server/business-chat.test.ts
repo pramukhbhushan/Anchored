@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SAMPLE_BUSINESS } from "@/lib/domain/cases";
 import { OPT_OUT_LINE } from "@/lib/domain/executor";
+import { POST_BRIEF_QUESTION } from "@/lib/domain/posts";
 import { chatCardKey } from "@/lib/domain/requests";
 import type { LlmProvider } from "@/lib/llm";
 import { MemoryStore } from "@/lib/store/memory";
@@ -33,7 +34,8 @@ vi.mock("@/lib/connectors/google-sheets", () => ({
   },
 }));
 
-const { listBusinessChat, sendBusinessChat } = await import("./business-chat");
+const { askInChat, listBusinessChat, sendBusinessChat } = await import("./business-chat");
+const { setAutomation } = await import("./automations");
 const { ConnectorError } = await import("@/lib/connectors/errors");
 
 beforeEach(() => {
@@ -290,6 +292,152 @@ describe("connecting an invoice sheet in chat", () => {
   });
 });
 
+describe("photo posts in chat", () => {
+  const shop = hvacShop();
+  const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
+
+  /** Turn on post drafts and upload `count` photos, returning their ids. */
+  async function setUp(count: number): Promise<string[]> {
+    await stores.current!.setChoice(SESSION, shop.id, "social", { path: "build", skills: ["posts"] });
+    const photos = [];
+    for (let i = 0; i < count; i++) photos.push((await stores.current!.savePhoto(SESSION, shop.id, JPEG, "image/jpeg")).id);
+    return photos;
+  }
+
+  it("drafts a post card with the photos and a caption per platform, and links the reply to it", async () => {
+    const photos = await setUp(3);
+    const sent = await sendBusinessChat(SESSION, shop, "Before and after of a furnace replacement", undefined, photos);
+
+    const reply = sent.messages.at(-1);
+    expect(reply?.text).toContain('drafted a "Before and after" post from your 3 photos');
+    const [card] = await stores.current!.listCards(SESSION, shop.id);
+    expect(card).toMatchObject({ skill: "posts", channel: "list", action: "Copy post", title: "Post: Before and after of a furnace replacement", key: chatCardKey(shop.id, reply!.id) });
+    expect(card?.post?.photos.map((p) => p.id)).toEqual(photos);
+    expect(card?.post?.photos[0]?.url).toBe(`/api/businesses/${shop.id}/photos/${photos[0]}`);
+    expect(Object.keys(card?.post?.captions ?? {})).toEqual(["instagram", "facebook", "linkedin"]);
+    expect(card?.body).toBe(card?.post?.captions.instagram);
+    expect(reply?.card?.key).toBe(card?.key);
+  });
+
+  it("drafts no post when post drafts are off", async () => {
+    const photos = await setUp(1);
+    await stores.current!.setChoice(SESSION, shop.id, "social", { path: "skip" });
+    const sent = await sendBusinessChat(SESSION, shop, "New furnace", undefined, photos);
+    expect(sent.messages.at(-1)?.text).toContain("post drafts are off for College Park Heating & Air. Turn on \"Social posts and marketing\" on the Automations page");
+    expect(sent.keepComposer).toBe(true);
+    expect(await stores.current!.listCards(SESSION, shop.id)).toHaveLength(0);
+  });
+
+  it("refuses photos that aren't this business's own", async () => {
+    await setUp(0);
+    const other = await stores.current!.savePhoto("another-session", shop.id, JPEG, "image/jpeg");
+    const sent = await sendBusinessChat(SESSION, shop, "New furnace", undefined, [other.id]);
+    expect(sent.messages.at(-1)?.text).toContain("couldn't find one of those photos");
+    expect(sent.keepComposer).toBe(true);
+    expect(await stores.current!.listCards(SESSION, shop.id)).toHaveLength(0);
+  });
+
+  it("stops at 10 posts a day and calls no model for the 11th", async () => {
+    const photos = await setUp(1);
+    for (let i = 0; i < 10; i++) await sendBusinessChat(SESSION, shop, `Job number ${i}`, undefined, photos);
+    expect(await stores.current!.listCards(SESSION, shop.id)).toHaveLength(10);
+
+    const generateObject = vi.fn();
+    models.current = { generateText: vi.fn(), generateObject } as unknown as LlmProvider;
+    const sent = await sendBusinessChat(SESSION, shop, "One more", undefined, photos);
+    expect(sent.messages.at(-1)?.text).toContain("You've made 10 photo posts in the last day");
+    expect(generateObject).not.toHaveBeenCalled();
+    expect(await stores.current!.listCards(SESSION, shop.id)).toHaveLength(10);
+  });
+});
+
+describe("asking for posts and marketing help in chat", () => {
+  const shop = hvacShop();
+  const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
+  const ASK = "Marketing is our top priority. Can you help turn our classroom event photos into social posts?";
+
+  async function postsOn(on: boolean): Promise<void> {
+    await stores.current!.setChoice(SESSION, shop.id, "social", on ? { path: "build", skills: ["posts"] } : { path: "skip" });
+  }
+
+  it("answers with the post question, and leaves the profile alone even when the model reads a change", async () => {
+    await postsOn(true);
+    models.current = modelReading({ kind: "Café", name: null, place: null, voice: null });
+    const sent = await sendBusinessChat(SESSION, shop, ASK);
+    expect(sent.messages.at(-1)?.text).toContain(POST_BRIEF_QUESTION);
+    expect(sent.changes).toEqual([]);
+  });
+
+  it.each(["please help us make a carousel", "We have a marketing problem"])("treats %j as a post request", async (text) => {
+    await postsOn(true);
+    expect((await sendBusinessChat(SESSION, shop, text)).messages.at(-1)?.text).toContain(POST_BRIEF_QUESTION);
+  });
+
+  it("says how to turn post drafts on when they're off", async () => {
+    await postsOn(false);
+    const sent = await sendBusinessChat(SESSION, shop, ASK);
+    expect(sent.messages.at(-1)?.text).toContain('Turn on "Social posts and marketing" on the Automations page');
+  });
+
+  it("still drafts a text post the owner asks for by name", async () => {
+    await postsOn(true);
+    const sent = await sendBusinessChat(SESSION, shop, "Write a post about this week's special");
+    expect(sent.messages.at(-1)?.card).toBeDefined();
+  });
+
+  it("asks for the photos when the owner answers the post question without them, and keeps their words", async () => {
+    await postsOn(true);
+    await sendBusinessChat(SESSION, shop, ASK);
+    const sent = await sendBusinessChat(SESSION, shop, "Our weekend workshop, where students built solar heaters");
+    expect(sent.messages.at(-1)?.text).toContain("add the photos for this post");
+    expect(sent.keepComposer).toBe(true);
+    expect(await stores.current!.listCards(SESSION, shop.id)).toHaveLength(0);
+  });
+
+  it("asks the post question when the photos come with only instructions, and keeps them to resend", async () => {
+    await postsOn(true);
+    const photo = await stores.current!.savePhoto(SESSION, shop.id, JPEG, "image/jpeg");
+    const sent = await sendBusinessChat(SESSION, shop, "Draft only. Use a warm tone.", undefined, [photo.id]);
+    expect(sent.messages.at(-1)?.text).toContain(POST_BRIEF_QUESTION);
+    expect(sent.keepComposer).toBe(true);
+    expect(await stores.current!.listCards(SESSION, shop.id)).toHaveLength(0);
+  });
+
+  it("drafts from a brief that mixes facts with instructions, keeping the instructions out of the captions", async () => {
+    await postsOn(true);
+    const photo = await stores.current!.savePhoto(SESSION, shop.id, JPEG, "image/jpeg");
+    const sent = await sendBusinessChat(SESSION, shop, "Marketing test: a recap of our classroom event. The photos show a projected presentation. Draft only.", undefined, [photo.id]);
+    expect(sent.keepComposer).toBeUndefined();
+    const [card] = await stores.current!.listCards(SESSION, shop.id);
+    expect(card?.post?.captions.instagram).toContain("A projected presentation.");
+    expect(card?.post?.captions.instagram).not.toMatch(/Draft only|Marketing test/);
+  });
+});
+
+describe("turning an automation on or off", () => {
+  const shop = hvacShop();
+
+  it("turns post drafts on and asks the post question in chat, after the welcome line", async () => {
+    await stores.current!.saveBusiness(SESSION, shop, "chat");
+    const result = await setAutomation(SESSION, shop, "social", true);
+    expect(result).toEqual({ choice: { path: "build", skills: expect.arrayContaining(["posts"]) }, asked: true });
+    const { messages } = await listBusinessChat(SESSION, shop);
+    expect(messages).toHaveLength(2);
+    expect(messages[1]?.text).toBe(`Social posts and marketing is on. Want to make a post now? ${POST_BRIEF_QUESTION} Add your photos with the photo button next to the text box and send them with your intro.`);
+  });
+
+  it("turns a job off, so nobody handles it, and asks nothing", async () => {
+    const result = await setAutomation(SESSION, shop, "social", false);
+    expect(result).toEqual({ choice: { path: "skip" }, asked: false });
+    expect((await listBusinessChat(SESSION, shop)).messages.every((m) => !m.text.includes("is on."))).toBe(true);
+  });
+
+  it("puts a question in an existing thread without repeating the welcome line", async () => {
+    await askInChat(SESSION, shop, "First");
+    await askInChat(SESSION, shop, "Second");
+    expect((await listBusinessChat(SESSION, shop)).messages.map((m) => m.text).slice(-2)).toEqual(["First", "Second"]);
+  });
+});
 
 describe("agent-scoped conversations", () => {
   const shop = hvacShop();

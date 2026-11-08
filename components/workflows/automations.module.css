@@ -1,0 +1,38 @@
+/* =============================================================================
+   Module Overview
+   =============================================================================
+   The Automations page, with its on/off switches, and the chat box on each
+   automation page. Colors and spacing come from the tokens in
+   `app/globals.css`. */
+
+.stages{display:flex;flex-direction:column;gap:var(--s-7);margin-top:var(--s-6)}
+.stage{display:flex;flex-direction:column;gap:var(--s-4)}
+.stage h2{font-size:var(--fs-xl)}
+.stageBlurb{color:var(--ink-2);max-width:65ch}
+.jobs{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:var(--s-4)}
+.job{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:var(--pad);display:flex;flex-direction:column;gap:var(--s-3);min-width:0}
+.job[data-on="false"]{background:var(--paper)}
+.jobHead{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:var(--s-2) var(--s-3)}
+.jobHead h3{font-size:var(--fs-lg)}
+.who{font-size:var(--fs-sm);color:var(--ink-2)}
+.who b{color:var(--ink)}
+.autos{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--s-1);font-size:var(--fs-sm)}
+.autos a{font-weight:600}
+.wait{margin-left:var(--s-2);color:var(--muted)}
+.links{display:flex;flex-wrap:wrap;gap:var(--s-3);font-size:var(--fs-sm);margin-top:auto}
+
+/* The switch sits beside the job name; a note under it takes the card's full width. */
+.switchBox{display:contents}
+.switch{display:inline-flex;align-items:center;gap:var(--s-2);border:1.5px solid var(--ink);border-radius:999px;background:var(--sheet);color:var(--ink);padding:4px 12px 4px 4px;font:700 var(--fs-sm)/1 var(--body);cursor:pointer;min-height:36px}
+.knob{width:26px;height:26px;border-radius:50%;background:var(--line);transition:background .15s ease}
+.switch[aria-checked="true"]{background:var(--ink);color:var(--sheet)}
+.switch[aria-checked="true"] .knob{background:var(--sheet)}
+.switch:disabled{opacity:.55;cursor:not-allowed}
+.switch:focus-visible{outline:3px solid var(--link);outline-offset:2px}
+.asked,.error{grid-column:1/-1;font-size:var(--fs-sm)}
+.error{color:var(--warn)}
+
+.ask{display:flex;flex-direction:column;align-items:flex-start;gap:var(--s-2)}
+.askLabel{font-weight:700}
+.askBox{width:100%;min-height:84px;resize:vertical;border:1px solid var(--line);border-radius:var(--r);padding:var(--s-3);font:inherit;background:var(--sheet);color:var(--ink)}
+.askBox:focus-visible{outline:3px solid var(--link);outline-offset:1px}

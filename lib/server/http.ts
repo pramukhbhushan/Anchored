@@ -26,9 +26,9 @@ export function fail(status: number, message: string): NextResponse<ApiError> {
 const MAX_BODY_BYTES = 64 * 1024;
 
 /** Read the body as text, stopping at `MAX_BODY_BYTES`, or return `null` when it is larger. */
-async function readCapped(request: Request): Promise<string | null> {
-  // A chunked body declares no length, so the middleware's check can't see it; count bytes as they arrive.
-  if (!request.body) return "";
+/** Read the body's bytes, or `null` once it passes `max`. A chunked body declares no length, so count bytes as they arrive. */
+export async function readBytesCapped(request: Request, max: number): Promise<Uint8Array | null> {
+  if (!request.body) return new Uint8Array();
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
@@ -36,13 +36,18 @@ async function readCapped(request: Request): Promise<string | null> {
     const { done, value } = await reader.read();
     if (done) break;
     total += value.byteLength;
-    if (total > MAX_BODY_BYTES) {
+    if (total > max) {
       await reader.cancel();
       return null;
     }
     chunks.push(value);
   }
-  return new TextDecoder().decode(Buffer.concat(chunks));
+  return new Uint8Array(Buffer.concat(chunks));
+}
+
+async function readCapped(request: Request): Promise<string | null> {
+  const bytes = await readBytesCapped(request, MAX_BODY_BYTES);
+  return bytes === null ? null : new TextDecoder().decode(bytes);
 }
 
 /** Parse the request body against `schema`, or return the 400, 413 or 415 response to send instead. */

@@ -24,6 +24,6 @@ describe("agent workspace routes", () => {
   });
 
   it("retains the existing top-level sections in their order", () => {
-    expect(SECTIONS.map((entry) => entry.label)).toEqual(["Overview", "Chat", "Workflows", "Tools", "Approvals", "Connections", "Stack", "Profile"]);
+    expect(SECTIONS.map((entry) => entry.label)).toEqual(["Overview", "Chat", "Workflows", "Automations", "Tools", "Approvals", "Connections", "Stack", "Profile"]);
   });
 });

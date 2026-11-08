@@ -40,7 +40,7 @@ export async function POST(request: Request, { params }: Context) {
     const { id } = await params;
     const business = await findBusiness(id);
     if (!business) return fail(404, NOT_FOUND);
-    return json<BusinessChatResponse>(await sendBusinessChat(await getSessionId(), business, parsed.data.text, parsed.data.agent));
+    return json<BusinessChatResponse>(await sendBusinessChat(await getSessionId(), business, parsed.data.text, parsed.data.agent, parsed.data.photos ?? []));
   } catch (error) {
     return handleError(error, "POST /api/businesses/[id]/chat");
   }

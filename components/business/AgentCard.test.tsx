@@ -93,6 +93,63 @@ async function findToast(text: RegExp | string): Promise<HTMLElement> {
   return toast;
 }
 
+const PHOTO_POST: CardRecord = {
+  ...CARD,
+  id: "card-post",
+  key: "greenfield:chat:m3",
+  agent: "content",
+  skill: "posts",
+  title: "Post: Before and after of a patio",
+  body: "Same patio. One day apart.\n\n#Landscaping #SmallBusiness #Greenfield",
+  reason: "You sent 2 photos in chat.",
+  checks: ['Follows the "Before and after" format', "Hashtags from your trade's list"],
+  action: "Copy post",
+  channel: "list",
+  to: undefined,
+  post: {
+    description: "Before and after of a patio",
+    photos: [
+      { id: "a", url: "/api/businesses/greenfield/photos/a" },
+      { id: "b", url: "/api/businesses/greenfield/photos/b" },
+    ],
+    formats: { instagram: { id: "before-after", name: "Before and after" }, facebook: { id: "before-after", name: "Before and after" }, linkedin: { id: "before-after", name: "Before and after" } },
+    captions: {
+      instagram: "Same patio. One day apart.\n\n#Landscaping #SmallBusiness #Greenfield",
+      facebook: "A patio we just finished.\n\n#Landscaping #Greenfield",
+      linkedin: "A patio project we finished this week.\n\n#Landscaping #SmallBusiness #Greenfield",
+    },
+    written: { instagram: "ai", facebook: "ai", linkedin: "ai" },
+    slides: [],
+  },
+};
+
+describe("AgentCard, photo posts", () => {
+  it("shows the photos and captions in place of the plain draft, with no separate Edit step", () => {
+    renderCard(PHOTO_POST);
+
+    expect(within(screen.getByRole("list", { name: "Photos, in posting order" })).getAllByRole("img")).toHaveLength(2);
+    expect(screen.getByRole("tab", { name: "Instagram" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Edit:/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Approve: Copy Instagram caption" })).toBeInTheDocument();
+  });
+
+  it("approves and copies the caption on screen, edits included", async () => {
+    const user = userEvent.setup();
+    const fetchSpy = stubFetch(() => decided(PHOTO_POST, { outbox: outboxFor(PHOTO_POST) }));
+    renderCard(PHOTO_POST);
+
+    await user.click(screen.getByRole("tab", { name: "LinkedIn" }));
+    const box = screen.getByRole("textbox", { name: /LinkedIn caption/ });
+    await user.type(box, " Thanks to the crew.");
+    await user.click(screen.getByRole("button", { name: "Approve: Copy LinkedIn caption" }));
+
+    const edited = `${PHOTO_POST.post!.captions.linkedin} Thanks to the crew.`;
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
+    expect(sentJson(fetchSpy, 0)).toMatchObject({ url: "/api/cards/card-post", body: { decision: "approve", body: edited } });
+    expect(await navigator.clipboard.readText()).toBe(edited);
+  });
+});
+
 describe("AgentCard", () => {
   it("shows the draft, who drafted it, who it goes to and why now", () => {
     renderCard(CARD);

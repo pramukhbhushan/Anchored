@@ -1,11 +1,13 @@
 "use client";
 
-import { Anchor, ArrowLeftRight, ArrowUp, Check, ChevronDown, ChevronRight, CircleAlert, Inbox, Minus, Plus, RotateCcw } from "lucide-react";
+import { Anchor, ArrowLeftRight, ArrowUp, Check, ChevronDown, ChevronRight, CircleAlert, ImagePlus, Inbox, Minus, Plus, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { callApi, errorText, getApi } from "@/components/api";
 import { BoxGrip, useBoxHeight } from "@/components/chat/BoxGrip";
+import { PhotoTray } from "@/components/chat/PhotoTray";
+import { usePhotoPicker, type PhotoPicker } from "@/components/chat/photo-upload";
 import { ResizablePanel } from "@/components/resize/ResizablePanel";
 import { businessHref, cardAnchor, NEW_BUSINESS_HREF } from "@/components/routes";
 import { FactProgress } from "@/components/ui/FactProgress";
@@ -13,6 +15,7 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { GENERIC_STARTERS } from "@/components/chat/starters";
 import type { BusinessChatResponse, CardStatus, ChatCardLink, ChatMessage, IntakeAnswerRequest, IntakeResponse, StartIntakeResponse } from "@/lib/api/contract";
 import { answerText, CHANGE_AREA_LABEL, INTAKE_FIELDS, type IntakeQuestion, type KnownFact, type ProfileChange } from "@/lib/domain/intake";
+import { POST_BRIEF_QUESTION } from "@/lib/domain/posts";
 import styles from "./chat.module.css";
 
 // =============================================================================
@@ -24,17 +27,21 @@ import styles from "./chat.module.css";
 // the owner says what changed and the page refreshes to show the new plan, or
 // asks an agent for work and follows the reply's link to the draft in Approvals.
 
-/** Onboard or chat about a business; supply optional agent context only when the server supports scoped requests. */
+/**
+ * Onboard or chat about a business. The example business passes `readOnly`; `starters` are the first messages offered;
+ * `ask` is words to start the text box with, carried from an automation page. Supply optional agent context only when
+ * the server supports scoped requests.
+ */
 export type ChatWindowProps =
   | { readonly mode: "intake" }
-  | { readonly mode: "business"; readonly businessId: string; readonly readOnly?: boolean; readonly starters?: readonly string[]; readonly agent?: string; readonly agentName?: string };
+  | { readonly mode: "business"; readonly businessId: string; readonly readOnly?: boolean; readonly starters?: readonly string[]; readonly ask?: string; readonly agent?: string; readonly agentName?: string };
 
 /** Render the chat for `props.mode`. */
 export function ChatWindow(props: ChatWindowProps) {
   return props.mode === "intake" ? (
     <IntakeChat />
   ) : (
-    <BusinessChat key={JSON.stringify([props.businessId, props.agent ?? null])} businessId={props.businessId} readOnly={props.readOnly ?? false} starters={props.starters ?? GENERIC_STARTERS} agent={props.agent} agentName={props.agentName} />
+    <BusinessChat key={JSON.stringify([props.businessId, props.agent ?? null])} businessId={props.businessId} readOnly={props.readOnly ?? false} starters={props.starters ?? GENERIC_STARTERS} agent={props.agent} agentName={props.agentName} ask={props.ask} />
   );
 }
 
@@ -316,16 +323,24 @@ function IntakeChat() {
 // Business chat
 // =============================================================================
 
+/** Words for the text box. `n` changes each time, so the same words can come back twice. */
+interface Refill {
+  readonly text: string;
+  readonly n: number;
+}
+
 function BusinessChat({
   businessId,
   readOnly,
   starters,
+  ask,
   agent,
   agentName,
 }: {
   readonly businessId: string;
   readonly readOnly: boolean;
   readonly starters: readonly string[];
+  readonly ask?: string;
   readonly agent?: string;
   readonly agentName?: string;
 }) {
@@ -333,9 +348,20 @@ function BusinessChat({
   const [messages, setMessages] = useState<readonly ChatMessage[] | null>(null);
   const { outgoing, busy, run } = useSender();
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const picker = usePhotoPicker(businessId);
   const mounted = useRef(false);
   const contextName = agent === undefined ? null : (agentName ?? agent);
   const url = `/api/businesses/${encodeURIComponent(businessId)}/chat`;
+  // Words to put back in the text box: an automation page's question to start, or a message Anchored didn't act on.
+  const [refill, setRefill] = useState<Refill | null>(ask !== undefined && ask.trim() !== "" ? { text: ask, n: 0 } : null);
+
+  useEffect(() => {
+    // The words now sit in the text box, so a reload shouldn't bring them back.
+    if (ask === undefined) return;
+    const next = new URL(window.location.href);
+    next.searchParams.delete("ask");
+    window.history.replaceState(null, "", `${next.pathname}${next.search}`);
+  }, [ask]);
   const historyUrl = agent === undefined ? url : `${url}?agent=${encodeURIComponent(agent)}`;
 
   useEffect(() => {
@@ -352,9 +378,15 @@ function BusinessChat({
 
   async function send(text: string): Promise<void> {
     if (busy || readOnly) return;
-    await run(text, async () => {
-      const chat = await callApi<BusinessChatResponse>(url, "POST", agent === undefined ? { text } : { text, agent });
+    // Photos go with the message that describes them, then leave the tray once the post is drafted.
+    const photos = picker.readyIds;
+    const shown = photos.length === 0 ? text : `${text}\n(${photos.length} photo${photos.length === 1 ? "" : "s"} attached)`;
+    await run(shown, async () => {
+      const chat = await callApi<BusinessChatResponse>(url, "POST", { text, ...(photos.length > 0 ? { photos } : {}), ...(agent === undefined ? {} : { agent }) });
       if (!mounted.current) return;
+      // Anchored didn't act on it, such as photos sent before post drafts are on: the words and photos stay to resend.
+      if (chat.keepComposer) setRefill((last) => ({ text, n: (last?.n ?? 0) + 1 }));
+      else if (photos.length > 0) picker.clear();
       setMessages(chat.messages);
       // Changed facts can add or drop workflows, and a new draft raises the approvals count in the sidebar,
       // so the page around the chat re-renders from the server.
@@ -394,7 +426,17 @@ function BusinessChat({
                   ))}
                 </div>
               )}
-              <Composer inputRef={inputRef} label={contextName === null ? "Message Anchored" : `Message ${contextName}`} placeholder={contextName === null ? "Tell Anchored what changed, or ask your agents for a draft" : `Ask ${contextName} for a draft`} disabled={messages === null || outgoing?.status === "failed"} busy={busy} onSend={(text) => void send(text)} />
+              <PhotoTray picker={picker} disabled={busy} />
+              <Composer
+                inputRef={inputRef}
+                label={contextName === null ? "Message Anchored" : `Message ${contextName}`}
+                placeholder={picker.photos.length > 0 ? POST_BRIEF_QUESTION : contextName === null ? "Tell Anchored what changed, or ask your agents for a draft" : `Ask ${contextName} for a draft`}
+                disabled={messages === null || outgoing?.status === "failed"}
+                busy={busy}
+                onSend={(text) => void send(text)}
+                photos={picker}
+                refill={refill}
+              />
             </>
           )}
         </div>
@@ -608,6 +650,8 @@ function Composer({
   disabled,
   busy,
   onSend,
+  photos,
+  refill,
 }: {
   readonly inputRef: RefObject<HTMLTextAreaElement | null>;
   readonly label?: string;
@@ -615,11 +659,23 @@ function Composer({
   readonly disabled: boolean;
   readonly busy: boolean;
   readonly onSend: (text: string) => void;
+  /** Set in a business chat, where the owner may add photos for a post. */
+  readonly photos?: PhotoPicker;
+  /** Words to put in the text box; a new `n` puts them there again. */
+  readonly refill?: Refill | null;
 }) {
-  const [text, setText] = useState("");
+  const [text, setText] = useState(refill?.text ?? "");
+
+  useEffect(() => {
+    if (refill) setText(refill.text);
+  }, [refill]);
+  const [dragging, setDragging] = useState(false);
   const id = useId();
+  const fileRef = useRef<HTMLInputElement>(null);
   const size = useBoxHeight();
-  const ready = !disabled && !busy && text.trim() !== "";
+  // Photos must finish uploading, and none may have failed, before the message that describes them goes out.
+  const photosReady = photos === undefined || (!photos.uploading && photos.photos.every((p) => p.status === "ready"));
+  const ready = !disabled && !busy && text.trim() !== "" && photosReady;
 
   function submit(event?: FormEvent): void {
     event?.preventDefault();
@@ -636,8 +692,44 @@ function Composer({
   }
 
   return (
-    <form className={styles.form} onSubmit={submit}>
+    <form
+      className={styles.form}
+      onSubmit={submit}
+      data-dragging={dragging || undefined}
+      onDragOver={(event) => {
+        if (!photos || disabled || !event.dataTransfer.types.includes("Files")) return;
+        event.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(event) => {
+        setDragging(false);
+        if (!photos || disabled) return;
+        event.preventDefault();
+        photos.add([...event.dataTransfer.files]);
+      }}
+    >
       <BoxGrip box={inputRef} controls={id} size={size} />
+      {photos && (
+        <>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+            multiple
+            hidden
+            data-testid="photo-input"
+            onChange={(event) => {
+              photos.add([...(event.target.files ?? [])]);
+              // Clear the picker so choosing the same photo again still counts as a change.
+              event.target.value = "";
+            }}
+          />
+          <button type="button" className={styles.attach} onClick={() => fileRef.current?.click()} disabled={disabled || busy || photos.full} aria-label={photos.full ? "Photo limit reached" : "Add photos for a post"}>
+            <ImagePlus size={20} strokeWidth={2.2} aria-hidden="true" />
+          </button>
+        </>
+      )}
       <label htmlFor={id} className={styles.srOnly}>
         {label}
       </label>

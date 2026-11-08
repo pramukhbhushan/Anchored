@@ -185,6 +185,17 @@ export interface SetChoiceResponse {
   readonly choice: Choice;
 }
 
+/** PUT /api/businesses/[id]/automations: turn one job's automation on or off from the Automations page. */
+export interface SetAutomationRequest {
+  readonly workflow: WorkflowId;
+  readonly on: boolean;
+}
+export interface SetAutomationResponse {
+  readonly choice: Choice;
+  /** True when turning it on put Anchored's first question for it in the business chat. */
+  readonly asked: boolean;
+}
+
 /** POST /api/businesses/[id]/workflows: add a job the business doesn't have yet, and who handles it. */
 export type AddJobRequest = { readonly workflow: WorkflowId; readonly path: "turnon" | "buy"; readonly toolId: string } | { readonly workflow: WorkflowId; readonly path: "build" };
 export interface AddJobResponse {
@@ -299,9 +310,16 @@ export interface IntakeAnswerRequest {
   readonly picks?: readonly string[];
 }
 
+/** What `POST /api/businesses/[id]/photos` returns for one uploaded photo. */
+export interface PhotoUploadResponse {
+  readonly photo: { readonly id: string; readonly url: string };
+}
+
 /** POST /api/businesses/[id]/chat: tell Anchored what changed, or ask an agent for a draft. */
 export interface BusinessChatRequest {
   readonly text: string;
+  /** Ids of photos the owner uploaded for a post, in the order they picked them. */
+  readonly photos?: readonly string[];
   readonly agent?: string;
 }
 
@@ -309,6 +327,8 @@ export interface BusinessChatRequest {
 export interface BusinessChatResponse {
   readonly messages: readonly ChatMessage[];
   readonly changes: readonly ProfileChange[];
+  /** Set when Anchored didn't act on the message, such as photos sent before post drafts are on: the chat puts the words and photos back in the text box. */
+  readonly keepComposer?: true;
 }
 
 // =============================================================================

@@ -14,6 +14,7 @@ import type {
   IntakeAnswerRequest,
   SaveContactRequest,
   SetChoiceRequest,
+  SetAutomationRequest,
   SetStandingRuleRequest,
   InvoiceSheetCheckRequest,
   PlacesDetailRequest,
@@ -22,6 +23,7 @@ import type {
 } from "@/lib/api/contract";
 import { SKILLS } from "@/lib/domain/agents";
 import { CONSENT_SOURCES, type ConsentSource } from "@/lib/domain/contacts";
+import { MAX_PHOTOS_PER_POST, PHOTO_ID_PATTERN } from "@/lib/domain/photos";
 import { SIGNALS, WORKFLOW_IDS } from "@/lib/domain/workflows";
 import type { SignalId, SkillId, WorkflowId } from "@/lib/domain/types";
 
@@ -86,6 +88,8 @@ export const setChoiceSchema = z.union([
   z.object({ workflow: workflowId, path: z.enum(["build", "skip"]) }),
 ]) satisfies z.ZodType<SetChoiceRequest>;
 
+export const setAutomationSchema = z.object({ workflow: workflowId, on: z.boolean() }) satisfies z.ZodType<SetAutomationRequest>;
+
 // Adding a job only to leave it undone would change nothing, so there is no "skip".
 export const addJobSchema = z.union([
   z.object({ workflow: workflowId, path: z.enum(["turnon", "buy"]), toolId: z.string().min(1).max(60) }),
@@ -95,7 +99,8 @@ export const addJobSchema = z.union([
 export const approvePlanSchema = z.object({ approved: z.literal(true) }) satisfies z.ZodType<ApprovePlanRequest>;
 
 export const decideCardSchema = z.union([
-  z.object({ decision: z.literal("approve"), body: z.string().trim().min(1).max(2000).optional() }),
+  // Up to 3000 characters: a LinkedIn caption, the longest draft a card holds, may run that long.
+  z.object({ decision: z.literal("approve"), body: z.string().trim().min(1).max(3000).optional() }),
   z.object({ decision: z.literal("skip") }),
 ]) satisfies z.ZodType<DecideCardRequest>;
 
@@ -123,7 +128,11 @@ export const intakeAnswerSchema = z
 /** Agent route tokens accepted by chat; active membership is checked on the server. */
 export const agentChatIdSchema = z.union([z.enum(["customer", "books", "content", "internal"]), z.string().regex(/^niche:[a-z0-9-]{1,64}$/)]);
 
-export const businessChatSchema = z.object({ text: chatText.min(1, "Type a message."), agent: agentChatIdSchema.optional() }) satisfies z.ZodType<BusinessChatRequest>;
+export const businessChatSchema = z.object({
+  text: chatText.min(1, "Type a message."),
+  agent: agentChatIdSchema.optional(),
+  photos: z.array(z.string().regex(PHOTO_ID_PATTERN, "That photo id isn't valid.")).max(MAX_PHOTOS_PER_POST, `A post holds at most ${MAX_PHOTOS_PER_POST} photos.`).optional(),
+}) satisfies z.ZodType<BusinessChatRequest>;
 
 // -----------------------------------------------------------------
 // Connections and contacts
