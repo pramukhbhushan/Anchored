@@ -84,7 +84,7 @@ describe("appBaseUrl", () => {
 describe("connecting texting", () => {
   it("is unavailable, with the setting to fix, when the server can't store credentials", async () => {
     vi.stubEnv("CONNECTOR_SECRET_KEY", "");
-    expect((await view("texting"))?.unavailable).toBe("This server can't store credentials yet. Set CONNECTOR_SECRET_KEY.");
+    expect((await view("texting"))?.unavailable).toBe("Not available yet. Anchored can't keep sign-ins for outside services until its setup is finished.");
     await expect(connect(SESSION, business, { kind: "texting", accountSid: SID, authToken: "token-123", phone: "301 555 0192" })).rejects.toBeInstanceOf(ConnectError);
   });
 
@@ -118,6 +118,19 @@ describe("connecting texting", () => {
     expect(await stored("texting")).toBeUndefined();
   });
 
+  it("stores the optional phone that rings before a missed-call draft", async () => {
+    vi.stubEnv("CONNECTOR_SECRET_KEY", KEY);
+    await connect(SESSION, business, {
+      kind: "texting",
+      accountSid: SID,
+      authToken: "token-123",
+      phone: "301 555 0192",
+      forwardTo: "301 555 0101",
+    });
+
+    expect((await stored("texting"))?.settings.forwardTo).toBe("+13015550101");
+  });
+
   it("refuses credentials the Twilio check rejects, with its reason", async () => {
     vi.stubEnv("CONNECTOR_SECRET_KEY", KEY);
     const check = vi.fn(async () => "Twilio didn't accept that auth token.");
@@ -139,7 +152,7 @@ describe("connecting email and Stripe", () => {
   it("offers sending email only when the server has an email key and a from address", async () => {
     vi.stubEnv("RESEND_API_KEY", "");
     vi.stubEnv("EMAIL_FROM_ADDRESS", "");
-    expect((await view("email-out"))?.unavailable).toBe("Email sending isn't set up on this server yet.");
+    expect((await view("email-out"))?.unavailable).toBe("Sending email from Anchored isn't available yet.");
 
     vi.stubEnv("RESEND_API_KEY", "re_test");
     vi.stubEnv("EMAIL_FROM_ADDRESS", "drafts@anchored.example");

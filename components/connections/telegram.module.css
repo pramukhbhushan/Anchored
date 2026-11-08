@@ -1,0 +1,14 @@
+/* =============================================================================
+   Module Overview
+   =============================================================================
+   Telegram setup fills its containing region with a readable, selectable
+   link and wrapped actions. The optional QR stays inside the available width. */
+
+.setup{display:flex;flex-direction:column;gap:var(--s-3);min-width:0}
+.setup p,.setup figcaption{font-size:var(--fs-sm);color:var(--ink-2)}
+.setup label{font-size:var(--fs-sm);font-weight:600}
+.link{width:100%;min-width:0;min-height:40px;padding:var(--s-2) var(--s-3);border:1px solid var(--line);border-radius:var(--r);background:var(--sheet);font-size:var(--fs-sm);color:var(--ink)}
+.actions{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-2)}
+.qr{margin:0;display:flex;flex-direction:column;gap:var(--s-2);align-items:flex-start;min-width:0}
+.qr svg,.qr img{max-width:100%;height:auto}
+.setup>[role="status"]:empty{margin-top:calc(-1 * var(--s-3))}

@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { AgentCard } from "@/components/business/AgentCard";
 import { ToastProvider } from "@/components/ui/Toast";
 import type { HandOffBusiness } from "@/components/business/handoff";
@@ -228,15 +228,60 @@ describe("AgentCard", () => {
 
   it("copies only a post's words, without the lead-in, when the owner approves it", async () => {
     const user = userEvent.setup();
+    const opened = vi.spyOn(window, "open").mockReturnValue(null);
     const fetchSpy = stubFetch(() => decided(POST, { outbox: outboxFor(POST) }));
     renderCard(POST);
 
-    await user.click(screen.getByRole("button", { name: "Approve: Copy post" }));
+    await user.click(screen.getByRole("button", { name: "Approve: Copy caption and open Instagram" }));
 
     const toast = await findToast("Approved. The post is on your clipboard, ready to paste.");
     expect(await navigator.clipboard.readText()).toBe("Thanks to everyone we worked with this week.");
     expect(sentJson(fetchSpy, 0).body).toEqual({ decision: "approve", body: POST.body });
+    expect(opened).toHaveBeenCalledWith("https://www.instagram.com/", "_blank", "noopener,noreferrer");
     expect(within(toast).getByRole("link", { name: "See outbox" })).toBeInTheDocument();
+  });
+
+  it("says copying did not record approval when the approval request fails", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "open").mockReturnValue(null);
+    stubFetch(() => json({ error: "The draft changed. Reload it." }, 409));
+    renderCard(POST);
+
+    await user.click(screen.getByRole("button", { name: "Approve: Copy caption and open Instagram" }));
+
+    expect(await screen.findByText(/The text was copied, but approval wasn't recorded/)).toHaveTextContent("The draft changed. Reload it.");
+    expect(await navigator.clipboard.readText()).toBe("Thanks to everyone we worked with this week.");
+    expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument();
+    expect(router.refresh).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Approved\. The post/)).not.toBeInTheDocument();
+  });
+
+  it("locks all actions while clipboard permission is pending and records approval once", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "open").mockReturnValue(null);
+    const copied = deferred<void>();
+    const clipboard = vi.spyOn(navigator.clipboard, "writeText").mockReturnValue(copied.promise);
+    const fetchSpy = stubFetch(() => decided(POST, { outbox: outboxFor(POST) }));
+    renderCard(POST);
+
+    const approve = screen.getByRole("button", { name: "Approve: Copy caption and open Instagram" });
+    await user.dblClick(approve);
+
+    for (const button of within(screen.getByRole("article")).getAllByRole("button")) expect(button).toBeDisabled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(clipboard).toHaveBeenCalledTimes(1);
+    copied.resolve(undefined);
+    await findToast("Approved. The post is on your clipboard, ready to paste.");
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("labels a superseded card as replaced and offers no actions", () => {
+    renderCard({ ...CARD, status: "superseded" }, true);
+
+    const card = screen.getByRole("article");
+    expect(card).toHaveTextContent("Replaced by a newer draft");
+    expect(card).not.toHaveTextContent("Approved");
+    expect(within(card).queryAllByRole("button")).toEqual([]);
   });
 
   it("names the action on the Approve button", () => {
@@ -365,6 +410,22 @@ describe("AgentCard", () => {
     expect(sentJson(fetchSpy, 0).body).toEqual({ decision: "approve", body: ALLERGY.body });
   });
 
+  it("links a missing-info flag to Chat and offers no message edit", () => {
+    renderCard({
+      ...CARD,
+      id: "card-price",
+      key: "frontdesk:missing:prices",
+      channel: "flag",
+      missingField: "prices",
+      action: "Add prices",
+    });
+
+    const card = screen.getByRole("article");
+    expect(within(card).getByRole("link", { name: "Tell Anchored" })).toHaveAttribute("href", "/app/b/greenfield/chat");
+    expect(within(card).getByRole("button", { name: "Done" })).toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: /^Edit:/ })).not.toBeInTheDocument();
+  });
+
   it("asks once more before a send to many people, and sends nothing on Cancel", async () => {
     const fetchSpy = stubFetch(() => decided(MASS));
     renderCard(MASS);
@@ -426,6 +487,7 @@ describe("AgentCard", () => {
     renderCard({ ...CARD, status: "approved", edited: true, decidedAt: "2026-11-06T15:00:00Z" });
 
     const card = screen.getByRole("article");
+    expect(card).toHaveAttribute("id", "card-followup-closer-patel");
     expect(card).toHaveTextContent(/Approved/);
     expect(card).toHaveTextContent(/edit/i);
     expect(within(card).queryAllByRole("button")).toEqual([]);

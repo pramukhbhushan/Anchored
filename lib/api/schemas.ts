@@ -1,16 +1,24 @@
+import { followupInputSchema } from "@/lib/domain/followups";
+import { licensesSchema } from "@/lib/domain/renewals";
+import type { ScheduleFollowupRequest, CancelFollowupRequest, SaveLicensesRequest } from "@/lib/api/contract";
 import { z } from "zod";
 import type {
+  AddJobRequest,
   ApprovePlanRequest,
   BusinessChatRequest,
   ConnectRequest,
   CreateBusinessRequest,
   DecideCardRequest,
+  DeleteTelegramRequest,
   IngestRequest,
   IntakeAnswerRequest,
   SaveContactRequest,
   SetChoiceRequest,
   SetAutomationRequest,
+  SetStandingRuleRequest,
   InvoiceSheetCheckRequest,
+  PlacesDetailRequest,
+  PlacesLookupRequest,
   SimulateRequest,
 } from "@/lib/api/contract";
 import { SKILLS } from "@/lib/domain/agents";
@@ -53,6 +61,7 @@ const onboardingAnswersSchema = z.object({
   what: z.string().trim().max(1500),
   week: z.string().trim().max(1500),
   voice: z.string().trim().max(600),
+  website: z.string().trim().url("Enter a full website address, starting with https://.").max(300).optional(),
   reach: shortList,
   tools: shortList,
   signals: z.array(signalId).max(20),
@@ -60,10 +69,19 @@ const onboardingAnswersSchema = z.object({
 });
 
 export const createBusinessSchema = z.union([
-  z.object({ from: z.literal("answers"), answers: onboardingAnswersSchema }),
+  z.object({ from: z.literal("answers"), answers: onboardingAnswersSchema, placeId: z.string().trim().min(1).max(120).optional() }),
   z.object({ from: z.literal("example"), exampleId: z.string().min(1).max(40) }),
   z.object({ from: z.literal("sentence"), sentence: z.string().trim().min(3, "Describe the business in a few words.").max(300) }),
 ]) satisfies z.ZodType<CreateBusinessRequest>;
+
+export const placesLookupSchema = z.object({
+  name: z.string().trim().min(1, "Enter the business name.").max(120),
+  city: z.string().trim().min(1, "Enter the city or town.").max(120),
+}) satisfies z.ZodType<PlacesLookupRequest>;
+
+export const placesDetailSchema = z.object({
+  placeId: z.string().trim().min(1).max(120),
+}) satisfies z.ZodType<PlacesDetailRequest>;
 
 export const setChoiceSchema = z.union([
   z.object({ workflow: workflowId, path: z.enum(["turnon", "buy"]), toolId: z.string().min(1).max(60) }),
@@ -71,6 +89,12 @@ export const setChoiceSchema = z.union([
 ]) satisfies z.ZodType<SetChoiceRequest>;
 
 export const setAutomationSchema = z.object({ workflow: workflowId, on: z.boolean() }) satisfies z.ZodType<SetAutomationRequest>;
+
+// Adding a job only to leave it undone would change nothing, so there is no "skip".
+export const addJobSchema = z.union([
+  z.object({ workflow: workflowId, path: z.enum(["turnon", "buy"]), toolId: z.string().min(1).max(60) }),
+  z.object({ workflow: workflowId, path: z.literal("build") }),
+]) satisfies z.ZodType<AddJobRequest>;
 
 export const approvePlanSchema = z.object({ approved: z.literal(true) }) satisfies z.ZodType<ApprovePlanRequest>;
 
@@ -118,6 +142,7 @@ export const connectSchema = z.discriminatedUnion("kind", [
     accountSid: z.string().trim().regex(/^AC[0-9a-f]{32}$/i, "A Twilio Account SID starts with AC and has 34 characters."),
     authToken: secretText,
     phone: z.string().trim().min(7).max(24),
+    forwardTo: z.string().trim().max(24).optional(),
   }),
   z.object({ kind: z.literal("email-out"), replyTo: z.string().trim().email("Enter the email address replies should go to.").max(200) }),
   z.object({ kind: z.literal("email-in") }),
@@ -131,3 +156,15 @@ export const saveContactSchema = z.object({
   email: z.string().trim().max(200).optional(),
   consent: z.enum(CONSENT_SOURCES as [ConsentSource, ...ConsentSource[]]).nullable(),
 }) satisfies z.ZodType<SaveContactRequest>;
+
+export const setStandingRuleSchema = z.strictObject({ enabled: z.boolean() }) satisfies z.ZodType<SetStandingRuleRequest>;
+
+/** Require an explicit deletion request without accepting any provider or chat identity. */
+export const deleteTelegramSchema = z.object({ confirm: z.literal(true) }).strict() satisfies z.ZodType<DeleteTelegramRequest>;
+
+/** Record a timer only from an explicit due instant and evidenced state. */
+export const scheduleFollowupSchema = followupInputSchema satisfies z.ZodType<ScheduleFollowupRequest>;
+/** Cancel by the stored timer identity only. */
+export const cancelFollowupSchema = z.object({ id: z.string().uuid() }).strict() satisfies z.ZodType<CancelFollowupRequest>;
+/** License dates and their sources are entered together by the owner. */
+export const saveLicensesSchema = z.object({ licenses: licensesSchema }).strict() satisfies z.ZodType<SaveLicensesRequest>;

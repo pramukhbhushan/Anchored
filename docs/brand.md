@@ -29,7 +29,7 @@ Alternates, by section:
 | Orchestration | Sail as a fleet. |
 | Approval promise | Nothing leaves port without your say. |
 | Final CTA | Drop anchor on busywork. |
-| CTA button | Start sailing (primary), Get started (nav) |
+| CTA button | Try it on my business (primary), Get started (nav) |
 
 ## Voice
 
@@ -116,22 +116,24 @@ Scale: 13 / 14 / 16 / 18 / 22 / 32 / 58px, matching `--fs-*` in the app, plus a 
 
 - Hero: scroll raises the tide. The boat rides the waves, sails right and shrinks, the headline drifts away, and a large "Anchored" wordmark settles on the waterline. The screen is never blank.
 - Waves are three layered canvas waves that roll continuously; the boat tilts with the wave under it.
-- The watch bill plays one example day (7:00 to 20:30) when it scrolls into view: rows light up, chips go Drafting, Waiting for you, then Approved or Held. A Replay button runs it again.
-- Agent boats rise into place once as they enter the screen.
+- Each animated section plays once when it scrolls into view and shows its finished state at rest: the catering reply types itself out on the phone, the scout checks catering tools and stamps its find, and the receipt prints.
+- The Tuesday board plays one example day at Linden Street Kitchen (9:00 to 21:00): messages land in Waiting on you, then slide to Done or Held till morning with a stamp. It loops while it is on screen, and Replay the day restarts it.
+- The five boats bob on one moving waterline.
 - With `prefers-reduced-motion`, the boat sits still at its resting size and the water stops.
 
 ## Layout
 
 - Full width, as the app's UI rules ask. Cap only running text at about 65 characters.
-- Navigation: wordmark left; Agents, How it works, Pricing anchors in the middle; **Log in** (text button, `/login`) and **Get started** (yellow button, `/app/new`) on the right.
-- Section order: Hero boat, Meet the crew (five agents), Sail as a fleet (orchestration), Nothing leaves port without your say (approval), Final call to action with the anchor.
+- Navigation: wordmark left; How it works, What it does, Pricing and Questions anchors in the middle; **Log in** (text button, `/login`) and **Get started** (yellow button, `/app/new`) on the right.
+- Section order: hero boat, a catering reply on a phone, five jobs on one waterline, a scout's find, the Tuesday board, the real Approvals screen, the plan as a receipt, the rules, questions, and the anchor with the setup button.
+- Show, don't describe. Each section shows a thing an owner recognizes (a phone, a receipt, a board of messages) and uses the app's sample restaurant, Linden Street Kitchen, so the page matches what a visitor sees in the app.
 - One filled button per region.
 
 ## Where the buttons go
 
 | Button | Destination | Why |
 | --- | --- | --- |
-| Get started, Start sailing | `/app/new` | The chat onboarding for a new business. With accounts on, the middleware sends signed-out visitors to `/login?next=/app/new` first |
+| Get started, Try it on my business | `/app/new` | The chat onboarding for a new business. With accounts on, the middleware sends signed-out visitors to `/login?next=/app/new` first |
 | Log in | `/login` | The sign-in page |
 
 ## Not yet

@@ -7,20 +7,21 @@
 // `deliveryFor` decides whether Anchored sends an approved message itself or
 // leaves it for the owner to send from their own phone or email.
 
-/** Where a customer's OK to get texts came from. */
-export type ConsentSource = "texted-first" | "web-form" | "in-person" | "paper" | "imported";
+/** Where a customer's OK to get messages came from. `messaged-first` is recorded by the Telegram bot, never picked by hand. */
+export type ConsentSource = "texted-first" | "messaged-first" | "web-form" | "in-person" | "paper" | "imported";
 
 /** Each consent source as the owner reads it. */
 export const CONSENT_LABEL: Readonly<Record<ConsentSource, string>> = {
   "texted-first": "Texted the business first",
+  "messaged-first": "Messaged the business on Telegram first",
   "web-form": "Checked the box on a web form",
   "in-person": "Said yes in person",
   paper: "Signed a paper form",
   imported: "Imported with a consent record",
 };
 
-/** Every consent source, in the order the form lists them. */
-export const CONSENT_SOURCES = Object.keys(CONSENT_LABEL) as ConsentSource[];
+/** The consent sources an owner can record by hand, in the order the form lists them. */
+export const CONSENT_SOURCES: readonly ConsentSource[] = ["texted-first", "web-form", "in-person", "paper", "imported"];
 
 /** A customer the business may contact. */
 export interface Contact {
@@ -32,8 +33,12 @@ export interface Contact {
   readonly email: string | null;
   /** Where the OK to get texts came from and when, or `null` when there is none on file. */
   readonly consent: { readonly source: ConsentSource; readonly at: string } | null;
-  /** When the customer texted STOP, or `null`. A later START clears it. */
+  /** When the customer texted STOP or sent /stop, or `null`. A later START or /start clears it. */
   readonly optedOutAt: string | null;
+  /** The customer's Telegram chat id, as a string so no digits are lost. Absent for contacts who never used the bot. */
+  readonly telegramChatId?: string;
+  /** The name the customer shows on Telegram, when they have one. */
+  readonly telegramName?: string;
 }
 
 // =============================================================================
@@ -77,6 +82,11 @@ export function applyOptOut(contact: Contact, keyword: "stop" | "start", at: str
   return { ...contact, optedOutAt: keyword === "stop" ? at : null };
 }
 
+/** The contact whose Telegram chat id is `chatId`, or `undefined`. */
+export function contactByTelegramChat(contacts: readonly Contact[], chatId: string): Contact | undefined {
+  return contacts.find((contact) => contact.telegramChatId === chatId);
+}
+
 /** The contact whose phone number is `phone`, in E.164, or `undefined`. */
 export function contactByPhone(contacts: readonly Contact[], phone: string): Contact | undefined {
   return contacts.find((contact) => contact.phone === phone);
@@ -98,6 +108,18 @@ export interface SendingSetup {
   readonly texting: boolean;
   /** Anchored can send email for the business. */
   readonly email: boolean;
+  /** The server has the shared Telegram bot set up. */
+  readonly telegram?: boolean;
+}
+
+/** An approved message as `deliveryFor` reads it. */
+export interface PlannedMessage {
+  readonly channel: string;
+  readonly to: string;
+  /** The contact a Telegram message goes to. */
+  readonly contactId?: string;
+  /** Set for the bot's fixed answer to /start or /stop, which goes even to a customer who just sent /stop. */
+  readonly rule?: string;
 }
 
 /** Who sends an approved message: Anchored now, or the owner, with the reason Anchored can't. */
@@ -105,10 +127,19 @@ export type Delivery = { readonly by: "anchored"; readonly to: string } | { read
 
 /**
  * Decide whether Anchored sends an approved message itself. A text goes out only to a number with a consent
- * record and no STOP; an email only to a real address of a customer who hasn't opted out. Anything else stays the
- * owner's to send, with the reason.
+ * record and no STOP; a Telegram message only to a contact with a chat, a consent record and no /stop; an email
+ * only to a real address. Anything else stays the owner's to send, with the reason.
  */
-export function deliveryFor(message: { readonly channel: string; readonly to: string }, setup: SendingSetup, contacts: readonly Contact[]): Delivery {
+export function deliveryFor(message: PlannedMessage, setup: SendingSetup, contacts: readonly Contact[]): Delivery {
+  if (message.channel === "telegram") {
+    // The owner can't send into the customer's chat with the shared bot, so every refusal says why, with no fallback.
+    if (!setup.telegram) return { by: "owner", reason: "Telegram isn't set up on this server, so Anchored can't send this message." };
+    const contact = contacts.find((candidate) => candidate.id === message.contactId);
+    if (contact?.telegramChatId === undefined) return { by: "owner", reason: "This customer has no Telegram chat with the business, so Anchored can't send it." };
+    if (contact.optedOutAt !== null && message.rule !== "protocol") return { by: "owner", reason: "This customer sent /stop. Anchored won't message them." };
+    if (contact.consent === null) return { by: "owner", reason: "This customer hasn't messaged the business on Telegram, so Anchored won't message them." };
+    return { by: "anchored", to: contact.telegramChatId };
+  }
   if (message.channel === "sms") {
     if (!setup.texting) return { by: "owner", reason: null };
     const phone = normalizePhone(message.to);

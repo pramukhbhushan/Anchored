@@ -1,6 +1,11 @@
+import type { FollowupInput, RecordedFollowup } from "@/lib/domain/followups";
+import type { License } from "@/lib/domain/renewals";
 import type { ConnectionKind } from "@/lib/domain/connections";
 import type { ConsentSource, Contact } from "@/lib/domain/contacts";
+import type { DetailCandidate } from "@/lib/domain/details";
 import type { IntakeQuestion, KnownFact, ProfileChange } from "@/lib/domain/intake";
+import type { BriefSnapshot } from "@/lib/domain/brief";
+import type { OutboxRule } from "@/lib/domain/rules";
 import type { BusinessProfile, CardDraft, Choice, OnboardingAnswers, PlanApproval, SkillId, WorkflowId } from "@/lib/domain/types";
 
 // =============================================================================
@@ -39,8 +44,9 @@ export type Delivery = "yours" | "queued" | "sending" | "sent" | "failed";
 export interface OutboxEntry {
   readonly id: string;
   readonly businessId: string;
-  readonly cardId: string;
-  readonly channel: "sms" | "email" | "list";
+  /** The card the owner approved; `null` for an entry a standing rule or a protocol notice authorized instead. */
+  readonly cardId: string | null;
+  readonly channel: "sms" | "email" | "telegram" | "list";
   readonly to: string;
   readonly body: string;
   /** When it went out, or, while it is queued, when it may. */
@@ -48,20 +54,124 @@ export interface OutboxEntry {
   readonly delivery: Delivery;
   /** Why Anchored didn't send it, or what went wrong, in plain words; `null` when there is nothing to say. */
   readonly note: string | null;
+  /** What authorized it when no card tap did: the owner's standing rule, or the bot's fixed answer to /start or /stop. */
+  readonly rule?: OutboxRule;
+  /** The contact a Telegram entry goes to. `to` holds their name for the owner to read; the chat id stays server side. */
+  readonly contactId?: string;
+  /** Provider identity for server-side operations. Never accepted from deletion request input. */
+  readonly providerId?: string;
+  readonly deletionState?: "deleting" | "deleted" | "failed";
+  readonly deletionNote?: string;
+  /** Computed by the server at read time, then checked again on the delete request. */
+  readonly canDeleteTelegram?: boolean;
 }
 
 // =============================================================================
 // Routes
 // =============================================================================
 
+/**
+ * GET and POST /api/businesses/[id]/brief: the last finished daily brief, as plain lines and the counts behind them.
+ * POST runs a new one now ("Run now"). Every number comes from code; `lastRunAt` is `null` before the first brief.
+ */
+export interface BriefResponse {
+  readonly lines: readonly string[];
+  readonly snapshot: BriefSnapshot | null;
+  readonly lastRunAt: string | null;
+  /** The brief's card in Approvals, for a link. */
+  readonly cardKey: string | null;
+  /** Another run is under way, so this one didn't start; the lines are the last finished brief. */
+  readonly running: boolean;
+  readonly unavailableReason: string | null;
+}
+
+/** The acknowledgment rule as the owner sees it: on or off, and when they last approved it. */
+export interface AcknowledgmentState {
+  readonly enabled: boolean;
+  readonly approvedAt: string | null;
+}
+
+/**
+ * GET and PUT /api/businesses/[id]/standing-rules: the acknowledgment rule's saved state, the exact text it sends, and
+ * why it can't change, when it can't. A PUT answers with the state as saved, never the state the owner asked for.
+ */
+export interface StandingRulesResponse {
+  readonly acknowledge: AcknowledgmentState;
+  readonly template: string;
+  readonly unavailableReason: string | null;
+}
+
+/** PUT /api/businesses/[id]/standing-rules: turn the acknowledgment rule on or off. */
+export interface SetStandingRuleRequest {
+  readonly enabled: boolean;
+}
+
+/** One customer in the Customer agent's list, newest conversation first. */
+export interface CustomerSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly lastText?: string;
+  readonly lastAt?: string;
+  /** The customer sent /stop or blocked the bot. */
+  readonly stopped: boolean;
+  /** An allergy question of theirs waits for the owner's own answer. */
+  readonly locked: boolean;
+}
+
+/** One message in a customer's thread, with what happened to it when Anchored sent it. */
+export interface ThreadMessageView {
+  readonly id: string;
+  readonly direction: "in" | "out";
+  readonly text: string;
+  readonly at: string;
+  readonly skill?: string;
+  readonly cardKey?: string;
+  readonly delivery?: "queued" | "sending" | "sent" | "failed";
+  readonly note?: string;
+  /** Set when a rule sent it with no card: the owner's acknowledgment rule or the bot's answer to /start or /stop. */
+  readonly rule?: OutboxRule;
+}
+
+/**
+ * GET /api/businesses/[id]/customers?contact=<id>: the business's Telegram customers and one customer's thread,
+ * oldest message first. `selectedContactId` is `null` when there are none or the asked-for one isn't this business's.
+ */
+export interface CustomersResponse {
+  readonly contacts: readonly CustomerSummary[];
+  readonly selectedContactId: string | null;
+  readonly messages: readonly ThreadMessageView[];
+  readonly unavailableReason?: string;
+}
+
+/**
+ * GET /api/businesses/[id]/telegram: the link customers open to message this business through the shared bot, or
+ * the reason there is none. Exactly one of the two is set. The bot's token never appears here.
+ */
+export interface TelegramSetupResponse {
+  readonly url: string | null;
+  readonly unavailableReason: string | null;
+}
+
 /** POST /api/businesses: build a profile from onboarding answers, an example, or one sentence. */
 export type CreateBusinessRequest =
-  | { readonly from: "answers"; readonly answers: OnboardingAnswers }
+  | { readonly from: "answers"; readonly answers: OnboardingAnswers; readonly placeId?: string }
   | { readonly from: "example"; readonly exampleId: string }
   | { readonly from: "sentence"; readonly sentence: string };
 export interface CreateBusinessResponse {
   readonly id: string;
   readonly business: BusinessProfile;
+}
+
+/** POST /api/onboarding/lookup: find up to three Google listing matches. */
+export interface PlacesLookupRequest { readonly name: string; readonly city: string }
+export interface PlacesLookupResponse { readonly choices: readonly { readonly id: string; readonly name: string; readonly address: string; readonly rating?: number }[] }
+
+/** POST /api/onboarding/place: read the selected listing into profile candidates. */
+export interface PlacesDetailRequest { readonly placeId: string }
+export interface PlacesDetailResponse {
+  readonly placeId: string;
+  readonly candidates: readonly DetailCandidate[];
+  readonly website: string | null;
 }
 
 /** DELETE /api/businesses: everything the visitor saved is gone. */
@@ -84,6 +194,13 @@ export interface SetAutomationResponse {
   readonly choice: Choice;
   /** True when turning it on put Anchored's first question for it in the business chat. */
   readonly asked: boolean;
+}
+
+/** POST /api/businesses/[id]/workflows: add a job the business doesn't have yet, and who handles it. */
+export type AddJobRequest = { readonly workflow: WorkflowId; readonly path: "turnon" | "buy"; readonly toolId: string } | { readonly workflow: WorkflowId; readonly path: "build" };
+export interface AddJobResponse {
+  readonly workflow: WorkflowId;
+  readonly choice: Choice;
 }
 
 /** PUT /api/businesses/[id]/plan: the owner says yes to the plan as it stands. */
@@ -239,7 +356,7 @@ export interface ConnectionsResponse {
 
 /** PUT /api/businesses/[id]/connections: connect one service. */
 export type ConnectRequest =
-  | { readonly kind: "texting"; readonly accountSid: string; readonly authToken: string; readonly phone: string }
+  | { readonly kind: "texting"; readonly accountSid: string; readonly authToken: string; readonly phone: string; readonly forwardTo?: string }
   | { readonly kind: "email-out"; readonly replyTo: string }
   | { readonly kind: "email-in" }
   | { readonly kind: "stripe"; readonly signingSecret: string };
@@ -253,3 +370,14 @@ export interface SaveContactRequest {
   /** Where their OK to get texts came from, or `null` for none. */
   readonly consent: ConsentSource | null;
 }
+
+/** POST /api/businesses/[id]/outbox/[entry]/delete: confirm removal from Telegram, preserving the audit record. */
+export interface DeleteTelegramRequest { readonly confirm: true }
+export interface DeleteTelegramResponse { readonly deleted: boolean; readonly message: string }
+
+/** Owner-entered future work, not permission to send. */
+export type ScheduleFollowupRequest = FollowupInput;
+export interface CancelFollowupRequest { readonly id: string }
+export interface FollowupsResponse { readonly records: readonly RecordedFollowup[] }
+export interface SaveLicensesRequest { readonly licenses: readonly License[] }
+export interface LicensesResponse { readonly licenses: readonly License[] }

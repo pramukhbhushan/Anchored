@@ -42,8 +42,16 @@ function field(data: FormData, name: string): string {
 /** Build the connect request for `kind` from its submitted form. */
 function requestFrom(kind: ConnectionKind, data: FormData): ConnectRequest {
   switch (kind) {
-    case "texting":
-      return { kind, accountSid: field(data, "accountSid"), authToken: field(data, "authToken"), phone: field(data, "phone") };
+    case "texting": {
+      const forwardTo = field(data, "forwardTo");
+      return {
+        kind,
+        accountSid: field(data, "accountSid"),
+        authToken: field(data, "authToken"),
+        phone: field(data, "phone"),
+        ...(forwardTo === "" ? {} : { forwardTo }),
+      };
+    }
     case "email-out":
       return { kind, replyTo: field(data, "replyTo") };
     case "email-in":
@@ -144,41 +152,44 @@ function ServiceBlock({
       <p className={styles.does}>{copy.does}</p>
       <p className={view.connected ? styles.on : styles.off}>{status}</p>
       {!view.connected && <p className={styles.does}>{copy.until}</p>}
-      {view.unavailable !== null && <p className={styles.reason}>{view.unavailable}</p>}
 
-      {view.setup.length > 0 && (
-        <div className={styles.setup}>
-          {view.setup.map((item) => (
-            <SetupValue key={item.label} label={item.label} value={item.value} />
-          ))}
-        </div>
-      )}
+      <div className={styles.foot}>
+        {view.unavailable !== null && <p className={styles.reason}>{view.unavailable}</p>}
 
-      {showForm && <ConnectForm kind={view.kind} connected={view.connected} busy={busy} onSubmit={onConnect} />}
+        {view.setup.length > 0 && (
+          <div className={styles.setup}>
+            {view.setup.map((item) => (
+              <SetupValue key={item.label} label={item.label} value={item.value} />
+            ))}
+          </div>
+        )}
 
-      {canChange && view.connected && (
-        <div className={styles.acts}>
-          <Button variant="quiet" size="sm" onClick={onDisconnect} disabled={busy}>
-            Disconnect
-          </Button>
-        </div>
-      )}
-      {error !== null && (
-        <p className={styles.error} role="alert">
-          {error}
-        </p>
-      )}
+        {showForm && <ConnectForm kind={view.kind} connected={view.connected} busy={busy} onSubmit={onConnect} />}
+
+        {canChange && view.connected && (
+          <div className={styles.acts}>
+            <Button variant="quiet" size="sm" onClick={onDisconnect} disabled={busy}>
+              Disconnect
+            </Button>
+          </div>
+        )}
+        {error !== null && (
+          <p className={styles.error} role="alert">
+            {error}
+          </p>
+        )}
+      </div>
     </section>
   );
 }
 
 /** Render one labelled text box. */
-function TextField({ name, label, type = "text", placeholder, hint }: { readonly name: string; readonly label: string; readonly type?: "text" | "password" | "email" | "tel"; readonly placeholder?: string; readonly hint?: ReactNode }) {
+function TextField({ name, label, type = "text", placeholder, hint, required = true }: { readonly name: string; readonly label: string; readonly type?: "text" | "password" | "email" | "tel"; readonly placeholder?: string; readonly hint?: ReactNode; readonly required?: boolean }) {
   const id = useId();
   return (
     <div className={styles.field}>
       <label htmlFor={id}>{label}</label>
-      <input id={id} name={name} type={type} required placeholder={placeholder} autoComplete="off" spellCheck={false} className={styles.input} />
+      <input id={id} name={name} type={type} required={required} placeholder={placeholder} autoComplete="off" spellCheck={false} className={styles.input} />
       {hint !== undefined && <small className={styles.hint}>{hint}</small>}
     </div>
   );
@@ -218,6 +229,7 @@ function ConnectForm({
             <TextField name="accountSid" label="Account SID" placeholder="AC..." hint="On your Twilio console's home page." />
             <TextField name="authToken" label="Auth token" type="password" hint="Next to the Account SID. Anchored stores it encrypted." />
             <TextField name="phone" label="Twilio number" type="tel" placeholder="+1 301 555 0192" />
+            <TextField name="forwardTo" label="Phone to ring first" type="tel" placeholder="+1 301 555 0100" hint="Optional. Anchored rings this phone for 20 seconds before drafting a missed-call text." required={false} />
           </>
         )}
         {kind === "email-out" && <TextField name="replyTo" label="Reply-to address" type="email" placeholder="you@yourbusiness.com" hint="Customer replies come here." />}

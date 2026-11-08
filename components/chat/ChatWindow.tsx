@@ -10,10 +10,11 @@ import { PhotoTray } from "@/components/chat/PhotoTray";
 import { usePhotoPicker, type PhotoPicker } from "@/components/chat/photo-upload";
 import { ResizablePanel } from "@/components/resize/ResizablePanel";
 import { businessHref, cardAnchor, NEW_BUSINESS_HREF } from "@/components/routes";
+import { FactProgress } from "@/components/ui/FactProgress";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { GENERIC_STARTERS } from "@/components/chat/starters";
 import type { BusinessChatResponse, CardStatus, ChatCardLink, ChatMessage, IntakeAnswerRequest, IntakeResponse, StartIntakeResponse } from "@/lib/api/contract";
-import { answerText, CHANGE_AREA_LABEL, type IntakeQuestion, type KnownFact, type ProfileChange } from "@/lib/domain/intake";
+import { answerText, CHANGE_AREA_LABEL, INTAKE_FIELDS, type IntakeQuestion, type KnownFact, type ProfileChange } from "@/lib/domain/intake";
 import { POST_BRIEF_QUESTION } from "@/lib/domain/posts";
 import styles from "./chat.module.css";
 
@@ -27,19 +28,20 @@ import styles from "./chat.module.css";
 // asks an agent for work and follows the reply's link to the draft in Approvals.
 
 /**
- * Onboard a new business, or talk to one that exists. The example business passes `readOnly`; `starters` are the first
- * messages offered; `ask` is words to start the text box with, carried from an automation page.
+ * Onboard or chat about a business. The example business passes `readOnly`; `starters` are the first messages offered;
+ * `ask` is words to start the text box with, carried from an automation page. Supply optional agent context only when
+ * the server supports scoped requests.
  */
 export type ChatWindowProps =
   | { readonly mode: "intake" }
-  | { readonly mode: "business"; readonly businessId: string; readonly readOnly?: boolean; readonly starters?: readonly string[]; readonly ask?: string };
+  | { readonly mode: "business"; readonly businessId: string; readonly readOnly?: boolean; readonly starters?: readonly string[]; readonly ask?: string; readonly agent?: string; readonly agentName?: string };
 
 /** Render the chat for `props.mode`. */
 export function ChatWindow(props: ChatWindowProps) {
   return props.mode === "intake" ? (
     <IntakeChat />
   ) : (
-    <BusinessChat businessId={props.businessId} readOnly={props.readOnly ?? false} starters={props.starters ?? GENERIC_STARTERS} ask={props.ask} />
+    <BusinessChat key={JSON.stringify([props.businessId, props.agent ?? null])} businessId={props.businessId} readOnly={props.readOnly ?? false} starters={props.starters ?? GENERIC_STARTERS} agent={props.agent} agentName={props.agentName} ask={props.ask} />
   );
 }
 
@@ -60,13 +62,28 @@ interface Outgoing {
 /** Run one chat request at a time, showing the owner's words while it runs and a retry when it fails. */
 function useSender(): { outgoing: Outgoing | null; busy: boolean; run: (text: string | null, work: () => Promise<void>) => Promise<void> } {
   const [outgoing, setOutgoing] = useState<Outgoing | null>(null);
+  const mounted = useRef(true);
+  const running = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
   async function run(text: string | null, work: () => Promise<void>): Promise<void> {
+    if (!mounted.current || running.current) return;
+    // StrictMode replays effects on the same instance. Keep its in-flight
+    // request locked so the one intake start can settle after setup replays.
+    running.current = true;
     setOutgoing({ text, status: "sending" });
     try {
       await work();
-      setOutgoing(null);
+      if (mounted.current) setOutgoing(null);
     } catch (error) {
-      setOutgoing({ text, status: "failed", error: errorText(error), retry: () => void run(text, work) });
+      if (mounted.current) setOutgoing({ text, status: "failed", error: errorText(error), retry: () => void run(text, work) });
+    } finally {
+      running.current = false;
     }
   }
   return { outgoing, busy: outgoing?.status === "sending", run };
@@ -317,17 +334,23 @@ function BusinessChat({
   readOnly,
   starters,
   ask,
+  agent,
+  agentName,
 }: {
   readonly businessId: string;
   readonly readOnly: boolean;
   readonly starters: readonly string[];
   readonly ask?: string;
+  readonly agent?: string;
+  readonly agentName?: string;
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<readonly ChatMessage[] | null>(null);
   const { outgoing, busy, run } = useSender();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const picker = usePhotoPicker(businessId);
+  const mounted = useRef(false);
+  const contextName = agent === undefined ? null : (agentName ?? agent);
   const url = `/api/businesses/${encodeURIComponent(businessId)}/chat`;
   // Words to put back in the text box: an automation page's question to start, or a message Anchored didn't act on.
   const [refill, setRefill] = useState<Refill | null>(ask !== undefined && ask.trim() !== "" ? { text: ask, n: 0 } : null);
@@ -338,15 +361,15 @@ function BusinessChat({
   }, [ask]);
 
   useEffect(() => {
-    let live = true;
+    mounted.current = true;
     void run(null, async () => {
       const chat = await getApi<BusinessChatResponse>(url, LOAD_FAILED);
-      if (live) setMessages(chat.messages);
+      if (mounted.current) setMessages(chat.messages);
     });
     return () => {
-      live = false;
+      mounted.current = false;
     };
-    // `run` is recreated each render on purpose; loading depends only on which business this is.
+    // A keyed BusinessChat remounts when the business or selected agent changes.
   }, [url]);
 
   async function send(text: string): Promise<void> {
@@ -355,7 +378,8 @@ function BusinessChat({
     const photos = picker.readyIds;
     const shown = photos.length === 0 ? text : `${text}\n(${photos.length} photo${photos.length === 1 ? "" : "s"} attached)`;
     await run(shown, async () => {
-      const chat = await callApi<BusinessChatResponse>(url, "POST", photos.length === 0 ? { text } : { text, photos });
+      const chat = await callApi<BusinessChatResponse>(url, "POST", { text, ...(photos.length > 0 ? { photos } : {}), ...(agent === undefined ? {} : { agent }) });
+      if (!mounted.current) return;
       // Anchored didn't act on it, such as photos sent before post drafts are on: the words and photos stay to resend.
       if (chat.keepComposer) setRefill((last) => ({ text, n: (last?.n ?? 0) + 1 }));
       else if (photos.length > 0) picker.clear();
@@ -364,7 +388,7 @@ function BusinessChat({
       // so the page around the chat re-renders from the server.
       if (chat.changes.length > 0 || chat.messages.at(-1)?.card !== undefined) router.refresh();
     });
-    inputRef.current?.focus();
+    if (mounted.current) inputRef.current?.focus();
   }
 
   const fresh = messages !== null && messages.every((message) => message.role === "anchored");
@@ -375,7 +399,7 @@ function BusinessChat({
           messages={messages ?? []}
           outgoing={outgoing}
           typing={busy || messages === null ? "typing" : null}
-          label="Conversation with Anchored about this business"
+          label={contextName === null ? "Conversation with Anchored about this business" : `Conversation with ${contextName} about this business`}
           businessId={businessId}
         />
         <div className={styles.composer}>
@@ -401,7 +425,8 @@ function BusinessChat({
               <PhotoTray picker={picker} disabled={busy} />
               <Composer
                 inputRef={inputRef}
-                placeholder={picker.photos.length > 0 ? POST_BRIEF_QUESTION : "Tell Anchored what changed, or ask your agents for a draft"}
+                label={contextName === null ? "Message Anchored" : `Message ${contextName}`}
+                placeholder={picker.photos.length > 0 ? POST_BRIEF_QUESTION : contextName === null ? "Tell Anchored what changed, or ask your agents for a draft" : `Ask ${contextName} for a draft`}
                 disabled={messages === null || outgoing?.status === "failed"}
                 busy={busy}
                 onSend={(text) => void send(text)}
@@ -616,6 +641,7 @@ function QuickReplies({
 /** The text box: Enter sends, Shift+Enter starts a new line, and the grip above it makes it taller or shorter. */
 function Composer({
   inputRef,
+  label = "Message Anchored",
   placeholder,
   disabled,
   busy,
@@ -624,6 +650,7 @@ function Composer({
   refill,
 }: {
   readonly inputRef: RefObject<HTMLTextAreaElement | null>;
+  readonly label?: string;
   readonly placeholder: string;
   readonly disabled: boolean;
   readonly busy: boolean;
@@ -700,7 +727,7 @@ function Composer({
         </>
       )}
       <label htmlFor={id} className={styles.srOnly}>
-        Message Anchored
+        {label}
       </label>
       <textarea
         id={id}
@@ -760,8 +787,10 @@ function KnowsCard({
 }) {
   const [open, setOpen] = useState(false);
   const listId = useId();
-  const answered = known.filter((fact) => fact.state !== "open").length;
-  const progress = known.length > 0 ? `${answered} of ${known.length}` : "";
+  // Progress counts the planned questions only. Details found along the way show in the list but never move the total.
+  const planned = known.filter((fact) => INTAKE_FIELDS.some((field) => field === fact.field));
+  const answered = planned.filter((fact) => fact.state !== "open").length;
+  const progress = planned.length > 0 ? `${answered} of ${planned.length}` : "";
   return (
     <aside className={styles.knows} aria-label="What Anchored knows" data-open={open || undefined}>
       <div className={styles.knowsHead}>
@@ -773,11 +802,7 @@ function KnowsCard({
         <span className={styles.count}>{progress}</span>
         <ChevronDown size={18} strokeWidth={2.2} aria-hidden="true" />
       </button>
-      <ol className={styles.meter} aria-hidden="true">
-        {known.map((fact) => (
-          <li key={fact.field} data-state={fact.state} />
-        ))}
-      </ol>
+      <FactProgress reviewed={answered} total={planned.length} />
       <dl className={styles.facts} id={listId}>
         {known.map((fact) => (
           <div key={`${fact.field}:${fact.value ?? fact.state}`} className={styles.fact} data-state={fact.state} data-fresh={fresh.has(fact.field) || undefined}>

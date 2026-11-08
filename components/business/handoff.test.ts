@@ -27,6 +27,11 @@ function param(href: string, name: string): string | null {
 }
 
 describe("handOff", () => {
+  it("provides no personal-app or clipboard fallback for Telegram, even for a copy-shaped action", () => {
+    expect(handOff({ ...TEXT, channel: "telegram", action: "Send message" }, SHOP)).toBeNull();
+    expect(handOff({ ...TEXT, channel: "telegram", action: "Copy post" }, SHOP)).toBeNull();
+  });
+
   it("opens the texting app with the words typed out, leaving a named customer for the owner to pick", () => {
     const step = handOff(TEXT, SHOP);
 
@@ -104,7 +109,11 @@ describe("handOff", () => {
     const coach = handOff(post, COACH);
 
     expect(shop?.kind === "copy" && shop.places.map((place) => place.label)).toEqual(["Open Instagram", "Open Facebook", "Open your Google listing"]);
-    expect(coach).toMatchObject({ kind: "copy", text: "Thanks to everyone we worked with this week.", places: [] });
+    expect(coach).toMatchObject({
+      kind: "copy",
+      text: "Thanks to everyone we worked with this week.",
+      places: [{ label: "Open Instagram", href: "https://www.instagram.com/" }],
+    });
   });
 
   it("points a review reply to Google when the business uses Google", () => {

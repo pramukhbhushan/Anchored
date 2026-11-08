@@ -76,6 +76,21 @@ describe("AccountMenu", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it("clears demo data and opens a fresh onboarding", async () => {
+    const fetchSpy = stubFetch(() => json({ ok: true }));
+    renderMenu(SIGNED_IN);
+    await openMenu(/rosa@linden\.example/);
+
+    await userEvent.click(screen.getByRole("button", { name: "Start fresh" }));
+    const confirm = screen.getByRole("group", { name: "Confirm starting fresh" });
+    expect(confirm).toHaveTextContent(/can't be undone/);
+    await userEvent.click(within(confirm).getByRole("button", { name: "Clear and start" }));
+
+    expect(await screen.findByText("Ready for a fresh business")).toHaveRole("status");
+    expect(sentJson(fetchSpy, 0)).toMatchObject({ method: "DELETE", url: "/api/businesses" });
+    expect(router.push).toHaveBeenCalledExactlyOnceWith("/app/new");
+  });
+
   it("backs out on Cancel without deleting anything", async () => {
     const fetchSpy = stubFetch(() => json({ ok: true }));
     renderMenu(SIGNED_IN);

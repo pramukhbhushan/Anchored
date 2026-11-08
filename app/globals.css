@@ -546,6 +546,8 @@ html[data-dev] .side-foot{padding-bottom:64px}
 
 /* ---------- profile ---------- */
 .prof{padding:0;overflow:hidden}
+.prof+.prof{margin-top:var(--s-5)}
+.prof:not(.prof-compact)>.panel-head{padding:var(--s-5) var(--pad) var(--s-4);margin-bottom:0;border-bottom:1px solid var(--line)}
 .prof-head{padding:var(--s-5) var(--pad) var(--s-4);border-bottom:1px solid var(--line)}
 .prof-head h2{font-size:var(--fs-xl);font-weight:800}
 .prof-line{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:8px;color:var(--ink-2);font-size:var(--fs-md)}
@@ -599,7 +601,8 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .toggle{display:inline-flex;align-items:center;gap:10px;min-height:40px;margin-top:var(--s-3);padding-right:8px;border-radius:var(--r);font-size:var(--fs-sm);font-weight:600;cursor:pointer}
 .toggle:hover{color:var(--ink);background:var(--hover)}
 .toggle input{width:18px;height:18px;accent-color:var(--ink)}
-.trows{min-width:0}
+.trows{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s-4);min-width:0}
+@container app (min-width:640px){.trows{grid-template-columns:repeat(2,minmax(0,1fr))}}
 /* In flow after the list, so showing it never moves a row the owner is about to tap */
 .compare-tray{position:sticky;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:15;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;margin-top:var(--s-4);padding:12px 16px;background:var(--ink);color:var(--paper);border-radius:var(--r);box-shadow:var(--shadow)}
 .compare-tray .btn{background:var(--paper);border-color:var(--paper);color:var(--ink)}
@@ -737,8 +740,10 @@ fieldset.field{border:0;padding:0;margin:0}
 .auto-crumbs li+li::before{content:"›";margin-right:6px}
 .auto-crumbs li[aria-current="page"]{color:var(--ink)}
 .auto-head{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-4) var(--s-5)}
-.auto-bub{flex:none;width:64px;height:64px;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--ink);background:var(--sheet);box-shadow:0 0 0 5px var(--paper),0 0 0 10px var(--ocean,var(--link))}
-.auto-head[data-kind="owned"] .auto-bub,.auto-head[data-kind="new"] .auto-bub{box-shadow:0 0 0 5px var(--paper),0 0 0 10px var(--coral,#FF6A4D)}
+.auto-bub{flex:none;width:64px;height:64px;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--ink);background:var(--sheet);box-shadow:0 0 0 5px var(--paper),0 0 0 10px var(--ink)}
+/* The ring colors match the Workflows map and the bill: ink for Anchored, green for a tool the owner has, blue for a new one */
+.auto-head[data-kind="owned"] .auto-bub{box-shadow:0 0 0 5px var(--paper),0 0 0 10px var(--good)}
+.auto-head[data-kind="new"] .auto-bub{box-shadow:0 0 0 5px var(--paper),0 0 0 10px var(--buy)}
 .auto-head[data-kind="none"] .auto-bub{box-shadow:none;border-style:dashed;color:var(--muted)}
 .auto-head[data-wait="true"] .auto-bub{box-shadow:0 0 0 5px var(--paper),0 0 0 10px var(--carbon)}
 .auto-head-text{flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:var(--s-2)}

@@ -4,6 +4,7 @@ Start with the consolidated design, then use your task checklist. The folder rec
 
 | Document | Purpose |
 | --- | --- |
+| [Remaining implementation checkpoint](./Eric%20Remaining%20Implementation.md) | Current completed stages, verification evidence and remaining teammate/live gates |
 | [Combined system design](./Anchored%20Agent%20System%20Design.md) | Authoritative product design, execution ownership, interfaces and safety requirements |
 | [Pramuk tasks](./Pramuk%20Tasks.md) | Shared groundwork, Bookkeeping, Marketing, shared Ask and deployment configuration |
 | [Eric tasks](./Eric%20Tasks.md) | Customer, Internal Communications, UI integration and demo |

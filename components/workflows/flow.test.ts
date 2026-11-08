@@ -42,7 +42,7 @@ describe("whoHandles", () => {
     const handler = handlerOf(SAMPLE_BUSINESS, "catering");
     expect(handler).toMatchObject({ kind: "agent", short: "Anchored drafts, you approve" });
     expect(handler.line).toBe("Anchored drafts it, you approve it");
-    expect(handler.note).toBe("Front Desk agent, in your $29 plan");
+    expect(handler.note).toBe("Customer agent, in your $29 plan");
   });
 
   it("says plainly when nothing handles a workflow", () => {

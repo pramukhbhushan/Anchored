@@ -4,7 +4,7 @@ import { BookOpen, LayoutGrid, PanelLeftClose, PanelLeftOpen, Plus, X, type Luci
 import Link from "next/link";
 import { useEffect, useRef, type ReactNode, type Ref } from "react";
 import { AnchorMark } from "@/components/ui/AnchorMark";
-import { APP_HREF, NEW_BUSINESS_HREF, SECTIONS, businessHref } from "@/components/routes";
+import { APP_HREF, NEW_BUSINESS_HREF, SECTIONS, businessHref, agentHref } from "@/components/routes";
 import type { ShellLocation } from "@/components/shell/location";
 import { SECTION_ICON } from "@/components/shell/nav";
 import type { BusinessSummary, SideAutomation } from "@/components/shell/shell-data";
@@ -162,6 +162,7 @@ export function Sidebar({
   const own = businesses.filter((b) => b.kind === "custom");
   const samples = businesses.filter((b) => b.kind === "case");
   const section = location.page === "business" ? location.section : null;
+  const openAgent = location.page === "business" ? location.agent : undefined;
   const openKey = location.page === "business" ? (location.automation ?? null) : null;
   const CollapseIcon = collapsed ? PanelLeftOpen : PanelLeftClose;
   const collapseLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
@@ -207,10 +208,13 @@ export function Sidebar({
                     href={businessHref(current.id, item.section)}
                     icon={SECTION_ICON[item.section ?? "overview"]}
                     label={item.label}
-                    current={section === item.section && (item.section !== "workflows" || openKey === null)}
+                    current={section === item.section && (item.section !== "workflows" || (collapsed || (openKey === null && openAgent === undefined)))}
                     tip={collapsed}
                     count={item.section === "approvals" ? current.pending : null}
                   />
+                  {item.section === "workflows" && !collapsed && current.agents !== undefined && (
+                    <ul className="side-sub" aria-label="Agents"><li><p className="side-sub-stage">Agents</p><ul>{current.agents.map((agent) => <li key={agent.id}><Link href={agentHref(current.id, agent.id)} className="side-sub-link" aria-current={openAgent === agent.id ? "page" : undefined}><span className="side-text">{agent.name}</span></Link></li>)}</ul></li></ul>
+                  )}
                   {item.section === "workflows" && !collapsed && current.automations !== undefined && current.automations.length > 0 && (
                     <AutomationList automations={current.automations} openKey={openKey} />
                   )}

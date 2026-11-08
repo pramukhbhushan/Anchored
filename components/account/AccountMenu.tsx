@@ -1,10 +1,10 @@
 "use client";
 
-import { ChevronDown, LogOut, Mail, Trash2, UserRound } from "lucide-react";
+import { ChevronDown, LogOut, Mail, RotateCcw, Trash2, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { callApi, errorText } from "@/components/api";
-import { APP_HREF } from "@/components/routes";
+import { APP_HREF, NEW_BUSINESS_HREF } from "@/components/routes";
 import { useToast } from "@/components/ui/Toast";
 import type { DeleteBusinessesResponse } from "@/lib/api/contract";
 import { createBrowserSupabase } from "@/lib/auth/browser";
@@ -27,7 +27,8 @@ type SaveState =
   | { readonly step: "closed" }
   | { readonly step: "editing"; readonly error: string | null }
   | { readonly step: "sending" }
-  | { readonly step: "sent"; readonly email: string };
+  | { readonly step: "sent"; readonly email: string }
+  | { readonly step: "saved"; readonly email: string };
 
 /** Props for `AccountMenu`. */
 export interface AccountMenuProps {
@@ -112,6 +113,7 @@ export function AccountMenu({ viewer }: AccountMenuProps) {
           </div>
         )}
         {canSaveWork && <SaveWork />}
+        <StartFresh />
         <DeleteBusinesses />
         {viewer.authEnabled && (
           <form className={styles.signOut} method="post" action={SIGN_OUT_PATH}>
@@ -129,6 +131,59 @@ export function AccountMenu({ viewer }: AccountMenuProps) {
 // =============================================================================
 // Panel sections
 // =============================================================================
+
+/** Clear demo data after confirmation, then open a new onboarding. */
+function StartFresh() {
+  const router = useRouter();
+  const toast = useToast();
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function reset() {
+    setBusy(true);
+    setError(null);
+    try {
+      await callApi<DeleteBusinessesResponse>("/api/businesses", "DELETE");
+      toast("Ready for a fresh business");
+      setConfirming(false);
+      router.push(NEW_BUSINESS_HREF);
+      router.refresh();
+    } catch (failure) {
+      setError(errorText(failure));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!confirming) {
+    return (
+      <div className={styles.section}>
+        <button type="button" className={styles.item} onClick={() => setConfirming(true)}>
+          <RotateCcw aria-hidden="true" />
+          Start fresh
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.section}>
+      <div className={styles.confirm} role="group" aria-label="Confirm starting fresh">
+        <p>This clears this account&apos;s businesses, approvals and messages, then starts a new onboarding. It can&apos;t be undone.</p>
+        <div className={styles.actions}>
+          <button type="button" className="btn sm" onClick={reset} disabled={busy} autoFocus>
+            {busy ? "Clearing..." : "Clear and start"}
+          </button>
+          <button type="button" className="btn sm ghost" onClick={() => setConfirming(false)} disabled={busy}>
+            Cancel
+          </button>
+        </div>
+        {error !== null && <p role="alert" className={styles.error}>{error}</p>}
+      </div>
+    </div>
+  );
+}
 
 /** Render "Delete my businesses": a confirmation that names what goes, then the delete and a return to the list. */
 function DeleteBusinesses() {
@@ -207,7 +262,7 @@ function SaveWork() {
   // Move focus with the content: into the field when it opens or a send fails, onto the confirmation once sent.
   useEffect(() => {
     if (state.step === "editing") emailRef.current?.focus();
-    if (state.step === "sent") sentRef.current?.focus();
+    if (state.step === "sent" || state.step === "saved") sentRef.current?.focus();
   }, [state.step]);
 
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -217,11 +272,14 @@ function SaveWork() {
     try {
       // Adding an email keeps the guest's user id, so everything stored under it carries over once they confirm.
       const here = `${window.location.pathname}${window.location.search}`;
-      const { error } = await createBrowserSupabase().auth.updateUser(
+      const { data, error } = await createBrowserSupabase().auth.updateUser(
         { email: address },
         { emailRedirectTo: callbackUrl(window.location.origin, here) },
       );
-      setState(error ? { step: "editing", error: authErrorText(error) } : { step: "sent", email: address });
+      // A project that doesn't confirm email changes applies the address at once and sends nothing,
+      // so only a pending `new_email` means a link is on its way.
+      const appliedNow = data.user?.email === address && !data.user?.new_email;
+      setState(error ? { step: "editing", error: authErrorText(error) } : appliedNow ? { step: "saved", email: address } : { step: "sent", email: address });
     } catch (error) {
       // `createBrowserSupabase` throws when the public keys were missing at build time, and `fetch` throws offline.
       setState({ step: "editing", error: authErrorText(error) });
@@ -235,6 +293,16 @@ function SaveWork() {
           <Mail aria-hidden="true" />
           Save your work
         </button>
+      </div>
+    );
+  }
+
+  if (state.step === "saved") {
+    return (
+      <div className={styles.section}>
+        <p ref={sentRef} tabIndex={-1} className={styles.sent} role="status">
+          Saved. Your work is now kept under <b>{state.email}</b>.
+        </p>
       </div>
     );
   }

@@ -3,7 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { AppShell } from "@/components/shell/AppShell";
 import { router, setLocation } from "@/test/next";
-import { BUSINESSES } from "@/test/shell-fixtures";
+import { presentAgents } from "@/components/business/agents/view-model";
+import { FRONT_DESK_FIXTURE, NICHE_AGENT_FIXTURE, ACTIVE_AGENT_FIXTURES } from "@/components/business/agents/fixtures";
+import { BUSINESSES, ROSA, GREENFIELD } from "@/test/shell-fixtures";
 
 // =============================================================================
 // Module Overview
@@ -168,5 +170,42 @@ describe("CommandPalette", () => {
     expect(palette()).toBeInTheDocument();
     // A fresh search each time it opens.
     expect(within(palette()).getByRole("combobox")).toHaveValue("");
+  });
+});
+
+
+function renderAgentShell() {
+  return render(<AppShell businesses={[
+    { ...ROSA, agents: presentAgents([FRONT_DESK_FIXTURE, NICHE_AGENT_FIXTURE]) },
+    { ...GREENFIELD, agents: presentAgents(ACTIVE_AGENT_FIXTURES.filter((agent) => agent.id === "books")) },
+  ]} initiallyCollapsed={false} account={null}><p>Agent page content</p></AppShell>);
+}
+
+describe("agent commands", () => {
+  it("lists only the current business's agents and keeps the existing page commands", async () => {
+    setLocation({ pathname: "/app/b/rosa/workflows/customer", segments: ["b", "rosa", "workflows", "customer"] });
+    renderAgentShell();
+    await userEvent.keyboard("{Meta>}k{/Meta}");
+    expect(within(palette()).getByRole("option", { name: "Customer" })).toBeInTheDocument();
+    expect(within(palette()).getByRole("option", { name: "Stock Check" })).toBeInTheDocument();
+    expect(within(palette()).queryByRole("option", { name: "Bookkeeping" })).not.toBeInTheDocument();
+    expect(within(palette()).getByRole("option", { name: /^Workflows/ })).toBeInTheDocument();
+    expect(within(palette()).getByRole("option", { name: /^Approvals/ })).toBeInTheDocument();
+  });
+
+  it("searches and opens a niche agent in the current business", async () => {
+    setLocation({ pathname: "/app/b/rosa", segments: ["b", "rosa"] });
+    renderAgentShell();
+    await userEvent.keyboard("{Meta>}k{/Meta}");
+    await userEvent.keyboard("stock check{Enter}");
+    expect(router.push).toHaveBeenCalledExactlyOnceWith("/app/b/rosa/workflows/niche%3Astock-check");
+    expect(screen.queryByRole("dialog", PALETTE)).not.toBeInTheDocument();
+  });
+
+  it("does not offer business-scoped agents on All businesses", async () => {
+    renderAgentShell();
+    await userEvent.keyboard("{Meta>}k{/Meta}");
+    expect(within(palette()).queryByRole("option", { name: "Customer" })).not.toBeInTheDocument();
+    expect(within(palette()).queryByRole("option", { name: "Stock Check" })).not.toBeInTheDocument();
   });
 });

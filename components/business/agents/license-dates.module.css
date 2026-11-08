@@ -1,0 +1,68 @@
+/* Module Overview: the recorded-date form uses the existing page width and
+   spacing tokens, with a single column whenever the app container is narrow. */
+.dates {
+  border-top: 1px solid var(--line);
+  padding-top: var(--s-4);
+}
+
+.dates summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.content,
+.form,
+.form label,
+.list > li {
+  display: grid;
+  gap: var(--s-3);
+}
+
+.content {
+  padding-top: var(--s-3);
+}
+
+.content > [role="status"]:empty {
+  margin-top: calc(-1 * var(--s-3));
+}
+
+.content p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.list {
+  display: grid;
+  gap: var(--s-5);
+  margin: 0;
+  padding-inline-start: var(--s-5);
+}
+
+.list > li {
+  justify-items: start;
+  min-width: 0;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: var(--s-4);
+}
+
+.form input,
+.form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: var(--s-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--sheet);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-md);
+}
+
+.form textarea {
+  resize: vertical;
+}

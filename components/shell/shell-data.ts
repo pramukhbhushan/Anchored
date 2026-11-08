@@ -3,7 +3,8 @@ import { cache } from "react";
 import { automationHref } from "@/components/routes";
 import { automationsOf } from "@/components/workflows/automations";
 import { workflowFlow } from "@/components/workflows/flow";
-import { workflowIdsOf } from "@/lib/domain/paths";
+import { presentAgents, type AgentView } from "@/components/business/agents/view-model";
+import { activeAgents, workflowIdsOf } from "@/lib/domain/paths";
 import { groupByStage } from "@/lib/domain/stages";
 import { getChoices, getFeed, listBusinesses } from "@/lib/server/data";
 import type { CardRecord } from "@/lib/api/contract";
@@ -36,6 +37,7 @@ export interface BusinessSummary {
   readonly pending: number | null;
   /** The business's automations, in stage order; left out where they couldn't be read. */
   readonly automations?: readonly SideAutomation[];
+  readonly agents?: readonly Pick<AgentView, "id" | "name">[];
 }
 
 /** Return the pending cards for `business`, or `null` when the feed can't be read. */
@@ -80,15 +82,17 @@ export const businessSummaries = cache(async (): Promise<BusinessSummary[]> => {
   return Promise.all(
     businesses.map(async (business) => {
       // The choices read is cached and runs beside the feed's, so the automations cost no extra round trip.
-      const [pending, automations] = await Promise.all([
+      const [pending, automations, agents] = await Promise.all([
         pendingCards(business),
         sideAutomations(business),
+        getChoices(business).then((choices) => presentAgents(activeAgents(business, choices)).map(({id,name}) => ({id,name}))).catch(() => undefined),
       ]);
       return {
         id: business.id,
         name: business.name,
         trade: business.trade,
         kind: business.kind,
+        agents,
         pending: pending === null ? null : pending.length,
         automations: automations?.map((a) => ({ ...a, waiting: pending?.filter((card) => card.skill === a.key).length ?? 0 })),
       };

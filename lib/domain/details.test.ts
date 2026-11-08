@@ -15,6 +15,7 @@ import {
   parsePrices,
   readinessFor,
   vocabularyGuess,
+  nameFromSample,
   type DetailCandidate,
 } from "@/lib/domain/details";
 
@@ -80,6 +81,9 @@ describe("confirmAll and needsOwner", () => {
 
   it("offers no guess for a kind of business with no usual words", () => {
     expect(vocabularyGuess("any", "Dental office")).toBeNull();
+    // A bakery takes orders; only a sit-down restaurant has guests and reservations.
+    expect(vocabularyGuess("restaurant", "Bakery")?.value).toMatchObject({ customer: "customer", bookingTerm: "order" });
+    expect(vocabularyGuess("restaurant", "Family restaurant")?.value).toMatchObject({ customer: "guest", bookingTerm: "reservation" });
   });
 });
 
@@ -101,11 +105,16 @@ describe("parseDetail", () => {
   });
 
   it("reads the owner's words for customers and work", () => {
+    expect(nameFromSample("Hey Mrs. Patel, Mike from Brightwater here. I can come by Thursday.")).toBe("Mike");
+    expect(nameFromSample("Thanks for reaching out! See you soon. Thanks, Dana")).toBe("Dana");
+    expect(nameFromSample("Hi Mr. Jones, thanks for calling Brightwater.")).toBeUndefined();
     expect(parseDetail("vocabulary", "Homeowners, and a service call")).toEqual({ customer: "homeowner", workUnit: "service call", priceTerm: "price", bookingTerm: "booking" });
     expect(parseDetail("vocabulary", "guests / order / price / reservation")).toEqual({ customer: "guest", workUnit: "order", priceTerm: "price", bookingTerm: "reservation" });
   });
 
   it("reads how a business charges, a minimum, lists and a review link", () => {
+    expect(parseDetail("address", "10 Main St, Bowie, MD 20715.")).toBe("10 Main St, Bowie, MD 20715");
+    expect(parseDetail("businessPhone", "Call (301) 555-0192 today")).toBe("(301) 555-0192");
     expect(parseDetail("pricingMethod", "Every job gets a quote")).toBe("quote");
     expect(parseDetail("pricingMethod", "We charge by the hour")).toBe("hourly");
     expect(parseDetail("minimumCharge", "Our minimum is $75")).toBe(75);

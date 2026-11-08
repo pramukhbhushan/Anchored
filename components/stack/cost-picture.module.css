@@ -1,0 +1,67 @@
+/* Module Overview: responsive cost exploration with text and keyboard equivalents. */
+.picture {
+  margin-top: var(--s-5);
+  min-width: 0;
+}
+.chart {
+  height: 64px;
+  width: 100%;
+  overflow: hidden;
+}
+.hint {
+  font-size: var(--fs-fine);
+  color: var(--muted);
+  margin: var(--s-3) 0;
+}
+.legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+  gap: var(--s-3);
+}
+.legend button {
+  padding: var(--s-3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--sheet);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.legend button:hover {
+  background: var(--hover);
+}
+.legend button[aria-pressed="true"] {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.legend strong {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.legend small {
+  font-weight: 400;
+  color: var(--muted);
+  margin-left: var(--s-1);
+}
+.detail {
+  margin-top: var(--s-4);
+  padding: var(--s-4) 0;
+  border-block: 1px solid var(--line);
+  font-size: var(--fs-sm);
+}
+.detail ul {
+  margin: var(--s-2) 0 0;
+  padding-left: var(--s-5);
+}
+.empty {
+  padding: var(--s-5);
+  border: 1px dashed var(--line);
+  text-align: center;
+  color: var(--muted);
+}
