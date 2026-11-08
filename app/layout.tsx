@@ -12,7 +12,7 @@ import "./globals.css";
 // =============================================================================
 // The root layout: fonts, the toast provider and `SiteFrame`, which draws the
 // site header outside `/app` for whoever is signed in. Archivo keeps its `wdth`
-// axis because the CSS stretches it from 72% to 125%; both fonts feed `--display` and `--body`.
+// axis because the CSS stretches it from 72% to 125%; Schibsted Grotesk feeds `--body` and Courier Prime `--mono`.
 // A saved light or dark choice from the landing page's toggle applies before paint.
 
 const archivo = Archivo({ subsets: ["latin"], axes: ["wdth"], variable: "--font-archivo", display: "swap" });
@@ -40,8 +40,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#EDF0EF" },
-    { media: "(prefers-color-scheme: dark)", color: "#0E131B" },
+    { media: "(prefers-color-scheme: light)", color: "#EEF3F6" },
+    { media: "(prefers-color-scheme: dark)", color: "#07111F" },
   ],
 };
 

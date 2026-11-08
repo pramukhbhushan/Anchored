@@ -12,13 +12,22 @@ import { sectionOf, type Section } from "@/components/routes";
 export type ShellLocation =
   | { readonly page: "home" }
   | { readonly page: "new" }
-  | { readonly page: "business"; readonly businessId: string; readonly section: Section | null };
+  | {
+      readonly page: "business";
+      readonly businessId: string;
+      readonly section: Section | null;
+      /** The open automation's route key, on `/workflows/<workflow>/<key>`. */
+      readonly automation?: string;
+    };
 
 /** Return the viewer's place in the app. Call only from components the `/app` layout renders. */
 export function useShellLocation(): ShellLocation {
-  // Segments below `app/app/layout.tsx`: [] for /app, ["new"], or ["b", "<id>", "<section>"?].
-  const [first, id, section] = useSelectedLayoutSegments();
+  // Segments below `app/app/layout.tsx`: [] for /app, ["new"], or ["b", "<id>", "<section>"?, "<workflow>"?, "<key>"?].
+  const [first, id, section, , key] = useSelectedLayoutSegments();
   if (first === "new") return { page: "new" };
-  if (first === "b" && id !== undefined) return { page: "business", businessId: id, section: sectionOf(section) };
+  if (first === "b" && id !== undefined) {
+    const where = { page: "business", businessId: id, section: sectionOf(section) } as const;
+    return key === undefined ? where : { ...where, automation: decodeURIComponent(key) };
+  }
   return { page: "home" };
 }

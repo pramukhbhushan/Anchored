@@ -49,3 +49,8 @@ export function cardAnchor(key: string): string {
   // Keys hold colons, such as "restaurant:posts"; a plain id needs no escaping in a URL or a selector.
   return `card-${key.replace(/[^\w-]/g, "-")}`;
 }
+
+/** Return the URL of one automation's page: a step of workflow `workflow`, named by its route `key`. */
+export function automationHref(id: string, workflow: WorkflowId, key: string): string {
+  return `${businessHref(id, "workflows")}/${workflow}/${encodeURIComponent(key)}`;
+}
