@@ -34,7 +34,7 @@ const PATHS: readonly (readonly [PathKind, string])[] = [
 const DECIDED: readonly (readonly [found: string, does: string])[] = [
   [
     "A Twilio trial account can't send the custom texts every card drafts.",
-    "Approved texts wait in your outbox until you connect texting. Anchored sends nothing on its own.",
+    "You send each approved text from your own phone with one tap. Anchored sends nothing on its own.",
   ],
   [
     "Owners asked to approve too often end up approving almost everything, so a run of unedited approvals can measure fatigue, not quality.",

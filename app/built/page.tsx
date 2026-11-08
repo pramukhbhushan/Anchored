@@ -90,7 +90,7 @@ const STATUS: readonly Pair[] = [
   ["Rewrite in my voice", "Live when an AI provider is set."],
   [
     "Texts and emails",
-    "Not connected yet. Business texting needs carrier registration, so approved messages wait in the outbox until you connect texting and email.",
+    "You send them. Business texting needs carrier registration, so each approved message opens your own texting or email app with the words typed out.",
   ],
   [
     "Discovery agent and live connectors",
