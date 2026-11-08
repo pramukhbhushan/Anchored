@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import { CompareBoard, type CompareItem } from "@/components/business/CompareBoard";
+import { NewJobs } from "@/components/business/NewJobs";
 import { OpenFromHash } from "@/components/business/OpenFromHash";
 import { ScoreExplainer } from "@/components/business/ScoreExplainer";
 import { WorkflowFilter } from "@/components/business/WorkflowFilter";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { isSampleBusinessId } from "@/lib/domain/cases";
 import { DISCOVERY_QUEUE, TOOLS, fitsTrade, toolName } from "@/lib/domain/catalog";
 import { withArticle } from "@/lib/domain/discovery";
+import { newJobs } from "@/lib/domain/new-jobs";
 import { workflowIdsOf } from "@/lib/domain/paths";
 import { rateTool, usesSoftware } from "@/lib/domain/rating";
 import { WORKFLOWS } from "@/lib/domain/workflows";
@@ -15,10 +18,13 @@ import { getBusinessOrNotFound, getChoices } from "@/lib/server/data";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The tools page: every catalog tool that covers one of the business's
+// The tools page, where an owner discovers AI tools. Unfiltered, it leads with
+// jobs onboarding didn't pick that a tool or Anchored could take on, each with
+// a button to add it. Then every catalog tool that covers one of the business's
 // workflows, rated on the seven checks for this business, ranked best fit
 // first and filtered by `?workflow=`. Tools built for other kinds of business
-// wait behind a toggle; unchecked listings wait in a closed disclosure below.
+// wait behind a toggle; listings the discovery agent found and no person has
+// checked yet sit at the foot, unscored.
 
 export const metadata: Metadata = { title: "Tools" };
 
@@ -70,7 +76,7 @@ export default async function ToolsPage({
   return (
     <>
       <PageHeader
-        title="Tools"
+        title="Discover AI tools"
         description={
           <>
             <p>Rated for {business.name} on seven checks.</p>
@@ -79,12 +85,19 @@ export default async function ToolsPage({
         }
         actions={<WorkflowFilter businessId={business.id} workflows={myWorkflows} active={filter} />}
       />
-      <CompareBoard key={business.id} businessId={business.id} items={items} filter={filter} />
+      {filter === "all" && <NewJobs businessId={business.id} jobs={newJobs(business)} canAdd={!isSampleBusinessId(business.id)} />}
+
+      <section className="section" aria-labelledby="your-jobs-title">
+        <div className="section-head">
+          <h2 id="your-jobs-title">Tools for the jobs you have</h2>
+        </div>
+        <CompareBoard key={business.id} businessId={business.id} items={items} filter={filter} />
+      </section>
 
       {queue.length > 0 && (
-        <details className="section queue">
+        <details className="section queue" open>
           <summary>
-            {queue.length} new {queue.length === 1 ? "tool" : "tools"} waiting for a person to check{" "}
+            Just found: {queue.length} new {queue.length === 1 ? "tool" : "tools"} waiting for a person to check{" "}
             {queue.length === 1 ? "it" : "them"}
           </summary>
           <p className="queue-note">
