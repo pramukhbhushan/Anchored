@@ -539,6 +539,11 @@ const ASK_EXAMPLES: readonly { readonly skill: AskableSkill; readonly text: stri
 ];
 
 /** A request the owner could type that one of `chosen` drafts, or a post request when none of them takes requests. */
+/** The example request for one skill, such as "Write a post about this week's special", or `null` when chat can't ask it for work. */
+export function askExampleFor(skill: string): string | null {
+  return ASK_EXAMPLES.find((example) => example.skill === skill)?.text ?? null;
+}
+
 export function askExample(chosen: readonly SkillId[]): string {
   return ASK_EXAMPLES.find(({ skill }) => chosen.includes(skill))?.text ?? "Write a post about this week's special";
 }
