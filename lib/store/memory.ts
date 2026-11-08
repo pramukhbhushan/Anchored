@@ -1,7 +1,21 @@
 import { randomUUID } from "node:crypto";
 import type { CardRecord, ChatMessage, OutboxEntry } from "@/lib/api/contract";
+import type { ConnectionKind } from "@/lib/domain/connections";
+import type { Contact } from "@/lib/domain/contacts";
 import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, WorkflowId } from "@/lib/domain/types";
-import { NotFoundError, type CardPatch, type ChatThread, type IntakeRecord, type NewChatMessage, type NewOutboxEntry, type Store } from "./types";
+import {
+  NotFoundError,
+  type CardPatch,
+  type ChatThread,
+  type IntakeRecord,
+  type NewChatMessage,
+  type NewConnection,
+  type NewContact,
+  type NewOutboxEntry,
+  type OutboxPatch,
+  type Store,
+  type StoredConnection,
+} from "./types";
 
 // =============================================================================
 // Module Overview
@@ -15,6 +29,8 @@ interface SessionData {
   readonly choices: Map<string, Map<WorkflowId, Choice>>;
   readonly cards: Map<string, CardRecord>;
   readonly outbox: OutboxEntry[];
+  readonly contacts: Map<string, Contact>;
+  readonly connections: Map<string, StoredConnection>;
   readonly events: { businessId: string; source: string; payload: Readonly<Record<string, unknown>>; receivedAt: string }[];
   /** Chat messages by thread, keyed `${kind}:${id}`. */
   readonly threads: Map<string, ChatMessage[]>;
@@ -43,7 +59,7 @@ export class MemoryStore implements Store {
         const oldest = this.sessions.keys().next().value;
         if (oldest !== undefined) this.sessions.delete(oldest);
       }
-      found = { businesses: new Map(), choices: new Map(), cards: new Map(), outbox: [], events: [], threads: new Map(), intakes: new Map() };
+      found = { businesses: new Map(), choices: new Map(), cards: new Map(), outbox: [], contacts: new Map(), connections: new Map(), events: [], threads: new Map(), intakes: new Map() };
       this.sessions.set(session, found);
     }
     return found;
@@ -121,9 +137,83 @@ export class MemoryStore implements Store {
   }
 
   async addOutbox(session: string, entry: NewOutboxEntry): Promise<OutboxEntry> {
-    const saved: OutboxEntry = { ...entry, id: randomUUID(), sentAt: entry.sentAt ?? new Date().toISOString() };
+    const saved: OutboxEntry = { ...entry, id: randomUUID(), sentAt: entry.sentAt ?? new Date().toISOString(), delivery: entry.delivery ?? "yours", note: entry.note ?? null };
     this.data(session).outbox.push(saved);
     return saved;
+  }
+
+  async claimOutbox(session: string, entryId: string): Promise<OutboxEntry | null> {
+    // Check and write happen with no await between them, so a second sender finds it already sending.
+    const outbox = this.peek(session)?.outbox ?? [];
+    const index = outbox.findIndex((entry) => entry.id === entryId && entry.delivery === "queued");
+    const entry = outbox[index];
+    if (entry === undefined) return null;
+    const claimed: OutboxEntry = { ...entry, delivery: "sending" };
+    outbox[index] = claimed;
+    return claimed;
+  }
+
+  async settleOutbox(session: string, entryId: string, patch: OutboxPatch): Promise<void> {
+    const outbox = this.peek(session)?.outbox ?? [];
+    const index = outbox.findIndex((entry) => entry.id === entryId);
+    const entry = outbox[index];
+    if (entry === undefined) throw new NotFoundError(`Outbox entry ${entryId} not found in this session.`);
+    outbox[index] = { ...entry, delivery: patch.delivery, note: patch.note === undefined ? entry.note : patch.note, sentAt: patch.sentAt ?? entry.sentAt };
+  }
+
+  async listDueOutbox(now: string, limit: number): Promise<{ readonly session: string; readonly entry: OutboxEntry }[]> {
+    const due = [...this.sessions.entries()].flatMap(([session, data]) =>
+      data.outbox.filter((entry) => entry.delivery === "queued" && entry.sentAt <= now).map((entry) => ({ session, entry })),
+    );
+    return due.sort((a, b) => a.entry.sentAt.localeCompare(b.entry.sentAt)).slice(0, limit);
+  }
+
+  async listContacts(session: string, businessId: string): Promise<Contact[]> {
+    return [...(this.peek(session)?.contacts.values() ?? [])].filter((contact) => contact.businessId === businessId);
+  }
+
+  async saveContact(session: string, contact: NewContact): Promise<Contact> {
+    const contacts = this.data(session).contacts;
+    // One contact per phone number: a second save for the same number updates the first.
+    const samePhone = contact.phone === null ? undefined : [...contacts.values()].find((c) => c.businessId === contact.businessId && c.phone === contact.phone);
+    const id = contact.id ?? samePhone?.id ?? randomUUID();
+    if (samePhone !== undefined && samePhone.id !== id) contacts.delete(samePhone.id);
+    const saved: Contact = { ...contact, id };
+    contacts.set(id, saved);
+    return saved;
+  }
+
+  async deleteContact(session: string, businessId: string, contactId: string): Promise<void> {
+    const contacts = this.peek(session)?.contacts;
+    if (contacts?.get(contactId)?.businessId === businessId) contacts.delete(contactId);
+  }
+
+  async listConnections(session: string, businessId: string): Promise<StoredConnection[]> {
+    return [...(this.peek(session)?.connections.values() ?? [])].filter((connection) => connection.businessId === businessId);
+  }
+
+  async saveConnection(session: string, connection: NewConnection): Promise<StoredConnection> {
+    const connections = this.data(session).connections;
+    await this.deleteConnection(session, connection.businessId, connection.kind);
+    const saved: StoredConnection = { ...connection, id: randomUUID(), createdAt: new Date().toISOString() };
+    connections.set(saved.id, saved);
+    return saved;
+  }
+
+  async deleteConnection(session: string, businessId: string, kind: ConnectionKind): Promise<void> {
+    const connections = this.peek(session)?.connections;
+    for (const [id, connection] of connections ?? []) {
+      if (connection.businessId === businessId && connection.kind === kind) connections?.delete(id);
+    }
+  }
+
+  async findConnection(hookId: string): Promise<{ readonly session: string; readonly connection: StoredConnection } | null> {
+    for (const [session, data] of this.sessions) {
+      for (const connection of data.connections.values()) {
+        if (connection.hookId === hookId) return { session, connection };
+      }
+    }
+    return null;
   }
 
   async listOutbox(session: string, businessId: string): Promise<OutboxEntry[]> {

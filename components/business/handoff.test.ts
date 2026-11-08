@@ -128,7 +128,7 @@ describe("copyTextFor", () => {
 });
 
 describe("approvedDraft", () => {
-  const entry: OutboxEntry = { id: "o1", businessId: "b1", cardId: "c1", channel: "list", to: "customer", body: "Copy post: Draft post: \"Hi\"", sentAt: "2026-11-07T15:00:00Z" };
+  const entry: OutboxEntry = { id: "o1", businessId: "b1", cardId: "c1", channel: "list", to: "customer", body: "Copy post: Draft post: \"Hi\"", sentAt: "2026-11-07T15:00:00Z", delivery: "yours", note: null };
 
   it("reads a list entry's words from its card, since the outbox logs the action in front", () => {
     expect(approvedDraft(entry, { body: 'Draft post: "Hi"', title: "A short post", action: "Copy post" })).toEqual({
