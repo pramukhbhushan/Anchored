@@ -14,7 +14,7 @@ import { getBusinessOrNotFound, getChoices, getSetupChat } from "@/lib/server/da
 // and it updates the workflows, or asks an agent for a draft that lands in
 // Approvals, with the profile it reads in the right rail. The onboarding chat
 // that set the business up stays above it, closed, to read again.
-// The example's chat is read-only; Anchored's first message says so, once.
+// Example visitors can chat in their own session without changing the shared business.
 
 export const metadata: Metadata = { title: "Chat" };
 
@@ -34,7 +34,6 @@ export default async function ChatPage({ params }: { readonly params: Promise<{ 
           <ChatWindow
             mode="business"
             businessId={business.id}
-            readOnly={business.kind === "case"}
             starters={chatStarters(business, chosen)}
           />
         </div>

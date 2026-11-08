@@ -69,15 +69,17 @@ describe("the example business's chat", () => {
     expect(messages).toHaveLength(1);
     expect(messages[0]?.text).toContain("tell Anchored what changed");
     expect(messages[0]?.text).toContain("can't change anything");
-    expect(messages[0]?.text).toContain("Set up your business");
+    expect(messages[0]?.text).toContain("You can chat");
   });
 
-  it("answers a message without changing or saving anything", async () => {
+  it("keeps a visitor conversation without changing the shared example", async () => {
     const sent = await sendBusinessChat(SESSION, SAMPLE_BUSINESS, "We now take EBT");
 
     expect(sent.changes).toEqual([]);
-    expect(sent.messages.at(-1)?.text).toContain("is an example, so I can't change it");
-    expect((await listBusinessChat(SESSION, SAMPLE_BUSINESS)).messages).toHaveLength(1);
+    expect(sent.messages.at(-1)?.text).toContain("example can't change or send messages");
+    expect((await listBusinessChat(SESSION, SAMPLE_BUSINESS)).messages).toHaveLength(3);
+    expect(await stores.current!.listCards(SESSION, SAMPLE_BUSINESS.id)).toHaveLength(0);
+    expect((await listBusinessChat("another-visitor", SAMPLE_BUSINESS)).messages).toHaveLength(1);
   });
 });
 
@@ -286,4 +288,52 @@ describe("connecting an invoice sheet in chat", () => {
     await say("We started doing catering");
     expect((await store().getBusiness(SESSION, shop.id))?.invoiceSheet?.id).toBe("1jYg4Sn7znhd57XYKdPfj53reorhkliVlOoTEEQsIKiw");
   });
+});
+
+
+describe("agent-scoped conversations", () => {
+  const shop = hvacShop();
+  it("keeps Customer, Internal and general histories separate", async () => {
+    await sendBusinessChat(SESSION, shop, "What should I focus on?", "customer");
+    const customer = await listBusinessChat(SESSION, shop, "customer");
+    const internal = await listBusinessChat(SESSION, shop, "internal");
+    const general = await listBusinessChat(SESSION, shop);
+    expect(customer.messages.some((m) => m.role === "owner")).toBe(true);
+    expect(internal.messages.some((m) => m.role === "owner")).toBe(false);
+    expect(general.messages.some((m) => m.role === "owner")).toBe(false);
+  });
+  it("rejects an inactive agent before storing anything", async () => {
+    await stores.current!.setChoice(SESSION, shop.id, "social", { path: "skip" });
+    await expect(sendBusinessChat(SESSION, shop, "Hello", "content")).rejects.toThrow("not active");
+  });
+  it("cannot draft another agent's work from Customer chat", async () => {
+    await stores.current!.setChoice(SESSION, shop.id, "social", { path: "build", skills: ["posts"] });
+    await sendBusinessChat(SESSION, shop, "write a post about spring", "customer");
+    expect(await stores.current!.listCards(SESSION, shop.id)).toHaveLength(0);
+  });
+  it("uses the budgeted model for a conversational reply with the selected role and history", async () => {
+    const generateText = vi.fn(async () => "Start by checking the inquiries waiting for you. Which needs a reply?");
+    models.current = { ...modelSaying(""), generateText };
+    const reply = await sendBusinessChat(SESSION, shop, "What should I focus on?", "customer");
+    expect(reply.messages.at(-1)?.text).toContain("Which needs a reply?");
+    expect(generateText.mock.calls[0]).toBeDefined();
+    expect(JSON.stringify(generateText.mock.calls)).toContain("You are Customer");
+    expect(await stores.current!.listCards(SESSION, shop.id)).toHaveLength(0);
+  });
+  it("does not present an invented model action as a completed action", async () => {
+    models.current = modelSaying("I sent the customer a message.");
+    const reply = await sendBusinessChat(SESSION, shop, "What should I focus on?", "customer");
+    expect(reply.messages.at(-1)?.text).toContain("couldn't produce a reliable AI reply");
+    expect(await stores.current!.listCards(SESSION, shop.id)).toHaveLength(0);
+  });
+});
+
+
+it("answers example questions with AI without applying an action request", async () => {
+  models.current = modelSaying("The Customer agent prepares replies for your approval. What would you like to explore?");
+  const result = await sendBusinessChat(SESSION, SAMPLE_BUSINESS, "Send a customer a reminder", "customer");
+  expect(result.messages.at(-1)?.text).toContain("What would you like to explore?");
+  expect(result.changes).toEqual([]);
+  expect(await stores.current!.listCards(SESSION, SAMPLE_BUSINESS.id)).toHaveLength(0);
+  expect((await listBusinessChat("another-visitor", SAMPLE_BUSINESS, "customer")).messages).toHaveLength(1);
 });

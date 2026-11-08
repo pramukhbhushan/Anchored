@@ -302,6 +302,7 @@ export interface IntakeAnswerRequest {
 /** POST /api/businesses/[id]/chat: tell Anchored what changed, or ask an agent for a draft. */
 export interface BusinessChatRequest {
   readonly text: string;
+  readonly agent?: string;
 }
 
 /** GET and POST /api/businesses/[id]/chat. `changes` is what the latest message changed; empty on GET. */

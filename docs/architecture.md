@@ -110,3 +110,10 @@ The rules describe the code as it is, and two places sit below the bar the layer
 License dates live in `ProfileDetails.licenses`, the existing registry and versioned profile. The structured owner form is the only date-entry path; model detail extraction excludes this field. Follow-up records live in `customer_followups`, isolated by session and business, cleared by reset, and cascaded on business deletion.
 
 Telegram removal preserves sent text and delivery audit. The dispatcher derives the chat and provider identities from stored owner data, claims removal atomically and records confirmed, failed or in-progress removal separately from delivery. The UI receives server-computed eligibility; the provider id stays server-side. A removal never means the recipient did not read a message.
+
+
+## Agent chats
+
+The existing chat endpoint accepts an optional validated `agent` token. The server resolves that token against the business's active agents and restricts draft selection to their chosen skills. Customer groups legacy Front Desk and Follow-up identities. General chat keeps its original thread id. Scoped histories use the existing business thread kind and the id `<business id>:agent:<agent id>`, with the same session filters and reset behavior. No migration is needed.
+
+Chat advice uses `getBudgetedLlm` and has no tools or authority to change data. Code still reads requests, records explicit business changes and prepares approval cards. Replies never directly send. Agent pages show whether AI is configured, and a failed conversational call returns an explicit fallback. The shared example accepts session-scoped conversations, but cannot change business facts, create approval cards or send messages.

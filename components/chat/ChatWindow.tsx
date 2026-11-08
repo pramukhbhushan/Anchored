@@ -336,18 +336,19 @@ function BusinessChat({
   const mounted = useRef(false);
   const contextName = agent === undefined ? null : (agentName ?? agent);
   const url = `/api/businesses/${encodeURIComponent(businessId)}/chat`;
+  const historyUrl = agent === undefined ? url : `${url}?agent=${encodeURIComponent(agent)}`;
 
   useEffect(() => {
     mounted.current = true;
     void run(null, async () => {
-      const chat = await getApi<BusinessChatResponse>(url, LOAD_FAILED);
+      const chat = await getApi<BusinessChatResponse>(historyUrl, LOAD_FAILED);
       if (mounted.current) setMessages(chat.messages);
     });
     return () => {
       mounted.current = false;
     };
     // A keyed BusinessChat remounts when the business or selected agent changes.
-  }, [url]);
+  }, [historyUrl]);
 
   async function send(text: string): Promise<void> {
     if (busy || readOnly) return;
