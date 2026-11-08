@@ -57,7 +57,7 @@ The owner wants every page to use the whole screen and adapt to it. `app/globals
 
 - **Fill the width.** Give pages and sections no `max-width`; lay repeated items in grids with `repeat(auto-fill, minmax(min(100%, <n>px), 1fr))`, and switch layouts with `@container app` queries, since the sidebar changes the space. Cap only running text, at about `65ch`. Phones get one column with no sideways scroll.
 - **Spacing and type come from tokens:** `--s-1` to `--s-8` (4 to 64px; 12px inside a card, 16 to 24px between cards, 48px between sections), `--pad` for card padding, and the seven `--fs-*` sizes.
-- **Say each thing once per page.** One filled button per region, at most one badge per card, boxes only for things the owner decides (approval cards, the brief, the bill), and secondary detail behind a `<details>`. Carbon yellow marks only the brief, the BUILD stamp, the active nav item and the approvals count.
+- **Say each thing once per page.** One filled button per region, at most one badge per card, boxes only for things the owner decides (approval cards, the brief, the bill), and secondary detail behind a `<details>`. Carbon yellow marks only the brief, the owner's OK step on the Workflows graph, the active nav item and the approvals count. Owner-facing pages say who handles each job ("Your OpenTable sends reminders", "Anchored drafts it, you approve") and never use the internal path names Turn on, Buy, Build or Skip; those stay in `lib/domain` and on the marketing pages.
 
 ## Working in parallel
 
