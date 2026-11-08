@@ -9,6 +9,7 @@ import type {
   IntakeAnswerRequest,
   SaveContactRequest,
   SetChoiceRequest,
+  SetStandingRuleRequest,
   SimulateRequest,
 } from "@/lib/api/contract";
 import { SKILLS } from "@/lib/domain/agents";
@@ -120,3 +121,5 @@ export const saveContactSchema = z.object({
   email: z.string().trim().max(200).optional(),
   consent: z.enum(CONSENT_SOURCES as [ConsentSource, ...ConsentSource[]]).nullable(),
 }) satisfies z.ZodType<SaveContactRequest>;
+
+export const setStandingRuleSchema = z.strictObject({ enabled: z.boolean() }) satisfies z.ZodType<SetStandingRuleRequest>;

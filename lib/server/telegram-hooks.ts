@@ -6,7 +6,8 @@ import { liveEventKey } from "@/lib/domain/cards";
 import { startNoticeText, stopNoticeText } from "@/lib/domain/rules";
 import { THREAD_TEXT_MAX } from "@/lib/domain/threads";
 import { draftTelegramCard, TELEGRAM_CUSTOMER } from "@/lib/server/customer-reply";
-import { queueProtocolNotice } from "@/lib/server/decide";
+import { mentionsAllergen } from "@/lib/domain/executor";
+import { queueAcknowledgment, queueProtocolNotice } from "@/lib/server/decide";
 import { dispatchEntry } from "@/lib/server/dispatch";
 import { createRateLimiter } from "@/lib/server/rate-limit";
 import { getStore } from "@/lib/store";
@@ -21,8 +22,9 @@ import type { TelegramChat } from "@/lib/store/types";
 // talking to. `/stop`, or blocking the bot, records the opt-out before anything
 // else. Any other text joins the customer's thread and becomes a draft reply
 // for the owner. The webhook never sends by itself: the only messages that go
-// out here are the fixed /start and /stop notices, written to the outbox by
-// `queueProtocolNotice` and sent by the one dispatcher.
+// out here are fixed texts, the /start and /stop notices and, when the owner
+// turned the rule on, the acknowledgment, each written to the outbox by
+// `lib/server/decide.ts` and sent by the one dispatcher.
 
 /** What one update did, for the route's answer and the logs. Never includes customer text. */
 export type TelegramOutcome = "started" | "stopped" | "blocked" | "unblocked" | "drafted" | "limited" | "unbound" | "ignored";
@@ -52,7 +54,7 @@ export async function handleTelegramUpdate(update: TelegramUpdate, now: Date, de
       await getStore().setTelegramChatBlocked(update.chatId, null);
       return "unblocked";
     case "text":
-      return text(update.chatId, update.name, update.text, update.updateId, now);
+      return text(update.chatId, update.name, update.text, update.updateId, now, deps);
     case "ignored":
       return "ignored";
   }
@@ -121,8 +123,11 @@ async function notify(session: string, businessId: string, contact: Contact, bod
   if (entry !== null) await dispatchEntry(store, session, entry.id, now, deps);
 }
 
-/** Add the customer's message to their thread and draft the reply card for the owner. */
-async function text(chatId: string, name: string | null, body: string, updateId: number, now: Date): Promise<TelegramOutcome> {
+/**
+ * Add the customer's message to their thread, draft the reply card for the owner, and send the fixed acknowledgment
+ * when the owner turned that rule on. An allergy question or a customer who sent /stop gets no acknowledgment.
+ */
+async function text(chatId: string, name: string | null, body: string, updateId: number, now: Date, deps: TelegramDeps): Promise<TelegramOutcome> {
   const store = getStore();
   const chat = await store.findTelegramChat(chatId);
   // A chat that never opened a business's link has no business to write to, and the webhook may not reply on its own.
@@ -158,5 +163,11 @@ async function text(chatId: string, name: string | null, body: string, updateId:
       at: now.toISOString(),
     });
   }
-  return (await draftTelegramCard(chat.session, business, { contactId: contact.id, text: body, key })) === null ? "ignored" : "drafted";
+  if ((await draftTelegramCard(chat.session, business, { contactId: contact.id, text: body, key })) === null) return "ignored";
+  if (!mentionsAllergen(body) && contact.optedOutAt === null) {
+    const ack = await queueAcknowledgment(store, chat.session, { business, contact, at: now });
+    // Due now unless quiet hours held it for morning, when the scheduled sender takes it.
+    if (ack !== null && ack.sentAt <= now.toISOString()) await dispatchEntry(store, chat.session, ack.id, now, deps);
+  }
+  return "drafted";
 }

@@ -2,7 +2,7 @@ import type { CardRecord, CardStatus, ChatMessage, Delivery, OutboxEntry } from 
 import type { ConnectionKind } from "@/lib/domain/connections";
 import type { Contact } from "@/lib/domain/contacts";
 import type { IntakeDraft } from "@/lib/domain/intake";
-import type { StandingRuleId, StandingRuleState } from "@/lib/domain/rules";
+import type { OutboxRule, StandingRuleId, StandingRuleState } from "@/lib/domain/rules";
 import type { NewThreadMessage, ThreadMessage } from "@/lib/domain/threads";
 import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
 
@@ -121,6 +121,11 @@ export interface Store {
   /** Mark every pending card to `contact` as `superseded`, except the one keyed `exceptKey`, and return how many changed. */
   supersedePendingCards(session: string, businessId: string, contact: string, exceptKey: string): Promise<number>;
   addOutbox(session: string, entry: NewOutboxEntry): Promise<OutboxEntry>;
+  /**
+   * Add an entry a rule authorized, unless the session already has one with the same `ruleKey`; `null` then. One
+   * statement checks and writes, so a burst of messages or a retried update queues one acknowledgment.
+   */
+  addRuleOutbox(session: string, entry: NewOutboxEntry & { readonly rule: OutboxRule; readonly ruleKey: string }): Promise<OutboxEntry | null>;
   listOutbox(session: string, businessId: string): Promise<OutboxEntry[]>;
   recordEvent(session: string, businessId: string, source: string, payload: Readonly<Record<string, unknown>>): Promise<void>;
   /** Return the latest `limit` messages of a thread, oldest first. */

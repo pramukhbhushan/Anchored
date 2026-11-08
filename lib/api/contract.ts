@@ -60,6 +60,64 @@ export interface OutboxEntry {
 // Routes
 // =============================================================================
 
+/** The acknowledgment rule as the owner sees it: on or off, and when they last approved it. */
+export interface AcknowledgmentState {
+  readonly enabled: boolean;
+  readonly approvedAt: string | null;
+}
+
+/**
+ * GET and PUT /api/businesses/[id]/standing-rules: the acknowledgment rule's saved state, the exact text it sends, and
+ * why it can't change, when it can't. A PUT answers with the state as saved, never the state the owner asked for.
+ */
+export interface StandingRulesResponse {
+  readonly acknowledge: AcknowledgmentState;
+  readonly template: string;
+  readonly unavailableReason: string | null;
+}
+
+/** PUT /api/businesses/[id]/standing-rules: turn the acknowledgment rule on or off. */
+export interface SetStandingRuleRequest {
+  readonly enabled: boolean;
+}
+
+/** One customer in the Customer agent's list, newest conversation first. */
+export interface CustomerSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly lastText?: string;
+  readonly lastAt?: string;
+  /** The customer sent /stop or blocked the bot. */
+  readonly stopped: boolean;
+  /** An allergy question of theirs waits for the owner's own answer. */
+  readonly locked: boolean;
+}
+
+/** One message in a customer's thread, with what happened to it when Anchored sent it. */
+export interface ThreadMessageView {
+  readonly id: string;
+  readonly direction: "in" | "out";
+  readonly text: string;
+  readonly at: string;
+  readonly skill?: string;
+  readonly cardKey?: string;
+  readonly delivery?: "queued" | "sending" | "sent" | "failed";
+  readonly note?: string;
+  /** Set when a rule sent it with no card: the owner's acknowledgment rule or the bot's answer to /start or /stop. */
+  readonly rule?: OutboxRule;
+}
+
+/**
+ * GET /api/businesses/[id]/customers?contact=<id>: the business's Telegram customers and one customer's thread,
+ * oldest message first. `selectedContactId` is `null` when there are none or the asked-for one isn't this business's.
+ */
+export interface CustomersResponse {
+  readonly contacts: readonly CustomerSummary[];
+  readonly selectedContactId: string | null;
+  readonly messages: readonly ThreadMessageView[];
+  readonly unavailableReason?: string;
+}
+
 /**
  * GET /api/businesses/[id]/telegram: the link customers open to message this business through the shared bot, or
  * the reason there is none. Exactly one of the two is set. The bot's token never appears here.

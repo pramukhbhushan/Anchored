@@ -6,6 +6,7 @@ import { sendTelegramMessage, TelegramBlockedError, telegramBotFromEnv } from "@
 import { sendTwilioText } from "@/lib/connectors/twilio";
 import { deliveryFor, type Delivery, type PlannedMessage, type SendingSetup } from "@/lib/domain/contacts";
 import { checkProtocolNotice, checkSend, OWNER_TIME_ZONE, sendTimeText } from "@/lib/domain/executor";
+import { ruleEnabled } from "@/lib/domain/rules";
 import type { CardDraft } from "@/lib/domain/types";
 import type { Store, StoredConnection } from "@/lib/store/types";
 import { canStoreSecrets, decryptSecret } from "@/lib/server/secrets";
@@ -76,6 +77,11 @@ export async function dispatchEntry(
     // An entry a rule authorized has no card; any other entry without one lost it to a deletion.
     if (business === null || (card === null && entry.rule === undefined)) {
       await settle("failed", "The card or business behind this message was deleted, so it wasn't sent.");
+      return "failed";
+    }
+    // An acknowledgment goes out only while the owner's rule is still on, whenever it was queued.
+    if (entry.rule === "acknowledge" && !ruleEnabled(await store.getStandingRules(session, entry.businessId), "acknowledge")) {
+      await settle("failed", "You turned off the acknowledgment rule, so this one wasn't sent.");
       return "failed";
     }
     const draft: CardDraft = { ...(card ?? RULE_DRAFT), body: entry.body, channel: entry.channel };

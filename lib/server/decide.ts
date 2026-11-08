@@ -2,7 +2,8 @@ import "server-only";
 import type { CardRecord, DecideCardRequest, DecideCardResponse, OutboxEntry } from "@/lib/api/contract";
 import type { Contact } from "@/lib/domain/contacts";
 import { checkProtocolNotice, checkSend, OWNER_TIME_ZONE, ensureOptOut, sendTimeText } from "@/lib/domain/executor";
-import type { CardDraft } from "@/lib/domain/types";
+import { acknowledgmentKey, acknowledgmentText, ruleEnabled } from "@/lib/domain/rules";
+import type { BusinessProfile, CardDraft } from "@/lib/domain/types";
 import type { Store } from "@/lib/store";
 import { planDelivery } from "@/lib/server/dispatch";
 
@@ -14,8 +15,10 @@ import { planDelivery } from "@/lib/server/dispatch";
 // hours is queued for the first allowed hour instead of sent now. The outbox
 // entry says who sends it: Anchored through a connected service, which
 // `lib/server/dispatch.ts` does, or the owner from their own phone or email.
-// `queueProtocolNotice` is the one entry no card authorizes: the bot's fixed
-// answer to a customer's own /start or /stop, which the customer asked for.
+// Two kinds of entry need no card: `queueProtocolNotice`, the bot's fixed
+// answer to a customer's own /start or /stop, and `queueAcknowledgment`, the
+// fixed "got your message" reply the owner approved once as a standing rule.
+// Turning that rule off fails every acknowledgment still queued.
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -123,4 +126,50 @@ export async function decideCard(store: Store, session: string, card: CardRecord
   if (!queued) return ALREADY_DECIDED;
   const outbox = await send(store, session, queued, body, later);
   return { ok: true, response: { card: queued, outbox, blocked: `${check.reason} Queued for ${sendTimeText(later)}.` } };
+}
+
+/**
+ * Queue the fixed acknowledgment for a customer's Telegram message when the owner turned the `acknowledge` rule on.
+ * At most one per customer per window, held for morning in quiet hours. Returns `null` when nothing was queued: the
+ * rule is off, one already went out in this window, or the rules refuse it.
+ */
+export async function queueAcknowledgment(
+  store: Store,
+  session: string,
+  ack: { readonly business: BusinessProfile; readonly contact: Contact; readonly at: Date },
+): Promise<OutboxEntry | null> {
+  const { business, contact, at } = ack;
+  if (!ruleEnabled(await store.getStandingRules(session, business.id), "acknowledge")) return null;
+  const body = acknowledgmentText(business.name);
+  const draft: CardDraft = { agent: null, skill: null, title: "", body, reason: "", checks: [], action: "", channel: "telegram" };
+  const check = checkSend(draft, { now: at, timeZone: OWNER_TIME_ZONE, hasConsent: contact.consent !== null });
+  // Only quiet hours delay it; any other refusal means no acknowledgment at all.
+  const sendAt = check.ok ? at : check.reason.startsWith("Quiet hours") ? nextAllowedHour(draft, at) : null;
+  if (sendAt === null) return null;
+  return store.addRuleOutbox(session, {
+    businessId: business.id,
+    cardId: null,
+    channel: "telegram",
+    to: contact.name,
+    contactId: contact.id,
+    body,
+    sentAt: sendAt.toISOString(),
+    delivery: "queued",
+    note: null,
+    rule: "acknowledge",
+    ruleKey: acknowledgmentKey(contact.id, at),
+  });
+}
+
+/** Fail every acknowledgment still queued for `businessId`, after the owner turned the rule off. Returns how many. */
+export async function revokeAcknowledgments(store: Store, session: string, businessId: string): Promise<number> {
+  const queued = (await store.listOutbox(session, businessId)).filter((entry) => entry.rule === "acknowledge" && entry.delivery === "queued");
+  let revoked = 0;
+  for (const entry of queued) {
+    // Claiming first means a send already under way finishes, and this one can't be sent after it's failed.
+    if ((await store.claimOutbox(session, entry.id)) === null) continue;
+    await store.settleOutbox(session, entry.id, { delivery: "failed", note: "You turned off the acknowledgment rule, so this one wasn't sent." });
+    revoked += 1;
+  }
+  return revoked;
 }

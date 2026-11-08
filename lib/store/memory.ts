@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { CardRecord, ChatMessage, OutboxEntry } from "@/lib/api/contract";
 import type { ConnectionKind } from "@/lib/domain/connections";
 import type { Contact } from "@/lib/domain/contacts";
-import { defaultRuleState, type StandingRuleId, type StandingRuleState } from "@/lib/domain/rules";
+import { defaultRuleState, type OutboxRule, type StandingRuleId, type StandingRuleState } from "@/lib/domain/rules";
 import { inOrder, type NewThreadMessage, type ThreadMessage } from "@/lib/domain/threads";
 import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
 import {
@@ -48,6 +48,8 @@ interface SessionData {
   readonly rules: Map<string, StandingRuleState>;
   /** Telegram hook ids by business id. */
   readonly telegramHooks: Map<string, string>;
+  /** The keys of outbox entries a rule authorized, so each key queues once. */
+  readonly ruleKeys: Set<string>;
 }
 
 /** A Telegram update's processing state. */
@@ -95,6 +97,7 @@ export class MemoryStore implements Store {
         threadMessages: [],
         rules: new Map(),
         telegramHooks: new Map(),
+        ruleKeys: new Set(),
       };
       this.sessions.set(session, found);
     }
@@ -199,6 +202,15 @@ export class MemoryStore implements Store {
     const saved: OutboxEntry = { ...entry, id: randomUUID(), sentAt: entry.sentAt ?? new Date().toISOString(), delivery: entry.delivery ?? "yours", note: entry.note ?? null };
     this.data(session).outbox.push(saved);
     return saved;
+  }
+
+  async addRuleOutbox(session: string, entry: NewOutboxEntry & { readonly rule: OutboxRule; readonly ruleKey: string }): Promise<OutboxEntry | null> {
+    // Check and write happen with no await between them, so a second entry with the key can't slip in.
+    const keys = this.data(session).ruleKeys;
+    if (keys.has(entry.ruleKey)) return null;
+    keys.add(entry.ruleKey);
+    const { ruleKey: _key, ...rest } = entry;
+    return this.addOutbox(session, rest);
   }
 
   async claimOutbox(session: string, entryId: string): Promise<OutboxEntry | null> {

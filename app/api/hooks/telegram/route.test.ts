@@ -323,3 +323,77 @@ describe("another business's link", () => {
     expect(entry?.note).toContain("switched to another business's link");
   });
 });
+
+describe("the acknowledgment rule", () => {
+  /** Turn the owner's acknowledgment rule on or off. */
+  const setRule = (enabled: boolean) => store().setStandingRule(SESSION, SHOP.id, "acknowledge", enabled, DAYTIME.toISOString());
+  const acks = async () => (await store().listOutbox(SESSION, SHOP.id)).filter((entry) => entry.rule === "acknowledge");
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(DAYTIME);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("sends nothing but the /start notice while the rule is off, which is how it starts", async () => {
+    await post(message(1101, `/start ${HOOK}`));
+    telegram.reset();
+    await post(message(1101, "Do you service heat pumps?"));
+    expect(telegram.calls).toEqual([]);
+    expect(await acks()).toEqual([]);
+  });
+
+  it("once on, sends the fixed text at once, and only once per window however many messages arrive", async () => {
+    await setRule(true);
+    await post(message(1102, `/start ${HOOK}`));
+    telegram.reset();
+    await post(message(1102, "Do you service heat pumps?"));
+    await post(message(1102, "And boilers?"));
+
+    expect(telegram.calls).toEqual([{ method: "sendMessage", body: expect.objectContaining({ text: `Thanks, ${SHOP.name} got your message and will reply soon.` }) }]);
+    expect(await acks()).toEqual([expect.objectContaining({ delivery: "sent", cardId: null })]);
+    // The real answers still wait for the owner.
+    expect((await cards()).filter((c) => c.channel === "telegram").map((c) => c.status)).toEqual(["superseded", "pending"]);
+  });
+
+  it("isn't sent for an allergy question or after /stop", async () => {
+    await setRule(true);
+    await post(message(1103, `/start ${HOOK}`));
+    await post(message(1103, "Is there peanut oil in anything you use?"));
+    await post(message(1103, "/stop"));
+    await post(message(1103, "one more thing"));
+    expect(await acks()).toEqual([]);
+  });
+
+  it("waits for morning in quiet hours, and turning the rule off cancels it", async () => {
+    await setRule(true);
+    // 11 p.m. in New York.
+    vi.setSystemTime(new Date("2026-11-09T04:00:00Z"));
+    await post(message(1104, `/start ${HOOK}`));
+    telegram.reset();
+    await post(message(1104, "Are you open tomorrow?"));
+    const [queued] = await acks();
+    expect(queued).toMatchObject({ delivery: "queued", sentAt: "2026-11-09T13:00:00.000Z" });
+    expect(telegram.calls).toEqual([]);
+
+    const { setAcknowledgment } = await import("@/lib/server/standing-rules");
+    await setAcknowledgment(SESSION, SHOP, false);
+    expect((await acks())[0]).toMatchObject({ delivery: "failed", note: expect.stringContaining("turned off") });
+  });
+
+  it("isn't sent when the rule was turned off after it was queued", async () => {
+    await setRule(true);
+    vi.setSystemTime(new Date("2026-11-09T04:00:00Z"));
+    await post(message(1105, `/start ${HOOK}`));
+    await post(message(1105, "Are you open tomorrow?"));
+    // Turned off behind the API's back, so only the dispatcher's own check stands in the way.
+    await store().setStandingRule(SESSION, SHOP.id, "acknowledge", false, DAYTIME.toISOString());
+    telegram.reset();
+    const [queued] = await acks();
+    expect(await dispatchEntry(store(), SESSION, queued?.id ?? "", DAYTIME, { fetch: telegram.fetch.bind(telegram), env: ENV })).toBe("failed");
+    expect(telegram.calls).toEqual([]);
+  });
+});

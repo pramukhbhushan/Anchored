@@ -379,6 +379,28 @@ export class SupabaseStore implements Store {
     return toOutbox(data as OutboxRow);
   }
 
+  async addRuleOutbox(session: string, entry: NewOutboxEntry & { readonly rule: OutboxRule; readonly ruleKey: string }): Promise<OutboxEntry | null> {
+    const row = {
+      session_id: session,
+      business_id: entry.businessId,
+      card_id: entry.cardId,
+      channel: entry.channel,
+      recipient: entry.to,
+      body: entry.body,
+      delivery: entry.delivery ?? "yours",
+      delivery_note: entry.note ?? null,
+      rule: entry.rule,
+      rule_key: entry.ruleKey,
+      contact_id: entry.contactId ?? null,
+      ...(entry.sentAt ? { sent_at: entry.sentAt } : {}),
+    };
+    const { data, error } = await this.db.from("outbox").insert(row).select(OUTBOX_COLUMNS).single();
+    // `outbox_rule_key_unique` refused a second entry with this key: one is already queued or sent.
+    if (error?.code === "23505") return null;
+    if (error) fail("addRuleOutbox", error);
+    return toOutbox(data as OutboxRow);
+  }
+
   async listOutbox(session: string, businessId: string): Promise<OutboxEntry[]> {
     const { data, error } = await this.db.from("outbox").select(OUTBOX_COLUMNS).eq("session_id", session).eq("business_id", businessId).order("sent_at", { ascending: false });
     if (error) fail("listOutbox", error);
