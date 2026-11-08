@@ -18,8 +18,8 @@ describe("AcknowledgmentRule", () => {
     expect(screen.getByText("Thanks, Greenfield Lawn got your message and will reply soon.")).toBeInTheDocument();
     expect(screen.getByText(/Quiet hours and stop requests still apply/)).toBeInTheDocument();
     expect(screen.getByRole("checkbox")).not.toBeChecked();
-    expect(screen.getByText("Saved state: Off")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save rule as off" })).toBeDisabled();
+    expect(screen.getByText("Right now: Off")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
 
   it("adopts the returned state only after an explicit save and blocks duplicate saves", async () => {
@@ -28,13 +28,13 @@ describe("AcknowledgmentRule", () => {
     const user = userEvent.setup();
     render(<AcknowledgmentRule businessId="shop" businessName="Greenfield Lawn" state={OFF} save={save} />);
     await user.click(screen.getByRole("checkbox"));
-    expect(screen.getByText("Saved state: Off")).toBeInTheDocument();
-    await user.dblClick(screen.getByRole("button", { name: "Approve acknowledgment rule" }));
+    expect(screen.getByText("Right now: Off")).toBeInTheDocument();
+    await user.dblClick(screen.getByRole("button", { name: "Save" }));
     expect(save).toHaveBeenCalledTimes(1);
     expect(save).toHaveBeenCalledWith(true);
     expect(screen.getByRole("checkbox")).toBeDisabled();
     reply.resolve({ enabled: true, approvedAt: "2026-11-08T15:00:00Z" });
-    expect(await screen.findByText("Saved state: On")).toBeInTheDocument();
+    expect(await screen.findByText("Right now: On")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Saved. The acknowledgment rule is on.");
   });
 
@@ -43,12 +43,12 @@ describe("AcknowledgmentRule", () => {
     const save = vi.fn().mockRejectedValueOnce(new Error("Check your connection.")).mockResolvedValueOnce({ enabled: true });
     render(<AcknowledgmentRule businessId="shop" businessName="Greenfield Lawn" state={OFF} save={save} />);
     await user.click(screen.getByRole("checkbox"));
-    await user.click(screen.getByRole("button", { name: "Approve acknowledgment rule" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Your change wasn't saved.");
-    expect(screen.getByText("Saved state: Off")).toBeInTheDocument();
+    expect(screen.getByText("Right now: Off")).toBeInTheDocument();
     expect(screen.getByRole("checkbox")).toBeChecked();
-    await user.click(screen.getByRole("button", { name: "Approve acknowledgment rule" }));
-    expect(await screen.findByText("Saved state: On")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Right now: On")).toBeInTheDocument();
   });
 
   it("can save the rule as off", async () => {
@@ -56,9 +56,9 @@ describe("AcknowledgmentRule", () => {
     const save = vi.fn().mockResolvedValue({ enabled: false });
     render(<AcknowledgmentRule businessId="shop" businessName="Greenfield Lawn" state={{ enabled: true }} save={save} />);
     await user.click(screen.getByRole("checkbox"));
-    await user.click(screen.getByRole("button", { name: "Save rule as off" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(save).toHaveBeenCalledWith(false));
-    expect(await screen.findByText("Saved state: Off")).toBeInTheDocument();
+    expect(await screen.findByText("Right now: Off")).toBeInTheDocument();
   });
 
   it("distinguishes unknown state and read-only state", () => {
@@ -76,10 +76,10 @@ describe("AcknowledgmentRule", () => {
     const user = userEvent.setup();
     const { rerender } = render(<AcknowledgmentRule businessId="first" businessName="First shop" state={OFF} save={() => reply.promise} />);
     await user.click(screen.getByRole("checkbox"));
-    await user.click(screen.getByRole("button", { name: "Approve acknowledgment rule" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
     rerender(<AcknowledgmentRule businessId="second" businessName="Second shop" state={OFF} save={vi.fn()} />);
     reply.resolve({ enabled: true });
-    await waitFor(() => expect(screen.getByText("Saved state: Off")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Right now: Off")).toBeInTheDocument());
     expect(screen.getByRole("checkbox")).not.toBeChecked();
     expect(screen.getByText("Thanks, Second shop got your message and will reply soon.")).toBeInTheDocument();
   });

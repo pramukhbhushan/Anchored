@@ -4,14 +4,14 @@ import { acknowledgmentKey, acknowledgmentText, defaultRuleState, ruleEnabled, s
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Behavior of the standing rules: every rule starts off, the acknowledgment
+// Behavior of the standing rules: the acknowledgment starts on, the acknowledgment
 // is the fixed text the owner approves, one key covers a whole window, and the
 // protocol notices name the business.
 
 describe("standing rules", () => {
-  it("start off, and count as on only when saved on", () => {
-    expect(defaultRuleState("acknowledge")).toMatchObject({ enabled: false, approvedAt: null });
-    expect(ruleEnabled([], "acknowledge")).toBe(false);
+  it("start on, and count as off only when the owner saved them off", () => {
+    expect(defaultRuleState("acknowledge")).toMatchObject({ enabled: true, approvedAt: null });
+    expect(ruleEnabled([], "acknowledge")).toBe(true);
     expect(ruleEnabled([{ rule: "acknowledge", enabled: false, approvedAt: "2026-11-08T10:00:00.000Z", changedAt: "2026-11-08T11:00:00.000Z" }], "acknowledge")).toBe(false);
     expect(ruleEnabled([{ rule: "acknowledge", enabled: true, approvedAt: "2026-11-08T10:00:00.000Z", changedAt: "2026-11-08T10:00:00.000Z" }], "acknowledge")).toBe(true);
   });

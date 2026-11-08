@@ -6,8 +6,8 @@ import { hvacShop } from "@/test/trades";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The owner's acknowledgment rule: off until turned on, the exact text shown
-// before it is, the approval time kept after it's turned off, and the shared
+// The owner's acknowledgment rule: on until turned off, the exact text shown
+// with it, the approval time kept after it's turned off, and the shared
 // example refused.
 
 const state = vi.hoisted(() => ({ store: null as import("@/lib/store/memory").MemoryStore | null }));
@@ -23,9 +23,9 @@ beforeEach(async () => {
 });
 
 describe("the acknowledgment rule", () => {
-  it("starts off and shows the exact text it would send", async () => {
+  it("starts on and shows the exact text it sends", async () => {
     expect(await readStandingRules("guest", SHOP)).toEqual({
-      acknowledge: { enabled: false, approvedAt: null },
+      acknowledge: { enabled: true, approvedAt: null },
       template: `Thanks, ${SHOP.name} got your message and will reply soon.`,
       unavailableReason: null,
     });
@@ -39,8 +39,8 @@ describe("the acknowledgment rule", () => {
   });
 
   it("stays in its own session", async () => {
-    await setAcknowledgment("guest", SHOP, true);
-    expect((await readStandingRules("someone-else", SHOP)).acknowledge.enabled).toBe(false);
+    await setAcknowledgment("guest", SHOP, false);
+    expect((await readStandingRules("someone-else", SHOP)).acknowledge.enabled).toBe(true);
   });
 
   it("can't change on the shared example", async () => {

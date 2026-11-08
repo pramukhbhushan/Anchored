@@ -2,8 +2,9 @@
 // Module Overview
 // =============================================================================
 // The few messages Anchored may send without a tap on each one. A standing rule
-// is one the owner turned on themselves; v1 has only `acknowledge`, a fixed
-// "got your message" reply that starts off. A protocol notice is the bot's
+// is one the owner can turn off; v1 has only `acknowledge`, a fixed "got your
+// message" reply that starts on, since customers expect to hear that their
+// message landed. A protocol notice is the bot's
 // fixed answer to a customer's own /start or /stop. Both are fixed text, never
 // written by the model, and both still pass `checkSend` before they go out.
 
@@ -25,14 +26,19 @@ export interface StandingRuleState {
   readonly changedAt: string;
 }
 
-/** A rule as it stands before the owner has ever changed it: off. */
+/** A rule as it stands before the owner has ever changed it: on. */
 export function defaultRuleState(rule: StandingRuleId): StandingRuleState {
-  return { rule, enabled: false, approvedAt: null, changedAt: new Date(0).toISOString() };
+  return { rule, enabled: true, approvedAt: null, changedAt: new Date(0).toISOString() };
 }
 
-/** Whether `rule` is on, given a business's saved states. A rule with no saved state is off. */
+/** Return `rule`'s state from a business's saved states, or its default when the owner never changed it. */
+export function ruleState(states: readonly StandingRuleState[], rule: StandingRuleId): StandingRuleState {
+  return states.find((state) => state.rule === rule) ?? defaultRuleState(rule);
+}
+
+/** Whether `rule` is on, given a business's saved states. A rule with no saved state takes its default. */
 export function ruleEnabled(states: readonly StandingRuleState[], rule: StandingRuleId): boolean {
-  return states.some((state) => state.rule === rule && state.enabled);
+  return ruleState(states, rule).enabled;
 }
 
 // =============================================================================

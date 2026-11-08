@@ -1,6 +1,6 @@
 import "server-only";
 import type { StandingRulesResponse } from "@/lib/api/contract";
-import { acknowledgmentText } from "@/lib/domain/rules";
+import { acknowledgmentText, ruleState } from "@/lib/domain/rules";
 import type { BusinessProfile } from "@/lib/domain/types";
 import { revokeAcknowledgments } from "@/lib/server/decide";
 import { getStore } from "@/lib/store";
@@ -9,9 +9,9 @@ import { getStore } from "@/lib/store";
 // Module Overview
 // =============================================================================
 // The owner's standing rules, read and changed. v1 has one, `acknowledge`: a
-// fixed "got your message" reply to every Telegram message, which starts off
-// and goes on only when the owner turns it on for this business. Turning it
-// off fails every acknowledgment still queued. The shared example can't change.
+// fixed "got your message" reply to every Telegram message, which starts on
+// until the owner turns it off for this business. Turning it off fails every
+// acknowledgment still queued. The shared example can't change.
 
 /** Why the rule can't change for `business`, or `null` when the owner may change it. */
 function lockedReason(business: BusinessProfile): string | null {
@@ -21,9 +21,9 @@ function lockedReason(business: BusinessProfile): string | null {
 /** Return the acknowledgment rule's saved state for `business`, with its exact text. */
 export async function readStandingRules(session: string, business: BusinessProfile): Promise<StandingRulesResponse> {
   const saved = business.kind === "case" ? [] : await getStore().getStandingRules(session, business.id);
-  const acknowledge = saved.find((state) => state.rule === "acknowledge");
+  const acknowledge = ruleState(saved, "acknowledge");
   return {
-    acknowledge: { enabled: acknowledge?.enabled ?? false, approvedAt: acknowledge?.approvedAt ?? null },
+    acknowledge: { enabled: acknowledge.enabled, approvedAt: acknowledge.approvedAt },
     template: acknowledgmentText(business.name),
     unavailableReason: lockedReason(business),
   };

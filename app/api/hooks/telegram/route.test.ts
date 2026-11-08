@@ -338,7 +338,15 @@ describe("the acknowledgment rule", () => {
     vi.useRealTimers();
   });
 
-  it("sends nothing but the /start notice while the rule is off, which is how it starts", async () => {
+  it("sends the acknowledgment before the owner has touched the rule, since it starts on", async () => {
+    await post(message(1100, `/start ${HOOK}`));
+    telegram.reset();
+    await post(message(1100, "Do you service heat pumps?"));
+    expect(telegram.calls).toEqual([{ method: "sendMessage", body: expect.objectContaining({ text: `Thanks, ${SHOP.name} got your message and will reply soon.` }) }]);
+  });
+
+  it("sends nothing but the /start notice once the owner turns the rule off", async () => {
+    await setRule(false);
     await post(message(1101, `/start ${HOOK}`));
     telegram.reset();
     await post(message(1101, "Do you service heat pumps?"));

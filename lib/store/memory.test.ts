@@ -254,7 +254,7 @@ describe("customer threads", () => {
 });
 
 describe("standing rules", () => {
-  it("start off, keep the last approval when turned off, and stay in their session", async () => {
+  it("start unsaved, keep the last approval when turned off, and stay in their session", async () => {
     const store = new MemoryStore();
     expect(await store.getStandingRules("s1", BUSINESS)).toEqual([]);
 
