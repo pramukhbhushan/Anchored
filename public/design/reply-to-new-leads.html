@@ -1,0 +1,1252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>[hidden]{display:none!important}body{margin:0}</style>
+<title>Reply to new leads | Anchored design preview</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Schibsted+Grotesk:wght@400;500;600;700&family=Courier+Prime:wght@400;700&display=swap">
+<style>
+/* Layout: Harbor Chart app shell (sidebar + page). The Workflows page is one live radial chart: the business at the helm in the middle,
+   three stages around it, jobs inside each stage, automations inside each job. A side panel explains the focused circle; a run sheet shows one automation running. */
+:root{
+  --bg:#EEF3F6; --sheet:#FFFFFF; --ink:#11203B; --ink-2:#34445F; --muted:#5A6880; --line:#CFD9E1;
+  --ocean:#1C6DD0; --lagoon:#1FB5C9; --deep:#0F3F86; --foam:#E4F1F8;
+  --signal:#FFCC33; --on-signal:#11203B; --good:#16A06C;
+  --p-front:#FFCC33; --p-follow:#1C6DD0; --p-books:#16A06C; --p-content:#FF6A4D; --p-internal:#E39B12;
+  --grid:rgba(28,109,208,.06); --contour:rgba(28,109,208,.16); --scrim:rgba(10,20,38,.46);
+  --shadow:0 22px 50px -30px rgba(17,32,59,.5);
+  --display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --body:"Schibsted Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"Courier Prime","Courier New",ui-monospace,monospace;
+  --side-w:232px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#07111F; --sheet:#0E1C30; --ink:#E9F0F8; --ink-2:#C3CFDF; --muted:#8C9BB2; --line:#1F3350;
+  --ocean:#3D8BFF; --lagoon:#2ED3E0; --deep:#0B2E66; --foam:#123052;
+  --signal:#FFD43D; --on-signal:#0B1424; --good:#34D399;
+  --p-front:#FFD43D; --p-follow:#5EA2FF; --p-books:#34D399; --p-content:#FF8166; --p-internal:#F5B83D;
+  --grid:rgba(94,162,255,.05); --contour:rgba(94,162,255,.16); --scrim:rgba(0,0,0,.62);
+  --shadow:0 22px 50px -30px rgba(0,0,0,.9); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#07111F; --sheet:#0E1C30; --ink:#E9F0F8; --ink-2:#C3CFDF; --muted:#8C9BB2; --line:#1F3350;
+  --ocean:#3D8BFF; --lagoon:#2ED3E0; --deep:#0B2E66; --foam:#123052;
+  --signal:#FFD43D; --on-signal:#0B1424; --good:#34D399;
+  --p-front:#FFD43D; --p-follow:#5EA2FF; --p-books:#34D399; --p-content:#FF8166; --p-internal:#F5B83D;
+  --grid:rgba(94,162,255,.05); --contour:rgba(94,162,255,.16); --scrim:rgba(0,0,0,.62);
+  --shadow:0 22px 50px -30px rgba(0,0,0,.9); color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+h1,h2,h3,p{margin:0}
+h1,h2,h3{text-wrap:balance}
+button{font:inherit;color:inherit}
+a{color:var(--ocean)}
+:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+[hidden]{display:none!important}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mono{font-family:var(--mono)}
+
+/* ---------- Shell ---------- */
+.shell{display:grid;grid-template-columns:var(--side-w) minmax(0,1fr);min-height:100%}
+.side{position:sticky;top:0;height:100vh;border-right:1px solid var(--line);background:var(--sheet);display:flex;flex-direction:column;gap:18px;padding:18px 14px 18px max(14px,env(safe-area-inset-left,0px))}
+.word{font:850 21px/1 var(--display);font-stretch:118%;letter-spacing:-.01em;color:var(--ink);text-decoration:none;padding:4px 8px}
+.biz{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:4px;padding:8px 10px;background:var(--bg);cursor:pointer;text-align:left}
+.biz b{display:block;font-weight:600;font-size:14px}
+.biz span{font:12px/1.2 var(--mono);color:var(--muted)}
+.biz .mark{width:30px;height:30px;border-radius:50%;background:var(--ink);color:var(--sheet);display:grid;place-items:center;font:800 12px/1 var(--display);flex:none}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:4px;color:var(--ink-2);text-decoration:none;font-weight:500;font-size:14px}
+.nav a svg{width:18px;height:18px;flex:none}
+.nav a:hover{background:var(--bg);color:var(--ink)}
+.nav a[aria-current="page"]{background:var(--foam);color:var(--ink);font-weight:600;box-shadow:inset 2px 0 0 var(--ocean)}
+.nav .count{margin-left:auto;font:700 12px/1 var(--mono);color:var(--ink)}
+.side .foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:8px;font:12px/1.3 var(--mono);color:var(--muted);padding:0 8px}
+.theme{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--sheet);display:grid;place-items:center;cursor:pointer}
+.theme:hover{border-color:var(--ink)}
+.theme svg{width:16px;height:16px}
+
+.main{min-width:0;padding-block:24px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+@media (min-width:700px){.main{padding-left:32px;padding-right:max(32px,env(safe-area-inset-right,0px))}}
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px 24px;margin-bottom:18px}
+.eyebrow{font:700 13px/1.3 var(--mono);color:var(--ocean)}
+.top h1{font:850 clamp(30px,3.4vw,40px)/1 var(--display);font-stretch:112%;letter-spacing:-.015em;margin-top:6px}
+.top p{color:var(--muted);margin-top:8px;max-width:62ch}
+
+/* plan strip */
+.plan{display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px;border:1.5px solid var(--ink);border-radius:4px;background:var(--sheet);padding:14px 18px;margin-bottom:16px}
+.plan .what{min-width:0;flex:1 1 320px}
+.plan h2{font:800 18px/1.2 var(--display);font-stretch:108%}
+.plan .facts{display:flex;flex-wrap:wrap;gap:4px 18px;margin-top:6px;font:13px/1.4 var(--mono);color:var(--ink-2)}
+.plan .facts b{color:var(--ink)}
+.plan .facts .hl{background:linear-gradient(transparent 12%,var(--signal) 12%,var(--signal) 88%,transparent 88%);color:var(--on-signal);padding:0 3px}
+.plan .cost{display:flex;align-items:baseline;gap:6px;font-variant-numeric:tabular-nums}
+.plan .cost b{font:850 30px/1 var(--display);font-stretch:110%}
+.plan .cost span{font-size:13px;color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:700 14px/1 var(--body);padding:11px 16px;border-radius:4px;border:1.5px solid transparent;cursor:pointer;background:none;white-space:nowrap;text-decoration:none;color:var(--ink)}
+.btn svg{width:16px;height:16px}
+.btn.solid{background:var(--ink);color:var(--sheet)}
+.btn.solid:hover{background:var(--ink-2)}
+.btn.y{background:var(--signal);color:var(--on-signal)}
+.btn.y:hover{filter:brightness(.96)}
+.btn.line{border-color:var(--line);background:var(--sheet)}
+.btn.line:hover{border-color:var(--ink)}
+.btn.txt{padding-inline:6px;color:var(--ocean);text-decoration:underline;text-underline-offset:3px}
+
+/* ---------- Chart ---------- */
+.chart{position:relative;height:max(520px,calc(100vh - 140px));border:1px solid var(--line);border-radius:4px;overflow:hidden;
+  background:linear-gradient(var(--grid) 1px,transparent 1px) 0 0/100% 64px,linear-gradient(90deg,var(--grid) 1px,transparent 1px) 0 0/64px 100%,var(--bg);touch-action:none}
+.chart svg#map{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;user-select:none;-webkit-user-select:none}
+.chart svg#map.panning{cursor:grabbing}
+.guide{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+.guide .prog{max-width:760px}
+.crumbs{min-height:42px;display:flex;flex-wrap:wrap;align-items:center;gap:4px;font:700 15px/1 var(--mono)}
+.gtitle{font:850 clamp(28px,3.2vw,40px)/1.02 var(--display);font-stretch:112%;letter-spacing:-.015em;color:var(--ink);transition:opacity .5s ease,transform .5s ease}
+.gtitle.swap{opacity:0;transform:translateY(8px)}
+.prog{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;list-style:none;margin:0;padding:0}
+.prog li{display:flex;flex-direction:column;gap:7px;font:600 14px/1.25 var(--body);color:var(--muted)}
+.prog .bar{height:10px;border-radius:5px;background:var(--line);overflow:hidden}
+.prog .bar i{display:block;height:100%;width:0;background:var(--ocean);border-radius:5px;transition:width 1.1s cubic-bezier(.4,0,.2,1)}
+.prog li.done .bar i,.prog li.now .bar i{width:100%}
+.prog li.now{color:var(--ink)}
+.prog li.now .bar i{background:linear-gradient(90deg,var(--ocean),var(--lagoon))}
+.prog li.done{color:var(--ink-2)}
+.prog li b{font:700 13px/1 var(--mono);color:var(--ocean);display:block;margin-bottom:2px}
+.crumbs button{border:0;background:none;padding:6px 6px;border-radius:3px;cursor:pointer;color:var(--ocean);text-decoration:underline;text-underline-offset:3px}
+.crumbs button[aria-current="page"]{color:var(--ink);text-decoration:none;cursor:default}
+.crumbs .sep{color:var(--muted)}
+.hint{font:500 18px/1.4 var(--body);color:var(--ink-2)}
+.tip{position:absolute;z-index:5;pointer-events:none;max-width:260px;background:var(--ink);color:var(--sheet);border-radius:4px;padding:9px 12px;font-size:14px;line-height:1.4;box-shadow:var(--shadow);transform:translate(-50%,calc(-100% - 12px))}
+.crumbs .back{color:var(--ink);text-decoration:none;border:1.5px solid var(--ink);background:var(--sheet);padding:10px 14px;font:700 16px/1 var(--body);border-radius:4px;margin-right:8px}
+.crumbs .back:hover{background:var(--foam)}
+.legend{position:absolute;right:14px;bottom:12px;z-index:3;display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--ink-2);background:color-mix(in srgb,var(--sheet) 88%,transparent);border:1px solid var(--line);border-radius:4px;padding:10px 12px}
+.legend div{display:flex;align-items:center;gap:8px}
+.legend i{width:14px;height:14px;border-radius:50%;flex:none;background:var(--sheet);border:3px solid var(--k)}
+.legend i.dash{border:1.5px dashed var(--muted)}
+.stagewrap.has-panel .legend{right:calc(min(360px,40%) + 28px)}
+
+/* svg nodes */
+.node{cursor:pointer;outline:none}
+.node .body{fill:var(--sheet);stroke:var(--ink);stroke-width:1.5}
+.node .ring{fill:none;stroke-width:5}
+.node .halo{fill:none;stroke:var(--ocean);stroke-width:1.5;stroke-dasharray:3 5;opacity:0;transition:opacity .2s}
+.node.hot .halo,.node:focus-visible .halo{opacity:.9}
+.node .ic{fill:none;stroke:var(--ink);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.node .lab{font:700 15px var(--display);font-stretch:106%;fill:var(--ink);text-anchor:middle;paint-order:stroke;stroke:var(--bg);stroke-width:5px;stroke-linejoin:round}
+.node .sub{font:13px var(--mono);fill:var(--muted);text-anchor:middle;paint-order:stroke;stroke:var(--bg);stroke-width:5px;stroke-linejoin:round}
+.node .sub.wait{fill:var(--on-signal);stroke:var(--signal);stroke-width:12px}
+.node .sub.good{fill:var(--good)}
+.node[data-type="company"] .body{fill:var(--ink);stroke:var(--ink)}
+.node[data-type="company"] .hqname{font:850 19px var(--display);font-stretch:116%;fill:var(--sheet);text-anchor:middle}
+.node[data-type="company"] .hqsub{font:12px var(--mono);fill:var(--sheet);opacity:.75;text-anchor:middle}
+.helm circle,.helm line{stroke:var(--ink);stroke-width:1.5;fill:none}
+.helm .knob{fill:var(--sheet)}
+.node[data-kind="none"] .body,.node[data-status="ghost"] .body{stroke-dasharray:5 4;stroke:var(--muted)}
+.node[data-kind="none"] .ic,.node[data-status="ghost"] .ic{stroke:var(--muted)}
+.node .spin{fill:none;stroke:var(--lagoon);stroke-width:3;stroke-dasharray:8 7}
+.node .check{fill:var(--good)}
+.node .check path{stroke:var(--sheet);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.link{stroke:var(--ink);stroke-width:1.2;opacity:.5;fill:none}
+.link.dash{stroke-dasharray:5 5;stroke:var(--muted)}
+.link.hot{stroke:var(--ocean);stroke-width:2.2}
+.orbit{fill:none;stroke:var(--contour);stroke-width:1.2;stroke-dasharray:2 7}
+.contour{fill:none;stroke:var(--contour);stroke-width:1}
+.dot{stroke:var(--sheet);stroke-width:1.5}
+
+/* side panel */
+.stagewrap{position:relative;overflow:hidden}
+.panel{position:absolute;z-index:4;top:12px;right:12px;bottom:12px;width:min(360px,40%);background:var(--sheet);border:1.5px solid var(--ink);border-radius:4px;box-shadow:var(--shadow);display:flex;flex-direction:column;transform:translateX(calc(100% + 24px));transition:transform .7s cubic-bezier(.2,.8,.2,1);overflow:hidden}
+.panel.open{transform:none}
+.panel .in{overflow:auto;padding:18px 18px 20px;display:flex;flex-direction:column;gap:14px;min-height:0}
+.panel .x{position:absolute;right:8px;top:8px;width:32px;height:32px;border:0;background:none;border-radius:50%;cursor:pointer;display:grid;place-items:center}
+.panel .x:hover{background:var(--bg)}
+.panel .x svg{width:18px;height:18px}
+.panel h2{font:850 23px/1.1 var(--display);font-stretch:110%;padding-right:30px}
+.panel .who{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--ink-2)}
+.panel .who i{width:16px;height:16px;border-radius:50%;border:4px solid var(--k);flex:none;margin-top:3px}
+.panel .who i.dash{border:1.5px dashed var(--muted)}
+.panel .who b{color:var(--ink);display:block}
+.panel h3{font:700 13px/1.3 var(--mono);color:var(--muted);margin-top:4px}
+.rows{display:flex;flex-direction:column;gap:8px}
+.row{display:flex;flex-direction:column;gap:8px;text-align:left;border:1px solid var(--line);border-radius:4px;background:var(--sheet);padding:12px;cursor:pointer;width:100%}
+.row:hover{border-color:var(--ink)}
+.row .h{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.row .h b{font-weight:700}
+.st{font:700 12.5px/1.3 var(--mono);color:var(--muted);white-space:nowrap}
+.st.wait{background:var(--signal);color:var(--on-signal);padding:1px 4px}
+.st.good{color:var(--good)}
+.st.run{color:var(--ocean)}
+.flow{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 10px;font-size:13.5px}
+.flow dt{font:12.5px/1.45 var(--mono);color:var(--muted)}
+.flow dd{margin:0;color:var(--ink-2)}
+.row .go{font:700 13px/1 var(--body);color:var(--ocean);display:flex;align-items:center;gap:6px}
+.row .go svg{width:14px;height:14px}
+.panel .more{display:flex;flex-wrap:wrap;gap:4px 14px;border-top:1px solid var(--line);padding-top:12px}
+.lede{color:var(--ink-2);font-size:14px}
+.empty{border:1.5px dashed var(--line);border-radius:4px;padding:12px;color:var(--ink-2);font-size:14px}
+
+@media (max-width:860px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .side{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;gap:10px;border-right:0;border-bottom:1px solid var(--line);padding:10px max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px))}
+  .side .biz{order:3;width:100%}
+  .nav{order:4;flex-direction:row;overflow-x:auto;width:100%;gap:4px}
+  .nav a{white-space:nowrap;padding:7px 9px}
+  .nav a[aria-current="page"]{box-shadow:inset 0 -2px 0 var(--ocean)}
+  .nav .count{margin-left:4px}
+  .side .foot{margin:0 0 0 auto;order:2;padding:0}
+  .side .foot .ver{display:none}
+}
+@media (max-width:760px){
+  .chart{height:600px}
+  .panel{position:relative;inset:auto;width:auto;transform:none;box-shadow:none;margin-top:12px;display:none}
+  .panel.open{display:flex}
+  .stagewrap.has-panel .legend{right:14px}
+  .legend{display:none}
+  .prog li{font-size:12.5px}
+  .hint{font-size:16px}
+}
+
+/* ---------- Run sheet ---------- */
+.scrim{position:fixed;inset:0;z-index:50;background:var(--scrim);display:grid;place-items:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));opacity:0;transition:opacity .25s}
+.scrim.show{opacity:1}
+.sheet{width:min(940px,100%);max-height:100%;overflow:auto;background:var(--bg);border:1.5px solid var(--ink);border-radius:6px;box-shadow:var(--shadow);transform:scale(.9) translateY(14px);transition:transform .4s cubic-bezier(.2,1.3,.4,1)}
+.scrim.show .sheet{transform:none}
+.sheet header{display:flex;gap:14px;align-items:center;padding:16px 18px;border-bottom:1px solid var(--line);background:var(--sheet);position:sticky;top:0;z-index:2}
+.sheet header .bub{width:46px;height:46px;border-radius:50%;border:1.5px solid var(--ink);display:grid;place-items:center;flex:none;box-shadow:0 0 0 4px var(--sheet),0 0 0 8px var(--k)}
+.sheet header .bub svg{width:22px;height:22px;fill:none;stroke:var(--ink);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.sheet header .t{min-width:0;flex:1}
+.sheet header h2{font:850 22px/1.1 var(--display);font-stretch:110%}
+.sheet header p{font:13px/1.4 var(--mono);color:var(--muted);margin-top:3px}
+.live{display:inline-flex;align-items:center;gap:6px;font:700 12.5px/1 var(--mono);color:var(--ocean);white-space:nowrap}
+.live svg{width:14px;height:14px;animation:spin 1.6s linear infinite}
+.live.done svg{animation:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.sheet .close{width:36px;height:36px;border:0;background:none;border-radius:50%;cursor:pointer;display:grid;place-items:center;flex:none}
+.sheet .close:hover{background:var(--bg)}
+.sheet .close svg{width:20px;height:20px}
+.sheet .body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:22px;padding:20px 18px}
+@media (max-width:720px){.sheet .body{grid-template-columns:minmax(0,1fr)}}
+.steps{list-style:none;margin:0;padding:0;position:relative;display:flex;flex-direction:column;gap:18px}
+.steps::before{content:"";position:absolute;left:13px;top:14px;bottom:14px;width:2px;background:var(--line)}
+.steps .fill{position:absolute;left:13px;top:14px;width:2px;background:var(--lagoon);height:0;transition:height 1.1s ease}
+.step{position:relative;display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px;opacity:.4;transition:opacity .7s}
+.step.on{opacity:1}
+.step .n{width:28px;height:28px;border-radius:50%;background:var(--sheet);border:1.5px solid var(--line);display:grid;place-items:center;font:700 12px/1 var(--mono);color:var(--muted);position:relative;z-index:1;transition:all .3s}
+.step.on .n{border-color:var(--ink);color:var(--ink)}
+.step.ok .n{background:var(--ink);border-color:var(--ink);color:var(--sheet)}
+.step.ok .n svg{width:14px;height:14px;stroke:var(--sheet);stroke-width:2.4;fill:none}
+.step.wait .n{background:var(--signal);border-color:var(--ink);color:var(--on-signal);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--signal) 35%,transparent)}}
+.step .k{font:700 12.5px/1.3 var(--mono);color:var(--muted);display:flex;gap:8px;flex-wrap:wrap}
+.step .k time{color:var(--ink-2);font-weight:400}
+.step b{display:block;font-weight:600;margin-top:2px}
+.step q{display:block;color:var(--ink-2);font-size:14px;margin-top:4px;quotes:none}
+.step .hl{background:var(--signal);color:var(--on-signal);padding:0 4px}
+.draft{background:var(--sheet);border:1.5px solid var(--ink);border-radius:4px;display:flex;flex-direction:column}
+.draft .dh{display:flex;justify-content:space-between;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);font:12.5px/1.3 var(--mono);color:var(--muted)}
+.draft .msg{padding:16px 14px;min-height:150px;font-size:15.5px;line-height:1.6;white-space:pre-wrap;outline:none}
+.draft .msg[contenteditable="true"]{background:var(--foam);box-shadow:inset 0 0 0 2px var(--ocean)}
+.draft .msg .cur{display:inline-block;width:2px;height:1.1em;background:var(--ink);vertical-align:-3px;animation:blink .8s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.draft .acts{display:flex;flex-wrap:wrap;gap:8px;padding:12px 14px;border-top:1px solid var(--line)}
+.draft .note{font-size:13px;color:var(--muted);padding:0 14px 12px}
+.result{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-top:1px solid var(--line);font-weight:600}
+.result svg{width:20px;height:20px;flex:none;stroke:var(--good);fill:none;stroke-width:2}
+.week{grid-column:1/-1;display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 16px;border-top:1px solid var(--line);padding-top:14px;font:12.5px/1.4 var(--mono);color:var(--muted)}
+.opts{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-top:1px solid var(--line)}
+.opt{display:flex;flex-direction:column;gap:2px;border:1px solid var(--line);border-radius:4px;padding:10px 12px;font-size:14px;color:var(--ink-2)}
+.opt b{color:var(--ink)}
+
+/* sidebar automations, like threads under a project */
+.subnav{display:flex;flex-direction:column;gap:1px;margin:2px 0 6px 19px;padding-left:12px;border-left:1.5px solid var(--line)}
+.subnav a{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;border-radius:4px;color:var(--ink-2);text-decoration:none;font-size:13.5px;font-weight:500}
+.subnav a:hover{background:var(--bg);color:var(--ink)}
+.subnav a[aria-current="page"]{background:var(--foam);color:var(--ink);font-weight:700}
+.subnav a .s{font:700 11.5px/1 var(--mono);white-space:nowrap;color:var(--muted)}
+.subnav a .s.wait{background:var(--signal);color:var(--on-signal);padding:2px 4px}
+.subnav a .s.run{color:var(--ocean)}
+.subnav .grp{font:700 11.5px/1.2 var(--mono);color:var(--muted);padding:8px 8px 2px}
+@media (max-width:860px){.subnav{order:5;flex-direction:row;overflow-x:auto;width:100%;margin:0;padding:0;border:0}.subnav .grp{display:none}.subnav a{white-space:nowrap;border:1px solid var(--line)}}
+/* peek: the short overview pop-up */
+.peek{width:min(560px,100%)}
+.peek .pbody{padding:18px;display:flex;flex-direction:column;gap:14px}
+.peek .lede{font-size:17px;color:var(--ink)}
+.peek .flow{font-size:15px;gap:8px 14px}
+.peek .flow dt{font-size:13.5px}
+.peek .acts{display:flex;flex-wrap:wrap;gap:8px;border-top:1px solid var(--line);padding-top:14px}
+.peek .btn{font-size:15px;padding:13px 18px}
+/* automation page */
+.apage{display:flex;flex-direction:column;gap:18px}
+.apage .crumbs{min-height:0}
+.ahead{display:flex;flex-wrap:wrap;align-items:center;gap:14px 18px}
+.ahead .bub{width:64px;height:64px;border-radius:50%;border:1.5px solid var(--ink);display:grid;place-items:center;flex:none;background:var(--sheet);box-shadow:0 0 0 5px var(--bg),0 0 0 10px var(--k)}
+.ahead .bub svg{width:28px;height:28px;fill:none;stroke:var(--ink);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.ahead .t{min-width:0;flex:1 1 300px}
+.ahead h1{font:850 clamp(30px,3.6vw,44px)/1.02 var(--display);font-stretch:112%;letter-spacing:-.015em}
+.ahead p{color:var(--ink-2);margin-top:6px;font-size:16px}
+.agrid{display:grid;grid-template-columns:minmax(0,2fr) minmax(260px,1fr);gap:18px;align-items:start}
+@media (max-width:1100px){.agrid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--sheet);border:1px solid var(--line);border-radius:4px;padding:16px 18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card.main-run{border:1.5px solid var(--ink)}
+.card h2{font:800 18px/1.2 var(--display);font-stretch:108%;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.runbody{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:22px}
+@media (max-width:760px){.runbody{grid-template-columns:minmax(0,1fr)}}
+.runbody .week{grid-column:1/-1}
+.side-cards{display:flex;flex-direction:column;gap:18px;min-width:0}
+.hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.hist li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 12px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
+.hist li:first-child{border-top:0}
+.hist time{font:12.5px/1.5 var(--mono);color:var(--muted);grid-row:span 2}
+.hist b{font-weight:600}
+.hist span{color:var(--ink-2)}
+.toast{position:fixed;left:50%;bottom:max(20px,env(safe-area-inset-bottom,0px));z-index:60;transform:translate(-50%,30px);opacity:0;background:var(--ink);color:var(--sheet);padding:11px 16px;border-radius:4px;font-weight:600;font-size:14px;transition:all .3s;max-width:calc(100% - 32px)}
+.toast.show{transform:translate(-50%,0);opacity:1}
+.foot-note{margin-top:14px;font:12.5px/1.4 var(--mono);color:var(--muted)}
+
+@media (prefers-reduced-motion:reduce){
+  .sheet,.panel,.scrim,.step,.toast{transition:none}
+  .live svg,.step.wait .n{animation:none}
+}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  </defs>
+</svg>
+
+<div class="shell">
+  <aside class="side" aria-label="App">
+    <a class="word" href="#">Anchored</a>
+    <button class="biz" type="button" aria-label="Switch business">
+      <span class="mark">LH</span>
+      <span><b>Landed HQ</b><span>Career coaching</span></span>
+    </button>
+    <nav class="nav" aria-label="Business pages">
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Overview</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>Chat</a>
+      <a href="#" id="navWf" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="3.5" r="1.6"/><circle cx="19.5" cy="16.5" r="1.6"/><circle cx="4.5" cy="16.5" r="1.6"/><path d="M12 8.8V5.1M14.8 13.6l3.3 2M9.2 13.6l-3.3 2"/></svg>Workflows</a>
+      <div class="subnav" id="subnav" aria-label="Automations"></div>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3.5 17.3l3.2 3.2 5.8-5.8a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg>Tools</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l3-8h12l3 8v6H3zM3 13h5l1.5 2.5h5L16 13h5"/></svg>Approvals<span class="count" id="navCount">2</span></a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></svg>Your stack</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h16l-1.5-5h-13zM5 10v10h14V10M10 20v-5h4v5"/></svg>Business profile</a>
+    </nav>
+    <div class="foot">
+      <span class="ver">Design mockup</span>
+      <button class="theme" id="themeBtn" type="button" aria-label="Switch light or dark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+   <div id="mapView">
+    <div class="top">
+      <div>
+        <p class="eyebrow">Landed HQ · 5 jobs</p>
+        <h1>Workflows</h1>
+      </div>
+    </div>
+
+    <section class="plan" aria-label="Your plan">
+      <div class="what">
+        <h2>Here's your plan</h2>
+        <p class="facts">
+          <span><b>3</b> jobs Anchored does, with your OK</span>
+          <span><b>1</b> done by another app</span>
+          <span><b>1</b> nobody does yet</span>
+          <span class="hl" id="waitFact"><b>2</b> messages wait for your OK</span>
+        </p>
+      </div>
+      <div class="cost"><b>$49</b><span>a month · <a href="#">See the bill</a></span></div>
+      <button class="btn solid" type="button" id="approvePlan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Approve this plan</button>
+    </section>
+
+    <section class="guide" aria-label="Where you are">
+        <nav class="crumbs" id="crumbs" aria-label="Where you are"></nav>
+        <ol class="prog" id="prog" aria-label="Progress">
+          <li><span><b>Step 1</b>Pick a part</span><span class="bar"><i></i></span></li>
+          <li><span><b>Step 2</b>Pick a job</span><span class="bar"><i></i></span></li>
+          <li><span><b>Step 3</b>Watch it work</span><span class="bar"><i></i></span></li>
+        </ol>
+        <h2 class="gtitle" id="gtitle">Your business</h2>
+        <p class="hint" id="hint"></p>
+    </section>
+    <div class="stagewrap">
+    <section class="chart" id="chart" aria-label="Workflow map">
+      <svg id="map" role="group" aria-label="Map of Landed HQ's workflows">
+        <g id="world">
+          <g id="bg"></g>
+          <g id="links"></g>
+          <g id="dots"></g>
+          <g id="nodes"></g>
+        </g>
+      </svg>
+      <div class="tip" id="tip" hidden></div>
+      <div class="legend" aria-label="Legend">
+        <div><i style="--k:var(--ocean)"></i>Anchored does it, you approve</div>
+        <div><i style="--k:var(--p-content)"></i>Another app does it</div>
+        <div><i class="dash"></i>Nobody does this yet</div>
+      </div>
+    </section>
+      <aside class="panel" id="panel" aria-live="polite">
+        <button class="x" type="button" id="panelX" aria-label="Step back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        <div class="in" id="panelIn"></div>
+      </aside>
+    </div>
+   </div>
+   <div id="autoView" class="apage" hidden></div>
+    <p class="foot-note">Design preview with sample customers. This page is static and not connected to your data. Names and messages are examples, not Landed HQ's real data.</p>
+  </main>
+</div>
+
+<div class="scrim" id="scrim" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="runTitle" id="sheet"></div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+"use strict";
+const NS = "http://www.w3.org/2000/svg";
+const $ = (s, r = document) => r.querySelector(s);
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// ---------------------------------------------------------------- data
+const ICON = {
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6.5 6.5-6.5s6.5 2.9 6.5 6.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 13.9c2 .8 3.5 3 3.5 6.1"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M9 15.2l2 2 4-4"/>',
+  dollar: '<circle cx="12" cy="12" r="9"/><path d="M15 9.4c-.5-1-1.6-1.6-3-1.6-1.7 0-3 .8-3 2.1s1.3 1.7 3 2 3 .8 3 2.1-1.3 2.1-3 2.1c-1.4 0-2.6-.6-3-1.6M12 6v12"/>',
+  userplus: '<circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7s7 3 7 7M19 8v6M16 11h6"/>',
+  megaphone: '<path d="M3 10.5v3a1 1 0 0 0 1 1h3l7 4.5v-14L7 9.5H4a1 1 0 0 0-1 1zM18 9a4 4 0 0 1 0 6"/>',
+  phone: '<path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 5a2 2 0 0 1 2-2z"/>',
+  clipboard: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M8.5 10h7M8.5 14h7M8.5 18h4"/>',
+  receipt: '<path d="M6 2.5h12v19l-3-2-3 2-3-2-3 2zM9 7.5h6M9 11.5h6M9 15.5h4"/>',
+  message: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9.5h8M8 12.5h5"/>',
+  repeat: '<path d="M17 2.5l3 3-3 3M4 11V9.5a4 4 0 0 1 4-4h12M7 21.5l-3-3 3-3M20 13v1.5a4 4 0 0 1-4 4H4"/>',
+  bell: '<path d="M6 16v-5a6 6 0 1 1 12 0v5l2 2H4zM10 21h4"/>',
+  pen: '<path d="M4 20l4-1L19 8l-3-3L5 16zM14 7l3 3"/>',
+  callback: '<path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 5a2 2 0 0 1 2-2z"/><path d="M15 3h6v6M21 3l-6 6"/>',
+};
+const STAGES = [
+  { id: "customers", name: "Getting customers", blurb: "How people find you, hear back and come again", icon: "users", c: "var(--ocean)" },
+  { id: "serving", name: "Serving customers", blurb: "Calls, bookings, orders and quotes", icon: "calendar", c: "var(--lagoon)" },
+  { id: "running", name: "Getting paid", full: "Getting paid and running the shop", blurb: "Money in, bills out, staff and paperwork", icon: "dollar", c: "var(--p-books)" },
+];
+const JOBS = [
+  { id: "leads", stage: "customers", name: "Lead follow-up", icon: "userplus", kind: "agent", agent: "Front Desk", k: "var(--p-front)", handler: "Anchored does it", note: "Anchored's Front Desk assistant writes the replies. You approve each one. Part of your $29 plan" },
+  { id: "social", stage: "customers", name: "Social posts", full: "Social posts and marketing", icon: "megaphone", kind: "new", k: "var(--p-content)", handler: "Claude Pro does it", note: "A separate app you use yourself, $20 a month. Anchored doesn't see it" },
+  { id: "calls", stage: "serving", name: "Answer calls", full: "Answer and return calls", icon: "phone", kind: "none", k: "var(--muted)", handler: "Nobody does it yet", note: "You handle this yourself for now" },
+  { id: "quotes", stage: "serving", name: "Quotes and estimates", icon: "clipboard", kind: "agent", agent: "Follow-up", k: "var(--p-follow)", handler: "Anchored does it", note: "Anchored's Follow-up assistant writes the messages. You approve each one. Part of your $29 plan" },
+  { id: "books", stage: "running", name: "Bookkeeping", full: "Bookkeeping and invoicing", icon: "receipt", kind: "agent", agent: "Bookkeeping", k: "var(--p-books)", handler: "Anchored does it", note: "Anchored's Bookkeeping assistant writes the reminders. You approve each one. Part of your $29 plan" },
+];
+const AUTOS = [
+  { id: "inquiry", hist: [["Yesterday 9:12 pm","Jordan Lee wrote in on Instagram","You approved. Call booked for Thursday"],["Mon 11:40 pm","Ava Chen filled out your form","You approved. She picked Tuesday 10:00"],["Mon 3:05 pm","Sam Patel asked about pricing","You edited it, then sent"]], job: "leads", name: "Reply to new leads", icon: "message", status: "waiting",
+    trigger: "A new lead fills out a form or sends a message", draft: "A reply in your voice with two times to talk", result: "A first call on your calendar",
+    week: ["9 leads answered this week", "Median reply 6 minutes", "4 calls booked"],
+    run: { t0: "2:14 pm", event: "Maya Ortiz filled out your contact form", quote: "“I'm a junior at UMD looking for a summer finance internship. What does coaching with you look like?”",
+      t1: "2:15 pm", did: "Read her message, found two open times on your calendar and wrote a reply in your voice",
+      channel: "Email reply to Maya", msg: "Hi Maya, thanks for reaching out! Finance internships are exactly what I help with. I have Tuesday at 10:00 am or Wednesday at 3:30 pm open for a free 20-minute call. Which works better for you?",
+      approve: "Approve and send", sent: "Sent. When Maya picks a time, it lands on your calendar." } },
+  { id: "callfollow", hist: [["Tue 9:00 am","Day 1 check-in to Devon Park","You approved. No reply yet"],["Mon 9:00 am","Day 7 check-in to Lena Ruiz","You approved. She said yes"],["Last Fri","Day 3 check-in to Omar Haddad","You held it"]], job: "leads", name: "Check in after calls", icon: "repeat", status: "drafting",
+    trigger: "A prospect says 'let me think about it'", draft: "Check-ins on day 1, 3 and 7", result: "A yes instead of silence",
+    week: ["6 check-ins sent this week", "2 said yes", "Stops after day 7"],
+    run: { t0: "Mon 4:30 pm", event: "Devon Park said “let me think about it” on your call", quote: "Day 1 check-in went out Tuesday after you approved it.",
+      t1: "Just now", did: "Wrote the day 3 check-in. Day 7 is lined up in case Devon stays quiet",
+      channel: "Text to Devon", msg: "Hi Devon, checking in after Monday's call. Happy to answer anything about the 8-week Internship Sprint, or walk your parents through it. Want me to hold a spot for you?",
+      approve: "Approve and send", sent: "Sent. Day 7 goes out only if Devon stays quiet, and only after your OK." } },
+  { id: "posts", hist: [["Last week","Fall bootcamp reminder","Posted by you in Claude Pro"]], job: "social", name: "Post your news", icon: "pen", status: "own", tool: true,
+    trigger: "You have news, new hours or a special", draft: null, rule: "You prompt it yourself in Claude Pro", result: "Customers see what's new",
+    week: ["Runs in Claude Pro, outside Anchored", "No approvals needed here"],
+    run: { t0: "Today", event: "You have news: 5 spots open for the spring Internship Sprint", quote: null,
+      t1: "In Claude Pro", did: "You ask Claude Pro for a post, and it writes one in your voice",
+      channel: "Instagram post, published by you", msg: "Spring recruiting starts sooner than you think. I'm opening 5 spots in the 8-week Internship Sprint, starting January 12. Resume, LinkedIn, mock interviews and a plan for every application. DM me “SPRING” to grab one." } },
+  { id: "callback", hist: [], job: "calls", name: "Text back missed calls", icon: "callback", status: "ghost",
+    trigger: "A customer calls while you're busy", draft: "A text back with two open times", result: "A booked call, not a lost caller",
+    week: ["Not turned on", "Fits in your $29 plan, no new bill"],
+    run: { t0: "When it happens", event: "Someone calls while you're on a coaching session", quote: null,
+      t1: "Within a minute", did: "Front Desk would text the caller back with two open times",
+      channel: "Text to the caller", msg: "Hi, this is Landed HQ. Sorry we missed your call! I can call you back Tuesday at 10:00 am or Wednesday at 3:30 pm. Which works for you?" } },
+  { id: "closer", hist: [["Nov 3","Follow-up 1 to Priya Shah","You approved. Waiting on Priya"],["Oct 30","Follow-up 2 to Marcus Bell","You approved. Signed, $1,200"],["Oct 28","Follow-up 3 to Kim Tran","Stopped after 3 tries"]], job: "quotes", name: "Chase quiet quotes", icon: "bell", status: "done",
+    trigger: "A customer goes quiet after a quote", draft: "Up to three follow-ups, then it stops", result: "A signed quote",
+    week: ["3 quotes followed up this week", "1 signed, $2,400"],
+    run: { t0: "Nov 3", event: "Priya Shah hasn't answered your New Grad Launch quote in 5 days", quote: null,
+      t1: "11:20 am", did: "Wrote follow-up 1 of 3 and mentioned the payment plan",
+      okAt: "You approved it at 11:42 am",
+      channel: "Email to Priya", msg: "Hi Priya, just following up on the New Grad Launch quote I sent last week. If the price is the question, you can split it into three payments of $800. Any questions I can answer?",
+      after: "Sent. Follow-up 2 goes out in 3 days if Priya stays quiet, after your OK." } },
+  { id: "nudger", hist: [["Nov 5","Reminder to Alex Moreno","You approved. Paid $800 the next day"],["Oct 29","Reminder to Sam Lee","You approved. No payment yet"]], job: "books", name: "Remind late payers", icon: "bell", status: "waiting",
+    trigger: "An invoice goes past due", draft: "A friendly payment reminder", result: "A paid invoice",
+    week: ["$1,600 overdue across 2 invoices", "1 paid after a reminder this week"],
+    run: { t0: "8:00 am", event: "Sam Lee's invoice #1042 is 6 days past due", quote: "$800, payment 2 of 3 for New Grad Launch",
+      t1: "8:01 am", did: "Checked Stripe, confirmed it's still unpaid and wrote a friendly reminder",
+      channel: "Email to Sam", msg: "Hi Sam, a friendly reminder that payment 2 of 3 ($800) for New Grad Launch was due on November 2. You can pay with the same link as before. If anything has changed, just reply and we'll work it out.",
+      approve: "Approve and send", sent: "Sent. You'll see it here the moment Sam pays." } },
+];
+const stageById = Object.fromEntries(STAGES.map(s => [s.id, s]));
+const jobById = Object.fromEntries(JOBS.map(j => [j.id, j]));
+const autoById = Object.fromEntries(AUTOS.map(a => [a.id, a]));
+const autosOf = id => AUTOS.filter(a => a.job === id);
+const jobsOf = id => JOBS.filter(j => j.stage === id);
+const statusText = a => ({ waiting: "Needs your OK", drafting: "Writing a message", done: a.doneText || "Sent today", own: "Another app does this", ghost: "Not set up yet", ready: "Starts when you approve" })[a.status];
+const statusCls = a => ({ waiting: "wait", drafting: "run", done: "good" })[a.status] || "";
+const waitingIn = ids => AUTOS.filter(a => a.status === "waiting" && ids.includes(a.job)).length;
+
+// ---------------------------------------------------------------- svg helpers
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  if (attrs) for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+const svg = $("#map"), world = $("#world"), gNodes = $("#nodes"), gLinks = $("#links"), gDots = $("#dots"), gBg = $("#bg");
+
+// background: contours and an orbit ring around whatever sits in the middle
+
+let orbitR = 260, orbitT = 260;
+
+// ---------------------------------------------------------------- nodes
+const nodes = new Map();
+function addNode(o) {
+  Object.assign(o, { x: 0, y: 0, vx: 0, vy: 0, r: 0, tr: 0, tx: 0, ty: 0, o: 0, to: 0, s: 1, sv: 0, ts: 1, dim: 1, phase: Math.random() * 6.28, children: [], lab: false, ox: 0, oy: 0 });
+  nodes.set(o.id, o);
+  if (o.parent) nodes.get(o.parent).children.push(o.id);
+  buildNode(o);
+  return o;
+}
+function buildNode(n) {
+  const g = el("g", { class: "node", "data-type": n.type, tabindex: "-1", role: "button" }, gNodes);
+  n.g = g;
+  n.halo = el("circle", { class: "halo" }, g);
+  if (n.type === "company") {
+    n.helm = el("g", { class: "helm" }, g);
+    n.helmRing = el("circle", {}, n.helm);
+
+  }
+  n.ringEl = el("circle", { class: "ring" }, g);
+  n.body = el("circle", { class: "body" }, g);
+  if (n.type === "company") {
+    n.t1 = el("text", { class: "hqname" }, g); n.t1.textContent = "Landed HQ";
+    n.t2 = el("text", { class: "hqsub" }, g);
+    n.lb = el("text", { class: "lab" }, g); n.lb.textContent = "Landed HQ";
+  } else {
+    n.ic = el("g", { class: "ic" }, g);
+    n.ic.innerHTML = ICON[n.data.icon];
+    n.lb = el("text", { class: "lab" }, g);
+    n.sb = el("text", { class: "sub" }, g);
+  }
+  if (n.type === "auto") {
+    n.spin = el("circle", { class: "spin" }, g);
+    n.check = el("g", { class: "check" }, g);
+    el("circle", { r: 9 }, n.check);
+    el("path", { d: "M-4 0.5l2.6 2.6L4.2-3" }, n.check);
+  }
+  if (n.type !== "company") {
+    n.link = el("line", { class: "link" }, gLinks);
+  }
+  g.addEventListener("pointerenter", () => setHover(n.id));
+  g.addEventListener("pointerleave", () => setHover(null));
+  g.addEventListener("focus", () => setHover(n.id));
+  g.addEventListener("blur", () => setHover(null));
+  g.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activate(n); } });
+  g.addEventListener("pointerdown", e => startDrag(e, n));
+}
+function refreshNode(n) {
+  const d = n.data;
+  if (n.type === "company") {
+    n.t2.textContent = "5 jobs · $49 a month";
+    n.g.setAttribute("aria-label", "Landed HQ, the whole business");
+    return;
+  }
+  let lab = d.name, sub = "", cls = "sub";
+  if (n.type === "stage") {
+    const js = jobsOf(d.id), w = waitingIn(js.map(j => j.id));
+    sub = `${js.length} job${js.length > 1 ? "s" : ""}` + (w ? ` · ${w} needs your OK` : "");
+    n.ringEl.style.stroke = d.c;
+    n.body.style.fill = `color-mix(in srgb, ${d.c} 13%, var(--sheet))`;
+  } else if (n.type === "job") {
+    sub = d.handler;
+    const w = waitingIn([d.id]);
+    if (w) { sub = "Needs your OK"; cls += " wait"; }
+    n.g.dataset.kind = d.kind;
+    n.ringEl.style.stroke = d.kind === "none" ? "transparent" : d.k;
+  } else {
+    sub = statusText(d);
+    const c = statusCls(d); if (c) cls += " " + c;
+    n.g.dataset.status = d.status;
+    const j = jobById[d.job];
+    n.ringEl.style.stroke = d.status === "waiting" ? "var(--signal)" : d.status === "ghost" ? "transparent" : j.k;
+    n.ringEl.style.strokeWidth = d.status === "waiting" ? 6 : 3;
+  }
+  n.lb.textContent = lab;
+  n.sb.textContent = sub;
+  n.sb.setAttribute("class", cls);
+  n.g.setAttribute("aria-label", `${lab}. ${sub}. Open`);
+}
+
+addNode({ id: "hq", type: "company" });
+STAGES.forEach(s => addNode({ id: s.id, type: "stage", parent: "hq", data: s }));
+JOBS.forEach(j => addNode({ id: j.id, type: "job", parent: j.stage, data: j }));
+AUTOS.forEach(a => addNode({ id: a.id, type: "auto", parent: a.job, data: a }));
+nodes.forEach(refreshNode);
+
+// ---------------------------------------------------------------- view + layout
+let view = { level: 0, stage: null, job: null };
+const rad = d => d * Math.PI / 180;
+const polar = (x, y, r, deg) => [x + r * Math.cos(rad(deg)), y + r * Math.sin(rad(deg))];
+const spread = (n, step) => Array.from({ length: n }, (_, k) => (k - (n - 1) / 2) * step);
+let vp = { w: 800, h: 600, panel: 0, panelBottom: false };
+
+function place(id, xy, r, opts = {}) {
+  const n = nodes.get(id);
+  n.tx = xy[0]; n.ty = xy[1]; n.tr = r; n.to = opts.o ?? 1; n.lab = opts.lab ?? true; n.small = !!opts.small;
+  n.placed = true;
+}
+function layout() {
+  nodes.forEach(n => { n.placed = false; });
+  const portrait = vp.w - vp.panel < vp.h * 0.92;
+  const base = portrait ? 90 : 0;
+  if (view.level === 0) {
+    place("hq", [0, 0], 78);
+    const ang = [-90, 30, 150];
+    STAGES.forEach((s, i) => {
+      const p = polar(0, 0, 260, ang[i]);
+      place(s.id, p, 58);
+      const js = jobsOf(s.id);
+
+    });
+    orbitT = 260;
+  } else if (view.level === 1) {
+    const S = view.stage;
+    place(S, [0, 0], 68);
+    const js = jobsOf(S);
+    const ja = js.length === 1 ? [portrait ? 90 : 0] : js.length === 2 ? (portrait ? [58, 122] : [180, 0]) : spread(js.length, 360 / js.length).map(a => a - 90);
+    js.forEach((j, k) => place(j.id, polar(0, 0, 230, ja[k]), 58));
+    orbitT = 225;
+  } else {
+    const J = view.job, S = jobById[J].stage;
+    place(J, [0, 0], 62);
+    const as = autosOf(J);
+    const aa = as.length === 1 ? [portrait ? 90 : 0] : as.length === 2 ? (portrait ? [58, 122] : [180, 0]) : spread(as.length, 360 / as.length).map(a => a - 90);
+    as.forEach((a, k) => place(a.id, polar(0, 0, 220, aa[k]), 52));
+    orbitT = 200;
+  }
+  // hidden nodes collapse into their parent
+  nodes.forEach(n => {
+    if (n.placed) return;
+    const p = n.parent ? nodes.get(n.parent) : null;
+    n.tx = p ? p.tx : 0; n.ty = p ? p.ty : 0; n.tr = 0; n.to = 0; n.lab = false;
+  });
+  nodes.forEach(n => {
+    n.g.style.pointerEvents = n.to > 0 ? "auto" : "none";
+    n.g.setAttribute("tabindex", n.to > 0 ? "0" : "-1");
+  });
+  fitCamera();
+}
+
+// ---------------------------------------------------------------- camera
+const cam = { x: 0, y: 0, s: 1, tx: 0, ty: 0, ts: 1, px: 0, py: 0 };
+function fitCamera() {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  nodes.forEach(n => {
+    if (n.to <= 0) return;
+    const padX = n.lab ? 82 : 6, padB = n.lab ? 52 : 6;
+    x0 = Math.min(x0, n.tx - n.tr - padX); x1 = Math.max(x1, n.tx + n.tr + padX);
+    y0 = Math.min(y0, n.ty - n.tr - 14); y1 = Math.max(y1, n.ty + n.tr + padB);
+  });
+  const aw = vp.w - vp.panel - 32, ah = vp.h - 70;
+  cam.ts = Math.max(0.4, Math.min(1.25, aw / (x1 - x0), ah / (y1 - y0)));
+  cam.tx = (x0 + x1) / 2; cam.ty = (y0 + y1) / 2;
+  cam.px = 0; cam.py = 0;
+}
+function measure() {
+  const r = svg.getBoundingClientRect();
+  if (!r.width) return;
+  const panelOpen = $("#panel").classList.contains("open") && innerWidth > 760;
+  vp = { w: r.width, h: r.height, panel: panelOpen ? Math.min(360, r.width * 0.4) + 24 : 0 };
+}
+function screenToWorld(cx, cy) {
+  const r = svg.getBoundingClientRect();
+  const ox = (vp.w - vp.panel) / 2 + cam.px, oy = vp.h / 2 + cam.py;
+  return [(cx - r.left - ox) / cam.s + cam.x, (cy - r.top - oy) / cam.s + cam.y];
+}
+
+// ---------------------------------------------------------------- interaction
+let hover = null;
+function related(id) {
+  const n = nodes.get(id);
+  return new Set([id, n.parent, ...n.children].filter(Boolean));
+}
+let hotSet = null;
+function tipText(n) {
+  const d = n.data;
+  if (n.type === "company") return "This is your business. Everything Anchored does for you connects back here.";
+  if (n.type === "stage") return `${d.blurb}. Tap to see the jobs in this part.`;
+  if (n.type === "job") return d.kind === "agent" ? "Anchored writes the messages for this job. Nothing goes out until you approve it."
+    : d.kind === "new" ? "Claude Pro, a separate app, does this. You run it yourself."
+    : "Nobody handles this yet, so you do it yourself. Tap to see how Anchored could help.";
+  return `When: ${d.trigger.charAt(0).toLowerCase() + d.trigger.slice(1)}. Result: ${d.result.charAt(0).toLowerCase() + d.result.slice(1)}. Tap to watch it.`;
+}
+function setHover(id) {
+  if (drag && drag.moved) return;
+  const tip = $("#tip");
+  if (id && matchMedia("(hover: hover)").matches) { tip.textContent = tipText(nodes.get(id)); tip.hidden = false; }
+  else tip.hidden = true;
+  hover = id;
+  hotSet = id ? related(id) : null;
+  nodes.forEach(n => n.g.classList.toggle("hot", n.id === id));
+}
+let drag = null, pan = null;
+function startDrag(e, n) {
+  if (e.button !== 0) return;
+  e.stopPropagation();
+  n.g.setPointerCapture?.(e.pointerId);
+  const [wx, wy] = screenToWorld(e.clientX, e.clientY);
+  drag = { n, sx: e.clientX, sy: e.clientY, dx: wx - n.x, dy: wy - n.y, moved: false, id: e.pointerId };
+}
+addEventListener("pointermove", e => {
+  if (drag) {
+    if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 5) drag.moved = true;
+    if (drag.moved) {
+      const [wx, wy] = screenToWorld(e.clientX, e.clientY);
+      const n = drag.n;
+      n.ox = wx - drag.dx - n.tx; n.oy = wy - drag.dy - n.ty;
+    }
+  } else if (pan) {
+    cam.px = pan.px + (e.clientX - pan.sx); cam.py = pan.py + (e.clientY - pan.sy);
+  }
+});
+addEventListener("pointerup", () => {
+  if (drag) {
+    const n = drag.n;
+    if (!drag.moved) activate(n);
+    n.ox = 0; n.oy = 0;
+    drag = null;
+  }
+  if (pan) { pan = null; svg.classList.remove("panning"); }
+});
+svg.addEventListener("pointerdown", e => {
+  if (e.button !== 0 || drag) return;
+  pan = { sx: e.clientX, sy: e.clientY, px: cam.px, py: cam.py };
+  svg.classList.add("panning");
+});
+function activate(n) {
+  if (n.type === "company") go({ level: 0 });
+  else if (n.type === "stage") go({ level: 1, stage: n.id });
+  else if (n.type === "job") go({ level: 2, stage: n.data.stage, job: n.id });
+  else openPeek(n.data);
+}
+function go(v) {
+  view = { level: v.level, stage: v.stage || null, job: v.job || null };
+  // pop the newly focused node
+  const f = nodes.get(view.job || view.stage || "hq");
+  f.sv += 0.09;
+  renderPanel();
+  renderCrumbs();
+  measure();
+  layout();
+  setHover(null);
+}
+addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  if (!$("#scrim").hidden) { closeRun(); return; }
+  if (!$("#autoView").hidden) { location.hash = ""; return; }
+  up();
+});
+function up() {
+  if (view.level === 2) go({ level: 1, stage: view.stage });
+  else if (view.level === 1) go({ level: 0 });
+}
+$("#panelX").addEventListener("click", up);
+new ResizeObserver(() => { measure(); layout(); }).observe($("#chart"));
+
+// ---------------------------------------------------------------- crumbs + panel
+function renderCrumbs() {
+  const c = $("#crumbs");
+  const items = [["Landed HQ", { level: 0 }]];
+  if (view.stage) items.push([stageById[view.stage].name, { level: 1, stage: view.stage }]);
+  if (view.job) items.push([jobById[view.job].name, { level: 2, stage: view.stage, job: view.job }]);
+  c.innerHTML = "";
+  if (view.level > 0) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "back"; b.textContent = "← Back";
+    b.addEventListener("click", up); c.append(b);
+  }
+  items.forEach(([label, v], i) => {
+    if (i) { const s = document.createElement("span"); s.className = "sep"; s.textContent = "›"; c.append(s); }
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = label;
+    if (i === items.length - 1) b.setAttribute("aria-current", "page");
+    else b.addEventListener("click", () => go(v));
+    c.append(b);
+  });
+  $("#hint").textContent = view.level === 0 ? "Tap one of the three parts of your day around your business."
+    : view.level === 1 ? "Tap a job to see what Anchored does for you there."
+    : "Tap a circle to watch Anchored do it, step by step.";
+  [...$("#prog").children].forEach((li, i) => {
+    li.className = i < view.level ? "done" : i === view.level ? "now" : "";
+    if (i === view.level) li.setAttribute("aria-current", "step"); else li.removeAttribute("aria-current");
+  });
+  const title = view.level === 0 ? "Your business" : view.level === 1 ? stageById[view.stage].name : jobById[view.job].full || jobById[view.job].name;
+  const gt = $("#gtitle");
+  if (gt.textContent !== title) {
+    gt.classList.add("swap");
+    setTimeout(() => { gt.textContent = title; gt.classList.remove("swap"); }, reduce ? 0 : 280);
+  }
+}
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
+const arrow = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+function renderPanel() {
+  const p = $("#panel"), inn = $("#panelIn");
+  $(".stagewrap").classList.toggle("has-panel", view.level > 0);
+  if (view.level === 0) { p.classList.remove("open"); return; }
+  p.classList.add("open");
+  if (view.level === 1) {
+    const s = stageById[view.stage];
+    inn.innerHTML = `<p class="eyebrow">Stage</p><h2>${esc(s.full || s.name)}</h2><p class="lede">${esc(s.blurb)}.</p>
+      <h3>${jobsOf(s.id).length === 1 ? "1 job" : jobsOf(s.id).length + " jobs"} in this part</h3><div class="rows">${jobsOf(s.id).map(j => {
+        const w = waitingIn([j.id]);
+        return `<button class="row" type="button" data-job="${j.id}"><span class="h"><b>${esc(j.full || j.name)}</b>${w ? `<span class="st wait">${w} waiting</span>` : ""}</span>
+          <span class="who" style="--k:${j.k}"><i class="${j.kind === "none" ? "dash" : ""}"></i><span><b>${esc(j.handler)}</b>${esc(j.note)}</span></span>
+          <span class="go">Open ${arrow}</span></button>`;
+      }).join("")}</div>`;
+    inn.querySelectorAll("[data-job]").forEach(b => b.addEventListener("click", () => go({ level: 2, stage: view.stage, job: b.dataset.job })));
+  } else {
+    const j = jobById[view.job], as = autosOf(j.id);
+    inn.innerHTML = `<p class="eyebrow">${esc(stageById[j.stage].name)}</p><h2>${esc(j.full || j.name)}</h2>
+      <div class="who" style="--k:${j.k}"><i class="${j.kind === "none" ? "dash" : ""}"></i><span><b>${esc(j.handler)}</b>${esc(j.note)}</span></div>
+      <h3>${j.kind === "none" ? "What Anchored could do here" : "What happens in this job"}</h3>
+      <div class="rows">${as.map(a => `<button class="row" type="button" data-auto="${a.id}">
+        <span class="h"><b>${esc(a.name)}</b><span class="st ${statusCls(a)}">${esc(statusText(a))}</span></span>
+        <dl class="flow"><dt>When</dt><dd>${esc(a.trigger)}</dd>
+          ${a.draft ? `<dt>Anchored</dt><dd>writes ${esc(a.draft.charAt(0).toLowerCase() + a.draft.slice(1))} for you to approve</dd>` : `<dt>Who</dt><dd>${esc(a.rule)}</dd>`}
+          <dt>Result</dt><dd>${esc(a.result)}</dd></dl>
+        <span class="go">${a.status === "ghost" ? "See how it would work" : "See a quick overview"} ${arrow}</span></button>`).join("")}</div>
+      <div class="more"><button class="btn txt" type="button">Change who does this</button><button class="btn txt" type="button">Compare apps</button></div>`;
+    inn.querySelectorAll("[data-auto]").forEach(b => b.addEventListener("click", () => openPeek(autoById[b.dataset.auto])));
+  }
+}
+
+// ---------------------------------------------------------------- run sheet
+let runTimers = [];
+const later = (fn, ms) => runTimers.push(setTimeout(fn, reduce ? 0 : ms));
+const chk = '<svg viewBox="0 0 24 24"><use href="#i-check"/></svg>';
+let lastFocus = null;
+function whoDoes(a) {
+  const j = jobById[a.job];
+  return a.tool ? "Claude Pro, a separate app" : a.status === "ghost" ? "Nobody yet" : `Anchored's ${j.agent || "Front Desk"} assistant`;
+}
+function summary(a) {
+  const low = t => t.charAt(0).toLowerCase() + t.slice(1);
+  if (a.tool) return `When ${low(a.trigger)}, you ask Claude Pro to write a post and publish it yourself.`;
+  if (a.status === "ghost") return `Not set up yet. When ${low(a.trigger)}, Anchored could text them back for you.`;
+  return `When ${low(a.trigger)}, Anchored writes ${low(a.draft)}. You approve it before anything is sent.`;
+}
+// The short overview pop-up for one automation
+function openPeek(a) {
+  lastFocus = document.activeElement;
+  const j = jobById[a.job], sheet = $("#sheet");
+  sheet.classList.add("peek");
+  sheet.style.setProperty("--k", a.status === "waiting" || a.status === "drafting" ? "var(--signal)" : j.k);
+  sheet.innerHTML = `<header>
+      <span class="bub"><svg viewBox="0 0 24 24">${ICON[a.icon]}</svg></span>
+      <div class="t"><h2 id="runTitle">${esc(a.name)}</h2><p>${esc(stageById[j.stage].name)} › ${esc(j.full || j.name)}</p></div>
+      <button class="close" type="button" id="runX" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </header>
+    <div class="pbody">
+      <p><span class="st ${statusCls(a)}">${esc(statusText(a))}</span></p>
+      <p class="lede">${esc(summary(a))}</p>
+      <dl class="flow"><dt>Who does it</dt><dd>${esc(whoDoes(a))}</dd><dt>Result</dt><dd>${esc(a.result)}</dd><dt>This week</dt><dd>${esc(a.week[0])}</dd></dl>
+      <div class="acts"><button class="btn solid" type="button" id="peekOpen">Open ${esc(a.name.toLowerCase())} ${arrow}</button><button class="btn line" type="button" id="peekClose">Close</button></div>
+    </div>`;
+  const scrim = $("#scrim");
+  scrim.hidden = false;
+  requestAnimationFrame(() => scrim.classList.add("show"));
+  $("#runX").onclick = closeRun; $("#peekClose").onclick = closeRun;
+  $("#peekOpen").onclick = () => { closeRun(true); location.hash = "a-" + a.id; };
+  scrim.onclick = e => { if (e.target === scrim) closeRun(); };
+  $("#peekOpen").focus();
+}
+// The automation's own page: the latest run, how it works and recent runs
+function openPage(a) {
+  const j = jobById[a.job], r = a.run, page = $("#autoView");
+  const ghost = a.status === "ghost", tool = !!a.tool;
+  const steps = [
+    { k: "What happened", t: r.t0, b: r.event, q: r.quote },
+    { k: ghost ? "Anchored would write a message" : tool ? "Claude Pro writes the post" : "Anchored writes a message", t: r.t1, b: r.did },
+    { k: tool ? "You post it" : "Your turn", t: "", b: tool ? "You post it yourself. Nothing waits for you here" : ghost ? "You'd approve each text before it goes out" : "", id: "okStep" },
+    { k: "Result", t: "", b: a.result, id: "getStep" },
+  ];
+  page.style.setProperty("--k", a.status === "waiting" || a.status === "drafting" ? "var(--signal)" : j.k);
+  page.innerHTML = `<nav class="crumbs" aria-label="Where you are"><button class="back" type="button" id="pageBack">← Back to the map</button>
+      <button type="button" data-go="0">Workflows</button><span class="sep">›</span><button type="button" data-go="1">${esc(stageById[j.stage].name)}</button><span class="sep">›</span><button type="button" data-go="2">${esc(j.full || j.name)}</button><span class="sep">›</span><button type="button" aria-current="page">${esc(a.name)}</button></nav>
+    <div class="ahead"><span class="bub"><svg viewBox="0 0 24 24">${ICON[a.icon]}</svg></span>
+      <div class="t"><h1>${esc(a.name)}</h1><p>${esc(summary(a))}</p></div>
+      <span class="st ${statusCls(a)}" id="pageStatus">${esc(statusText(a))}</span></div>
+    <div class="agrid">
+      <section class="card main-run" aria-labelledby="runTitle">
+        <h2 id="runTitle">${ghost ? "How it would work" : "Latest run"} <span class="live" id="live"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3a9 9 0 1 1-9 9"/></svg><span>${ghost ? "Example" : "Playing"}</span></span></h2>
+        <div class="runbody">
+          <ol class="steps" id="steps"><span class="fill" id="fill"></span>${steps.map((s, i) => `<li class="step" ${s.id ? `id="${s.id}"` : ""}>
+            <span class="n">${i + 1}</span><div><span class="k">${esc(s.k)}${s.t ? `<time>${esc(s.t)}</time>` : ""}</span>
+            <b class="sb">${esc(s.b)}</b>${s.q ? `<q>${esc(s.q)}</q>` : ""}</div></li>`).join("")}</ol>
+          <div class="draft">
+            <div class="dh"><span>${esc(r.channel)}</span><span>${ghost ? "Example" : tool ? "Example post" : "Written by Anchored"}</span></div>
+            <div class="msg" id="msg" aria-live="polite"></div>
+            <div id="draftFoot"></div>
+          </div>
+          <div class="week">${a.week.map(w => `<span>${esc(w)}</span>`).join("")}<span>Example run with sample customers</span></div>
+        </div>
+      </section>
+      <div class="side-cards">
+        <section class="card"><h2>How it works</h2>
+          <dl class="flow"><dt>When</dt><dd>${esc(a.trigger)}</dd>
+            ${a.draft ? `<dt>Anchored</dt><dd>writes ${esc(a.draft.charAt(0).toLowerCase() + a.draft.slice(1))}</dd><dt>Your OK</dt><dd>Nothing is sent until you approve</dd>` : `<dt>Who</dt><dd>${esc(a.rule)}</dd>`}
+            <dt>Result</dt><dd>${esc(a.result)}</dd><dt>Done by</dt><dd>${esc(whoDoes(a))}</dd><dt>Cost</dt><dd>${tool ? "$20 a month, paid to Claude Pro" : "Included in your $29 plan"}</dd></dl>
+          <div class="more" style="display:flex;flex-wrap:wrap;gap:4px 14px"><button class="btn txt" type="button">Change who does this</button>${ghost || tool ? "" : '<button class="btn txt" type="button" id="pauseBtn">Pause it</button>'}</div>
+        </section>
+        <section class="card"><h2>Recent runs</h2>
+          ${a.hist.length ? `<ul class="hist">${a.hist.map(h => `<li><time>${esc(h[0])}</time><b>${esc(h[1])}</b><span>${esc(h[2])}</span></li>`).join("")}</ul>` : `<p class="lede">No runs yet. It starts once you set it up.</p>`}
+        </section>
+      </div>
+    </div>`;
+  $("#pageBack").onclick = () => { location.hash = ""; };
+  page.querySelectorAll("#pageBack, .crumbs [data-go], .crumbs .sep").forEach(el => { el.hidden = true; });
+  page.querySelectorAll("[data-go]").forEach(b => b.onclick = () => {
+    const lv = +b.dataset.go;
+    go(lv === 0 ? { level: 0 } : lv === 1 ? { level: 1, stage: j.stage } : { level: 2, stage: j.stage, job: j.id });
+    location.hash = "";
+  });
+  const pb = $("#pauseBtn"); if (pb) pb.onclick = () => { pb.textContent = pb.textContent === "Pause it" ? "Turn it back on" : "Pause it"; toast(pb.textContent === "Pause it" ? "Turned back on." : "Paused. Nothing new will be written."); };
+  play(a, steps.length);
+}
+function route() {
+  // Design preview: this static page only ever shows Reply to new leads.
+  const id = "inquiry";
+  const a = id && autoById[id];
+  runTimers.forEach(clearTimeout); runTimers = [];
+  $("#mapView").hidden = !!a;
+  $("#autoView").hidden = !a;
+  $("#navWf").toggleAttribute("aria-current", !a); if (!a) $("#navWf").setAttribute("aria-current", "page");
+  renderSubnav(a ? a.id : null);
+  if (a) { openPage(a); scrollTo(0, 0); }
+  else { requestAnimationFrame(() => { measure(); layout(); }); }
+}
+function renderSubnav(cur) {
+  const sn = $("#subnav");
+  sn.innerHTML = `<a href="#a-inquiry" aria-current="page"><span>Reply to new leads</span></a>`;
+  return;
+  sn.innerHTML = STAGES.map(st => `<span class="grp">${esc(st.name)}</span>` + AUTOS.filter(a => jobById[a.job].stage === st.id).map(a =>
+    `<a href="#a-${a.id}" ${a.id === cur ? 'aria-current="page"' : ""}><span>${esc(a.name)}</span><span class="s ${statusCls(a)}">${a.status === "waiting" ? "OK?" : a.status === "drafting" ? "Writing" : a.status === "ghost" ? "Off" : ""}</span></a>`).join("")).join("");
+}
+$("#navWf").addEventListener("click", e => { e.preventDefault(); location.hash = ""; });
+addEventListener("hashchange", route);
+function play(a, total) {
+  runTimers.forEach(clearTimeout); runTimers = [];
+  const lis = [...document.querySelectorAll("#steps .step")], fill = $("#fill");
+  const setFill = i => {
+    const li = lis[i]; if (!li) return;
+    fill.style.height = (li.offsetTop + 14 - lis[0].offsetTop) + "px";
+  };
+  const ghost = a.status === "ghost", tool = !!a.tool;
+  // step 1, then 2 while the draft types out
+  later(() => { lis[0].classList.add("on", "ok"); lis[0].querySelector(".n").innerHTML = chk; }, 500);
+  later(() => { lis[1].classList.add("on"); setFill(1); typeMsg(a.run.msg, () => afterDraft(a, lis, setFill)); }, 1600);
+}
+function typeMsg(text, done) {
+  const m = $("#msg");
+  if (reduce) { m.textContent = text; done(); return; }
+  let i = 0;
+  m.innerHTML = '<span class="cur"></span>';
+  const tick = () => {
+    i = Math.min(text.length, i + 2);
+    m.textContent = text.slice(0, i);
+    if (i < text.length) { m.insertAdjacentHTML("beforeend", '<span class="cur"></span>'); runTimers.push(setTimeout(tick, 28)); }
+    else done();
+  };
+  tick();
+}
+function afterDraft(a, lis, setFill) {
+  const ghost = a.status === "ghost", tool = !!a.tool;
+  lis[1].classList.add("ok"); lis[1].querySelector(".n").innerHTML = chk;
+  const ok = lis[2], get = lis[3], foot = $("#draftFoot"), live = $("#live");
+  later(() => {
+    ok.classList.add("on"); setFill(2);
+    if (ghost) {
+      live.classList.add("done"); live.lastElementChild.textContent = "Preview";
+      foot.innerHTML = `<div class="opts"><div class="opt"><b>Let Anchored draft it</b>Front Desk texts missed callers two open times. In your $29 plan, no new bill.</div>
+        <div class="opt"><b>Use a phone answering tool</b>Compare tools that pick up for you, from about $50 a month.</div></div>
+        <div class="acts"><button class="btn solid" type="button" id="turnOn">Let Anchored handle missed calls</button><button class="btn line" type="button" id="cmp">Compare tools</button></div>`;
+      $("#turnOn").onclick = () => { turnOnCallback(); openPage(autoById.callback); toast("Added to your plan. Approve the plan to turn it on."); };
+      $("#cmp").onclick = () => toast("Tool comparison opens on the Tools page.");
+      return;
+    }
+    if (tool) {
+      ok.classList.add("ok"); ok.querySelector(".n").innerHTML = chk;
+      later(() => { get.classList.add("on", "ok"); get.querySelector(".n").innerHTML = chk; setFill(3); }, 900);
+      live.classList.add("done"); live.lastElementChild.textContent = "Runs on its own";
+      foot.innerHTML = `<p class="note">Claude Pro runs outside Anchored, so these posts never wait for you here.</p>
+        <div class="acts"><button class="btn line" type="button" id="copy">Copy this post</button></div>`;
+      $("#copy").onclick = () => {
+        navigator.clipboard?.writeText(a.run.msg).then(() => toast("Post copied."), () => toast("Select the post text to copy it."));
+      };
+      return;
+    }
+    if (a.status === "done") {
+      ok.classList.add("ok"); ok.querySelector(".n").innerHTML = chk;
+      ok.querySelector(".sb").textContent = a.run.okAt || "You approved it";
+      later(() => { get.classList.add("on", "ok"); get.querySelector(".n").innerHTML = chk; setFill(3); get.querySelector(".sb").textContent = a.run.after || a.result; }, 900);
+      live.classList.add("done"); live.lastElementChild.textContent = "Done";
+      foot.innerHTML = `<div class="result"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg><span>${esc(a.run.after || "Sent")}</span></div>
+        <div class="acts"><button class="btn line" type="button" id="replay">Replay</button></div>`;
+      $("#replay").onclick = () => openPage(a);
+      return;
+    }
+    // waiting for the owner
+    ok.classList.add("wait");
+    ok.querySelector(".sb").innerHTML = '<span class="hl">Needs your OK.</span> Nothing is sent until you tap Approve';
+    live.lastElementChild.textContent = "Needs your OK";
+    live.classList.add("done");
+    if (a.status === "drafting") { a.status = "waiting"; syncAuto(a); }
+    foot.innerHTML = `<div class="acts"><button class="btn y" type="button" id="approve">${chk.replace("<svg", '<svg fill="none" stroke="currentColor" stroke-width="2.4"')}${esc(a.run.approve)}</button>
+      <button class="btn line" type="button" id="edit">Edit</button><button class="btn line" type="button" id="hold">Hold</button></div>`;
+    $("#approve").onclick = () => {
+      ok.classList.remove("wait"); ok.classList.add("ok"); ok.querySelector(".n").innerHTML = chk;
+      ok.querySelector(".sb").textContent = "You approved it just now";
+      $("#msg").contentEditable = "false";
+      later(() => { get.classList.add("on", "ok"); get.querySelector(".n").innerHTML = chk; setFill(3); get.querySelector(".sb").textContent = a.result; }, 700);
+      foot.innerHTML = `<div class="result"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg><span>${esc(a.run.sent)}</span></div>`;
+      live.lastElementChild.textContent = "Sent";
+      a.status = "done"; a.doneText = "Sent just now"; syncAuto(a);
+      toast(a.run.sent.split(".")[0] + ".");
+    };
+    $("#edit").onclick = e => {
+      const m = $("#msg"), on = m.contentEditable !== "true";
+      m.contentEditable = on ? "true" : "false";
+      e.currentTarget.textContent = on ? "Done editing" : "Edit";
+      if (on) m.focus();
+    };
+    $("#hold").onclick = () => {
+      ok.classList.remove("wait");
+      ok.querySelector(".sb").textContent = "Held. Nothing was sent";
+      foot.innerHTML = `<p class="note" style="padding-top:12px">Held. It stays in Approvals until you send it or toss it.</p>`;
+      live.lastElementChild.textContent = "Held";
+      toast("Held. Nothing was sent.");
+    };
+  }, 900);
+}
+function closeRun(keepFocus) {
+  const scrim = $("#scrim");
+  scrim.classList.remove("show");
+  setTimeout(() => { scrim.hidden = true; $("#sheet").classList.remove("peek"); }, reduce ? 0 : 250);
+  if (keepFocus !== true) lastFocus?.focus?.();
+}
+function syncAuto(a) {
+  refreshNode(nodes.get(a.id));
+  refreshNode(nodes.get(a.job));
+  refreshNode(nodes.get(jobById[a.job].stage));
+  nodes.get(a.id).sv += 0.12;
+  const w = AUTOS.filter(x => x.status === "waiting").length;
+  $("#navCount").textContent = w || "";
+  const f = $("#waitFact");
+  f.hidden = !w;
+  f.innerHTML = `<b>${w}</b> message${w === 1 ? "" : "s"} wait${w === 1 ? "s" : ""} for your OK`;
+  renderPanel();
+  const cur = location.hash.startsWith("#a-") ? location.hash.slice(3) : null;
+  renderSubnav(cur);
+  const ps = $("#pageStatus"); if (ps && cur === a.id) { ps.textContent = statusText(a); ps.className = "st " + statusCls(a); }
+}
+function turnOnCallback() {
+  const j = jobById.calls, a = autoById.callback;
+  Object.assign(j, { kind: "agent", agent: "Front Desk", k: "var(--p-front)", handler: "Anchored drafts it", note: "Front Desk agent, in your $29 plan. On after you approve the plan" });
+  a.status = "ready";
+  syncAuto(a);
+}
+let toastT;
+function toast(msg) {
+  const t = $("#toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2800);
+}
+$("#approvePlan").addEventListener("click", () => toast("Plan approved. Your crew starts with the next lead."));
+
+// ---------------------------------------------------------------- particles: work flowing in to the business
+const dots = [];
+function spawnDot() {
+  const live = AUTOS.filter(a => a.status !== "ghost" && a.status !== "own" && a.status !== "ready");
+  const a = live[Math.floor(Math.random() * live.length)];
+  const chain = [a.id, a.job, jobById[a.job].stage, "hq"].filter(id => nodes.get(id).to > 0);
+  if (chain.length < 2) return;
+  const c = el("circle", { class: "dot", r: 4 }, gDots);
+  c.style.fill = a.status === "waiting" ? "var(--signal)" : jobById[a.job].k;
+  dots.push({ chain, seg: 0, t: 0, c, v: 0.012 + Math.random() * 0.006 });
+}
+
+
+// ---------------------------------------------------------------- frame loop
+let last = performance.now(), helmA = 0;
+function frame(now) {
+  const dt = Math.min(2.5, (now - last) / 16.67); last = now;
+  const t = now / 1000;
+  // camera
+  const ck = reduce ? 1 : 1 - Math.pow(1 - 0.045, dt);
+  cam.x += (cam.tx - cam.x) * ck; cam.y += (cam.ty - cam.y) * ck; cam.s += (cam.ts - cam.s) * ck;
+  const ox = (vp.w - vp.panel) / 2 + cam.px, oy = vp.h / 2 + cam.py;
+  world.setAttribute("transform", `translate(${ox.toFixed(1)},${oy.toFixed(1)}) scale(${cam.s.toFixed(4)}) translate(${(-cam.x).toFixed(1)},${(-cam.y).toFixed(1)})`);
+  const inv = Math.max(1, Math.min(1.9, 1 / cam.s));
+
+
+
+  const dragN = drag && drag.moved ? drag.n : null;
+  const dragRel = dragN ? related(dragN.id) : null;
+  nodes.forEach(n => {
+    // where it wants to be: its slot, a gentle drift, and a pull toward a dragged neighbour
+    let gx = n.tx + n.ox, gy = n.ty + n.oy;
+    if (!reduce && n !== dragN) { gx += Math.sin(t * 0.6 + n.phase) * 3.5; gy += Math.cos(t * 0.5 + n.phase * 1.3) * 3.5; }
+    if (dragN && n !== dragN && dragRel.has(n.id)) { gx += dragN.ox * 0.35; gy += dragN.oy * 0.35; }
+    if (reduce || n === dragN) { n.x = gx; n.y = gy; n.vx = n.vy = 0; }
+    else {
+      n.vx = (n.vx + (gx - n.x) * 0.022 * dt) * Math.pow(0.86, dt);
+      n.vy = (n.vy + (gy - n.y) * 0.022 * dt) * Math.pow(0.86, dt);
+      n.x += n.vx * dt; n.y += n.vy * dt;
+    }
+    n.r += (n.tr - n.r) * (reduce ? 1 : 1 - Math.pow(1 - 0.06, dt));
+    n.o += (n.to - n.o) * (reduce ? 1 : 1 - Math.pow(1 - 0.05, dt));
+    // springy hover pop
+    n.ts = hover === n.id ? 1.14 : 1;
+    if (reduce) n.s = n.ts;
+    else { n.sv = (n.sv + (n.ts - n.s) * 0.12) * 0.74; n.s += n.sv; }
+    const dimT = hotSet && !hotSet.has(n.id) ? 0.3 : 1;
+    n.dim += (dimT - n.dim) * 0.2;
+  });
+  // gentle push apart so nodes never overlap while drifting or dragging
+  const vis = [...nodes.values()].filter(n => n.o > 0.05 && n.r > 4);
+  for (let i = 0; i < vis.length; i++) for (let k = i + 1; k < vis.length; k++) {
+    const a = vis[i], b = vis[k];
+    const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1, min = a.r + b.r + 22;
+    if (d < min) {
+      const f = (min - d) / d * 0.12;
+      if (a !== dragN) { a.x -= dx * f; a.y -= dy * f; }
+      if (b !== dragN) { b.x += dx * f; b.y += dy * f; }
+    }
+  }
+  helmA += reduce ? 0 : 0.08 * dt;
+
+  nodes.forEach(n => {
+    const g = n.g, r = Math.max(0, n.r);
+    g.setAttribute("transform", `translate(${n.x.toFixed(1)},${n.y.toFixed(1)}) scale(${n.s.toFixed(3)})`);
+    g.style.opacity = (n.o * n.dim).toFixed(3);
+    g.style.display = n.o < 0.01 && n.to === 0 ? "none" : "";
+    n.body.setAttribute("r", r.toFixed(1));
+    n.halo.setAttribute("r", (r + 10).toFixed(1));
+    n.ringEl.setAttribute("r", (r + (n.type === "auto" ? 4 : 6)).toFixed(1));
+    if (n.type === "company") {
+      const hr = r + 10;
+      n.helmRing.setAttribute("r", hr.toFixed(1));
+
+      const fs = Math.max(10, r * 0.25);
+      n.t1.setAttribute("font-size", fs.toFixed(1)); n.t1.setAttribute("y", (fs * 0.15).toFixed(1));
+      n.t2.setAttribute("font-size", Math.max(8, r * 0.15).toFixed(1)); n.t2.setAttribute("y", (fs * 0.15 + r * 0.3).toFixed(1));
+      n.t2.style.display = r > 60 ? "" : "none";
+      n.t1.style.display = r > 60 ? "" : "none";
+      n.lb.style.display = r > 60 || r < 8 ? "none" : "";
+      const ls = 13 * inv;
+      n.lb.style.fontSize = ls + "px";
+      n.lb.setAttribute("y", (hr + 18 + ls * 0.9).toFixed(1));
+    } else {
+      const is = r * (n.type === "auto" ? 0.034 : 0.03);
+      n.ic.setAttribute("transform", `scale(${is.toFixed(3)}) translate(-12,-12)`);
+      n.ic.style.strokeWidth = (1.7 / Math.max(is, 0.3)).toFixed(2);
+      n.ic.style.display = r > 9 ? "" : "none";
+      const showLab = n.lab;
+      const ls = (n.small ? 13 : 15) * inv, ss = (n.small ? 11.5 : 13) * inv;
+      n.lb.style.display = n.sb.style.display = showLab ? "" : "none";
+      if (showLab) {
+        n.lb.setAttribute("y", (r + 14 + ls * 0.9).toFixed(1)); n.lb.style.fontSize = ls + "px";
+        n.sb.setAttribute("y", (r + 18 + ls * 0.9 + ss * 1.25).toFixed(1)); n.sb.style.fontSize = ss + "px";
+      }
+      if (n.type === "auto") {
+        const st = n.data.status;
+        n.spin.style.display = st === "drafting" ? "" : "none";
+        n.spin.setAttribute("r", (r + 4).toFixed(1));
+        n.spin.setAttribute("transform", `rotate(${(t * 90) % 360})`);
+        n.check.style.display = "none";
+        n.check.setAttribute("transform", `translate(${(r * 0.72).toFixed(1)},${(-r * 0.72).toFixed(1)})`);
+        if (st === "waiting" && !reduce) n.ringEl.style.strokeOpacity = (0.55 + 0.45 * Math.sin(t * 3.2)).toFixed(2);
+        else n.ringEl.style.strokeOpacity = 1;
+      }
+    }
+    // link to parent, from edge to edge
+    if (n.link) {
+      const p = nodes.get(n.parent);
+      const dx = n.x - p.x, dy = n.y - p.y, d = Math.hypot(dx, dy) || 1;
+      const ux = dx / d, uy = dy / d;
+      const a0 = p.r * p.s + 6, a1 = n.r * n.s + 6;
+      const show = d > a0 + a1;
+      n.link.style.display = show && n.o > 0.02 && p.o > 0.02 ? "" : "none";
+      if (show) {
+        n.link.setAttribute("x1", (p.x + ux * a0).toFixed(1)); n.link.setAttribute("y1", (p.y + uy * a0).toFixed(1));
+        n.link.setAttribute("x2", (n.x - ux * a1).toFixed(1)); n.link.setAttribute("y2", (n.y - uy * a1).toFixed(1));
+      }
+      const hot = hotSet && hotSet.has(n.id) && hotSet.has(p.id) && (hover === n.id || hover === p.id);
+      const dash = (n.type === "job" && n.data.kind === "none") || (n.type === "auto" && n.data.status === "ghost");
+      n.link.setAttribute("class", "link" + (dash ? " dash" : "") + (hot ? " hot" : ""));
+      n.link.style.opacity = (Math.min(n.o, p.o) * Math.min(n.dim, p.dim) * (hot ? 1 : 0.55)).toFixed(3);
+    }
+  });
+
+  if (hover) {
+    const n = nodes.get(hover), tip = $("#tip");
+    const sx = ox + (n.x - cam.x) * cam.s, sy = oy + (n.y - cam.y - n.r * n.s - 12) * cam.s;
+    const below = sy < 150;
+    tip.style.left = Math.max(140, Math.min(vp.w - 140, sx)) + "px";
+    tip.style.top = (below ? oy + (n.y - cam.y + n.r * n.s + 62) * cam.s : sy) + "px";
+    tip.style.transform = below ? "translate(-50%, 0)" : "";
+  }
+  // particles travel along the links toward the middle
+  for (let i = dots.length - 1; i >= 0; i--) {
+    const d = dots[i];
+    d.t += d.v * dt;
+    if (d.t >= 1) { d.t = 0; d.seg++; }
+    if (d.seg >= d.chain.length - 1) { d.c.remove(); dots.splice(i, 1); continue; }
+    const a = nodes.get(d.chain[d.seg]), b = nodes.get(d.chain[d.seg + 1]);
+    if (a.o < 0.3 || b.o < 0.3) { d.c.remove(); dots.splice(i, 1); continue; }
+    const e = d.t < .5 ? 2 * d.t * d.t : 1 - Math.pow(-2 * d.t + 2, 2) / 2;
+    d.c.setAttribute("cx", (a.x + (b.x - a.x) * e).toFixed(1));
+    d.c.setAttribute("cy", (a.y + (b.y - a.y) * e).toFixed(1));
+    d.c.setAttribute("r", (3.5 * inv).toFixed(1));
+    d.c.style.opacity = (Math.sin(Math.PI * Math.min(1, (d.seg + d.t) / (d.chain.length - 1) * 1.0 + 0.0001)) * 0.6 + 0.4).toFixed(2);
+  }
+  requestAnimationFrame(frame);
+}
+
+// ---------------------------------------------------------------- theme toggle
+const root = document.documentElement;
+try { const saved = localStorage.getItem("anchored-theme"); if (saved) root.dataset.theme = saved; } catch (e) {}
+$("#themeBtn").addEventListener("click", () => {
+  const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  root.dataset.theme = dark ? "light" : "dark";
+  try { localStorage.setItem("anchored-theme", root.dataset.theme); } catch (e) {}
+});
+
+// ---------------------------------------------------------------- start: everything pops out of the helm
+renderCrumbs();
+measure();
+layout();
+renderSubnav(null);
+route();
+document.querySelectorAll("#pageBack, #autoView .crumbs [data-go]").forEach(el => { el.hidden = true; });
+nodes.forEach(n => { n.x = 0; n.y = 0; n.r = 0; n.o = 0; });
+cam.x = cam.tx; cam.y = cam.ty; cam.s = cam.ts;
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
