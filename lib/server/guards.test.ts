@@ -29,7 +29,7 @@ describe("newFacts", () => {
 
 describe("virtual card ids", () => {
   it("round-trip a draft key, including locked-card keys", () => {
-    for (const key of ["hvac:callback", "b_1f2e3d4c-0000-4000-8000-000000000000:closer", "restaurant:locked:0"]) {
+    for (const key of ["restaurant:catering", "b_1f2e3d4c-0000-4000-8000-000000000000:closer", "restaurant:locked:0"]) {
       expect(keyFromVirtualId(virtualCardId(key))).toBe(key);
     }
   });
@@ -37,7 +37,7 @@ describe("virtual card ids", () => {
   it("are told apart from stored card ids", () => {
     expect(keyFromVirtualId("8f5e2a1c-3b4d-4e6f-8a9b-0c1d2e3f4a5b")).toBeNull();
     expect(isCardId("8f5e2a1c-3b4d-4e6f-8a9b-0c1d2e3f4a5b")).toBe(true);
-    expect(isCardId(virtualCardId("hvac:callback"))).toBe(true);
+    expect(isCardId(virtualCardId("restaurant:catering"))).toBe(true);
   });
 
   it("reject shapes that are neither", () => {

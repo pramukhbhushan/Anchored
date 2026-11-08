@@ -15,8 +15,8 @@ import type { ChatThread, NewChatMessage } from "@/lib/store/types";
 // =============================================================================
 // The ongoing chat for one business. `sendBusinessChat` reads what the owner says
 // changed (with the model when one is set up, else the rules), rebuilds the profile
-// through the engine, saves it, and replies with what changed. Case studies are
-// sample businesses, so their chat answers but never changes or stores anything.
+// through the engine, saves it, and replies with what changed. The example
+// business is shared, so its chat answers but never changes or stores anything.
 
 /** Most messages a chat returns; older ones stay stored. */
 const THREAD_LIMIT = 100;
@@ -28,7 +28,7 @@ function threadOf(business: BusinessProfile): ChatThread {
 /** The opening line of a business's chat. */
 function welcomeText(business: BusinessProfile): string {
   return business.kind === "case"
-    ? `${business.name} is a sample business, so its chat can't change anything. Start your own business to tell Anchored what changes.`
+    ? `${business.name} is an example business, so its chat can't change anything. Start your own business to tell Anchored what changes.`
     : `Tell me what's changed at ${business.name}, like a new service, a new way customers reach you, or a new tool, and I'll update your profile and workflows.`;
 }
 
@@ -51,7 +51,7 @@ export async function listBusinessChat(session: string, business: BusinessProfil
 export async function sendBusinessChat(session: string, business: BusinessProfile, text: string): Promise<BusinessChatResponse> {
   if (business.kind === "case") {
     return {
-      messages: [unsaved("welcome", "anchored", welcomeText(business)), unsaved("owner", "owner", text), unsaved("reply", "anchored", `${business.name} is a sample business, so Anchored can't change it. Start your own business and tell me about it there.`)],
+      messages: [unsaved("welcome", "anchored", welcomeText(business)), unsaved("owner", "owner", text), unsaved("reply", "anchored", `${business.name} is an example business, so Anchored can't change it. Start your own business and tell me about it there.`)],
       changes: [],
     };
   }

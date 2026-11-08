@@ -55,7 +55,6 @@
 .partTitle{font-size:14px;font-weight:700;color:var(--ink)}
 .partText{font-size:14px;color:var(--ink-2);margin-top:2px;max-width:70ch}
 .artifactNote{margin-top:12px;font-size:13.5px;color:var(--muted);max-width:70ch}
-.pickers{margin-bottom:12px}
 
 /* ---------- Step 1: the rule sheet ---------- */
 .facts{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 16px;margin:12px 0 0;font-size:14.5px}
@@ -146,10 +145,10 @@
 .stake{font-size:14px;color:var(--ink-2)}
 .stake b{font-family:var(--display);font-stretch:100%;font-weight:850;font-size:20px;color:var(--ink);margin-right:6px}
 
-/* ---------- Research: case files and the calls we made ---------- */
+/* ---------- The example business and the calls we made ---------- */
 .research{padding-block:80px;border-top:1px solid var(--line)}
 .researchHead{max-width:64ch}
-.files{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:20px;margin-top:36px;align-items:stretch}
+.files{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:20px;margin-top:36px;align-items:stretch}
 .file{display:flex;flex-direction:column;min-width:0;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r)}
 .fileHead{display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap;padding:14px 20px;border-bottom:1px dashed var(--line);font-size:13.5px;color:var(--muted)}
 .fileHead b{color:var(--ink);font-weight:650}
@@ -161,6 +160,10 @@
 .picks{list-style:none;margin:auto 0 0;padding:14px 20px 0;border-top:1px dashed var(--line);display:flex;flex-direction:column;gap:10px}
 .picks li{display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:14.5px}
 .fileGo{padding:16px 20px 18px}
+.tryIt{display:flex;flex-direction:column;gap:12px;padding:18px 0}
+.tryIt h3{font-size:19px}
+.tryIt ol{margin:0;padding-left:20px;display:grid;gap:8px;font-size:15px;max-width:65ch}
+.tryIt p{font-size:15px;color:var(--ink-2);max-width:65ch}
 .decided{margin-top:64px}
 .decided h3{font-size:22px}
 .decided > p{margin-top:8px;color:var(--ink-2);max-width:64ch}

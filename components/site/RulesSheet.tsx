@@ -1,17 +1,14 @@
-"use client";
-
-import { useState } from "react";
 import styles from "@/components/site/landing.module.css";
-import { CASE_STUDIES } from "@/lib/domain/cases";
+import { SAMPLE_BUSINESS } from "@/lib/domain/cases";
 import { BASE_WORKFLOWS, NOT_GIVEN, WORKFLOWS, WORKFLOW_IDS } from "@/lib/domain/workflows";
 import type { WorkflowId } from "@/lib/domain/types";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The landing page's first step: one case study's profile above the rule
-// sheet, with a box ticked for each answer that added a workflow. The tabs
-// switch between the three case studies so the same rules map each one.
+// The landing page's first step: the example business's profile above the
+// rule sheet, with a box ticked for each answer that added a workflow, so a
+// visitor sees which answers turn into which workflows.
 
 /** A workflow that an onboarding answer adds; the five base workflows come with every business. */
 type AddedWorkflow = Exclude<WorkflowId, "calls" | "books" | "leads" | "social" | "quotes">;
@@ -33,14 +30,9 @@ const WHEN: Readonly<Record<AddedWorkflow, string>> = {
 const ADDED: readonly AddedWorkflow[] = WORKFLOW_IDS.filter((id): id is AddedWorkflow => !WORKFLOWS[id].base);
 const BASE_NAMES = BASE_WORKFLOWS.map((id) => WORKFLOWS[id].name).join(", ");
 
-// The restaurant lights the most rows, so the sheet opens on it.
-const FIRST_CASE = "restaurant";
-
-/** Render the case-study tabs, the chosen business's profile and the rule sheet it ticks. */
+/** Render the example business's profile and the rule sheet it ticks. */
 export function RulesSheet() {
-  const [caseId, setCaseId] = useState(FIRST_CASE);
-  const business = CASE_STUDIES.find((b) => b.id === caseId) ?? CASE_STUDIES[0];
-  if (business === undefined) return null;
+  const business = SAMPLE_BUSINESS;
   const applies = (id: WorkflowId) => business.workflows[id] !== undefined;
   const addedCount = ADDED.filter(applies).length;
   const facts: readonly (readonly [string, readonly string[]])[] = [
@@ -51,19 +43,6 @@ export function RulesSheet() {
 
   return (
     <div>
-      <div className={`tabs ${styles.pickers}`} role="group" aria-label="Case study shown in the rule sheet">
-        {CASE_STUDIES.map((b) => (
-          <button
-            key={b.id}
-            type="button"
-            className="tab"
-            aria-pressed={b.id === business.id}
-            onClick={() => setCaseId(b.id)}
-          >
-            {b.caseStudy?.label ?? b.trade}
-          </button>
-        ))}
-      </div>
       <div className={styles.sheet}>
         <div className={styles.sheetHead}>
           <p className={styles.sheetName}>{business.name}</p>
@@ -113,7 +92,7 @@ export function RulesSheet() {
             })}
           </tbody>
         </table>
-        <p className={styles.count} aria-live="polite">
+        <p className={styles.count}>
           {business.name} gets the five shared workflows plus {addedCount} of {ADDED.length} more.
         </p>
       </div>

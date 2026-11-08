@@ -59,7 +59,7 @@ const LAYERS: readonly Pair[] = [
 const CHOICES: readonly Pair[] = [
   [
     "Signals, not trade templates",
-    "Onboarding answers add workflows. A dental office, a bakery and an auto shop run through the same rules. Case studies add researched numbers on top.",
+    "Onboarding answers add workflows. A dental office, a bakery and an auto shop run through the same rules. The example business adds researched numbers on top.",
   ],
   [
     "Three paths per workflow",
@@ -86,11 +86,11 @@ const STATUS: readonly Pair[] = [
   ],
   ["Chat onboarding", "Live. Rules ask the questions; with an AI provider set, the model reads free answers too."],
   ["Seven-check ratings", `Live. Computed in code from ${TOOLS.length} tools, with facts checked Nov 6 and 7, 2026.`],
-  ["Paths, stack and cost", "Live, saved to your account, or to your browser session when accounts are off."],
+  ["Paths, stack and cost", "Live, saved to your account."],
   ["Rewrite in my voice", "Live when an AI provider is set."],
   [
     "Texts and emails",
-    "Demo outbox. A Twilio trial can't send custom messages, and carrier registration takes longer than a weekend, so approved messages stay inside Anchored.",
+    "Not connected yet. Business texting needs carrier registration, so approved messages wait in the outbox until you connect texting and email.",
   ],
   [
     "Discovery agent and live connectors",
@@ -201,7 +201,7 @@ export default function BuiltPage() {
       <PageHeader
         title="How Anchored is built"
         description="The challenge asks for a platform that helps small businesses discover, compare and adopt AI tools. Workflows are the what. Five layers are the how. Each workflow has three paths, and on the build path five agents run skills."
-        actions={<ButtonLink href={APP_HREF}>Open Anchored</ButtonLink>}
+        actions={<ButtonLink href={APP_HREF}>Open app</ButtonLink>}
       />
 
       <dl className="doc-defs">
@@ -288,7 +288,7 @@ export default function BuiltPage() {
         <SectionHeader
           id="research"
           title="The research behind it"
-          description="Each team member researched one or two trades and wrote a sourced report: how the business runs, how it sells, what it uses, where money leaks, and what Anchored should and shouldn't do. Three became the case studies."
+          description="Each team member researched one or two trades and wrote a sourced report: how the business runs, how it sells, what it uses, where money leaks, and what Anchored should and shouldn't do. The restaurant report became the example business."
         />
         <p className="prose">
           Three findings shaped the product. First, the right first workflow differs by business, so Anchored maps
@@ -299,7 +299,7 @@ export default function BuiltPage() {
         <table className="rtable">
           <thead>
             <tr>
-              <th scope="col">Case study</th>
+              <th scope="col">Trade</th>
               <th scope="col">Researched by</th>
               <th scope="col">Finding that changed the design</th>
             </tr>

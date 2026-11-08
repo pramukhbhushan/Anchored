@@ -1,21 +1,31 @@
 import { describe, expect, it } from "vitest";
 import { SKILL_STEPS, TOOL_STEPS, TRADE_TRIGGERS } from "@/components/stack/copy";
 import { approvalRouteCount, flowRows, workFlow, type FlowLane } from "@/components/stack/flow";
-import { caseStudyById } from "@/lib/domain/cases";
+import { SAMPLE_BUSINESS } from "@/lib/domain/cases";
 import { workflowIdsOf } from "@/lib/domain/paths";
 import type { BusinessProfile, ChoiceMap } from "@/lib/domain/types";
+import { careerCoach, hvacShop } from "@/test/trades";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Checks the flow diagram's routes for the three case studies: who picks each
+// Checks the flow diagram's routes for the example restaurant and for HVAC and
+// coaching businesses the rules map: who picks each
 // kind of work up, which drafts wait for the owner, where the money is told,
 // and that the owner-facing copy stays free of jargon and dashes.
 
-function caseStudy(id: string): BusinessProfile {
-  const business = caseStudyById(id);
-  if (business === undefined) throw new Error(`No case study \`${id}\`; check \`lib/domain/cases.ts\`.`);
-  return business;
+// A coach who hands invoices, no-shows and lead follow-up all to agents, so every lane is an agent.
+const COACH_AGENTS_ONLY: ChoiceMap = {
+  books: { path: "build", skills: ["nudger"] },
+  leads: { path: "build", skills: ["inquiry", "callfollow"] },
+  noshows: { path: "build", skills: ["showup"] },
+};
+
+/** `business` with a stake on its quotes workflow, as research or an owner's numbers would give it. */
+function withQuoteStake(business: BusinessProfile, stake: string): BusinessProfile {
+  const plan = business.workflows.quotes;
+  if (plan === undefined) throw new Error(`\`${business.id}\` has no quotes workflow.`);
+  return { ...business, workflows: { ...business.workflows, quotes: { ...plan, stake } } };
 }
 
 function lane(lanes: readonly FlowLane[], name: string): FlowLane {
@@ -26,7 +36,7 @@ function lane(lanes: readonly FlowLane[], name: string): FlowLane {
 
 describe("workFlow", () => {
   it("puts the restaurant's agents first and its tools after", () => {
-    const lanes = workFlow(caseStudy("restaurant"), {});
+    const lanes = workFlow(SAMPLE_BUSINESS, {});
     expect(lanes.map((l) => [l.handler.kind, l.handler.name])).toEqual([
       ["agent", "Front Desk"],
       ["agent", "Bookkeeping and Invoicing"],
@@ -41,27 +51,28 @@ describe("workFlow", () => {
   });
 
   it("leaves the daily brief and inbox sorting off the diagram", () => {
-    const names = workFlow(caseStudy("coach"), {}).map((l) => l.handler.name);
+    const names = workFlow(careerCoach(), {}).map((l) => l.handler.name);
     expect(names).not.toContain("Internal Communications");
   });
 
   it("starts each restaurant route from what a customer or supplier does", () => {
-    const frontDesk = lane(workFlow(caseStudy("restaurant"), {}), "Front Desk");
+    const frontDesk = lane(workFlow(SAMPLE_BUSINESS, {}), "Front Desk");
     expect(frontDesk.routes.map((r) => r.trigger)).toEqual(["Someone asks about catering for an event"]);
-    expect(lane(workFlow(caseStudy("restaurant"), {}), "Bookkeeping and Invoicing").routes[0]?.trigger).toBe(
+    expect(lane(workFlow(SAMPLE_BUSINESS, {}), "Bookkeeping and Invoicing").routes[0]?.trigger).toBe(
       "A supplier sends an invoice",
     );
   });
 
   it("tells a workflow's stake once, on its lead job", () => {
-    const followUp = lane(workFlow(caseStudy("hvac"), {}), "Follow-up");
+    const hvac = withQuoteStake(hvacShop(), "$14K to $30K a month in sales if 2 more of 10 quotes close");
+    const followUp = lane(workFlow(hvac, { quotes: { path: "build", skills: ["closer", "debrief"] } }), "Follow-up");
     const stakeOf = (key: string) => followUp.routes.find((r) => r.key === key)?.stake;
     expect(stakeOf("closer")).toMatch(/^\$14K to \$30K/);
     expect(stakeOf("debrief")).toBeNull();
   });
 
   it("splits a coach's lead follow-up between the two agents that run it", () => {
-    const lanes = workFlow(caseStudy("coach"), {});
+    const lanes = workFlow(careerCoach(), COACH_AGENTS_ONLY);
     expect(lane(lanes, "Front Desk").routes.map((r) => r.key)).toContain("inquiry");
     expect(lane(lanes, "Follow-up").routes.map((r) => r.key)).toContain("callfollow");
     expect(lanes.every((l) => l.handler.kind === "agent")).toBe(true);
@@ -71,7 +82,7 @@ describe("workFlow", () => {
   });
 
   it("says what a tool costs or where the owner already has it", () => {
-    const lanes = workFlow(caseStudy("restaurant"), {});
+    const lanes = workFlow(SAMPLE_BUSINESS, {});
     const notes = lanes.flatMap((l) => (l.handler.kind === "tool" ? [l.handler.note] : []));
     expect(notes).toEqual([
       "New, $250 a month",
@@ -84,12 +95,12 @@ describe("workFlow", () => {
   });
 
   it("ties each agent back to the plan on the bill", () => {
-    const lanes = workFlow(caseStudy("coach"), {});
+    const lanes = workFlow(careerCoach(), COACH_AGENTS_ONLY);
     expect(lanes.map((l) => l.handler.note)).toEqual(lanes.map(() => "In your $29 plan"));
   });
 
   it("draws nothing when every workflow is skipped", () => {
-    const hvac = caseStudy("hvac");
+    const hvac = hvacShop();
     const allSkipped: ChoiceMap = Object.fromEntries(workflowIdsOf(hvac).map((id) => [id, { path: "skip" }]));
     expect(workFlow(hvac, allSkipped)).toEqual([]);
   });
@@ -98,7 +109,7 @@ describe("workFlow", () => {
 describe("flowRows", () => {
   it("puts the restaurant's agent routes inside the band and its tools under the divider", () => {
     // Front Desk 1 route, Bookkeeping 1, Content 1, then five one-route tools.
-    const rows = flowRows(workFlow(caseStudy("restaurant"), {}));
+    const rows = flowRows(workFlow(SAMPLE_BUSINESS, {}));
     expect(rows.band).toEqual({ foot: 5 });
     expect(rows.divider).toBe(6);
     expect(rows.agents.map((p) => p.start)).toEqual([2, 3, 4]);
@@ -106,14 +117,14 @@ describe("flowRows", () => {
   });
 
   it("draws no band and no divider for an agents-only coach", () => {
-    const lanes = workFlow(caseStudy("coach"), {});
+    const lanes = workFlow(careerCoach(), COACH_AGENTS_ONLY);
     const rows = flowRows(lanes);
     expect(rows.divider).toBeNull();
     expect(rows.band).toEqual({ foot: 2 + approvalRouteCount(lanes) });
   });
 
   it("starts tools right under the headings when no agent route exists", () => {
-    const hvac = caseStudy("hvac");
+    const hvac = hvacShop();
     const toolsOnly: ChoiceMap = Object.fromEntries(
       workflowIdsOf(hvac).map((id) => [id, id === "books" ? { path: "turnon", toolId: "quickbooks" } : { path: "skip" }]),
     );

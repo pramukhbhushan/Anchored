@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import type { CardRecord, EventCardResponse, OutboxEntry } from "@/lib/api/contract";
 import { draftFeed } from "@/lib/domain/cards";
-import { CASE_STUDIES, caseStudyById } from "@/lib/domain/cases";
+import { isSampleBusinessId, SAMPLE_BUSINESS } from "@/lib/domain/cases";
 import { chosenSkills, resolveChoices, workflowIdsOf } from "@/lib/domain/paths";
 import type { BusinessProfile, Choice, KeyedCard, SkillId, WorkflowId } from "@/lib/domain/types";
 import { getStore } from "@/lib/store";
@@ -13,21 +13,20 @@ import { getSessionId } from "./session";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Server-side reads for pages and API routes. Case studies come from code; a
+// Server-side reads for pages and API routes. The example business comes from code; a
 // session's own businesses, choices and cards come from the `Store`. `getFeed`
 // also syncs card drafts for the agents the owner has chosen.
 
-/** Return the case studies, then the session's own businesses. */
+/** Return the example business, then the session's own businesses. */
 export async function listBusinesses(): Promise<BusinessProfile[]> {
   const session = await getSessionId();
-  return [...CASE_STUDIES, ...(await getStore().listBusinesses(session))];
+  return [SAMPLE_BUSINESS, ...(await getStore().listBusinesses(session))];
 }
 
 // `cache` reads each id once per server render: the business layout and its page both look it up.
-/** Return a case study or one of the session's businesses, or `null`. */
+/** Return the example business or one of the session's businesses, or `null`. */
 export const findBusiness = cache(async (id: string): Promise<BusinessProfile | null> => {
-  const caseStudy = caseStudyById(id);
-  if (caseStudy) return caseStudy;
+  if (isSampleBusinessId(id)) return SAMPLE_BUSINESS;
   return getStore().getBusiness(await getSessionId(), id);
 });
 

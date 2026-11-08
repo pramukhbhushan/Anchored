@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 // Module Overview
 // =============================================================================
 // The site's 404: what probably happened and two ways forward, starting over
-// with a new business or looking at the case studies.
+// with a new business or exploring the example.
 
 export const metadata: Metadata = { title: "Page not found" };
 
@@ -22,13 +22,13 @@ export default function NotFound() {
         actions={
           <>
             <ButtonLink href={NEW_BUSINESS_HREF}>Start over</ButtonLink>
-            <ButtonLink href="/#cases" variant="secondary">
-              See the case studies
+            <ButtonLink href="/#example" variant="secondary">
+              Explore the example
             </ButtonLink>
           </>
         }
       >
-        The link may be old, or the business was deleted when the demo was reset.
+        The link may be old, or the page may have moved.
       </EmptyState>
     </div>
   );

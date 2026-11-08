@@ -10,7 +10,7 @@ import { getSessionId } from "@/lib/server/session";
 // =============================================================================
 // GET /api/businesses/[id]/chat returns a business's chat. POST tells Anchored
 // what changed; the reply says what it updated in the profile and workflows.
-// Case studies answer but stay read-only.
+// The example business answers but stays read-only.
 
 type Context = { params: Promise<{ id: string }> };
 

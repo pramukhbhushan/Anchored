@@ -1,20 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { ANCHORED_SEGMENT_NAME, monthlyBill, type BillGroupId, type MonthlyBill } from "@/components/stack/bill";
-import { caseStudyById, CASE_STUDIES } from "@/lib/domain/cases";
+import { SAMPLE_BUSINESS } from "@/lib/domain/cases";
 import { stackCost, workflowIdsOf } from "@/lib/domain/paths";
-import type { BusinessProfile, Choice, ChoiceMap } from "@/lib/domain/types";
+import type { Choice, ChoiceMap } from "@/lib/domain/types";
+import { careerCoach, hvacShop } from "@/test/trades";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
 // Checks the bill the cost picture draws: the bar adds up to the total, each
 // pick lands in the right group, and quoted or shared tools are counted once.
-
-function caseStudy(id: string): BusinessProfile {
-  const business = caseStudyById(id);
-  if (business === undefined) throw new Error(`No case study \`${id}\`; check \`lib/domain/cases.ts\`.`);
-  return business;
-}
 
 function group(bill: MonthlyBill, id: BillGroupId) {
   const found = bill.groups.find((g) => g.id === id);
@@ -23,7 +18,7 @@ function group(bill: MonthlyBill, id: BillGroupId) {
 }
 
 describe("monthlyBill", () => {
-  it.each(CASE_STUDIES.map((b) => [b.id, b] as const))("adds the bar up to the stack's total for %s", (_, business) => {
+  it.each([SAMPLE_BUSINESS, hvacShop(), careerCoach()].map((b) => [b.id, b] as const))("adds the bar up to the stack's total for %s", (_, business) => {
     const bill = monthlyBill(business, {});
     const barTotal = bill.segments.reduce((sum, s) => sum + s.amount, 0);
     expect(barTotal).toBeCloseTo(stackCost(business, {}).total);
@@ -32,7 +27,7 @@ describe("monthlyBill", () => {
   });
 
   it("splits the restaurant into new tools, agents, tools it has and skipped work", () => {
-    const bill = monthlyBill(caseStudy("restaurant"), {});
+    const bill = monthlyBill(SAMPLE_BUSINESS, {});
     expect(bill.total).toBe(308);
     expect(group(bill, "buy").lines.map((l) => [l.name, l.price])).toEqual([
       ["Certus", "$250"],
@@ -50,7 +45,8 @@ describe("monthlyBill", () => {
   });
 
   it("bills HVAC only for Anchored's agents and lists QuickBooks as already paid", () => {
-    const bill = monthlyBill(caseStudy("hvac"), {});
+    // The rules turn on the shop's own review reply box too; skip it so QuickBooks stands alone.
+    const bill = monthlyBill(hvacShop(), { reviews: { path: "skip" } });
     expect(bill.segments).toEqual([
       { key: "anchored", group: "build", name: ANCHORED_SEGMENT_NAME, amount: 29, share: 1 },
     ]);
@@ -60,7 +56,7 @@ describe("monthlyBill", () => {
   });
 
   it("says what each agent does in the owner's words", () => {
-    const agents = group(monthlyBill(caseStudy("coach"), {}), "build").lines;
+    const agents = group(monthlyBill(careerCoach(), { books: { path: "build", skills: ["nudger"] } }), "build").lines;
     expect(agents.find((a) => a.name === "Bookkeeping and Invoicing")?.does).toEqual([
       "Reminds customers about late invoices",
     ]);
@@ -68,7 +64,7 @@ describe("monthlyBill", () => {
   });
 
   it("keeps a quoted tool out of the bar and the total", () => {
-    const hvac = caseStudy("hvac");
+    const hvac = hvacShop();
     const bill = monthlyBill(hvac, { leads: { path: "buy", toolId: "housecall" } });
     expect(bill.onQuote).toEqual(["Housecall Pro"]);
     expect(group(bill, "buy").lines).toEqual([expect.objectContaining({ name: "Housecall Pro", price: "On quote" })]);
@@ -76,7 +72,7 @@ describe("monthlyBill", () => {
   });
 
   it("lists a tool picked for two workflows once, with both jobs", () => {
-    const hvac = caseStudy("hvac");
+    const hvac = hvacShop();
     const marketing: Choice = { path: "buy", toolId: "jobber-mkt" };
     const bill = monthlyBill(hvac, { social: marketing, reviews: marketing });
     const lines = group(bill, "buy").lines;
@@ -86,7 +82,7 @@ describe("monthlyBill", () => {
   });
 
   it("charges nothing and draws no bar when every workflow is skipped", () => {
-    const coach = caseStudy("coach");
+    const coach = careerCoach();
     const allSkipped: ChoiceMap = Object.fromEntries(workflowIdsOf(coach).map((id) => [id, { path: "skip" }]));
     const bill = monthlyBill(coach, allSkipped);
     expect(bill.total).toBe(0);

@@ -9,9 +9,8 @@ import styles from "@/components/site/landing.module.css";
 import { NEW_BUSINESS_HREF, businessHref } from "@/components/routes";
 import { Stamp } from "@/components/ui/Stamp";
 import { topWorkflows } from "@/components/view-helpers";
-import { isAuthEnabled } from "@/lib/auth/config";
 import { MODEL_TIERS, rulesFor } from "@/lib/domain/agents";
-import { CASE_STUDIES, caseStudyById } from "@/lib/domain/cases";
+import { SAMPLE_BUSINESS } from "@/lib/domain/cases";
 import { TOOLS } from "@/lib/domain/catalog";
 import type { BusinessProfile, PathKind } from "@/lib/domain/types";
 import { PATH_DESCRIPTION, WORKFLOWS } from "@/lib/domain/workflows";
@@ -22,7 +21,7 @@ import { PATH_DESCRIPTION, WORKFLOWS } from "@/lib/domain/workflows";
 // The landing page. The hero maps a business live; four steps follow the
 // product's own order (learn the business, check tools, hand the rest to
 // agents, approve), each pairing a claim with an artifact built from the
-// domain data; then the case files and the calls the research forced.
+// example business; then the example itself and the calls the research forced.
 
 /** The three paths in the order the engine tries them, with the hero's one-line gloss. */
 const PATHS: readonly (readonly [PathKind, string])[] = [
@@ -35,7 +34,7 @@ const PATHS: readonly (readonly [PathKind, string])[] = [
 const DECIDED: readonly (readonly [found: string, does: string])[] = [
   [
     "A Twilio trial account can't send the custom texts every card drafts.",
-    "Approved texts land in a demo outbox on a phone that says it's simulated. No SMS provider is connected.",
+    "Approved texts wait in your outbox until you connect texting. Anchored sends nothing on its own.",
   ],
   [
     "Owners asked to approve too often end up approving almost everything, so a run of unedited approvals can measure fatigue, not quality.",
@@ -51,21 +50,12 @@ const DECIDED: readonly (readonly [found: string, does: string])[] = [
   ],
 ];
 
-/** Return the case study with `id`, failing the render if the case data lost it. */
-function requireCase(id: string): BusinessProfile {
-  const business = caseStudyById(id);
-  if (business === undefined) throw new Error(`The landing page needs the \`${id}\` case study.`);
-  return business;
-}
-
 /** Render the landing page. */
 export default function HomePage() {
-  // With accounts on, `/app` sits behind sign-in, so the main call to action starts there.
-  const authEnabled = isAuthEnabled();
-  const startHref = authEnabled ? "/login" : NEW_BUSINESS_HREF;
-  const startLabel = authEnabled ? "Get started" : "Describe your business";
-  const restaurant = requireCase("restaurant");
-  const hvac = requireCase("hvac");
+  // `middleware.ts` sends a signed-out visitor to sign in first and then on to this page.
+  const startHref = NEW_BUSINESS_HREF;
+  const startLabel = "Start your own business";
+  const example = SAMPLE_BUSINESS;
 
   return (
     <>
@@ -83,8 +73,8 @@ export default function HomePage() {
               <Link className="btn" href={startHref}>
                 {startLabel}
               </Link>
-              <a className="btn btn-secondary" href="#cases">
-                See the case studies
+              <a className="btn btn-secondary" href="#example">
+                Explore the example
               </a>
             </div>
             <dl className={styles.legend} aria-label="The three paths for each workflow">
@@ -115,7 +105,7 @@ export default function HomePage() {
             </p>
             <p>
               There&apos;s no template per trade. Every business starts with the same five workflows, and each answer
-              can add more. Switch case studies to watch the same rules map three different businesses.
+              can add more. The sheet shows which answers gave the example restaurant its workflows.
             </p>
           </>
         }
@@ -141,7 +131,7 @@ export default function HomePage() {
         }
         note={`${TOOLS.length} tools rated from vendor pages read Nov 6 and 7, 2026. A discovery agent keeps finding new listings, and a person checks each one before it gets a score.`}
       >
-        <ToolCompare business={restaurant} workflow="calls" />
+        <ToolCompare business={example} workflow="calls" />
       </Step>
 
       <Step
@@ -173,7 +163,7 @@ export default function HomePage() {
           <>
             <p>Agents draft cards. You approve, edit or skip each one, and code checks every text before it can go:</p>
             <ul className={styles.ticks}>
-              {rulesFor(hvac).map((rule) => (
+              {rulesFor(example).map((rule) => (
                 <li key={rule}>{rule}</li>
               ))}
             </ul>
@@ -181,24 +171,40 @@ export default function HomePage() {
         }
         note="Each morning a brief lists the cards waiting for you and the dollars riding on them."
       >
-        <ApprovalPreview business={hvac} skill="closer" />
+        <ApprovalPreview business={example} skill="catering" />
       </Step>
 
-      <section className={styles.research} id="cases" aria-labelledby="cases-title">
+      <section className={styles.research} id="example" aria-labelledby="example-title">
         <div className="wrap">
           <div className={styles.researchHead}>
-            <h2 id="cases-title" className={styles.title}>
-              Researched with three very different businesses
+            <h2 id="example-title" className={styles.title}>
+              Explore an example business
             </h2>
             <p className={styles.body}>
-              We studied an HVAC shop, a restaurant and a career coach, with sourced reports on how each one runs and
-              where it loses money. The same rules map all three, and the research adds the numbers behind each pick.
+              Linden Street Kitchen is a fictional neighborhood restaurant, built from our sourced restaurant research.
+              Open it to see what Anchored does once it knows a business: the workflows it found, the tools it rated and
+              the cards its agents draft.
             </p>
           </div>
           <div className={styles.files}>
-            {CASE_STUDIES.map((business) => (
-              <CaseFile key={business.id} business={business} />
-            ))}
+            <CaseFile business={example} />
+            <div className={styles.tryIt}>
+              <h3>What to try in the example</h3>
+              <ol>
+                <li>Change a workflow&apos;s path, and watch the stack and its monthly cost follow.</li>
+                <li>Approve, edit or skip the cards waiting in Approvals.</li>
+                <li>Try an example event, and watch an agent draft a new card for you to approve.</li>
+              </ol>
+              <p>
+                What you change in the example stays in your account and never reaches a real customer. When it makes
+                sense, map your own business.
+              </p>
+              <div className="row">
+                <Link className="btn" href={startHref}>
+                  {startLabel}
+                </Link>
+              </div>
+            </div>
           </div>
 
           <div className={styles.decided}>
@@ -233,8 +239,8 @@ export default function HomePage() {
             See what Anchored would do for your business.
           </h2>
           <p className={styles.closeText}>
-            Mapping a business takes one sentence and no account. The full plan opens with your workflows, the tools
-            rated for you and the agents ready to draft.
+            Mapping a business in the box above takes one sentence. Start your own for the full plan: your workflows,
+            the tools rated for you and the agents ready to draft.
           </p>
           <div className={`row ${styles.closeCtas}`}>
             <Link className={`btn ${styles.invert}`} href={startHref}>
@@ -248,8 +254,8 @@ export default function HomePage() {
       </section>
 
       <footer className={`wrap ${styles.foot}`}>
-        Built for the University of Maryland AI for Small Business Hack-a-thon, Fall 2026. Example and case-study
-        businesses are fictional. Tool facts were gathered Nov 6 and 7, 2026, and can change.
+        Built for the University of Maryland AI for Small Business Hack-a-thon, Fall 2026. Linden Street Kitchen and
+        the businesses in the mapper are fictional. Tool facts were gathered Nov 6 and 7, 2026, and can change.
       </footer>
     </>
   );
@@ -290,13 +296,13 @@ function Step({
   );
 }
 
-/** Render one case study as a file: the researched number, its source and the top three picks. */
+/** Render the example business as a file: the researched number, its source and the top three picks. */
 function CaseFile({ business }: { readonly business: BusinessProfile }) {
   const research = business.caseStudy;
   return (
     <article className={styles.file}>
       <p className={styles.fileHead}>
-        <b>{research?.label ?? business.trade}</b>
+        <b>Example</b>
         <span>{business.place}</span>
       </p>
       <div className={styles.fileBody}>
@@ -321,7 +327,7 @@ function CaseFile({ business }: { readonly business: BusinessProfile }) {
       </ul>
       <div className={styles.fileGo}>
         <Link className="btn btn-secondary btn-sm" href={businessHref(business.id)}>
-          Open the case study
+          Open the example
         </Link>
       </div>
     </article>

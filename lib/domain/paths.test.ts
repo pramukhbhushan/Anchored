@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { caseStudyById, exampleProfile } from "@/lib/domain/cases";
+import { exampleProfile, SAMPLE_BUSINESS } from "@/lib/domain/cases";
 import { profileFromFacts } from "@/lib/domain/engine";
 import {
   activeAgents,
@@ -13,18 +13,13 @@ import {
   workflowIdsOf,
 } from "@/lib/domain/paths";
 import type { BusinessProfile, Choice, ChoiceMap, WorkflowId } from "@/lib/domain/types";
+import { careerCoach, hvacShop } from "@/test/trades";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
 // Behavior of the three paths, the owner's picks, the agents those picks put to
 // work, and what the stack costs.
-
-function caseStudy(id: string): BusinessProfile {
-  const found = caseStudyById(id);
-  if (found === undefined) throw new Error(`no case study \`${id}\``);
-  return found;
-}
 
 /** The given picks, with every other workflow of the business skipped. */
 function only(business: BusinessProfile, picks: ChoiceMap): ChoiceMap {
@@ -35,15 +30,15 @@ function only(business: BusinessProfile, picks: ChoiceMap): ChoiceMap {
 
 describe("default picks", () => {
   it("turns on QuickBooks for HVAC bookkeeping", () => {
-    expect(defaultChoice(caseStudy("hvac"), "books")).toEqual({ path: "turnon", toolId: "quickbooks" });
+    expect(defaultChoice(hvacShop(), "books")).toEqual({ path: "turnon", toolId: "quickbooks" });
   });
 
   it("builds with the plan's skills", () => {
-    expect(defaultChoice(caseStudy("hvac"), "quotes")).toEqual({ path: "build", skills: ["closer", "debrief"] });
+    expect(defaultChoice(hvacShop(), "quotes")).toEqual({ path: "build", skills: ["closer"] });
   });
 
   it("resolves only the business's workflows, and a saved pick wins", () => {
-    const hvac = caseStudy("hvac");
+    const hvac = hvacShop();
     const resolved = resolveChoices(hvac, { books: { path: "skip" }, snap: { path: "skip" } });
     expect(Object.keys(resolved)).toEqual(workflowIdsOf(hvac));
     expect(resolved.books).toEqual({ path: "skip" });
@@ -53,7 +48,7 @@ describe("default picks", () => {
 
 describe("agents", () => {
   it("always runs Internal Communications with the daily brief and inbox triage", () => {
-    const hvac = caseStudy("hvac");
+    const hvac = hvacShop();
     expect(activeAgents(hvac, only(hvac, {}))).toEqual([
       expect.objectContaining({ id: "internal", skills: ["brief", "triage"], niche: false, approval: "every-card" }),
     ]);
@@ -66,9 +61,9 @@ describe("agents", () => {
   });
 
   it("lists core agents only when one of their skills is chosen", () => {
-    const hvac = caseStudy("hvac");
-    expect(activeAgents(hvac, {}).map((agent) => agent.id)).toEqual(["frontdesk", "followup", "internal"]);
-    expect(chosenSkills(hvac, {})).toEqual(["callback", "inquiry", "reactivator", "closer", "debrief", "reviewer", "keeper"]);
+    const hvac = hvacShop();
+    expect(activeAgents(hvac, {}).map((agent) => agent.id)).toEqual(["frontdesk", "followup", "content", "internal"]);
+    expect(chosenSkills(hvac, {})).toEqual(["callback", "inquiry", "posts", "closer", "keeper"]);
   });
 
   it("runs the corner store's SNAP check on its spawned niche agent at every-card approval", () => {
@@ -113,13 +108,13 @@ describe("owned tools", () => {
       expect(options.owned.map((tool) => tool.id), workflow).toEqual([]);
       expect(options.buy.map(({ tool }) => tool.id), workflow).toContain("squaremates");
     }
-    const toastShop = { ...caseStudy("restaurant"), tools: ["Toast"] };
+    const toastShop = { ...SAMPLE_BUSINESS, tools: ["Toast"] };
     expect(pathOptions(toastShop, "social").owned.map((tool) => tool.id)).not.toContain("toastiq");
   });
 
   it("offers tools the owner already uses: OpenTable for no-shows, Stripe for invoicing", () => {
-    expect(pathOptions(caseStudy("restaurant"), "noshows").owned.map((tool) => tool.id)).toEqual(["opentable"]);
-    expect(pathOptions(caseStudy("coach"), "books").owned.map((tool) => tool.id)).toEqual(["stripe-invoicing"]);
+    expect(pathOptions(SAMPLE_BUSINESS, "noshows").owned.map((tool) => tool.id)).toEqual(["opentable"]);
+    expect(pathOptions(careerCoach(), "books").owned.map((tool) => tool.id)).toEqual(["stripe-invoicing"]);
     expect(defaultChoice(exampleProfile("tutor"), "books")).toEqual({ path: "turnon", toolId: "stripe-invoicing" });
     const bistro = profileFromFacts({ name: "Bistro", trade: "Bistro", tradeKey: "restaurant", reach: [], tools: ["OpenTable"], signals: ["appointments"] });
     expect(defaultChoice(bistro, "noshows")).toEqual({ path: "turnon", toolId: "opentable" });
@@ -139,7 +134,7 @@ describe("owned tools", () => {
 });
 
 describe("stackCost", () => {
-  const hvac = caseStudy("hvac");
+  const hvac = hvacShop();
 
   it("counts a turned-on tool as zero", () => {
     expect(stackCost(hvac, only(hvac, { books: { path: "turnon", toolId: "quickbooks" } }))).toEqual({
