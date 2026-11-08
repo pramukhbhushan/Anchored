@@ -1,15 +1,16 @@
 "use client";
 
-import { Anchor, ArrowLeftRight, ArrowUp, Check, ChevronDown, CircleAlert, Minus, Plus, RotateCcw } from "lucide-react";
+import { Anchor, ArrowLeftRight, ArrowUp, Check, ChevronDown, ChevronRight, CircleAlert, Inbox, Minus, Plus, RotateCcw } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { callApi, errorText, getApi } from "@/components/api";
 import { BoxGrip, useBoxHeight } from "@/components/chat/BoxGrip";
 import { ResizablePanel } from "@/components/resize/ResizablePanel";
-import { businessHref, NEW_BUSINESS_HREF } from "@/components/routes";
+import { businessHref, cardAnchor, NEW_BUSINESS_HREF } from "@/components/routes";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { GENERIC_STARTERS } from "@/components/chat/starters";
-import type { BusinessChatResponse, ChatMessage, IntakeAnswerRequest, IntakeResponse, StartIntakeResponse } from "@/lib/api/contract";
+import type { BusinessChatResponse, CardStatus, ChatCardLink, ChatMessage, IntakeAnswerRequest, IntakeResponse, StartIntakeResponse } from "@/lib/api/contract";
 import { answerText, CHANGE_AREA_LABEL, type IntakeQuestion, type KnownFact, type ProfileChange } from "@/lib/domain/intake";
 import styles from "./chat.module.css";
 
@@ -19,7 +20,8 @@ import styles from "./chat.module.css";
 // The chat Anchored uses for onboarding and for each business afterwards.
 // `ChatWindow` in `intake` mode asks one question at a time beside a live
 // "What Anchored knows" card and ends on "Open your plan"; in `business` mode
-// the owner says what changed and the page refreshes to show the new plan.
+// the owner says what changed and the page refreshes to show the new plan, or
+// asks an agent for work and follows the reply's link to the draft in Approvals.
 
 /** Onboard a new business, or talk to one that exists. The example business passes `readOnly`; `starters` are the first messages offered. */
 export type ChatWindowProps =
@@ -330,8 +332,9 @@ function BusinessChat({
     await run(text, async () => {
       const chat = await callApi<BusinessChatResponse>(url, "POST", { text });
       setMessages(chat.messages);
-      // Changed facts can add or drop workflows, so the page around the chat re-renders from the server.
-      if (chat.changes.length > 0) router.refresh();
+      // Changed facts can add or drop workflows, and a new draft raises the approvals count in the sidebar,
+      // so the page around the chat re-renders from the server.
+      if (chat.changes.length > 0 || chat.messages.at(-1)?.card !== undefined) router.refresh();
     });
     inputRef.current?.focus();
   }
@@ -340,7 +343,13 @@ function BusinessChat({
   return (
     <div className={styles.chat}>
       <div className={`${styles.frame} ${styles.business}`}>
-        <Thread messages={messages ?? []} outgoing={outgoing} typing={busy || messages === null ? "typing" : null} label="Conversation with Anchored about this business" />
+        <Thread
+          messages={messages ?? []}
+          outgoing={outgoing}
+          typing={busy || messages === null ? "typing" : null}
+          label="Conversation with Anchored about this business"
+          businessId={businessId}
+        />
         <div className={styles.composer}>
           {outgoing?.status === "failed" && <FailLine error={outgoing.error} retry={outgoing.retry} />}
           {readOnly ? (
@@ -361,7 +370,7 @@ function BusinessChat({
                   ))}
                 </div>
               )}
-              <Composer inputRef={inputRef} placeholder="Tell Anchored what changed, and it updates your workflows" disabled={messages === null || outgoing?.status === "failed"} busy={busy} onSend={(text) => void send(text)} />
+              <Composer inputRef={inputRef} placeholder="Tell Anchored what changed, or ask your agents for a draft" disabled={messages === null || outgoing?.status === "failed"} busy={busy} onSend={(text) => void send(text)} />
             </>
           )}
         </div>
@@ -374,17 +383,19 @@ function BusinessChat({
 // Shared pieces
 // =============================================================================
 
-/** The scrolling message list. New messages are announced to screen readers as they arrive. */
+/** The scrolling message list. New messages are announced to screen readers as they arrive. A business chat passes `businessId` so drafted cards link to Approvals. */
 function Thread({
   messages,
   outgoing,
   typing,
   label,
+  businessId,
 }: {
   readonly messages: readonly ChatMessage[];
   readonly outgoing: Outgoing | null;
   readonly typing: string | null;
   readonly label: string;
+  readonly businessId?: string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   useStickToBottom(scrollRef, `${messages.length}:${outgoing?.status ?? ""}:${typing ?? ""}`);
@@ -393,7 +404,7 @@ function Thread({
       <div className={styles.scroll} ref={scrollRef} role="log" aria-live="polite" aria-relevant="additions">
         <ol className={styles.messages}>
           {messages.map((message) => (
-            <MessageItem key={message.id} role={message.role} text={message.text} changes={message.changes} />
+            <MessageItem key={message.id} role={message.role} text={message.text} changes={message.changes} card={message.card} businessId={businessId} />
           ))}
           {outgoing?.text != null && <MessageItem role="owner" text={outgoing.text} state={outgoing.status} />}
           {typing !== null && (
@@ -418,7 +429,21 @@ function Thread({
 }
 
 /** One message. An owner message that hasn't reached the server shows as sending or not sent. */
-function MessageItem({ role, text, changes, state }: { readonly role: ChatMessage["role"]; readonly text: string; readonly changes?: readonly ProfileChange[]; readonly state?: Outgoing["status"] }) {
+function MessageItem({
+  role,
+  text,
+  changes,
+  card,
+  businessId,
+  state,
+}: {
+  readonly role: ChatMessage["role"];
+  readonly text: string;
+  readonly changes?: readonly ProfileChange[];
+  readonly card?: ChatCardLink;
+  readonly businessId?: string;
+  readonly state?: Outgoing["status"];
+}) {
   const mine = role === "owner";
   return (
     <li className={mine ? styles.mine : styles.theirs} data-state={state}>
@@ -434,8 +459,31 @@ function MessageItem({ role, text, changes, state }: { readonly role: ChatMessag
         </p>
         {state === "failed" && <span className={styles.notSent}>Not sent</span>}
         {changes && changes.length > 0 && <ChangeList changes={changes} />}
+        {card && businessId !== undefined && <DraftLink businessId={businessId} card={card} />}
       </div>
     </li>
+  );
+}
+
+const DRAFT_STATUS: Readonly<Record<CardStatus, string>> = {
+  pending: "Waiting in Approvals",
+  approved: "Approved",
+  skipped: "Skipped",
+};
+
+/** The draft a reply made, linking to its card on the Approvals page. */
+function DraftLink({ businessId, card }: { readonly businessId: string; readonly card: ChatCardLink }) {
+  const status = DRAFT_STATUS[card.status];
+  return (
+    // The label reads title and status as one phrase; the two lines on screen would run together.
+    <Link className={styles.draft} href={`${businessHref(businessId, "approvals")}#${cardAnchor(card.key)}`} aria-label={`${card.title}, ${status}`}>
+      <Inbox size={16} strokeWidth={2.2} aria-hidden="true" />
+      <span className={styles.draftText}>
+        <span className={styles.draftTitle}>{card.title}</span>
+        <span className={styles.draftStatus}>{status}</span>
+      </span>
+      <ChevronRight size={16} strokeWidth={2.2} aria-hidden="true" />
+    </Link>
   );
 }
 
