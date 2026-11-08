@@ -110,7 +110,16 @@ function personalize(card: KeyedCard, source: string, business: BusinessProfile,
     case "email": {
       const subject = text(payload, "subject", 120) ?? "a forwarded email";
       const from = text(payload, "from", 120) ?? "someone";
-      return { ...card, title: `Forwarded email from ${from}: ${subject}` };
+      // The template names an agent that will act, but nothing reads a forwarded email's topic yet, so the card shows the email itself.
+      return {
+        ...card,
+        title: `Forwarded email from ${from}: ${subject}`,
+        body: text(payload, "text", 600) ?? "The email had no text.",
+        reason: "You forwarded this email to your Anchored address. Read it and decide who handles it.",
+        checks: ["Read from an email you forwarded", "No reply sent to anyone"],
+        action: "Add it to your list",
+        channel: "list",
+      };
     }
     case "text": {
       const from = text(payload, "from") ?? "a customer";
