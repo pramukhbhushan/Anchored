@@ -11,8 +11,8 @@ import styles from "./login.module.css";
 // Module Overview
 // =============================================================================
 // The `/login` page. With accounts on it renders `LoginForm` and sends anyone
-// already signed in with an account straight on to `next`. With accounts off it
-// says the demo runs without accounts and links into the app.
+// already signed in with an account straight on to `next`. With accounts off,
+// as in local development, it says no sign-in is needed and links into the app.
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -34,19 +34,19 @@ function Intro() {
 }
 
 /** Render the page for a build without Supabase settings. */
-function LocalDemo({ next }: { readonly next: string }) {
+function AccountsOff({ next }: { readonly next: string }) {
   return (
     <div className={styles.page}>
       <Intro />
       <section className="wo" aria-labelledby="local-title">
         <div className="wo-head">
-          <b id="local-title">Local demo</b>
+          <b id="local-title">No sign-in needed</b>
         </div>
         <div className="wo-perf" aria-hidden="true" />
         <div className={styles.slipBody}>
-          <p>Your work stays with this browser.</p>
+          <p>Accounts are off on this server, so your work stays with this browser.</p>
           <Link className={`btn ${styles.full}`} href={next}>
-            Open Anchored
+            Open app
           </Link>
         </div>
       </section>
@@ -58,7 +58,7 @@ function LocalDemo({ next }: { readonly next: string }) {
 export default async function LoginPage({ searchParams }: { readonly searchParams: SearchParams }) {
   const params = await searchParams;
   const next = safeNextPath(firstValue(params.next));
-  if (!isAuthEnabled()) return <LocalDemo next={next} />;
+  if (!isAuthEnabled()) return <AccountsOff next={next} />;
 
   const viewer = await findViewer();
   // A guest stays: they may want to sign in to a real account. Anyone with an account has nothing to do here.

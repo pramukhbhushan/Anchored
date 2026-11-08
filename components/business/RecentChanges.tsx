@@ -1,7 +1,7 @@
 import { ArrowLeftRight, Minus, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ChatMessage } from "@/lib/api/contract";
-import { DEMO_TIME_ZONE } from "@/lib/domain/executor";
+import { OWNER_TIME_ZONE } from "@/lib/domain/executor";
 import { CHANGE_AREA_LABEL, type ProfileChange } from "@/lib/domain/intake";
 
 // =============================================================================
@@ -37,7 +37,7 @@ function latestChanges(messages: readonly ChatMessage[]): DatedChange[] {
 /** Return a reply's time as "Nov 7, 3:12 PM". */
 function whenText(iso: string): string {
   return new Intl.DateTimeFormat("en-US", {
-    timeZone: DEMO_TIME_ZONE,
+    timeZone: OWNER_TIME_ZONE,
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -52,7 +52,7 @@ export function RecentChanges({ messages, isSample }: { readonly messages: reado
     return (
       <p className="muted">
         {isSample
-          ? "Sample businesses don't change. Start your own business to see your edits here."
+          ? "The example business doesn't change. Start your own business to see your edits here."
           : "Nothing changed yet. Tell Anchored about a new service, tool or channel in the chat, and each change lands here."}
       </p>
     );

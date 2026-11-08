@@ -18,8 +18,9 @@ import { getBusinessOrNotFound, getChoices, getFeed } from "@/lib/server/data";
 // =============================================================================
 // Approvals: one reading column of the cards agents drafted, each with
 // approve, edit and skip, then the decided ones as rows in a closed
-// disclosure. In the right rail, pinned on wide screens, the demo outbox shows
-// what was sent and what quiet hours are holding.
+// disclosure. In the right rail, pinned on wide screens, the outbox holds what
+// the owner approved, since Anchored isn't connected to texting or email yet,
+// and what quiet hours are holding. Only the example business offers an example event.
 
 export const metadata: Metadata = { title: "Approvals" };
 
@@ -70,7 +71,8 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
   const [choices, feed] = await Promise.all([getChoices(business), getFeed(business)]);
   const agents = activeAgents(business, choices);
   const agentNames = Object.fromEntries(agents.map((a) => [a.id, a.name]));
-  const canSimulate = chosenSkills(business, choices).length > 0;
+  // Example events show a visitor how an agent drafts; an owner's own cards come from real events.
+  const canSimulate = business.kind === "case" && chosenSkills(business, choices).length > 0;
   const canRewrite = isAiConfigured();
 
   const waiting = feed.cards.filter((c) => c.status === "pending");
@@ -115,8 +117,10 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
           ) : (
             <EmptyState icon={<CheckCheck size={22} />} title="You're all caught up">
               {canSimulate
-                ? "New drafts land here as your agents work. Simulate a new event to see one arrive."
-                : "Choose Build on a workflow and its agent starts drafting here."}
+                ? "New drafts land here as your agents work. Try an example event to see one arrive."
+                : chosenSkills(business, choices).length > 0
+                  ? "New drafts land here as your agents work."
+                  : "Choose Build on a workflow and its agent starts drafting here."}
             </EmptyState>
           )}
           {decided.length > 0 && (
@@ -139,12 +143,12 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
           <aside className="rail outbox" id="outbox" aria-labelledby="outbox-title">
             <div className="phone">
               <div className="phone-bar">
-                <h2 id="outbox-title">Demo outbox</h2>
-                <span>Nothing leaves Anchored</span>
+                <h2 id="outbox-title">Outbox</h2>
+                <span>Waits until you connect texting and email</span>
               </div>
               {outbox.length === 0 ? (
                 <p className="phone-empty">
-                  Approve a card and it lands here. In a live account it goes out from your own number or email.
+                  Approve a card and it waits here. Once you connect texting and email, it goes out from your own number or address.
                 </p>
               ) : (
                 <>
@@ -160,7 +164,7 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
                   )}
                   {sent.length > 0 && (
                     <>
-                      {queued.length > 0 && <p className="phone-label">Sent</p>}
+                      {queued.length > 0 && <p className="phone-label">Approved</p>}
                       <ul className="phone-list">
                         {sent.map((entry) => (
                           <OutboxItem key={entry.id} entry={entry} card={cardById.get(entry.cardId)} queued={false} />

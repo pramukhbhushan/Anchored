@@ -15,7 +15,7 @@ import { getStore } from "@/lib/store";
 // Module Overview
 // =============================================================================
 // POST /api/ingest/[source] turns an outside event into a card for the skill
-// that handles it. This demo route trusts the visitor's session; a real Twilio
+// that handles it. It trusts the visitor's session, so a live Twilio
 // or form webhook must verify its signature and map to a business by phone
 // number or forwarding address instead.
 

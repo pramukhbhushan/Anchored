@@ -7,7 +7,7 @@ import { ButtonLink } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Stamp } from "@/components/ui/Stamp";
 import { feedStats, money, placeOf, plannedWorkflows } from "@/components/view-helpers";
-import { DEMO_TIME_ZONE } from "@/lib/domain/executor";
+import { OWNER_TIME_ZONE } from "@/lib/domain/executor";
 import { activeAgents, chosenSkills, stackCost } from "@/lib/domain/paths";
 import { WORKFLOWS } from "@/lib/domain/workflows";
 import { getBusinessOrNotFound, getChoices, getFeed } from "@/lib/server/data";
@@ -28,7 +28,7 @@ const ROWS_SHOWN = 5;
 /** Today's date as the brief's header prints it, such as "Saturday, Nov 7". */
 function briefDate(): string {
   return new Date().toLocaleDateString("en-US", {
-    timeZone: DEMO_TIME_ZONE,
+    timeZone: OWNER_TIME_ZONE,
     weekday: "long",
     month: "short",
     day: "numeric",
@@ -61,7 +61,8 @@ export default async function OverviewPage({ params }: { readonly params: Promis
   const approvalsHref = businessHref(business.id, "approvals");
   const workflowsHref = businessHref(business.id, "workflows");
   const place = placeOf(business);
-  const canSimulate = chosenSkills(business, choices).length > 0;
+  // Example events show a visitor how an agent drafts; an owner's own cards come from real events.
+  const canSimulate = business.kind === "case" && chosenSkills(business, choices).length > 0;
   const agentNames = Object.fromEntries(activeAgents(business, choices).map((a) => [a.id, a.name]));
 
   return (
@@ -70,7 +71,7 @@ export default async function OverviewPage({ params }: { readonly params: Promis
         title={business.name}
         description={place === null ? business.trade : `${business.trade} in ${place}`}
         actions={
-          // A sample's chat can't change anything, so a sample leads with what a visitor can do next instead.
+          // The example's chat can't change anything, so the example leads with what a visitor can do next instead.
           business.kind === "case" ? (
             <ButtonLink href={NEW_BUSINESS_HREF} variant="secondary">
               <Plus aria-hidden="true" size={16} />

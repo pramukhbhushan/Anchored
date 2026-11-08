@@ -8,9 +8,9 @@ import type { BusinessProfile, SkillId } from "@/lib/domain/types";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The landing page's fourth step: one researched card from a case study, as
+// The landing page's fourth step: one researched card from the example business, as
 // the approvals feed shows it, with the checks it passed and a link to the
-// same card in the demo. The card here has no buttons; approving happens in the app.
+// same card in the example. The card here has no buttons; approving happens in the app.
 
 /** Render `business`'s researched card for `skill`, or nothing if the research wrote none. */
 export function ApprovalPreview({ business, skill }: { readonly business: BusinessProfile; readonly skill: SkillId }) {
@@ -53,7 +53,7 @@ export function ApprovalPreview({ business, skill }: { readonly business: Busine
           )}
         </p>
         <ButtonLink href={businessHref(business.id, "approvals")} size="sm">
-          Approve it in the demo
+          Approve it in the example
         </ButtonLink>
       </div>
     </article>

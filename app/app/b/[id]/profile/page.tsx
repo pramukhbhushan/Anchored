@@ -16,7 +16,7 @@ import { getSessionId } from "@/lib/server/session";
 // =============================================================================
 // The business profile, one job: what every agent knows. One card of facts,
 // then, for the owner's own business, the recent changes the chat made. The
-// header sends the owner to Chat to change a fact, or a sample's visitor to
+// header sends the owner to Chat to change a fact, or the example's visitor to
 // start their own business.
 
 export const metadata: Metadata = { title: "Profile" };
@@ -33,7 +33,7 @@ export default async function ProfilePage({ params }: { readonly params: Promise
   const { id } = await params;
   const business = await getBusinessOrNotFound(id);
   const isSample = business.kind === "case";
-  // A sample's chat never changes anything, so it has no changes to list.
+  // The example's chat never changes anything, so it has no changes to list.
   const chat = isSample ? null : await listBusinessChat(await getSessionId(), business);
 
   return (

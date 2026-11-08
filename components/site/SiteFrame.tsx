@@ -3,22 +3,34 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { AccountMenu } from "@/components/account/AccountMenu";
 import { AnchorMark } from "@/components/ui/AnchorMark";
 import { APP_HREF } from "@/components/routes";
 import { buttonClass } from "@/components/ui/Button";
+import type { Viewer } from "@/lib/auth/viewer";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
 // The site header and `<main>` for every page outside the app: the landing
-// page, "How it's built", sign-in and the 404. Under `/app` it steps aside,
-// because the app shell draws its own sidebar, top bar and `<main>`.
+// page, "How it's built", sign-in and the 404. The header says "Sign in" to a
+// signed-out visitor and "Open app" with the account menu once signed in.
+// Under `/app` it steps aside, because the app shell draws its own chrome.
 
-/** Render the sticky site header with its nav and the sign-in or open-app button. */
-function SiteHeader({ pathname, authEnabled }: { readonly pathname: string; readonly authEnabled: boolean }) {
+/** Props for `SiteFrame`; `viewer` is `null` when nobody is signed in or accounts are off. */
+export interface SiteFrameProps {
+  readonly authEnabled: boolean;
+  readonly viewer: Viewer | null;
+  readonly children: ReactNode;
+}
+
+/** Render the sticky site header with its nav, and "Sign in" or "Open app" with the account menu. */
+function SiteHeader({ pathname, authEnabled, viewer }: { readonly pathname: string; readonly authEnabled: boolean; readonly viewer: Viewer | null }) {
+  // With accounts off nobody signs in, so the app is always one click away.
+  const signedOut = authEnabled && viewer === null;
   const links = [
     { href: "/", label: "How it works", current: pathname === "/" },
-    { href: "/#cases", label: "Case studies", current: false },
+    { href: "/#example", label: "Example", current: false },
     { href: "/built", label: "How it's built", current: pathname === "/built" },
   ];
   return (
@@ -35,21 +47,24 @@ function SiteHeader({ pathname, authEnabled }: { readonly pathname: string; read
             </Link>
           ))}
         </nav>
-        <Link className={buttonClass("primary", "sm", "top-cta")} href={authEnabled ? "/login" : APP_HREF}>
-          {authEnabled ? "Sign in" : "Open Anchored"}
-        </Link>
+        <div className="top-end">
+          <Link className={buttonClass("primary", "sm", "top-cta")} href={signedOut ? "/login" : APP_HREF}>
+            {signedOut ? "Sign in" : "Open app"}
+          </Link>
+          {viewer !== null && viewer.authEnabled && <AccountMenu viewer={viewer} />}
+        </div>
       </div>
     </header>
   );
 }
 
 /** Wrap a page in the site header and `<main>`, or pass it through untouched inside `/app`. */
-export function SiteFrame({ authEnabled, children }: { readonly authEnabled: boolean; readonly children: ReactNode }) {
+export function SiteFrame({ authEnabled, viewer, children }: SiteFrameProps) {
   const pathname = usePathname();
   if (pathname === APP_HREF || pathname.startsWith(`${APP_HREF}/`)) return children;
   return (
     <>
-      <SiteHeader pathname={pathname} authEnabled={authEnabled} />
+      <SiteHeader pathname={pathname} authEnabled={authEnabled} viewer={viewer} />
       <main id="main">{children}</main>
     </>
   );

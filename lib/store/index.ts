@@ -15,7 +15,7 @@ export type { Store } from "./types";
 export { NotFoundError } from "./types";
 
 // Next.js dev mode reloads modules on every edit; keeping the store on
-// `globalThis` stops each reload from wiping the in-memory demo data.
+// `globalThis` stops each reload from wiping the in-memory data.
 const holder = globalThis as typeof globalThis & { __anchoredStore?: Store };
 
 /** Return the process-wide `Store`, creating it on first use. */

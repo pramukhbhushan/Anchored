@@ -21,7 +21,7 @@ import styles from "./chat.module.css";
 // "What Anchored knows" card and ends on "Open your plan"; in `business` mode
 // the owner says what changed and the page refreshes to show the new plan.
 
-/** Onboard a new business, or talk to one that exists. Sample businesses pass `readOnly`; `starters` are the first messages offered. */
+/** Onboard a new business, or talk to one that exists. The example business passes `readOnly`; `starters` are the first messages offered. */
 export type ChatWindowProps =
   | { readonly mode: "intake" }
   | { readonly mode: "business"; readonly businessId: string; readonly readOnly?: boolean; readonly starters?: readonly string[] };
@@ -343,7 +343,7 @@ function BusinessChat({
         <div className={styles.composer}>
           {outgoing?.status === "failed" && <FailLine error={outgoing.error} retry={outgoing.retry} />}
           {readOnly ? (
-            // Anchored's own message in the thread says why a sample can't change; the footer only offers the way out.
+            // Anchored's own message in the thread says why the example can't change; the footer only offers the way out.
             <div className={styles.readOnly}>
               <ButtonLink variant="secondary" size="sm" href={NEW_BUSINESS_HREF}>
                 Start your own business

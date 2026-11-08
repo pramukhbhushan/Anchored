@@ -1,21 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { morningBrief } from "@/lib/domain/brief";
-import { caseStudyById } from "@/lib/domain/cases";
-import type { BusinessProfile } from "@/lib/domain/types";
+import { hvacShop } from "@/test/trades";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
 // Behavior of the morning brief lines the owner reads first.
 
-function caseStudy(id: string): BusinessProfile {
-  const found = caseStudyById(id);
-  if (found === undefined) throw new Error(`no case study \`${id}\``);
-  return found;
-}
-
 describe("morningBrief", () => {
-  const hvac = caseStudy("hvac");
+  const hvac = hvacShop();
 
   it("leads with what waits, then what rides on it, new workflows and the stack cost", () => {
     const lines = morningBrief(hvac, {}, [

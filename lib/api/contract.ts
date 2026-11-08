@@ -6,7 +6,8 @@ import type { BusinessProfile, CardDraft, Choice, OnboardingAnswers, SkillId, Wo
 // =============================================================================
 // Request and response shapes for Anchored's API routes. The pages call these
 // routes with `fetch`; ingest webhooks use the same `/api/ingest/*` path. Every
-// route reads the anonymous demo session from the `anchored_session` cookie.
+// route reads the visitor from their Supabase session, or from the anonymous
+// `anchored_session` cookie when accounts are off.
 
 // =============================================================================
 // Stored records
@@ -25,7 +26,7 @@ export interface CardRecord extends CardDraft {
   readonly decidedAt: string | null;
 }
 
-/** One entry in the simulated outbox. Nothing is really sent in the demo. */
+/** One entry in the outbox. Approved messages wait here; Anchored isn't connected to texting or email yet. */
 export interface OutboxEntry {
   readonly id: string;
   readonly businessId: string;
@@ -50,19 +51,24 @@ export interface CreateBusinessResponse {
   readonly business: BusinessProfile;
 }
 
+/** DELETE /api/businesses: everything the visitor saved is gone. */
+export interface DeleteBusinessesResponse {
+  readonly ok: true;
+}
+
 /** PUT /api/businesses/[id]/choices: pick a path for one workflow. */
 export type SetChoiceRequest = { readonly workflow: WorkflowId; readonly path: "turnon" | "buy"; readonly toolId: string } | { readonly workflow: WorkflowId; readonly path: "build" | "skip" };
 export interface SetChoiceResponse {
   readonly choice: Choice;
 }
 
-/** GET /api/businesses/[id]/cards: the card feed and the simulated outbox. */
+/** GET /api/businesses/[id]/cards: the card feed and the outbox. */
 export interface CardsResponse {
   readonly cards: readonly CardRecord[];
   readonly outbox: readonly OutboxEntry[];
 }
 
-/** POST /api/businesses/[id]/cards: simulate a new event for one chosen skill, or rotate through them all. */
+/** POST /api/businesses/[id]/cards: try an example event on the example business, for one chosen skill or rotating through them all. */
 export interface SimulateRequest {
   readonly skill?: SkillId;
 }
