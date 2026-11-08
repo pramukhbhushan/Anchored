@@ -1,0 +1,765 @@
+<title>Anchored Landing Directions</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Public+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<style>
+/* Layout: a sticky switcher over four full landing-page prototypes; each direction commits to its own look. */
+:root{
+  --hull:#17233B; --fog:#EDF0EF; --sail:#FFFFFF; --tide:#2F5D7C; --signal:#F4CF48; --depth:#5F6A7C; --rope:#D2D8DB;
+  --p-front:#F4CF48; --p-follow:#2F5D7C; --p-books:#2F7A55; --p-content:#D9694A; --p-internal:#B08A3E;
+  --chrome-bg:#FFFFFF; --chrome-fg:#17233B; --chrome-muted:#5F6A7C; --chrome-line:#D2D8DB;
+  --display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --brico:"Bricolage Grotesque","Archivo",system-ui,sans-serif;
+  --gut:max(16px,env(safe-area-inset-left,0px));
+  --gutr:max(16px,env(safe-area-inset-right,0px));
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--chrome-bg:#151C27;--chrome-fg:#E6EBF3;--chrome-muted:#97A3B6;--chrome-line:#283345;color-scheme:dark}}
+:root[data-theme="dark"]{--chrome-bg:#151C27;--chrome-fg:#E6EBF3;--chrome-muted:#97A3B6;--chrome-line:#283345;color-scheme:dark}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--fog);color:var(--hull);font-family:var(--body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+h1,h2,h3,p{margin:0}
+h1,h2,h3{text-wrap:balance}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--hull);outline-offset:3px;box-shadow:0 0 0 5px var(--signal)}
+.pad{padding-left:var(--gut);padding-right:var(--gutr)}
+.wrap{max-width:1240px;margin:0 auto}
+
+/* ---------- Explorations chrome ---------- */
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:60;background:var(--chrome-bg)}
+.switch{position:sticky;top:env(safe-area-inset-top,0px);z-index:50;background:var(--chrome-bg);color:var(--chrome-fg);border-bottom:1px solid var(--chrome-line)}
+.switch .in{display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding-block:10px}
+.switch .lbl{font:500 11px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--chrome-muted)}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tabs a{font:600 14px/1 var(--body);text-decoration:none;padding:8px 12px;border-radius:999px;color:var(--chrome-fg);border:1px solid transparent}
+.tabs a:hover{border-color:var(--chrome-line)}
+.tabs a[aria-current="true"]{background:var(--chrome-fg);color:var(--chrome-bg)}
+.tabs a span{font:500 11px var(--mono);opacity:.6;margin-right:6px}
+.switch .pal{margin-left:auto;display:flex;gap:4px;align-items:center}
+.switch .pal i{width:16px;height:16px;border-radius:50%;display:block;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.brief{background:var(--chrome-bg);color:var(--chrome-fg);border-bottom:1px solid var(--chrome-line)}
+.brief .in{padding-block:14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center}
+.brief p{font-size:14px;color:var(--chrome-muted);max-width:80ch}
+.brief b{color:var(--chrome-fg)}
+@media (max-width:720px){.switch .pal{display:none}.brief .in{grid-template-columns:1fr}}
+
+.dir{display:none}
+.dir.on{display:block}
+
+/* ---------- Shared pieces ---------- */
+.boat{color:currentColor}
+.f{fill:var(--boat-fill,#fff)}
+.s{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
+.pn{fill:var(--pc,var(--signal));stroke:currentColor;stroke-width:1.2;stroke-linejoin:round}
+.scene{position:relative;height:230vh}
+.stage{position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--bar,56px));height:calc(100vh - var(--bar,56px));overflow:hidden}
+.nav{display:flex;align-items:center;gap:24px;padding-block:18px}
+.nav .word{font:850 22px/1 var(--display);font-stretch:118%;letter-spacing:-.01em;text-decoration:none}
+.nav .links{display:flex;gap:22px;margin-left:auto;font-size:14px}
+.nav .links a{text-decoration:none;opacity:.8}
+.nav .links a:hover{opacity:1;text-decoration:underline}
+.nav .act{display:flex;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:8px;font:700 15px/1 var(--body);text-decoration:none;padding:12px 18px;border-radius:6px;border:1.5px solid transparent;white-space:nowrap;transition:transform .15s ease}
+.btn:hover{transform:translateY(-1px)}
+.btn.y{background:var(--signal);color:#17233B}
+.btn.ghost{border-color:currentColor;background:transparent}
+.btn.txt{padding-inline:10px}
+@media (max-width:820px){.nav .links{display:none}.nav .act{margin-left:auto}}
+@media (max-width:420px){.nav .btn.txt{display:none}}
+.mono{font-family:var(--mono)}
+.eyebrow{font:500 12px/1.2 var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.skills{display:flex;gap:6px;flex-wrap:wrap;list-style:none;margin:0;padding:0}
+.skills li{font:500 12px/1 var(--mono);padding:6px 8px;border-radius:4px}
+.never{font-size:13px}
+
+/* =====================================================================
+   DIRECTION A. Harbor Chart
+   ===================================================================== */
+.A{background:#F3F5F4;color:#17233B;--boat-fill:#FFFFFF}
+.A .stage{background:
+  radial-gradient(ellipse 60% 50% at 82% 70%, transparent 0 38%, rgba(47,93,124,.10) 38.2% 38.6%, transparent 38.8% 48%, rgba(47,93,124,.10) 48.2% 48.6%, transparent 48.8% 60%, rgba(47,93,124,.09) 60.2% 60.6%, transparent 60.8%),
+  linear-gradient(rgba(47,93,124,.06) 1px, transparent 1px) 0 0/100% 80px,
+  linear-gradient(90deg, rgba(47,93,124,.06) 1px, transparent 1px) 0 0/80px 100%;}
+.A .heroGrid{position:relative;height:calc(100vh - var(--bar,56px) - 76px);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center;gap:24px}
+.A h1{font:850 clamp(40px,5.6vw,84px)/.94 var(--display);font-stretch:116%;letter-spacing:-.025em}
+.A .lede{margin-top:22px;font-size:18px;max-width:46ch;color:#3B475D}
+.A .heroCopy{opacity:calc(1 - var(--p,0)*1.2);transform:translateY(calc(var(--p,0)*-40px))}
+.A .heroCopy .row{display:flex;gap:10px;margin-top:28px;flex-wrap:wrap}
+.A .coords{position:absolute;left:0;bottom:28px;font:500 12px var(--mono);color:#5F6A7C;letter-spacing:.06em;display:flex;gap:24px;flex-wrap:wrap}
+.A .heroBoat{position:relative;width:100%;transform:translateX(calc(var(--p,0)*50vw)) translateY(calc(var(--p,0)*-12vh)) scale(calc(1 - var(--p,0)*.6));transform-origin:50% 80%;will-change:transform}
+.A .heroBoat svg{width:100%;height:auto;display:block}
+.A .wake{position:absolute;left:-40%;right:60%;bottom:12%;height:2px;background:linear-gradient(90deg,transparent,rgba(47,93,124,.45));opacity:var(--p,0)}
+.A section.blk{padding-block:96px;border-top:1px solid #D2D8DB}
+.A .secHead{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;align-items:end;margin-bottom:48px}
+.A h2{font:800 clamp(30px,4.2vw,56px)/1 var(--display);font-stretch:112%;letter-spacing:-.02em}
+.A .secHead p{color:#3B475D;max-width:52ch}
+.A .crew{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:1px;background:#D2D8DB;border:1px solid #D2D8DB}
+.A .mate{background:#F3F5F4;padding:22px 20px 24px;display:flex;flex-direction:column;gap:10px}
+.A .mate svg{width:100%;max-width:180px;height:auto;--boat-fill:#fff;transition:transform .4s ease}
+.A .mate:hover svg{transform:translateX(10px)}
+.A .mate h3{font:800 20px/1.1 var(--display);font-stretch:108%}
+.A .mate .eyebrow{color:#5F6A7C}
+.A .mate p{font-size:15px;color:#3B475D}
+.A .mate .skills li{background:#fff;border:1px solid #D2D8DB}
+.A .mate .never{color:#5F6A7C;margin-top:auto}
+.A .chart{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:40px;align-items:start}
+.A .chart svg{width:100%;height:auto;background:#fff;border:1px solid #D2D8DB;border-radius:4px}
+.A .log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.A .log li{display:grid;grid-template-columns:56px minmax(0,1fr);gap:12px;padding:16px 0;border-bottom:1px solid #D2D8DB}
+.A .log .t{font:500 13px var(--mono);color:#5F6A7C}
+.A .log b{display:block;font-weight:700}
+.A .log span{color:#3B475D;font-size:15px}
+.A .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px;vertical-align:1px}
+.A .promise{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px;align-items:center}
+.A .card{background:#fff;border:1px solid #D2D8DB;border-radius:6px;padding:22px;box-shadow:0 18px 40px -28px rgba(23,35,59,.45)}
+.A .card .from{font:500 12px var(--mono);color:#5F6A7C;letter-spacing:.06em;text-transform:uppercase}
+.A .card .msg{margin:12px 0 16px;padding:12px 14px;background:#F3F5F4;border-radius:6px;font-size:15px}
+.A .card .row{display:flex;gap:8px;flex-wrap:wrap}
+.A .card .btn{padding:10px 14px;font-size:14px}
+.A .rules{list-style:none;padding:0;margin:20px 0 0;display:flex;flex-direction:column;gap:10px}
+.A .rules li{padding-left:22px;position:relative;color:#3B475D}
+.A .rules li::before{content:"";position:absolute;left:0;top:.6em;width:12px;height:1.5px;background:#17233B}
+.A .end{padding-block:120px 72px;text-align:center;border-top:1px solid #D2D8DB}
+.A .end svg{width:110px;height:auto;margin:0 auto 28px;display:block}
+.A .end h2{font-size:clamp(40px,7vw,96px)}
+.A .end p{margin:18px auto 30px;color:#3B475D;max-width:48ch}
+.A .end .btn{font-size:17px;padding:16px 26px}
+.A .foot{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-block:24px;border-top:1px solid #D2D8DB;font:500 12px var(--mono);color:#5F6A7C}
+@media (max-width:820px){
+  .A .heroGrid{grid-template-columns:1fr;align-content:center;gap:8px}
+  .A .heroBoat{max-width:520px}
+  .A .secHead,.A .chart,.A .promise{grid-template-columns:1fr}
+}
+
+/* =====================================================================
+   DIRECTION B. Night Watch (dark, recede to horizon)
+   ===================================================================== */
+.B{background:#0B1220;color:#E6EBF3;--boat-fill:#0B1220;--signal:#F4CF48}
+.B .stage{background:linear-gradient(#0B1220 0 62%, #0F1A2C 62% 100%)}
+.B .horizon{position:absolute;left:0;right:0;top:62%;height:1px;background:rgba(230,235,243,.25)}
+.B .sea{position:absolute;inset:62% 0 0;background:repeating-linear-gradient(180deg,transparent 0 22px,rgba(127,176,207,.07) 22px 23px);animation:drift 40s linear infinite}
+@keyframes drift{to{background-position:0 230px}}
+.B .heroBoat{position:absolute;left:50%;top:62%;width:min(1100px,130vw);transform:translate(-50%,-78%) translate(calc(var(--p,0)*22vw),calc(var(--p,0)*16%)) scale(calc(1.15 - var(--p,0)*.95));transform-origin:50% 90%;color:#E6EBF3;opacity:calc(.45 + var(--p,0)*.55);will-change:transform}
+.B .heroBoat svg{width:100%;height:auto;display:block}
+.B .lamp{fill:#F4CF48}
+.B .heroCopy{position:absolute;left:0;right:0;bottom:0;padding-block:12vh 6vh;text-align:center;z-index:2;background:linear-gradient(transparent,rgba(11,18,32,.85) 35%)}
+.B h1{font:900 clamp(40px,8vw,120px)/.9 var(--display);font-stretch:125%;letter-spacing:-.03em;text-transform:uppercase}
+.B h1 em{font-style:normal;color:#F4CF48}
+.B .lede{margin:18px auto 0;max-width:52ch;color:#AEB9CA;font-size:17px}
+.B .nav{position:relative;z-index:3}
+.B .nav .btn.ghost{color:#E6EBF3}
+.B section.blk{padding-block:110px;border-top:1px solid #1E2A3F}
+.B h2{font:850 clamp(30px,4.6vw,64px)/1 var(--display);font-stretch:118%;letter-spacing:-.02em;text-transform:uppercase}
+.B .sub{margin-top:16px;color:#AEB9CA;max-width:56ch}
+.B .fleet{margin-top:48px}
+.B .fleet svg{width:100%;height:auto;display:block}
+.B .fleetKey{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,210px),1fr));gap:28px;margin-top:40px}
+.B .fleetKey h3{font:800 17px/1.15 var(--display);font-stretch:110%;display:flex;gap:8px;align-items:center;text-transform:uppercase;letter-spacing:.01em}
+.B .fleetKey h3 i{width:12px;height:12px;display:block;clip-path:polygon(0 0,100% 50%,0 100%)}
+.B .fleetKey p{font-size:14px;color:#AEB9CA;margin-top:8px}
+.B .fleetKey .skills{margin-top:10px}
+.B .fleetKey .skills li{border:1px solid #2A3850;color:#C9D2E0}
+.B .crew{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:56px 40px;margin-top:56px}
+.B .mate{display:grid;grid-template-columns:120px minmax(0,1fr);gap:20px;align-items:start}
+.B .mate svg{width:120px;height:auto;--boat-fill:#0B1220;color:#E6EBF3}
+.B .mate h3{font:800 19px/1.1 var(--display);font-stretch:110%;text-transform:uppercase}
+.B .mate p{font-size:15px;color:#AEB9CA;margin-top:6px}
+.B .mate .never{color:#7F8BA0;margin-top:8px}
+.B .watch{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;align-items:center}
+.B .card{border:1px solid #2A3850;border-radius:8px;padding:22px;background:#111A2B}
+.B .card .from{font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:#7F8BA0}
+.B .card .msg{margin:12px 0 16px;padding:12px 14px;border-radius:6px;background:#0B1220;color:#E6EBF3}
+.B .card .row{display:flex;gap:8px;flex-wrap:wrap}
+.B .card .btn{padding:10px 14px;font-size:14px}
+.B .card .btn.ghost{color:#E6EBF3;border-color:#2A3850}
+.B .end{padding-block:140px 80px;text-align:center;border-top:1px solid #1E2A3F;background:radial-gradient(ellipse 50% 40% at 50% 30%, rgba(244,207,72,.10), transparent 70%)}
+.B .end svg{width:120px;height:auto;margin:0 auto 30px;display:block;color:#E6EBF3}
+.B .end p{margin:18px auto 32px;color:#AEB9CA;max-width:46ch}
+.B .end .btn{font-size:17px;padding:16px 28px}
+.B .foot{padding-block:24px;border-top:1px solid #1E2A3F;font:500 12px var(--mono);color:#7F8BA0;display:flex;justify-content:space-between;flex-wrap:wrap;gap:16px}
+@media (max-width:820px){.B .watch{grid-template-columns:1fr}.B .mate{grid-template-columns:88px minmax(0,1fr)}.B .mate svg{width:88px}}
+
+/* =====================================================================
+   DIRECTION C. Shipyard Drawing (plan view, blueprint mono)
+   ===================================================================== */
+.C{background:#F7F7F4;color:#17233B;--boat-fill:#F7F7F4}
+.C .stage{background:linear-gradient(rgba(23,35,59,.05) 1px,transparent 1px) 0 0/24px 24px,linear-gradient(90deg,rgba(23,35,59,.05) 1px,transparent 1px) 0 0/24px 24px}
+.C .nav{border-bottom:1px solid #17233B}
+.C .nav .word{font-family:var(--mono);font-weight:500;font-stretch:100%;font-size:18px;letter-spacing:.14em;text-transform:uppercase}
+.C .nav .links{font-family:var(--mono);font-size:13px;text-transform:uppercase;letter-spacing:.08em}
+.C .btn{border-radius:0;font-family:var(--mono);font-weight:500;text-transform:uppercase;letter-spacing:.08em;font-size:13px}
+.C .heroGrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);height:calc(100vh - var(--bar,56px) - 70px)}
+.C .heroCopy{padding-block:7vh;display:flex;flex-direction:column;justify-content:space-between;border-right:1px solid #17233B;padding-right:32px}
+.C h1{font:800 clamp(40px,6vw,88px)/.95 var(--display);font-stretch:100%;letter-spacing:-.03em}
+.C .lede{max-width:44ch;margin-top:22px;color:#3B475D}
+.C .spec{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid #17233B;margin-top:28px}
+.C .spec div{padding:12px 12px 0 0}
+.C .spec dt{font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:#5F6A7C}
+.C .spec dd{margin:4px 0 0;font:800 28px/1 var(--display);font-variant-numeric:tabular-nums}
+.C .heroCopy .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}
+.C .planWrap{position:relative;overflow:hidden}
+.C .plan{position:absolute;left:50%;top:6%;width:min(300px,60%);transform:translateX(-50%) translateY(calc(var(--p,0)*-118%));will-change:transform}
+.C .plan svg{width:100%;height:auto;display:block}
+.C .ruler{position:absolute;right:16px;top:0;bottom:0;width:44px;border-left:1px solid #17233B;background:repeating-linear-gradient(180deg,#17233B 0 1px,transparent 1px 12px) right/10px 100% no-repeat,repeating-linear-gradient(180deg,#17233B 0 1px,transparent 1px 60px) right/22px 100% no-repeat}
+.C .readout{position:absolute;left:16px;bottom:20px;font:500 12px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:#5F6A7C}
+.C .readout b{color:#17233B;font-weight:500}
+.C section.blk{padding-block:88px;border-top:1px solid #17233B}
+.C .secHead{display:flex;justify-content:space-between;gap:24px;align-items:baseline;flex-wrap:wrap;margin-bottom:40px}
+.C h2{font:800 clamp(28px,4vw,52px)/1 var(--display);letter-spacing:-.025em}
+.C .secHead .mono{font-size:13px;color:#5F6A7C;letter-spacing:.06em;text-transform:uppercase}
+.C .crew{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid #17233B}
+.C .mate{padding:18px;border-right:1px solid #17233B;display:flex;flex-direction:column;gap:12px}
+.C .mate:last-child{border-right:0}
+.C .mate .id{font:500 11px var(--mono);letter-spacing:.1em;color:#5F6A7C;display:flex;justify-content:space-between}
+.C .mate svg{width:100%;height:auto;background:#fff;border:1px solid #D2D8DB}
+.C .mate h3{font:800 18px/1.1 var(--display)}
+.C .mate p{font-size:14px;color:#3B475D}
+.C .mate dl{margin:auto 0 0;font:400 12px/1.5 var(--mono);border-top:1px dashed #9AA4B2;padding-top:10px}
+.C .mate dt{color:#5F6A7C;text-transform:uppercase;letter-spacing:.08em;font-size:10.5px}
+.C .mate dd{margin:0 0 6px}
+.C .sched{overflow-x:auto;border:1px solid #17233B}
+.C table{border-collapse:collapse;width:100%;min-width:720px;font-size:14px}
+.C th,.C td{text-align:left;padding:12px 14px;border-bottom:1px solid #D2D8DB;vertical-align:top}
+.C th{font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:#5F6A7C;background:#fff;border-bottom:1px solid #17233B}
+.C td.t{font:500 13px var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.C td .tag{font:500 12px var(--mono);display:inline-flex;align-items:center;gap:6px}
+.C td .tag i{width:8px;height:8px;display:block}
+.C tr.you td{background:#FBF0BF}
+.C .end{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);border-top:1px solid #17233B}
+.C .end>div{padding-block:80px}
+.C .end>div:first-child{border-right:1px solid #17233B;padding-right:32px;display:flex;align-items:center;justify-content:center}
+.C .end>div:last-child{padding-left:32px}
+.C .end svg{width:min(240px,70%);height:auto}
+.C .end p{margin:16px 0 28px;color:#3B475D;max-width:44ch}
+.C .foot{padding-block:18px;border-top:1px solid #17233B;font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:#5F6A7C;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+@media (max-width:980px){.C .crew{grid-template-columns:repeat(2,minmax(0,1fr))}.C .mate{border-bottom:1px solid #17233B}}
+@media (max-width:820px){
+  .C .heroGrid{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
+  .C .heroCopy{border-right:0;border-bottom:1px solid #17233B;padding-right:0;padding-block:28px}
+  .C .plan{width:min(180px,40%)}
+  .C .spec dd{font-size:22px}
+  .C .end{grid-template-columns:1fr}.C .end>div:first-child{border-right:0;border-bottom:1px solid #17233B;padding-right:0;padding-block:48px}.C .end>div:last-child{padding-left:0}
+}
+@media (max-width:520px){.C .crew{grid-template-columns:1fr}}
+
+/* =====================================================================
+   DIRECTION D. Regatta (hull-down, bright pennants)
+   ===================================================================== */
+.D{background:#FFFFFF;color:#17233B;--boat-fill:#FFFFFF}
+.D .nav .word{font-family:var(--brico);font-stretch:100%;font-weight:800;font-size:24px;letter-spacing:-.03em}
+.D .btn{border-radius:999px}
+.D .stage{background:#fff}
+.D .heroCopy{text-align:center;padding-top:5vh;position:relative;z-index:3}
+.D h1{font:800 clamp(40px,6.6vw,104px)/.9 var(--brico);letter-spacing:-.045em}
+.D .lede{margin:18px auto 0;max-width:50ch;color:#3B475D;font-size:18px}
+.D .heroCopy .row{display:flex;gap:10px;justify-content:center;margin-top:24px;flex-wrap:wrap}
+.D .sky{position:absolute;left:0;right:0;top:0;bottom:16vh;overflow:hidden}
+.D .heroBoat{position:absolute;left:50%;bottom:-2px;width:min(360px,60vw);transform:translateX(-50%) translateY(calc(var(--p,0)*92%)) scale(calc(1 - var(--p,0)*.25));transform-origin:50% 100%;will-change:transform}
+.D .heroBoat svg{width:100%;height:auto;display:block}
+.D .sea{position:absolute;left:0;right:0;bottom:0;height:16vh;background:#17233B;z-index:2}
+.D .sea::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 40px,rgba(255,255,255,.08) 40px 80px);animation:drift2 30s linear infinite;opacity:.6}
+@keyframes drift2{to{background-position:400px 0}}
+.D .sea .cap{position:absolute;left:var(--gut);right:var(--gutr);bottom:18px;display:flex;justify-content:space-between;gap:12px;color:#C2CAD7;font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase}
+.D section.blk{padding-block:100px}
+.D h2{font:800 clamp(34px,5vw,72px)/.95 var(--brico);letter-spacing:-.04em}
+.D .sub{margin-top:14px;color:#3B475D;max-width:54ch;font-size:17px}
+.D .crew{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr));gap:16px;margin-top:48px}
+.D .mate{border-radius:18px;padding:22px;background:color-mix(in srgb,var(--pc) 14%,#fff);display:flex;flex-direction:column;gap:10px}
+.D .mate svg{width:100%;max-width:170px;height:auto;align-self:center;--boat-fill:#fff}
+.D .mate h3{font:800 22px/1.05 var(--brico);letter-spacing:-.02em}
+.D .mate p{font-size:15px;color:#3B475D}
+.D .mate .skills li{background:#fff}
+.D .mate .never{margin-top:auto;color:#5F6A7C}
+.D .course{margin-top:48px;position:relative}
+.D .course svg{width:100%;height:auto;display:block}
+.D .legs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px;margin-top:24px;list-style:none;padding:0}
+.D .legs li{border-top:3px solid var(--pc);padding-top:12px}
+.D .legs .n{font:500 12px var(--mono);color:#5F6A7C;letter-spacing:.08em;text-transform:uppercase}
+.D .legs b{display:block;font:800 18px/1.15 var(--brico);margin:4px 0 6px}
+.D .legs span{font-size:14px;color:#3B475D}
+.D .port{background:#17233B;color:#fff;border-radius:28px;padding:56px 40px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px;align-items:center}
+.D .port h2{color:#fff}
+.D .port .sub{color:#C2CAD7}
+.D .card{background:#fff;color:#17233B;border-radius:16px;padding:22px}
+.D .card .from{font:500 12px var(--mono);color:#5F6A7C;letter-spacing:.06em;text-transform:uppercase}
+.D .card .msg{margin:12px 0 16px;padding:12px 14px;background:#F3F5F4;border-radius:12px}
+.D .card .row{display:flex;gap:8px;flex-wrap:wrap}
+.D .card .btn{padding:10px 16px;font-size:14px}
+.D .end{text-align:center;padding-block:120px 80px}
+.D .end svg{width:120px;height:auto;margin:0 auto 24px;display:block;animation:sway 6s ease-in-out infinite;transform-origin:50% 0}
+@keyframes sway{50%{transform:rotate(4deg)}}
+.D .end p{margin:16px auto 30px;max-width:46ch;color:#3B475D;font-size:17px}
+.D .end .btn{font-size:18px;padding:18px 30px}
+.D .foot{padding-block:24px;border-top:1px solid #E3E7EA;font:500 12px var(--mono);color:#5F6A7C;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+@media (max-width:900px){.D .legs{grid-template-columns:repeat(2,minmax(0,1fr))}.D .port{grid-template-columns:1fr;padding:36px 22px}}
+@media (max-width:480px){.D .legs{grid-template-columns:1fr}}
+
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .scene{height:auto}.stage{position:relative;height:auto;min-height:100vh}
+  .A .heroBoat,.B .heroBoat,.C .plan,.D .heroBoat,.A .heroCopy{transform:none!important;opacity:1!important}
+  .B .heroBoat{transform:translate(-50%,-78%) scale(.9)!important}
+  .D .heroBoat{transform:translateX(-50%)!important}
+  .C .plan{transform:translateX(-50%)!important}
+  .B .sea,.D .sea::before,.D .end svg{animation:none}
+}
+</style>
+
+<!-- ============ Boat drawings: line art, one pennant each ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- Front Desk: harbor launch -->
+    <symbol id="b-front" viewBox="0 0 200 140">
+      <path class="s" d="M6 128 Q50 122 100 128 T194 128" opacity=".5"/>
+      <path class="f s" d="M18 98 L184 98 L170 122 Q100 126 36 122 Z"/>
+      <rect class="f s" x="62" y="66" width="70" height="32" rx="3"/>
+      <rect class="s" x="72" y="74" width="16" height="12" rx="1"/><rect class="s" x="94" y="74" width="16" height="12" rx="1"/>
+      <path class="s" d="M132 76 L150 76 L156 98"/>
+      <path class="s" d="M97 66 L97 30"/><path class="pn" d="M97 30 L126 37 L97 44 Z"/>
+      <circle class="s" cx="160" cy="108" r="4"/>
+    </symbol>
+    <!-- Follow-up: sloop with tall sail -->
+    <symbol id="b-follow" viewBox="0 0 200 140">
+      <path class="s" d="M6 128 Q50 122 100 128 T194 128" opacity=".5"/>
+      <path class="f s" d="M22 104 Q100 110 182 100 L160 122 Q100 128 48 122 Z"/>
+      <path class="s" d="M102 104 L102 12"/>
+      <path class="f s" d="M98 16 L98 98 L38 98 Q60 52 98 16 Z"/>
+      <path class="f s" d="M106 26 L106 98 L162 98 Z"/>
+      <path class="pn" d="M102 12 L130 18 L102 24 Z"/>
+    </symbol>
+    <!-- Bookkeeping: cargo barge -->
+    <symbol id="b-books" viewBox="0 0 200 140">
+      <path class="s" d="M6 128 Q50 122 100 128 T194 128" opacity=".5"/>
+      <path class="f s" d="M10 98 L190 98 L180 122 L22 122 Z"/>
+      <rect class="f s" x="22" y="76" width="30" height="22"/><rect class="f s" x="54" y="76" width="30" height="22"/><rect class="f s" x="86" y="76" width="30" height="22"/>
+      <rect class="f s" x="38" y="54" width="30" height="22"/><rect class="f s" x="70" y="54" width="30" height="22"/>
+      <path class="s" d="M37 76 L37 98 M69 76 L69 98 M101 76 L101 98 M53 54 L53 76 M85 54 L85 76" opacity=".5"/>
+      <rect class="f s" x="140" y="66" width="34" height="32" rx="2"/><rect class="s" x="148" y="72" width="18" height="10"/>
+      <path class="s" d="M157 66 L157 34"/><path class="pn" d="M157 34 L184 40 L157 46 Z"/>
+    </symbol>
+    <!-- Content and Social: catamaran with wide sail -->
+    <symbol id="b-content" viewBox="0 0 200 140">
+      <path class="s" d="M6 128 Q50 122 100 128 T194 128" opacity=".5"/>
+      <path class="f s" d="M14 110 L96 110 L86 124 L24 124 Z"/><path class="f s" d="M104 110 L186 110 L176 124 L114 124 Z"/>
+      <rect class="f s" x="22" y="102" width="156" height="8" rx="2"/>
+      <path class="s" d="M100 102 L100 10"/>
+      <path class="f s" d="M104 14 L104 98 Q150 90 172 98 Q156 52 104 14 Z"/>
+      <path class="s" d="M104 40 Q130 44 150 52 M104 66 Q140 68 162 76" opacity=".45"/>
+      <path class="pn" d="M100 10 L72 16 L100 22 Z"/>
+    </symbol>
+    <!-- Internal Communications: lighthouse tender -->
+    <symbol id="b-internal" viewBox="0 0 200 140">
+      <path class="s" d="M6 128 Q50 122 100 128 T194 128" opacity=".5"/>
+      <path class="f s" d="M16 100 L186 100 L172 122 L34 122 Z"/>
+      <path class="f s" d="M46 100 L46 74 L118 74 L126 100"/>
+      <rect class="s" x="56" y="80" width="12" height="10"/><rect class="s" x="74" y="80" width="12" height="10"/><rect class="s" x="92" y="80" width="12" height="10"/>
+      <path class="s" d="M84 74 L84 18 M70 34 L98 34 M74 48 L94 48"/>
+      <circle class="pn" cx="84" cy="18" r="6"/>
+      <path class="s" d="M70 18 L58 14 M98 18 L110 14 M70 18 L58 22 M98 18 L110 22" opacity=".6"/>
+      <path class="s" d="M140 100 L140 84 L160 84"/><circle class="s" cx="164" cy="84" r="4"/>
+    </symbol>
+    <!-- Flagship: the hero boat -->
+    <symbol id="b-flag" viewBox="0 0 640 420">
+      <path class="f s" d="M40 318 Q320 338 600 306 L556 372 Q320 390 96 372 Z" stroke-width="2"/>
+      <path class="s" d="M60 338 Q320 356 586 326" opacity=".45"/>
+      <path class="s" d="M322 318 L322 22" stroke-width="2.2"/>
+      <path class="f s" d="M316 32 L316 304 L118 304 Q192 160 316 32 Z" stroke-width="2"/>
+      <path class="s" d="M316 100 Q256 128 196 186 M316 170 Q236 200 160 248 M316 240 Q230 262 132 286" opacity=".35"/>
+      <path class="f s" d="M330 54 L330 304 L500 304 Z" stroke-width="2"/>
+      <path class="s" d="M116 308 L320 308" stroke-width="2.2"/>
+      <path class="s" d="M322 22 L600 306 M322 22 L96 318" opacity=".25"/>
+      <path class="pn" d="M322 22 L368 32 L322 42 Z" stroke-width="1.6"/>
+      <circle class="s" cx="438" cy="344" r="6"/><circle class="s" cx="466" cy="342" r="6"/><circle class="s" cx="494" cy="340" r="6"/>
+      <text x="150" y="356" font-family="Archivo, sans-serif" font-weight="800" font-size="20" letter-spacing="6" fill="currentColor" opacity=".8">ANCHORED</text>
+    </symbol>
+    <!-- Anchor -->
+    <symbol id="b-anchor" viewBox="0 0 120 150">
+      <circle cx="60" cy="16" r="11" fill="var(--signal)" stroke="currentColor" stroke-width="3"/>
+      <path d="M60 27 L60 132 M36 48 L84 48 M14 96 Q18 130 60 132 Q102 130 106 96 M6 104 L14 92 L24 102 M114 104 L106 92 L96 102" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="switch pad">
+  <div class="wrap in">
+    <span class="lbl">Anchored · design directions</span>
+    <nav class="tabs" aria-label="Design directions">
+      <a href="#chart" data-dir="chart"><span>A</span>Harbor Chart</a>
+      <a href="#watch" data-dir="watch"><span>B</span>Night Watch</a>
+      <a href="#yard" data-dir="yard"><span>C</span>Shipyard Drawing</a>
+      <a href="#regatta" data-dir="regatta"><span>D</span>Regatta</a>
+    </nav>
+    <div class="pal" title="Brand palette: Hull Navy, Harbor Fog, Tide Blue, Signal Yellow, Kelp, Coral, Brass">
+      <i style="background:#17233B"></i><i style="background:#EDF0EF"></i><i style="background:#2F5D7C"></i><i style="background:#F4CF48"></i><i style="background:#2F7A55"></i><i style="background:#D9694A"></i><i style="background:#B08A3E"></i>
+    </div>
+  </div>
+</div>
+<div class="brief pad"><div class="wrap in"><p id="briefText"></p></div></div>
+
+<!-- =================================================================== A -->
+<div class="dir A" id="d-chart" data-dir="chart">
+  <div class="scene" data-scene>
+    <div class="stage pad">
+      <div class="wrap">
+        <header class="nav">
+          <a class="word" href="#chart">Anchored</a>
+          <nav class="links" aria-label="Sections"><a href="#a-crew">The crew</a><a href="#a-fleet">How they sail</a><a href="#a-port">Approvals</a></nav>
+          <div class="act"><a class="btn txt" href="/login">Log in</a><a class="btn y" href="/app/new">Get started</a></div>
+        </header>
+        <div class="heroGrid">
+          <div class="heroCopy">
+            <p class="eyebrow" style="color:#2F5D7C">AI for small business · approve first</p>
+            <h1 style="margin-top:16px">Your crew is ready. You hold the helm.</h1>
+            <p class="lede">Anchored finds the jobs AI can take off your plate, turns on what your software already does, and puts five agents to work on the rest. Nothing reaches a customer until you tap Approve.</p>
+            <div class="row"><a class="btn y" href="/app/new">Start sailing</a><a class="btn ghost" href="#a-crew">Meet the crew</a></div>
+          </div>
+          <div class="heroBoat" aria-hidden="true"><div class="wake"></div><svg class="boat" viewBox="0 0 640 420"><use href="#b-flag"/></svg></div>
+          <div class="coords"><span>38°59′N 76°56′W</span><span>College Park, MD</span><span data-knots>Speed 0.0 kn</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="blk pad" id="a-crew"><div class="wrap">
+    <div class="secHead"><h2>Every boat has one job.</h2><p>Every business gets the same five agents. Each one runs small skills, and each skill spells out what it reads, what it may do, and what it never does.</p></div>
+    <div class="crew" data-crew="A"></div>
+  </div></section>
+
+  <section class="blk pad" id="a-fleet"><div class="wrap">
+    <div class="secHead"><h2>Sail as a fleet.</h2><p>One missed call can turn into a booked job, a paid invoice and a five-star review. Each agent hands off to the next, and every draft waits in one place for you.</p></div>
+    <div class="chart">
+      <svg viewBox="0 0 700 420" role="img" aria-label="Chart: five agent routes converging on your approvals harbor" data-chart></svg>
+      <ol class="log" data-log></ol>
+    </div>
+  </div></section>
+
+  <section class="blk pad" id="a-port"><div class="wrap promise">
+    <div>
+      <p class="eyebrow" style="color:#2F5D7C">The approval rule</p>
+      <h2 style="margin-top:14px">Nothing leaves port without your say.</h2>
+      <ul class="rules" data-rules></ul>
+    </div>
+    <div class="card" data-card></div>
+  </div></section>
+
+  <section class="end pad"><div class="wrap">
+    <svg class="boat" viewBox="0 0 120 150" style="color:#17233B" aria-hidden="true"><use href="#b-anchor"/></svg>
+    <h2>Drop anchor on busywork.</h2>
+    <p>Describe your business in a few answers. Anchored shows where AI fits, what it costs, and which agents to switch on.</p>
+    <a class="btn y" href="/app/new">Start sailing</a>
+  </div></section>
+  <footer class="foot pad"><span>Anchored · UMD AI for Small Business Hack-a-thon, Fall 2026</span><span>Approve-first by design</span></footer>
+</div>
+
+<!-- =================================================================== B -->
+<div class="dir B" id="d-watch" data-dir="watch">
+  <div class="scene" data-scene>
+    <div class="stage">
+      <div class="horizon"></div><div class="sea"></div>
+      <div class="heroBoat" aria-hidden="true"><svg class="boat" viewBox="0 0 640 420"><use href="#b-flag"/></svg></div>
+      <div class="pad"><div class="wrap">
+        <header class="nav">
+          <a class="word" href="#watch">Anchored</a>
+          <nav class="links" aria-label="Sections"><a href="#b-crew">Crew</a><a href="#b-fleet">Formation</a><a href="#b-port">Approvals</a></nav>
+          <div class="act"><a class="btn txt" href="/login">Log in</a><a class="btn y" href="/app/new">Get started</a></div>
+        </header>
+      </div></div>
+      <div class="heroCopy pad"><div class="wrap">
+        <h1>Five agents.<br>One crew. <em>Your helm.</em></h1>
+        <p class="lede">Anchored works through missed calls, quiet quotes and late invoices overnight, and has every draft waiting for you by morning.</p>
+      </div></div>
+    </div>
+  </div>
+
+  <section class="blk pad" id="b-fleet"><div class="wrap">
+    <p class="eyebrow" style="color:#7FB0CF">Formation</p>
+    <h2 style="margin-top:12px">You lead. The crew follows.</h2>
+    <p class="sub">Your flagship sets the course. Each agent sails its own line behind you and brings back drafts, never sends.</p>
+    <div class="fleet"><svg viewBox="0 0 1000 380" role="img" aria-label="Five agent boats in a V formation behind your flagship" data-fleet></svg></div>
+    <div class="fleetKey" data-fleetkey></div>
+  </div></section>
+
+  <section class="blk pad" id="b-crew"><div class="wrap">
+    <h2>What each boat never does.</h2>
+    <p class="sub">The limits are the point. Every skill lists them in plain words.</p>
+    <div class="crew" data-crew="B"></div>
+  </div></section>
+
+  <section class="blk pad" id="b-port"><div class="wrap watch">
+    <div>
+      <p class="eyebrow" style="color:#7FB0CF">Morning brief, 7:00 a.m.</p>
+      <h2 style="margin-top:12px">Nothing leaves port without your say.</h2>
+      <p class="sub">Texts approved after 8 p.m. wait for the morning. Customers who never agreed to texts don't get them. There's no auto-send mode.</p>
+    </div>
+    <div class="card" data-card></div>
+  </div></section>
+
+  <section class="end pad"><div class="wrap">
+    <svg class="boat" viewBox="0 0 120 150" aria-hidden="true"><use href="#b-anchor"/></svg>
+    <h2>Drop anchor.</h2>
+    <p>Tell Anchored how your business runs. Your crew is assembled in a few minutes.</p>
+    <a class="btn y" href="/app/new">Start sailing</a>
+  </div></section>
+  <footer class="foot pad"><span>Anchored</span><span>Read the drafts. Tap Approve. That's the whole job.</span></footer>
+</div>
+
+<!-- =================================================================== C -->
+<div class="dir C" id="d-yard" data-dir="yard">
+  <div class="scene" data-scene>
+    <div class="stage pad"><div class="wrap">
+      <header class="nav">
+        <a class="word" href="#yard">Anchored</a>
+        <nav class="links" aria-label="Sections"><a href="#c-crew">Fleet list</a><a href="#c-day">Watch bill</a><a href="#c-end">Launch</a></nav>
+        <div class="act"><a class="btn txt" href="/login">Log in</a><a class="btn y" href="/app/new">Get started</a></div>
+      </header>
+      <div class="heroGrid">
+        <div class="heroCopy">
+          <div>
+            <p class="eyebrow" style="color:#5F6A7C">Drawing no. A-01 · General arrangement</p>
+            <h1 style="margin-top:18px">Built to carry the work you never get to.</h1>
+            <p class="lede">Anchored maps your business, checks the software you already pay for, rates real tools, and builds approve-first agents where no tool fits.</p>
+            <div class="row"><a class="btn y" href="/app/new">Start sailing</a><a class="btn ghost" href="#c-crew">See the fleet list</a></div>
+          </div>
+          <dl class="spec">
+            <div><dt>Agents</dt><dd>5</dd></div>
+            <div><dt>Skills</dt><dd>18</dd></div>
+            <div><dt>Tools rated</dt><dd>37</dd></div>
+          </dl>
+        </div>
+        <div class="planWrap" aria-hidden="true">
+          <div class="plan"><svg viewBox="0 0 200 620" class="boat" data-plan></svg></div>
+          <div class="ruler"></div>
+          <div class="readout">Distance run <b data-nm>0.00 nm</b></div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <section class="blk pad" id="c-crew"><div class="wrap">
+    <div class="secHead"><h2>Fleet list</h2><span class="mono">5 vessels · 18 skills · approve-first</span></div>
+    <div class="crew" data-crew="C"></div>
+  </div></section>
+
+  <section class="blk pad" id="c-day"><div class="wrap">
+    <div class="secHead"><h2>Watch bill: one day at an HVAC shop</h2><span class="mono">How the five sail together</span></div>
+    <div class="sched"><table data-sched></table></div>
+  </div></section>
+
+  <section class="end pad" id="c-end">
+    <div><svg class="boat" viewBox="0 0 120 150" aria-hidden="true"><use href="#b-anchor"/></svg></div>
+    <div>
+      <p class="eyebrow" style="color:#5F6A7C">Drawing no. A-99 · Launch</p>
+      <h2 style="margin-top:14px">Ready to launch.</h2>
+      <p>Answer a few questions about how customers reach you, what you sell and what you already use. Skip anything you don't know.</p>
+      <a class="btn y" href="/app/new">Start sailing</a>
+    </div>
+  </section>
+  <footer class="foot pad"><span>Anchored · Sheet 1 of 1</span><span>Scale 1:1 · Nothing sends without approval</span></footer>
+</div>
+
+<!-- =================================================================== D -->
+<div class="dir D" id="d-regatta" data-dir="regatta">
+  <div class="scene" data-scene>
+    <div class="stage">
+      <div class="pad" style="position:relative;z-index:4"><div class="wrap">
+        <header class="nav">
+          <a class="word" href="#regatta">anchored</a>
+          <nav class="links" aria-label="Sections"><a href="#d-crew">The crew</a><a href="#d-course">The course</a><a href="#d-port">Approvals</a></nav>
+          <div class="act"><a class="btn txt" href="/login">Log in</a><a class="btn y" href="/app/new">Get started</a></div>
+        </header>
+      </div></div>
+      <div class="heroCopy pad"><div class="wrap">
+        <h1>Set the course.<br>Let the crew row.</h1>
+        <p class="lede">Five AI agents for your small business. They draft the texts, follow-ups and invoices. You tap Approve.</p>
+        <div class="row"><a class="btn y" href="/app/new">Start sailing</a><a class="btn ghost" href="#d-crew">Meet the crew</a></div>
+      </div></div>
+      <div class="sky"><div class="heroBoat" aria-hidden="true"><svg class="boat" viewBox="0 0 640 420"><use href="#b-flag"/></svg></div></div>
+      <div class="sea"><div class="cap"><span>Hull down on the horizon</span><span data-knots>0.0 kn</span></div></div>
+    </div>
+  </div>
+
+  <section class="blk pad" id="d-crew"><div class="wrap">
+    <h2>Meet the crew.</h2>
+    <p class="sub">Every business gets the same five boats. Each carries its own skills, and none of them sends a thing without you.</p>
+    <div class="crew" data-crew="D"></div>
+  </div></section>
+
+  <section class="blk pad" id="d-course" style="background:#F3F5F4"><div class="wrap">
+    <h2>One course, five legs.</h2>
+    <p class="sub">A missed call becomes a booked job, a paid invoice and a new review, with a hand-off at every mark.</p>
+    <div class="course"><svg viewBox="0 0 1000 220" role="img" aria-label="Race course with five marks, one per agent" data-course></svg></div>
+    <ol class="legs" data-legs></ol>
+  </div></section>
+
+  <section class="blk pad" id="d-port"><div class="wrap port">
+    <div>
+      <h2>Nothing leaves port without your say.</h2>
+      <p class="sub">Every draft waits as a card. Approve, edit or skip. Quiet hours and consent are checked before anything can go.</p>
+    </div>
+    <div class="card" data-card></div>
+  </div></section>
+
+  <section class="end pad"><div class="wrap">
+    <svg class="boat" viewBox="0 0 120 150" style="color:#17233B" aria-hidden="true"><use href="#b-anchor"/></svg>
+    <h2>Drop anchor on busywork.</h2>
+    <p>Pick a sample business to look around, or describe yours in a few answers.</p>
+    <a class="btn y" href="/app/new">Start sailing</a>
+  </div></section>
+  <footer class="foot pad"><span>anchored</span><span>UMD AI for Small Business · Fall 2026</span></footer>
+</div>
+
+<script>
+(function(){
+  // ---------- Content, from lib/domain/agents.ts ----------
+  const AGENTS=[
+    {id:"front",sym:"b-front",name:"Front Desk",boat:"Harbor launch",color:"#F4CF48",
+     job:"Answers first contact: missed calls, new inquiries, bookings and catering requests.",
+     skills:["Callback","Inquiry Responder","Show-up Keeper","Catering Responder"],
+     never:"Never quotes a price in a first reply. Never texts between 8 p.m. and 8 a.m."},
+    {id:"follow",sym:"b-follow",name:"Follow-up",boat:"Sloop",color:"#2F5D7C",
+     job:"Chases what goes quiet: quotes, undecided leads, renewals, reviews and referrals.",
+     skills:["Closer","Call Follow-up","Debrief","Reactivator","Keeper","Referral Ask","Review Asker"],
+     never:"Never sends without your tap."},
+    {id:"books",sym:"b-books",name:"Bookkeeping and Invoicing",boat:"Cargo barge",color:"#2F7A55",
+     job:"Money in and money out: late invoices and supplier prices.",
+     skills:["Payment Nudger","Price Watch"],
+     never:"Never sends a reminder you haven't read."},
+    {id:"content",sym:"b-content",name:"Content and Social",boat:"Catamaran",color:"#D9694A",
+     job:"Drafts posts, listing updates and review replies for you to publish.",
+     skills:["Post Drafter","Review Drafter"],
+     never:"Never publishes. You post what you approve."},
+    {id:"internal",sym:"b-internal",name:"Internal Communications",boat:"Lighthouse tender",color:"#B08A3E",always:true,
+     job:"Keeps you briefed: the daily brief, forwarded email and license renewals.",
+     skills:["Daily Brief","Inbox Triage","License Clerk"],
+     never:"Always on. Hands each forwarded email to the right agent."}
+  ];
+  const FLOW=[
+    {t:"9:12",a:"front",what:"A call goes unanswered",how:"Front Desk drafts a text back with two open times."},
+    {t:"Day 3",a:"follow",what:"The quote goes quiet",how:"Follow-up's Closer drafts a friendly check-in."},
+    {t:"Day 30",a:"books",what:"The invoice runs late",how:"Bookkeeping's Payment Nudger drafts a reminder."},
+    {t:"Job done",a:"content",what:"A review comes in",how:"Follow-up asks for the review; Content drafts your reply."},
+    {t:"7:00",a:"internal",what:"Every morning",how:"Internal Communications sums up what needs you today and what it's worth."}
+  ];
+  const RULES=["Every card waits for your tap. There's no auto-send mode.","Quiet hours run 8 p.m. to 8 a.m. A text approved late waits for the morning.","A text to a contact with no consent record doesn't send.","Allergy questions go to you, never to an agent."];
+  const byId=Object.fromEntries(AGENTS.map(a=>[a.id,a]));
+  const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;");
+  const boat=(a,cls="")=>`<svg class="boat ${cls}" viewBox="0 0 200 140" style="--pc:${a.color}" aria-hidden="true"><use href="#${a.sym}"/></svg>`;
+  const skills=(a,n)=>`<ul class="skills">${a.skills.slice(0,n).map(s=>`<li>${s}</li>`).join("")}${a.skills.length>n?`<li>+${a.skills.length-n}</li>`:""}</ul>`;
+
+  // A. chart cards
+  document.querySelector('[data-crew="A"]').innerHTML=AGENTS.map(a=>`<article class="mate">${boat(a)}<p class="eyebrow">${a.boat}${a.always?" · always on":""}</p><h3>${a.name}</h3><p>${a.job}</p>${skills(a,3)}<p class="never">${a.never}</p></article>`).join("");
+  document.querySelector('#d-chart [data-log]').innerHTML=FLOW.map(f=>`<li><span class="t">${f.t}</span><div><b><i class="dot" style="background:${byId[f.a].color}"></i>${f.what}</b><span>${f.how}</span></div></li>`).join("");
+  (function chart(){
+    const pts=[[70,70],[110,330],[300,380],[60,210],[260,40]];
+    const harbor=[560,220];
+    let s=`<g stroke="#2F5D7C" stroke-opacity=".14" fill="none">`;
+    for(let r=40;r<=260;r+=36) s+=`<ellipse cx="${harbor[0]}" cy="${harbor[1]}" rx="${r*1.4}" ry="${r}"/>`;
+    s+=`</g><g font-family="IBM Plex Mono, monospace" font-size="11" fill="#5F6A7C">`;
+    [[430,120,"4"],[470,330,"6"],[350,240,"9"],[640,90,"3"],[200,150,"12"],[400,60,"11"]].forEach(d=>s+=`<text x="${d[0]}" y="${d[1]}">${d[2]}</text>`);
+    s+=`</g>`;
+    AGENTS.forEach((a,i)=>{const [x,y]=pts[i];const mx=(x+harbor[0])/2,my=(y+harbor[1])/2-40;
+      s+=`<path d="M${x+40} ${y+14} Q${mx} ${my} ${harbor[0]-36} ${harbor[1]}" fill="none" stroke="${a.color}" stroke-width="2.2" stroke-dasharray="6 6"/>`;
+      s+=`<svg x="${x-10}" y="${y-22}" width="80" height="56" viewBox="0 0 200 140" class="boat" style="--pc:${a.color};color:#17233B"><use href="#${a.sym}"/></svg>`;
+      s+=`<text x="${x+30}" y="${y+48}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#17233B">${a.name.split(" ")[0]}</text>`;});
+    s+=`<circle cx="${harbor[0]}" cy="${harbor[1]}" r="34" fill="#F4CF48" stroke="#17233B" stroke-width="2"/><text x="${harbor[0]}" y="${harbor[1]-2}" text-anchor="middle" font-family="Archivo, sans-serif" font-weight="800" font-size="13" fill="#17233B">YOU</text><text x="${harbor[0]}" y="${harbor[1]+13}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="#17233B">approve</text>`;
+    s+=`<g font-family="IBM Plex Mono, monospace" font-size="10" fill="#5F6A7C"><text x="16" y="406">38°59′N</text><text x="620" y="406">N ↑</text></g>`;
+    document.querySelector('[data-chart]').innerHTML=s;
+  })();
+
+  // Approval card, shared copy
+  const card=`<p class="from">Front Desk agent · Callback</p><div class="msg">Hi Dana, sorry we missed your call! This is College Park Heating &amp; Air. We can come by Thursday at 10 a.m. or Friday at 2 p.m. Which works? Reply STOP to opt out.</div><div class="row"><a class="btn y" href="#" onclick="return false">Approve</a><a class="btn ghost" href="#" onclick="return false">Edit</a><a class="btn txt" href="#" onclick="return false">Skip</a></div>`;
+  document.querySelectorAll('[data-card]').forEach(el=>el.innerHTML=card);
+  document.querySelector('#d-chart [data-rules]').innerHTML=RULES.map(r=>`<li>${r}</li>`).join("");
+
+  // B. formation
+  (function fleet(){
+    const pos=[[300,110],[300,250],[120,40],[120,320],[-40,180]]; // behind flagship, V
+    let s=`<line x1="0" y1="190" x2="1000" y2="190" stroke="#E6EBF3" stroke-opacity=".08"/>`;
+    AGENTS.forEach((a,i)=>{const [x,y]=pos[i];
+      s+=`<line x1="${x+150}" y1="${y+60}" x2="700" y2="190" stroke="${a.color}" stroke-opacity=".5" stroke-width="1.5" stroke-dasharray="3 7"/>`;
+      s+=`<svg x="${x+40}" y="${y}" width="150" height="105" viewBox="0 0 200 140" class="boat" style="--pc:${a.color};color:#E6EBF3;--boat-fill:#0B1220"><use href="#${a.sym}"/></svg>`;});
+    s+=`<svg x="640" y="80" width="300" height="197" viewBox="0 0 640 420" class="boat" style="--pc:#F4CF48;color:#E6EBF3;--boat-fill:#111A2B"><use href="#b-flag"/></svg>`;
+    s+=`<text x="790" y="310" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="13" fill="#F4CF48" letter-spacing="2">YOUR FLAGSHIP</text>`;
+    document.querySelector('[data-fleet]').innerHTML=s;
+  })();
+  document.querySelector('[data-fleetkey]').innerHTML=AGENTS.map(a=>`<div><h3><i style="background:${a.color}"></i>${a.name}</h3><p>${a.job}</p>${skills(a,2)}</div>`).join("");
+  document.querySelector('[data-crew="B"]').innerHTML=AGENTS.map(a=>`<article class="mate">${boat(a)}<div><h3>${a.name}</h3><p>${a.job}</p><p class="never">${a.never}</p></div></article>`).join("");
+
+  // C. plan view + fleet list + watch bill
+  (function plan(){
+    let s=`<defs><clipPath id="hullclip"><path d="M100 10 C160 90 176 200 176 330 L172 560 Q100 600 28 560 L24 330 C24 200 40 90 100 10Z"/></clipPath></defs>`;
+    s+=`<path class="f s" d="M100 10 C160 90 176 200 176 330 L172 560 Q100 600 28 560 L24 330 C24 200 40 90 100 10Z" stroke-width="1.8"/>`;
+    s+=`<g clip-path="url(#hullclip)" stroke="#17233B" stroke-opacity=".25">`;for(let y=60;y<600;y+=40) s+=`<line x1="0" x2="200" y1="${y}" y2="${y}"/>`;s+=`</g>`;
+    s+=`<line x1="100" y1="0" x2="100" y2="610" stroke="#17233B" stroke-dasharray="10 4 2 4" stroke-opacity=".6"/>`;
+    s+=`<circle class="s" cx="100" cy="230" r="9"/><rect class="s" x="56" y="330" width="88" height="120" rx="4"/><rect class="s" x="70" y="470" width="60" height="50" rx="2"/>`;
+    AGENTS.forEach((a,i)=>{const y=150+i*85; s+=`<rect x="${i%2?126:58}" y="${y}" width="16" height="16" fill="${a.color}" stroke="#17233B"/>`;});
+    s+=`<g font-family="IBM Plex Mono, monospace" font-size="10" fill="#5F6A7C"><text x="104" y="226">MAST</text><text x="62" y="346">CABIN</text><text x="74" y="486">HELM · YOU</text><text x="104" y="22">BOW</text></g>`;
+    document.querySelector('[data-plan]').innerHTML=s;
+  })();
+  document.querySelector('[data-crew="C"]').innerHTML=AGENTS.map((a,i)=>`<article class="mate"><div class="id"><span>V-0${i+1}</span><span style="display:inline-block;width:10px;height:10px;background:${a.color}"></span></div>${boat(a)}<h3>${a.name}</h3><p>${a.job}</p><dl><dt>Class</dt><dd>${a.boat}${a.always?", always on":""}</dd><dt>Skills</dt><dd>${a.skills.join(", ")}</dd></dl></article>`).join("");
+  const SCHED=[
+    ["07:00","internal","Daily Brief","Four cards are waiting. $2,140 rides on them.",true],
+    ["09:12","front","Callback","Missed call from a new number. Drafts a text with two open times."],
+    ["10:40","internal","Inbox Triage","A forwarded supplier email goes to Bookkeeping."],
+    ["11:05","books","Price Watch","Filter price is up 18% from the last order."],
+    ["14:30","follow","Closer","A $1,200 quote from last week went quiet. Drafts a check-in."],
+    ["16:15","follow","Review Asker","Job closed. Drafts a Google review ask."],
+    ["17:00","content","Review Drafter","Drafts a reply to yesterday's four-star review."],
+    ["20:05","front","Callback","Approved after 8 p.m. Waits until 8 a.m. to send."]
+  ];
+  document.querySelector('[data-sched]').innerHTML=`<thead><tr><th>Time</th><th>Agent</th><th>Skill</th><th>What happens</th><th>Who sends</th></tr></thead><tbody>${SCHED.map(r=>{const a=byId[r[1]];return `<tr${r[4]?' class="you"':''}><td class="t">${r[0]}</td><td><span class="tag"><i style="background:${a.color}"></i>${a.name}</span></td><td class="mono" style="font-size:13px">${r[2]}</td><td>${r[3]}</td><td class="mono" style="font-size:13px">${r[4]?"You read it":"You, on Approve"}</td></tr>`}).join("")}</tbody>`;
+
+  // D. crew + course
+  document.querySelector('[data-crew="D"]').innerHTML=AGENTS.map(a=>`<article class="mate" style="--pc:${a.color}">${boat(a)}<h3>${a.name}</h3><p>${a.job}</p>${skills(a,3)}<p class="never">${a.never}</p></article>`).join("");
+  (function course(){
+    const marks=[[90,150],[300,60],[500,150],[700,60],[900,140]];
+    let s=`<path d="M40 190 C120 190 60 150 90 150 S240 60 300 60 S440 150 500 150 S640 60 700 60 S860 140 900 140" fill="none" stroke="#17233B" stroke-width="2" stroke-dasharray="2 8" stroke-linecap="round"/>`;
+    marks.forEach((m,i)=>{const a=byId[FLOW[i].a];
+      s+=`<circle cx="${m[0]}" cy="${m[1]}" r="18" fill="${a.color}" stroke="#17233B" stroke-width="2"/><text x="${m[0]}" y="${m[1]+5}" text-anchor="middle" font-family="Bricolage Grotesque, sans-serif" font-weight="800" font-size="15" fill="#17233B">${i+1}</text>`;});
+    s+=`<svg x="10" y="150" width="70" height="49" viewBox="0 0 640 420" class="boat" style="--pc:#F4CF48;color:#17233B"><use href="#b-flag"/></svg>`;
+    document.querySelector('[data-course]').innerHTML=s;
+  })();
+  document.querySelector('[data-legs]').innerHTML=FLOW.map((f,i)=>`<li style="--pc:${byId[f.a].color}"><span class="n">Mark ${i+1} · ${byId[f.a].name}</span><b>${f.what}</b><span>${f.how}</span></li>`).join("");
+
+  // ---------- Direction switching (hash) ----------
+  const BRIEF={
+    chart:"<b>A · Harbor Chart.</b> Fog background, navy line art and nautical-chart grid. The hero boat sails off to the right and shrinks as you scroll. Closest to the current app, so it ships fastest.",
+    watch:"<b>B · Night Watch.</b> Dark and quiet, like a ship's bridge at night. The hero boat starts huge and recedes to the horizon as you scroll. The agents sail in a V behind your flagship.",
+    yard:"<b>C · Shipyard Drawing.</b> A naval architect's plan: mono labels, ruled lines, specs. The hull is seen from above and slides out the top of the page as you scroll. The orchestration is a real day's watch bill.",
+    regatta:"<b>D · Regatta.</b> White, bright and friendly, with each agent in its pennant color. The boat sinks below the horizon as you scroll (hull down). Orchestration is a race course with five marks."
+  };
+  const dirs=[...document.querySelectorAll('.dir')], tabs=[...document.querySelectorAll('.tabs a')];
+  function show(){
+    let h=(location.hash||"").slice(1); if(!BRIEF[h]) { const owner=document.getElementById(h)?.closest('.dir'); h=owner?owner.dataset.dir:(document.querySelector('.dir.on')?.dataset.dir||"chart"); }
+    dirs.forEach(d=>d.classList.toggle('on',d.dataset.dir===h));
+    tabs.forEach(t=>t.setAttribute('aria-current',t.dataset.dir===h?'true':'false'));
+    document.getElementById('briefText').innerHTML=BRIEF[h];
+    if(BRIEF[(location.hash||"").slice(1)]) window.scrollTo(0,0);
+    tick();
+  }
+  window.addEventListener('hashchange',show);
+
+  // ---------- Scroll-driven hero ----------
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)');
+  let raf=0;
+  function tick(){
+    raf=0;
+    const d=document.querySelector('.dir.on'); if(!d) return;
+    const sc=d.querySelector('[data-scene]'); const r=sc.getBoundingClientRect();
+    const span=Math.max(1,r.height-innerHeight);
+    const p=reduce.matches?0:Math.min(1,Math.max(0,-r.top/span));
+    sc.style.setProperty('--p',p.toFixed(4));
+    d.querySelectorAll('[data-knots]').forEach(k=>k.textContent=(k.textContent.startsWith('Speed')?'Speed ':'')+(p*12).toFixed(1)+' kn');
+    d.querySelectorAll('[data-nm]').forEach(k=>k.textContent=(p*0.42).toFixed(2)+' nm');
+  }
+  addEventListener('scroll',()=>{ if(!raf) raf=requestAnimationFrame(tick); },{passive:true});
+  function bar(){document.documentElement.style.setProperty('--bar',document.querySelector('.switch').offsetHeight+'px')}
+  bar();
+  addEventListener('resize',()=>{bar();tick()});
+  show();
+})();
+</script>

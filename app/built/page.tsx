@@ -20,7 +20,7 @@ type Pair = readonly [name: string, text: string];
 const CHALLENGE: readonly Pair[] = [
   [
     "Discovery",
-    `A discovery agent, designed but not built yet, will search for tools for each workflow and record price, integrations, data terms, contract, source link and date checked. New listings wait in a review queue until a person checks them. The catalog starts with ${TOOLS.length} tools from our research.`,
+    `A discovery agent finds tools that do each workflow and records each one's price, integrations, data terms, contract, source page, and the date and kind of business it was found for. Code keeps a tool only when a real page backs it: the tool's own website, which code loads and checks for the tool's name, or a page from Claude's web search. New listings wait in a review queue until a person checks them. The catalog starts with ${TOOLS.length} tools from our research.`,
   ],
   [
     "Rating beyond reviews",
@@ -90,12 +90,13 @@ const STATUS: readonly Pair[] = [
   ["Rewrite in my voice", "Live when an AI provider is set."],
   [
     "Texts and emails",
-    "Not connected yet. Business texting needs carrier registration, so approved messages wait in the outbox until you connect texting and email.",
+    "You send them. Business texting needs carrier registration, so each approved message opens your own texting or email app with the words typed out.",
   ],
   [
-    "Discovery agent and live connectors",
-    "Designed, not built yet. The review queue shows real listings our research found but could not confirm.",
+    "Discovery agent",
+    "Built. A team member runs it for one workflow and one kind of business at a time, and each find joins the review queue with its page. It doesn't run on a schedule yet.",
   ],
+  ["Live connectors", "Designed, not built yet."],
 ];
 
 const RESEARCH: readonly (readonly [study: string, by: string, finding: string])[] = [
@@ -137,7 +138,7 @@ const ROADMAP: readonly (readonly [title: string, items: readonly string[]])[] =
     "Weeks 9 to 12: catalog",
     [
       "200 tools with checked facts",
-      "Discovery agent with the review queue",
+      "Discovery agent on a weekly schedule",
       '"Proven in similar businesses" filled from pilot results',
     ],
   ],

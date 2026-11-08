@@ -7,6 +7,8 @@ import { ApiCallError, callApi, errorText } from "@/components/api";
 import { cardAnchor } from "@/components/routes";
 import { useToast, type ToastLink } from "@/components/ui/Toast";
 import { Button } from "@/components/ui/Button";
+import { copyText } from "@/components/business/SendYourself";
+import { approvedDraft, copiedThing, copyTextFor, handOff, massAudience, type HandOffBusiness } from "@/components/business/handoff";
 import type { CardRecord, DecideCardRequest, DecideCardResponse, RewriteResponse } from "@/lib/api/contract";
 
 // =============================================================================
@@ -16,58 +18,30 @@ import type { CardRecord, DecideCardRequest, DecideCardResponse, RewriteResponse
 // and, when an AI provider is set up, "Rewrite in my voice"; a locked card
 // offers "I'll handle it". Approve always sends the text on screen, a send to
 // many people asks once more, and a refusal or delay from the server shows on the card.
+// After an approval the toast carries the owner's send step, such as a link
+// that opens their texting app with the message typed out.
 
 const REWRITE_FAILED = "Couldn't rewrite right now. The draft is unchanged.";
 const STALE_DRAFT = "This draft changed. Reload to see the latest.";
 const SEE_OUTBOX: ToastLink = { label: "See outbox", href: "#outbox" };
 
-/** Return who a send-to-many card reaches, such as "118 customers", or `null` for a single recipient. */
-function massAudience(card: CardRecord): string | null {
-  return /^send to (.+)$/i.exec(card.action.trim())?.[1] ?? null;
-}
-
-/** Return what a "Copy post" or "Copy reply" card copies, such as "post", or `null` for a card that sends. */
-function copiedThing(card: CardRecord): string | null {
-  return /^copy (.+)$/i.exec(card.action.trim())?.[1]?.toLowerCase() ?? null;
-}
-
-/** Copy `text` to the clipboard, falling back to a hidden text box where the async API is missing or refused. */
-async function copyText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    // No async clipboard (an insecure origin or an older browser), or permission refused; try the old way below.
-  }
-  try {
-    const area = document.createElement("textarea");
-    area.value = text;
-    area.setAttribute("readonly", "");
-    area.style.position = "fixed";
-    area.style.opacity = "0";
-    document.body.append(area);
-    area.select();
-    const copied = document.execCommand("copy");
-    area.remove();
-    return copied;
-  } catch {
-    // Nothing left to try; the toast tells the owner where the text still is.
-    return false;
-  }
-}
-
-/** Return the toast after an approval that went through; `copied` says whether a copy card's text reached the clipboard. */
-function approvedMessage(card: CardRecord, copied: boolean | null): string {
-  const thing = copiedThing(card);
+/** Return the toast after an approval that went through, and its link; `copied` says whether a copy card's text reached the clipboard. */
+function approvedToast(card: CardRecord, result: DecideCardResponse, business: HandOffBusiness, copied: boolean | null): { message: string; link?: ToastLink } {
+  if (card.channel === "locked") return { message: "Marked as yours" };
+  const thing = copiedThing(card.action);
   if (thing !== null && copied !== null) {
     return copied
-      ? `Approved. The ${thing} is on your clipboard, ready to paste.`
-      : `Approved. Your browser blocked the clipboard, so copy the ${thing} from the outbox.`;
+      ? { message: `Approved. The ${thing} is on your clipboard, ready to paste.`, link: SEE_OUTBOX }
+      : { message: `Approved. Your browser blocked the clipboard, so copy the ${thing} from the outbox.`, link: SEE_OUTBOX };
   }
-  if (card.channel === "locked") return "Marked as yours";
-  if (card.channel === "sms") return "Approved. The text waits in your outbox.";
-  if (card.channel === "email") return "Approved. The email waits in your outbox.";
-  return "Approved and logged in your outbox.";
+  const draft = result.outbox === undefined ? null : approvedDraft(result.outbox, result.card);
+  const step = draft === null ? null : handOff(draft, business);
+  // A link to the texting or email app opens it in place, so the owner sends without leaving the card.
+  if (step?.kind === "open") {
+    return { message: `Approved. The ${card.channel === "email" ? "email" : "text"} is ready to send.`, link: { label: step.label, href: step.href } };
+  }
+  if (step?.kind === "copy") return { message: `Approved. Copy the ${step.what} from your outbox.`, link: SEE_OUTBOX };
+  return { message: "Approved and logged in your outbox.", link: SEE_OUTBOX };
 }
 
 /** Return the status line for a decided card. */
@@ -84,15 +58,17 @@ function whoLine(card: CardRecord, source: string): string {
   return `${source}, ${to}`;
 }
 
-/** Render one feed card; `source` names who drafted it, such as "Follow-up agent". */
+/** Render one feed card; `source` names who drafted it, such as "Follow-up agent", and `business` says where its send step goes. */
 export function AgentCard({
   card,
   source,
   canRewrite,
+  business,
 }: {
   readonly card: CardRecord;
   readonly source: string;
   readonly canRewrite: boolean;
+  readonly business: HandOffBusiness;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -108,7 +84,7 @@ export function AgentCard({
   const [refreshing, startRefresh] = useTransition();
   const locked = card.channel === "locked";
   const pending = card.status === "pending";
-  const audience = massAudience(card);
+  const audience = massAudience(card.action);
 
   /** Send the decision; `copied` is whether a copy card's text reached the clipboard, `null` for any other card. */
   async function decide(request: DecideCardRequest, copied: boolean | null = null) {
@@ -123,7 +99,8 @@ export function AgentCard({
       } else if (request.decision === "skip") {
         toast("Skipped");
       } else {
-        toast(approvedMessage(card, copied), locked ? undefined : SEE_OUTBOX);
+        const { message, link } = approvedToast(card, result, business, copied);
+        toast(message, link);
       }
       setEditing(false);
       setConfirming(null);
@@ -145,12 +122,12 @@ export function AgentCard({
       setConfirming(body);
       return;
     }
-    if (copiedThing(card) === null) {
+    if (copiedThing(card.action) === null) {
       void decide({ decision: "approve", body });
       return;
     }
     // Copy inside the click, while the browser still counts it as the owner's gesture, then record the approval.
-    void copyText(body).then((copied) => decide({ decision: "approve", body }, copied));
+    void copyText(copyTextFor(card.action, body)).then((copied) => decide({ decision: "approve", body }, copied));
   }
 
   function approveEdited() {

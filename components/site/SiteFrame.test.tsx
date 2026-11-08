@@ -8,9 +8,10 @@ import { setLocation } from "@/test/next";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The site header on the landing page and "How it's built": "Sign in" for a
-// signed-out visitor, "Open app" plus the account menu once signed in, and
-// "Open app" alone when accounts are off. Inside `/app` it steps aside.
+// The site header on "How it's built" and the landing page's own header:
+// "Sign in" (or "Log in" on the landing page) for a signed-out visitor, "Open
+// app" plus the account menu once signed in, and "Open app" alone when
+// accounts are off. Inside `/app` it steps aside.
 
 const SIGNED_IN: Viewer = { id: "u_1", email: "rosa@linden.example", isGuest: false, authEnabled: true };
 
@@ -30,7 +31,7 @@ function header(): HTMLElement {
 
 describe("SiteFrame", () => {
   it("asks a signed-out visitor to sign in", () => {
-    setLocation({ pathname: "/" });
+    setLocation({ pathname: "/built" });
     renderFrame(true, null);
 
     expect(within(header()).getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
@@ -48,11 +49,29 @@ describe("SiteFrame", () => {
   });
 
   it("opens the app directly when accounts are off", () => {
-    setLocation({ pathname: "/" });
+    setLocation({ pathname: "/built" });
     renderFrame(false, null);
 
     expect(within(header()).getByRole("link", { name: "Open app" })).toHaveAttribute("href", "/app");
     expect(within(header()).queryByRole("link", { name: "Sign in" })).not.toBeInTheDocument();
+  });
+
+  it("gives the landing page Log in, Get started and a theme toggle", () => {
+    setLocation({ pathname: "/" });
+    renderFrame(true, null);
+
+    expect(within(header()).getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
+    expect(within(header()).getByRole("link", { name: "Get started" })).toHaveAttribute("href", "/app/new");
+    expect(within(header()).getByRole("button", { name: /Switch to (dark|light) mode/ })).toBeInTheDocument();
+  });
+
+  it("swaps Log in for the app and account menu on the landing page once signed in", () => {
+    setLocation({ pathname: "/" });
+    renderFrame(true, SIGNED_IN);
+
+    expect(within(header()).getByRole("link", { name: "Open app" })).toHaveAttribute("href", "/app");
+    expect(within(header()).getByRole("button", { name: /rosa@linden\.example/ })).toBeInTheDocument();
+    expect(within(header()).queryByRole("link", { name: "Log in" })).not.toBeInTheDocument();
   });
 
   it("leaves the app's own shell to draw everything under `/app`", () => {

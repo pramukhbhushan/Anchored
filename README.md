@@ -26,9 +26,11 @@ Each tool gets a score out of 100 for your business. The score comes from seven 
 
 ![Tools page with scored tool cards](docs/screenshots/3-tools.png)
 
+New tools come from a discovery agent. It finds tools that do one job, and code keeps a tool only when a real web page backs it: the tool's own site, which code loads and checks for the tool's name, or a page from Claude's web search. Each find waits under "waiting for a person to check" with a link to that page and the kind of business it was found for, and gets no score until a person checks its price, contract and data terms. See [Find new tools](#find-new-tools).
+
 ### 4. Approve before anything goes out
 
-Agents write each text or email as a card. You approve, edit or skip it. Anchored also holds texts during quiet hours and texts only customers who agreed to get them. Anchored isn't connected to texting or email yet, so approved messages wait in the outbox and nothing is sent.
+Agents write each text or email as a card. You approve, edit or skip it. Anchored also holds texts during quiet hours and texts only customers who agreed to get them. Anchored isn't connected to texting or email yet, so each approved message lands in the outbox with a button that opens the owner's own texting or email app with the words typed out. The owner presses send there. A post or review reply comes with Copy and links to where it gets pasted.
 
 ![Approvals page with draft cards and the outbox](docs/screenshots/4-approve.png)
 
@@ -65,6 +67,18 @@ You need Node.js 26, the version in `.nvmrc`.
 4. Open http://localhost:3000.
 
 With no keys set, Anchored keeps data in memory and maps businesses with its own rules. Data resets when the server restarts.
+
+### Find new tools
+
+The discovery agent works with any AI provider set in `.env.local`. Run it for one workflow and one kind of business:
+
+```bash
+AI_MODEL_COMPLEX=deepseek-ai/DeepSeek-V3-0324 npm run discover -- --workflow calls --business "dental office"
+```
+
+With Featherless or another provider that can't search, the model names tools it knows and code loads each tool's own website, keeping only the tools whose page loads and names them. Naming real products tests what the model remembers, so `AI_MODEL_COMPLEX` points that step at a large model; the small default model named a music app as a phone tool. With `AI_PROVIDER=anthropic`, the agent uses Claude's web search instead, so it also finds tools released after the model was trained.
+
+`--workflow base` covers the five workflows every business gets, and `--dry-run` prints the finds without saving them. The agent appends each new tool to `lib/domain/discovered.json`, and the Tools page lists it as waiting for a person to check. Review the diff, then open a PR with it. Each run makes two model calls, which count against `AI_DAILY_CALL_CAP`.
 
 ### Run it with accounts, the way production does
 
