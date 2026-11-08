@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/ui/Toast";
 import { SAMPLE_BUSINESS } from "@/lib/domain/cases";
@@ -12,9 +13,11 @@ import { hvacShop } from "@/test/trades";
 // Module Overview
 // =============================================================================
 // What the Workflows page shows an owner: Anchored's plan waiting for a yes,
-// live once approved, or changed since; and one graph of the business's day
-// in stages, each workflow told as its steps with no path words. The page
-// reads a real in-memory store under a fixed session.
+// live once approved, or changed since; the drafts waiting for the owner's
+// OK, one tap from Approvals; a map with every job on it at once, where one
+// tap opens a job; and one graph of the business's day in stages, each
+// workflow told as its steps with no path words. The page reads a real
+// in-memory store under a fixed session.
 
 const SESSION = "owner-session";
 
@@ -37,6 +40,11 @@ function plan(): HTMLElement {
 /** The graph's entry for workflow `name`. */
 function job(name: string): HTMLElement {
   return screen.getByRole("listitem", { name });
+}
+
+/** The map's circle for the stage or job called `name`. */
+function circle(name: string): HTMLElement {
+  return within(screen.getByRole("group", { name: /^Map of / })).getByRole("button", { name: new RegExp(`^${name}\\.`) });
 }
 
 const SHOP: BusinessProfile = hvacShop();
@@ -126,6 +134,41 @@ describe("Workflows page", () => {
       "href",
       "/app/b/restaurant/tools?workflow=calls",
     );
+  });
+
+  it("puts the drafts waiting for the owner's OK above the map, each one tap from its card in Approvals", async () => {
+    await renderWorkflows(SAMPLE_BUSINESS.id);
+
+    expect(screen.getByRole("link", { name: "Review 2 drafts from Answer catering requests" })).toHaveAttribute(
+      "href",
+      "/app/b/restaurant/approvals#card-restaurant-catering",
+    );
+    expect(screen.getByRole("link", { name: "Review 1 draft from Draft your posts" })).toHaveAttribute(
+      "href",
+      "/app/b/restaurant/approvals#card-restaurant-posts",
+    );
+  });
+
+  it("shows every job on the map at once, and says which ones have a draft waiting", async () => {
+    await renderWorkflows(SAMPLE_BUSINESS.id);
+
+    for (const name of ["Getting customers", "Lead follow-up", "Answer and return calls", "Staff scheduling"]) {
+      expect(circle(name)).toBeInTheDocument();
+    }
+    expect(circle("Catering and events")).toHaveAccessibleName("Catering and events. 2 drafts for your OK");
+    expect(circle("Answer and return calls")).toHaveAccessibleName("Answer and return calls. Certus");
+  });
+
+  it("opens a job's drafts, automations and who else could handle it with one tap", async () => {
+    const user = userEvent.setup();
+    await renderWorkflows(SAMPLE_BUSINESS.id);
+    await user.click(circle("Catering and events"));
+
+    const details = screen.getByRole("complementary", { name: "Details" });
+    expect(within(details).getByRole("heading", { name: "Catering and events" })).toBeInTheDocument();
+    expect(within(details).getByRole("link", { name: "Review 2 drafts" })).toHaveAttribute("href", "/app/b/restaurant/approvals#card-restaurant-catering");
+    expect(within(details).getByRole("link", { name: /^Answer catering requests/ })).toHaveAttribute("href", "/app/b/restaurant/workflows/catering/catering");
+    expect(within(details).getByRole("list", { name: "Who could handle Catering and events" })).toBeInTheDocument();
   });
 
   it("never shows the path stamps or their words", async () => {
