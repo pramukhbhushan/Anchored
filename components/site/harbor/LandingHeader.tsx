@@ -10,7 +10,8 @@ import type { Viewer } from "@/lib/auth/viewer";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The landing page's header: section links, a light and dark toggle, Log in
+// The landing page's header: links to How it works, What it does, Pricing
+// and Questions, a light and dark toggle, Log in
 // and Get started. Get started opens chat onboarding at `/app/new`; with
 // accounts on, the middleware sends signed-out visitors to sign in first.
 // The toggle sets `data-theme` on <html> and remembers it in localStorage
@@ -75,10 +76,10 @@ export function LandingHeader({ authEnabled, viewer }: { readonly authEnabled: b
           Anchored
         </Link>
         <nav className={styles.links} aria-label="Sections">
-          <a href="#product">Product</a>
-          <a href="#agents">Agents</a>
-          <a href="#how">How it works</a>
-          <Link href="/built">How it&apos;s built</Link>
+          <a href="#the-text">How it works</a>
+          <a href="#jobs">What it does</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#questions">Questions</a>
         </nav>
         <div className={styles.act}>
           <ThemeToggle />

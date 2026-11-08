@@ -19,15 +19,6 @@ export const BOAT_SYMBOL: Readonly<Record<CoreAgentId, string>> = {
   internal: "boat-internal",
 };
 
-/** The kind of boat each agent is drawn as. */
-export const BOAT_KIND: Readonly<Record<CoreAgentId, string>> = {
-  frontdesk: "Harbor launch",
-  followup: "Sloop",
-  books: "Cargo barge",
-  content: "Catamaran",
-  internal: "Lighthouse tender",
-};
-
 /** The pennant color token for each agent. */
 export function pennant(id: CoreAgentId): string {
   return `var(--p-${id})`;
