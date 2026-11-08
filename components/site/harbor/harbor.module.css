@@ -73,7 +73,7 @@
 .theme:hover{border-color:var(--ink)}
 .theme svg{width:18px;height:18px}
 @media (max-width:860px){.links{display:none}.act{margin-left:auto}}
-@media (max-width:440px){.act .text{display:none}.word{font-size:19px}}
+@media (max-width:440px){.act .text{display:none}.word{font-size:19px}.act{gap:4px;min-width:0}.theme{display:none}}
 
 /* ---------- Hero ---------- */
 .scene{position:relative;height:260vh}

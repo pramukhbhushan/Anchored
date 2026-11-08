@@ -98,7 +98,7 @@ function nodesOf(businessName: string, stages: readonly MapStage[]): MapNode[] {
   ];
   for (const stage of stages) {
     const w = waitingOf(stage.jobs);
-    out.push({ id: `s:${stage.id}`, type: "stage", parent: "hq", label: stage.name, sub: plural(stage.jobs.length, "job") + (w > 0 ? ` · ${w} need${w === 1 ? "s" : ""} your OK` : ""),
+    out.push({ id: `s:${stage.id}`, type: "stage", parent: "hq", label: stage.name, sub: plural(stage.jobs.length, "job") + (w > 0 ? ` · ${plural(w, "message")} wait${w === 1 ? "s" : ""} for your OK` : ""),
       wait: false, kind: null, icon: STAGE_ICON[stage.id], ring: STAGE_RING[stage.id], stage, tip: `${stage.blurb}. Tap to see the jobs in this part.` });
     for (const job of stage.jobs) {
       const jw = waitingOf([job]);

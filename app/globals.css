@@ -546,6 +546,7 @@ html[data-dev] .side-foot{padding-bottom:64px}
 
 /* ---------- profile ---------- */
 .prof{padding:0;overflow:hidden}
+.prof > .panel-head{padding:var(--s-5) var(--pad) var(--s-3)}
 .prof-head{padding:var(--s-5) var(--pad) var(--s-4);border-bottom:1px solid var(--line)}
 .prof-head h2{font-size:var(--fs-xl);font-weight:800}
 .prof-line{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:8px;color:var(--ink-2);font-size:var(--fs-md)}
