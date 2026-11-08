@@ -31,7 +31,7 @@ const FORMATS: Readonly<Record<FieldKey, string>> = {
   ownerName: "the owner's first name only",
   vocabulary: "four words in the business's own terms, split by \" / \": what they call a customer / one piece of work / a price / a booking",
   hours: "the opening hours as written, under 160 characters",
-  pricingMethod: "one of: menu, hourly, quote, packages",
+  pricingMethod: "one of: menu (set prices for each item), hourly, quote, packages. Only when the source says how it prices, never from a list of prices",
   prices: "each item and its price as \"Item $40\" or \"Item $90 to $120\", items split by \"; \"",
   priceDrivers: "what makes a price go up or down, items split by \"; \"",
   minimumCharge: "the minimum charge as \"$75\", or \"none\"",
@@ -45,6 +45,9 @@ const FORMATS: Readonly<Record<FieldKey, string>> = {
 };
 
 const MAX_SOURCE_CHARS = 8000;
+
+// Fields whose value is one of a few choices. The rules must read the same choice from the quote itself.
+const STATED_CHOICES: readonly FieldKey[] = ["pricingMethod", "nextStep", "reminderFirmness"];
 
 /** Collapse whitespace and fold case, so a quote matches the source however the model spaced it. */
 function folded(text: string): string {
@@ -93,6 +96,8 @@ export function validFacts(raw: z.infer<typeof extractionSchema>, sourceType: So
     if (quote === "" || !source.includes(folded(quote))) continue;
     const value = parseDetail(key, fact.value);
     if (value === undefined) continue;
+    // A choice from a fixed set must be in the source's own words; otherwise the model inferred it, as "menu" from a price list.
+    if (STATED_CHOICES.includes(key) && JSON.stringify(parseDetail(key, quote)) !== JSON.stringify(value)) continue;
     seen.add(key);
     found.push({ key, value, sourceType, quote: quote.slice(0, 240), confidence: fact.confidence } as DetailCandidate);
   }

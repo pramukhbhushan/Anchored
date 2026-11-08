@@ -1,5 +1,5 @@
 import { FIELD_KEYS, FIELDS, fieldsFor, isFilled } from "@/lib/domain/fields";
-import type { CoreAgentId, FieldEvidence, FieldKey, NextStep, PriceItem, ProfileDetails, SourceType, TradeKey, Vocabulary } from "@/lib/domain/types";
+import type { BusinessProfile, CoreAgentId, FieldEvidence, FieldKey, NextStep, PriceItem, ProfileDetails, SourceType, TradeKey, Vocabulary } from "@/lib/domain/types";
 
 // =============================================================================
 // Module Overview
@@ -169,7 +169,7 @@ const STEP_TEXT: Readonly<Record<NextStep["step"], string>> = {
 };
 
 const METHOD_TEXT: Readonly<Record<NonNullable<ProfileDetails["pricingMethod"]>, string>> = {
-  menu: "a set menu",
+  menu: "set prices",
   hourly: "by the hour",
   quote: "a quote for each request",
   packages: "packages",
@@ -296,11 +296,56 @@ function term(text: string): string {
   return bare.length > 3 && bare.endsWith("s") && !bare.endsWith("ss") ? bare.slice(0, -1) : bare;
 }
 
+// Words that make a part a sentence, not a term: "mostly", "but we call", "not a visit".
+const NOT_A_TERM = /\b(?:yes|no|not|mostly|but|we|i|our|is|are|it|that|this|right|wrong|actually|instead|really|some|just)\b/i;
+
+/** A clean list of terms, read by position: "homeowners / service call / estimate / visit". Anything sentence-like reads nothing. */
 function readVocabulary(text: string): Vocabulary | undefined {
-  const parts = text.split(/\s*\/\s*|,\s*(?:and\s+)?|\s+and\s+/i).map(term).filter((part) => part !== "" && part.length <= 40);
+  const raw = text.split(/\s*\/\s*|,\s*(?:and\s+)?|\s+and\s+/i).filter((part) => part.trim() !== "");
+  if (raw.some((part) => NOT_A_TERM.test(part) || part.trim().split(/\s+/).length > 3)) return undefined;
+  const parts = raw.map(term).filter((part) => part !== "" && part.length <= 40);
   const [customer, workUnit, priceTerm, bookingTerm] = parts;
   if (customer === undefined || workUnit === undefined) return undefined;
   return { customer, workUnit, priceTerm: priceTerm ?? "price", bookingTerm: bookingTerm ?? "booking" };
+}
+
+// The words an owner uses to name each term when correcting it.
+const ROLE_WORDS: Readonly<Record<keyof Vocabulary, string>> = {
+  customer: "customers?|clients?|guests?",
+  workUnit: "work|jobs?|orders?",
+  priceTerm: "prices?|costs?",
+  bookingTerm: "bookings?|appointments?|reservations?",
+};
+
+function escaped(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Apply a correction to the words already held: "we call a booking a service call" changes only the booking term.
+ * A clean list replaces them all. Returns `undefined` when no term can be mapped, so the old words stay.
+ */
+export function correctVocabulary(current: Vocabulary, text: string): Vocabulary | undefined {
+  const clean = text.replace(/\s+/g, " ").trim();
+  const list = readVocabulary(clean);
+  if (list !== undefined) return list;
+  const end = "(?=\\s*[,.;!?]|\\s+(?:not|instead|and|but|rather)\\b|$)";
+  const next: Record<keyof Vocabulary, string> = { ...current };
+  let changed = false;
+  for (const role of Object.keys(ROLE_WORDS) as (keyof Vocabulary)[]) {
+    const names = `(?:${ROLE_WORDS[role]}|${escaped(current[role])}s?)`;
+    const patterns = [
+      new RegExp(`\\bcall\\s+(?:(?:a|an|the|our)\\s+)?${names}\\s+(?:(?:a|an)\\s+)?([a-z][a-z' -]{1,30}?)${end}`, "i"),
+      new RegExp(`\\b${names}\\s+(?:is|are)\\s+(?:called\\s+)?(?:(?:a|an)\\s+)?([a-z][a-z' -]{1,30}?)${end}`, "i"),
+    ];
+    const found = patterns.map((pattern) => pattern.exec(clean)?.[1]).find((value) => value !== undefined);
+    if (found === undefined) continue;
+    const word = term(found);
+    if (word === "" || NOT_A_TERM.test(word)) continue;
+    next[role] = word;
+    changed = true;
+  }
+  return changed ? next : undefined;
 }
 
 /** Read one field's value from words, or `undefined` when the words don't give one. */
@@ -354,6 +399,31 @@ export function parseDetail<K extends FieldKey>(key: K, text: string): ProfileDe
   return read as ProfileDetails[K];
 }
 
+// Words that look like a name in a greeting but aren't the owner's.
+const NOT_A_NAME = /^(?:Hi|Hey|Hello|Thanks|Thank|Dear|Mr|Mrs|Ms|Dr|Good|See|We|I|The|Our|Sorry|Sure|Yes|No)$/;
+
+/** The owner's first name from a reply they sent, when they sign it: "Mike from Brightwater here", "Thanks, Dana". */
+export function nameFromSample(text: string): string | undefined {
+  const clean = text.replace(/\s+/g, " ").trim();
+  const found = [
+    /\b([A-Z][a-z'-]{1,29}) (?:from|at|with|over at|here at) [A-Z]/.exec(clean)?.[1],
+    /\b(?:thanks|thank you|cheers|best|regards|talk soon|see you soon)[,!.]?\s+([A-Z][a-z'-]{1,29})[.!]?$/i.exec(clean)?.[1],
+    /(?:^|\s)[-~]\s*([A-Z][a-z'-]{1,29})[.!]?$/.exec(clean)?.[1],
+    /(?:my name is|i'm|i am|this is) ([A-Z][a-z'-]{1,29})\b/.exec(clean)?.[1],
+  ].find((name) => name !== undefined && !NOT_A_NAME.test(name));
+  return found;
+}
+
+/** The owner's own words for drafts to sound like: the reply they pasted, else the voice line on their profile. */
+export function voiceSample(business: Pick<BusinessProfile, "voice" | "details">): string {
+  return business.details?.examples?.find((example) => example.text.trim() !== "")?.text ?? business.voice;
+}
+
+/** The owner's first name: the one they gave, else the one their sample signs, else `undefined`. */
+export function ownerFirstName(business: Pick<BusinessProfile, "voice" | "details">): string | undefined {
+  return business.details?.ownerName ?? nameFromSample(voiceSample(business));
+}
+
 /** A candidate for `key` read from `text`, or `null`. The quote is the whole text, cut to a readable length. */
 export function candidateFor(key: FieldKey, text: string, sourceType: SourceType, confidence: Confidence): DetailCandidate | null {
   const value = parseDetail(key, text);
@@ -382,9 +452,13 @@ const TRADE_VOCABULARY: Readonly<Partial<Record<TradeKey, Vocabulary>>> = {
   coach: { customer: "client", workUnit: "session", priceTerm: "rate", bookingTerm: "session" },
 };
 
+// Only a sit-down place has guests and reservations. A bakery, cafe or food truck takes orders.
+const SIT_DOWN = /\b(?:restaurants?|diners?|bistros?|dining|steakhouse|trattoria|grill)\b/i;
+const TAKEOUT_VOCABULARY: Vocabulary = { customer: "customer", workUnit: "order", priceTerm: "price", bookingTerm: "order" };
+
 /** A low-confidence vocabulary guess from the kind of business the owner named, or `null` for a kind with no usual words. */
 export function vocabularyGuess(tradeKey: TradeKey, kindAnswer: string): DetailCandidate | null {
-  const value = TRADE_VOCABULARY[tradeKey];
+  const value = tradeKey === "restaurant" && !SIT_DOWN.test(kindAnswer) ? TAKEOUT_VOCABULARY : TRADE_VOCABULARY[tradeKey];
   return value ? { key: "vocabulary", value, sourceType: "owner", quote: kindAnswer.slice(0, 120), confidence: "low" } : null;
 }
 

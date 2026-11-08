@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { ConnectionsPanel } from "@/components/connections/ConnectionsPanel";
 import { ContactsList } from "@/components/connections/ContactsList";
+import styles from "@/components/connections/connections.module.css";
 import { NEW_BUSINESS_HREF } from "@/components/routes";
 import { PageHeader, SectionHeader } from "@/components/ui/PageHeader";
 import { appBaseUrl, connectionsResponse } from "@/lib/server/connections";
@@ -38,7 +39,7 @@ export default async function ConnectionsPage({ params }: { readonly params: Pro
           connections={data.connections}
         />
       </section>
-      <section className="section" aria-labelledby="customers">
+      <section className={`section ${styles.customers}`} aria-labelledby="customers">
         <SectionHeader id="customers" title="Customers" />
         <ContactsList businessId={business.id} canChange={data.blocked === null} contacts={data.contacts} />
       </section>

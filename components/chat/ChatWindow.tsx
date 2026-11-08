@@ -11,7 +11,7 @@ import { businessHref, cardAnchor, NEW_BUSINESS_HREF } from "@/components/routes
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { GENERIC_STARTERS } from "@/components/chat/starters";
 import type { BusinessChatResponse, CardStatus, ChatCardLink, ChatMessage, IntakeAnswerRequest, IntakeResponse, StartIntakeResponse } from "@/lib/api/contract";
-import { answerText, CHANGE_AREA_LABEL, type IntakeQuestion, type KnownFact, type ProfileChange } from "@/lib/domain/intake";
+import { answerText, CHANGE_AREA_LABEL, INTAKE_FIELDS, type IntakeQuestion, type KnownFact, type ProfileChange } from "@/lib/domain/intake";
 import styles from "./chat.module.css";
 
 // =============================================================================
@@ -673,8 +673,10 @@ function KnowsCard({
 }) {
   const [open, setOpen] = useState(false);
   const listId = useId();
-  const answered = known.filter((fact) => fact.state !== "open").length;
-  const progress = known.length > 0 ? `${answered} of ${known.length}` : "";
+  // Progress counts the planned questions only. Details found along the way show in the list but never move the total.
+  const planned = known.filter((fact) => INTAKE_FIELDS.some((field) => field === fact.field));
+  const answered = planned.filter((fact) => fact.state !== "open").length;
+  const progress = planned.length > 0 ? `${answered} of ${planned.length}` : "";
   return (
     <aside className={styles.knows} aria-label="What Anchored knows" data-open={open || undefined}>
       <div className={styles.knowsHead}>
@@ -687,7 +689,7 @@ function KnowsCard({
         <ChevronDown size={18} strokeWidth={2.2} aria-hidden="true" />
       </button>
       <ol className={styles.meter} aria-hidden="true">
-        {known.map((fact) => (
+        {planned.map((fact) => (
           <li key={fact.field} data-state={fact.state} />
         ))}
       </ol>
