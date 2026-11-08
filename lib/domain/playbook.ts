@@ -83,7 +83,7 @@ export interface PlatformRule {
 export const PLATFORM_RULES: Readonly<Record<PostPlatform, PlatformRule>> = {
   instagram: { label: "Instagram", minHashtags: 3, maxHashtags: 8, maxChars: 2200, tone: "Short, warm and visual. A hook line, two to four short lines, one call to action, then hashtags." },
   facebook: { label: "Facebook", minHashtags: 2, maxHashtags: 4, maxChars: 2000, tone: "Friendly and neighborly, like talking to locals. A hook line, a short paragraph, one call to action, then hashtags." },
-  linkedin: { label: "LinkedIn", minHashtags: 3, maxHashtags: 5, maxChars: 3000, tone: "Professional and reflective. A hook line, a short story, what it shows about the work, a question or call to action, then hashtags." },
+  linkedin: { label: "LinkedIn", minHashtags: 3, maxHashtags: 5, maxChars: 3000, tone: "Professional but plain, like a business owner posting about their week. A hook line, what happened in two or three short paragraphs, one line inviting people to get in touch, then hashtags." },
 };
 
 /** The stable id of a hashtag row in `post_hashtags`: its tag, trade word and niches. */

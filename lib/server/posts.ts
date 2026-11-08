@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { findPlaceholder } from "@/lib/domain/executor";
 import { PLATFORM_RULES, POST_PLATFORMS, checkHashtags, type PostPlatform, type PostPlaybook } from "@/lib/domain/playbook";
-import { hasBlanks, planPost, ruleCaption, unbackedClaims, type CaptionSource, type PlatformPlan, type PostDraft, type PostPhoto, type PostPlan } from "@/lib/domain/posts";
+import { aiTells, hasBlanks, planPost, ruleCaption, unbackedClaims, type CaptionSource, type PlatformPlan, type PostDraft, type PostPhoto, type PostPlan } from "@/lib/domain/posts";
 import type { BusinessProfile } from "@/lib/domain/types";
 import type { LlmProvider } from "@/lib/llm";
 import { newFacts } from "@/lib/server/ai";
@@ -45,6 +45,8 @@ export function captionProblem(caption: string, plan: PlatformPlan, source: stri
   if (added.length > 0) return `it added details the owner didn't give: ${added.join(", ")}`;
   const claims = unbackedClaims(source, text);
   if (claims.length > 0) return `it claims ${claims.join(" and ")} the owner never stated`;
+  const tells = aiTells(text);
+  if (tells.length > 0) return `it sounds machine-written: ${tells.join(", ")}`;
   return null;
 }
 
@@ -124,6 +126,17 @@ Rules for every caption:
 - Write in plain, warm words like a proud small business owner. No emojis beyond one or two, no em dashes.
 - Never leave a {blank} or [placeholder].
 - Put a blank line between the hook, the body, the call to action and the hashtags.
+
+Write like a real person, not an AI:
+- Sound like the owner texting a neighbor about their day. Plain words, contractions, short sentences mixed with longer ones.
+- Say each fact once. Don't repeat the same detail in two sentences, and don't call the work plain, simple or small.
+- Use the concrete nouns from the owner's description. One specific detail beats three adjectives.
+- Never use: testament, elevate, delve, journey, passion, dedicated, crafted, seamless, unlock, vibrant, bustling, nestled, game-changer, "look no further", "in today's world", "whether you're", "every step of the way", "we take pride", "truly".
+- No "it's not just X, it's Y" or "more than just" lines.
+- No lists of three ("fast, friendly and reliable") and no stacked fragments ("Real work. Real results.").
+- No moral or lesson at the end ("Jobs like this remind us why we do it"), no summary of what was just said, and no big claims about what the work means.
+- No headline-style colons ("What it shows about our work:") and no rhetorical questions just to get comments.
+- At most one exclamation mark per caption.
 - Open each platform with a different hook, so the three captions don't start the same way.
 - Never mention the format, the photos' order or "swiping" on LinkedIn; just tell the story.
 
@@ -131,5 +144,5 @@ ${POST_PLATFORMS.map(platformBlock).join("\n\n")}
 
 Also write "slides": ${photoCount < 2 ? "an empty list, since there is one photo." : `exactly ${photoCount} short lines, one per photo in order, each under ${SLIDE_MAX} characters, following the Instagram format's beats, with no hashtags.`}
 
-Instagram and Facebook may share wording, but each must follow its own hashtag range. Keep Instagram under 80 words and Facebook under 100, not counting hashtags. LinkedIn should be more professional and run 100 to 180 words.`;
+Instagram and Facebook may share wording, but each must follow its own hashtag range. Keep Instagram under 80 words and Facebook under 100, not counting hashtags. LinkedIn should be more professional and run 80 to 150 words.`;
 }

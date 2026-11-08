@@ -50,6 +50,7 @@ describe("writePost", () => {
     ["a hashtag nobody offered", { linkedin: "A furnace replacement. #HVAC #CollegePark #BestHVACEver" }],
     ["too few hashtags", { linkedin: "A furnace replacement. #HVAC" }],
     ["an unfilled hook blank", { linkedin: "{The project} taught me a lot. #HVAC #CollegePark #SmallBusiness" }],
+    ["a machine-sounding phrase", { linkedin: "This furnace is a testament to our crew. #HVAC #CollegePark #SmallBusiness" }],
     ["an award the owner never mentioned", { linkedin: "Our award-winning crew did a furnace replacement. #HVAC #CollegePark #SmallBusiness" }],
   ])("refuses a caption with %s", async (_label, change) => {
     const post = await writePost(fakeLlm({ ...GOOD, ...change }), PLAYBOOK_SEED, hvac, description, photos);

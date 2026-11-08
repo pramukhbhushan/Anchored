@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { profileFromFacts } from "./engine";
 import { POST_PLATFORMS, checkHashtags } from "./playbook";
 import { PLAYBOOK_SEED } from "./playbook-seed";
-import { hasBlanks, planPost, ruleCaption, unbackedClaims } from "./posts";
+import { aiTells, hasBlanks, planPost, ruleCaption, unbackedClaims } from "./posts";
 
 const hvac = profileFromFacts({ name: "College Park Heating & Air", trade: "HVAC", tradeKey: "home", place: "College Park, MD", reach: ["Phone calls"], tools: [], signals: [] });
 const bakery = profileFromFacts({ name: "Rise Bakery", trade: "bakery", tradeKey: "restaurant", place: "Hyattsville, MD", reach: ["Walk-ins"], tools: [], signals: [] });
@@ -62,5 +62,16 @@ describe("unbackedClaims", () => {
   it("allows a claim the owner made, ordinary words, and hashtags", () => {
     expect(unbackedClaims("we're licensed and insured", "Licensed and insured, as always.")).toEqual([]);
     expect(unbackedClaims("new furnace", "We did our best work here. #BestInTown")).toEqual([]);
+  });
+});
+
+describe("aiTells", () => {
+  it("finds machine-sounding phrases", () => {
+    expect(aiTells("This furnace is a testament to our work. It's not just a repair, it's a fresh start.")).toEqual(["testament to", "It's not just"]);
+    expect(aiTells("Nestled in College Park, we elevate your comfort.")).toEqual(["elevate", "Nestled"]);
+  });
+
+  it("leaves plain writing alone", () => {
+    expect(aiTells("Swapped out a rusted furnace in a 1950s house today. Message us if yours is making noise.")).toEqual([]);
   });
 });

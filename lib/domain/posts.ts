@@ -131,6 +131,32 @@ const CLAIMS: readonly { readonly label: string; readonly pattern: RegExp }[] = 
   { label: "a deal", pattern: /\b(?:discount|free|% off|percent off|sale|coupon|deal)\b/i },
 ];
 
+// Phrases that mark a caption as machine-written. The prompt asks the model to avoid them; code refuses the worst.
+const AI_TELLS: readonly RegExp[] = [
+  /\btestament to\b/i,
+  /\belevat(?:e|es|ed|ing)\b/i,
+  /\bdelv(?:e|es|ing)\b/i,
+  /\bgame[- ]changer\b/i,
+  /\bnestled\b/i,
+  /\blook no further\b/i,
+  /\bunlock(?:s|ing)?\b/i,
+  /\bseamless(?:ly)?\b/i,
+  /\bin today's\b/i,
+  /\blet's dive\b|\bdive in(?:to)?\b/i,
+  /\b(?:it's|it is|this is|we're|we are) (?:not just|more than just)\b/i,
+  /\bmore than just\b/i,
+  /\bwhether you're\b/i,
+  /\bembark\b/i,
+  /\btapestry\b/i,
+  /\bbustling\b/i,
+  /\bvibrant\b/i,
+];
+
+/** List the machine-sounding phrases in `caption`, as found. */
+export function aiTells(caption: string): string[] {
+  return AI_TELLS.flatMap((pattern) => caption.match(pattern)?.[0] ?? []);
+}
+
 /** List the claims `caption` makes that `source`, the owner's own words, doesn't. */
 export function unbackedClaims(source: string, caption: string): string[] {
   const body = caption.replace(/#[A-Za-z0-9_]+/g, "");
