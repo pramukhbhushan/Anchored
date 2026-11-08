@@ -66,6 +66,16 @@ You need Node.js 26, the version in `.nvmrc`.
 
 With no keys set, Anchored keeps data in memory and maps businesses with its own rules. Data resets when the server restarts.
 
+### Run it with accounts, the way production does
+
+Sign in, sign out and saved data need Supabase. To run it on your machine with Docker running and the Supabase CLI installed (`brew install supabase/tap/supabase`):
+
+```bash
+supabase start
+```
+
+It applies every migration in `supabase/migrations/` and serves the auth email inbox at http://127.0.0.1:54324. `supabase/config.toml` already allows `http://localhost:3000` and guest sign-in. Copy the values it prints into `.env.local`: `API URL` into `NEXT_PUBLIC_SUPABASE_URL`, the anon or publishable key into `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and the service role or secret key into `SUPABASE_SERVICE_ROLE_KEY`. Then restart `npm run dev`. A sign-in link lands in that inbox; open it in the same browser. `supabase stop` shuts it down.
+
 ## Environment variables
 
 Every variable is optional for `npm run dev`. `.env.example` lists them all with empty values.

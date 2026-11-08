@@ -59,7 +59,7 @@ describe("CompareBoard", () => {
     const jobber = screen.getAllByRole("article")[0];
     if (jobber === undefined) throw new Error("No tool cards");
     expect(jobber).toHaveTextContent("80");
-    expect(jobber).toHaveTextContent("Jobber price");
+    expect(jobber).toHaveTextContent("$100/mo");
   });
 
   it("shows tools built for other businesses when the owner asks", async () => {
