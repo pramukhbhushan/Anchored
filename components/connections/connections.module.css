@@ -58,13 +58,9 @@
 .lead{color:var(--ink-2);max-width:65ch}
 .empty{color:var(--muted)}
 
-/* The customers section is a centered column: its heading, text and button
-   centered, the add form's four fields across once there is room for them. */
-.customers{width:min(100%,960px);margin-inline:auto}
-.customers :global(.section-head){justify-content:center;text-align:center}
-.customers .lead,.customers .error{margin-inline:auto;text-align:center}
-.customers .empty{text-align:center}
-.customers .acts{justify-content:center}
+/* The customers section lines up with Services above it: left-aligned at full
+   width, the add form's four fields across once there is room for them. */
+.customers{min-width:0}
 .contactFields{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s-3)}
 @container app (min-width:520px){.contactFields{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @container app (min-width:900px){.contactFields{grid-template-columns:repeat(4,minmax(0,1fr))}}

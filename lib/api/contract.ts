@@ -75,6 +75,13 @@ export interface SetChoiceResponse {
   readonly choice: Choice;
 }
 
+/** POST /api/businesses/[id]/workflows: add a job the business doesn't have yet, and who handles it. */
+export type AddJobRequest = { readonly workflow: WorkflowId; readonly path: "turnon" | "buy"; readonly toolId: string } | { readonly workflow: WorkflowId; readonly path: "build" };
+export interface AddJobResponse {
+  readonly workflow: WorkflowId;
+  readonly choice: Choice;
+}
+
 /** PUT /api/businesses/[id]/plan: the owner says yes to the plan as it stands. */
 export interface ApprovePlanRequest {
   readonly approved: true;
