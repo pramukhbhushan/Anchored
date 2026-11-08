@@ -6,7 +6,7 @@ import { getStore } from "@/lib/store";
 // Module Overview
 // =============================================================================
 // A daily cap on model calls across every visitor and server instance, so a
-// public demo can't run up the provider bill. `getBudgetedLlm` wraps the
+// public deployment can't run up the provider bill. `getBudgetedLlm` wraps the
 // configured provider with `withDailyBudget`, which counts each call through
 // `Store.useAiCall` and throws `AiBudgetError` once the day's cap is spent.
 

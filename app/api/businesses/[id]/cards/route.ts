@@ -23,13 +23,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 }
 
-/** Add a simulated card from a chosen skill, then return the feed. */
+/** Add an example event's card from a chosen skill on the example business, then return the feed. */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const parsed = await readBody(request, simulateSchema);
   if (!parsed.ok) return parsed.response;
   try {
     const business = await findBusiness((await params).id);
-    if (!business) return fail(404, "Business not found. It may have been reset.");
+    if (!business) return fail(404, "Business not found. It may have been deleted.");
+    // Example events show a visitor how agents draft; an owner's own cards come from real events.
+    if (business.kind !== "case") return fail(409, "Example events run only on the example business.");
     const choices = await getChoices(business);
     if (chosenSkills(business, choices).length === 0) return fail(409, "No agents are working yet. Choose Build on a workflow first.");
     const { skill } = parsed.data;

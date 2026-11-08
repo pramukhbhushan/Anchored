@@ -15,7 +15,7 @@ describe("PageHeader", () => {
         title="Approvals"
         badge={<span>3 waiting</span>}
         description="Drafts your agents wrote for your OK."
-        actions={<button type="button">Simulate a new event</button>}
+        actions={<button type="button">Try an example event</button>}
       />,
     );
 
@@ -23,7 +23,7 @@ describe("PageHeader", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Approvals" })).toBeInTheDocument();
     expect(screen.getByText("3 waiting")).toBeInTheDocument();
     expect(screen.getByText("Drafts your agents wrote for your OK.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Simulate a new event" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try an example event" })).toBeInTheDocument();
   });
 
   it("keeps the same content in its compact form", () => {

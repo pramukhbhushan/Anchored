@@ -366,7 +366,7 @@ function clipAtWord(text: string, max: number): string {
 
 /** A fresh `b_` profile id that works in any browser context. */
 function freshProfileId(): string {
-  // Browsers expose `crypto.randomUUID` only on HTTPS or localhost, so a demo on a LAN address falls back.
+  // Browsers expose `crypto.randomUUID` only on HTTPS or localhost, so a dev server on a LAN address falls back.
   const webCrypto: Partial<Crypto> | undefined = globalThis.crypto;
   if (typeof webCrypto?.randomUUID === "function") return `b_${webCrypto.randomUUID()}`;
   if (typeof webCrypto?.getRandomValues === "function") {

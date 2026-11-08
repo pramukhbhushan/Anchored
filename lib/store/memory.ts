@@ -6,8 +6,8 @@ import { NotFoundError, type CardPatch, type ChatThread, type IntakeRecord, type
 // =============================================================================
 // Module Overview
 // =============================================================================
-// `MemoryStore` keeps every session's data in process memory. It lets the demo
-// run with no Supabase keys. Data lives only as long as the server process, and
+// `MemoryStore` keeps every session's data in process memory. It lets local
+// development and CI run with no Supabase keys. Data lives only as long as the server process, and
 // each serverless instance has its own copy, so production uses `SupabaseStore`.
 
 interface SessionData {
@@ -21,14 +21,14 @@ interface SessionData {
   readonly intakes: Map<string, IntakeRecord>;
 }
 
-// Past this many sessions the oldest is dropped, so a public demo on memory can't grow without bound.
+// Past this many sessions the oldest is dropped, so a server on memory can't grow without bound.
 const MAX_SESSIONS = 2000;
 
 function threadKey(thread: ChatThread): string {
   return `${thread.kind}:${thread.id}`;
 }
 
-/** In-process `Store` for local runs and keyless demos. */
+/** In-process `Store` for local runs and CI. */
 export class MemoryStore implements Store {
   readonly kind = "memory" as const;
   private readonly sessions = new Map<string, SessionData>();
@@ -38,7 +38,7 @@ export class MemoryStore implements Store {
   private data(session: string): SessionData {
     let found = this.sessions.get(session);
     if (!found) {
-      // Bound memory: a public demo can see many sessions, and each one only needs to last a visit.
+      // Bound memory: a server can see many sessions, and on memory each one only needs to last a visit.
       if (this.sessions.size >= MAX_SESSIONS) {
         const oldest = this.sessions.keys().next().value;
         if (oldest !== undefined) this.sessions.delete(oldest);

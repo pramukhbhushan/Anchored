@@ -1,6 +1,6 @@
 import "server-only";
 import type { CardRecord, DecideCardRequest, DecideCardResponse, OutboxEntry } from "@/lib/api/contract";
-import { checkSend, DEMO_TIME_ZONE, ensureOptOut, sendTimeText } from "@/lib/domain/executor";
+import { checkSend, OWNER_TIME_ZONE, ensureOptOut, sendTimeText } from "@/lib/domain/executor";
 import type { CardDraft } from "@/lib/domain/types";
 import type { Store } from "@/lib/store";
 
@@ -22,8 +22,8 @@ function nextAllowedHour(card: CardDraft, now: Date): Date | null {
   start.setUTCMinutes(0, 0, 0);
   for (let hours = 1; hours <= 24; hours += 1) {
     const candidate = new Date(start.getTime() + hours * HOUR_MS);
-    // Demo contacts are seeded with consent; real contacts carry a consent record from import.
-    if (checkSend(card, { now: candidate, timeZone: DEMO_TIME_ZONE, hasConsent: true }).ok) return candidate;
+    // Drafted contacts come with consent; once contacts are imported, each carries its own consent record.
+    if (checkSend(card, { now: candidate, timeZone: OWNER_TIME_ZONE, hasConsent: true }).ok) return candidate;
   }
   return null;
 }
@@ -60,7 +60,7 @@ export async function decideCard(store: Store, session: string, card: CardRecord
     return handled ? { ok: true, response: { card: handled } } : ALREADY_DECIDED;
   }
 
-  const check = checkSend(draft, { now, timeZone: DEMO_TIME_ZONE, hasConsent: true });
+  const check = checkSend(draft, { now, timeZone: OWNER_TIME_ZONE, hasConsent: true });
   if (check.ok) {
     const approved = await store.updatePendingCard(session, card.id, { status: "approved", body, edited, decidedAt });
     if (!approved) return ALREADY_DECIDED;
