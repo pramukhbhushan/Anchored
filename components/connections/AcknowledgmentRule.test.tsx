@@ -16,7 +16,7 @@ describe("AcknowledgmentRule", () => {
   it("shows the exact acknowledgment before asking for approval", () => {
     render(<AcknowledgmentRule businessId="shop" businessName="Greenfield Lawn" state={OFF} save={vi.fn()} />);
     expect(screen.getByText("Thanks, Greenfield Lawn got your message and will reply soon.")).toBeInTheDocument();
-    expect(screen.getByText(/Quiet hours and stop requests still apply/)).toBeInTheDocument();
+    expect(screen.getByText(/never goes to a customer who sent \/stop/)).toBeInTheDocument();
     expect(screen.getByRole("checkbox")).not.toBeChecked();
     expect(screen.getByText("Right now: Off")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();

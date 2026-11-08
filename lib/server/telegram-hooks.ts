@@ -166,8 +166,7 @@ async function text(chatId: string, name: string | null, body: string, updateId:
   if ((await draftTelegramCard(chat.session, business, { contactId: contact.id, text: body, key })) === null) return "ignored";
   if (!mentionsAllergen(body) && contact.optedOutAt === null) {
     const ack = await queueAcknowledgment(store, chat.session, { business, contact, at: now });
-    // Due now unless quiet hours held it for morning, when the scheduled sender takes it.
-    if (ack !== null && ack.sentAt <= now.toISOString()) await dispatchEntry(store, chat.session, ack.id, now, deps);
+    if (ack !== null) await dispatchEntry(store, chat.session, ack.id, now, deps);
   }
   return "drafted";
 }

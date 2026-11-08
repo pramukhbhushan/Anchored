@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CardRecord } from "@/lib/api/contract";
-import { decideCard } from "@/lib/server/decide";
+import { decideCard, queueAcknowledgment } from "@/lib/server/decide";
 import { dispatchEntry } from "@/lib/server/dispatch";
 import { MemoryStore } from "@/lib/store/memory";
 import { hvacShop } from "@/test/trades";
@@ -144,6 +144,9 @@ describe("/start", () => {
 });
 
 describe("a customer's message", () => {
+  // The acknowledgment has its own tests below; off here, each test sees only what it covers.
+  beforeEach(() => store().setStandingRule(SESSION, SHOP.id, "acknowledge", false, DAYTIME.toISOString()));
+
   it("joins their thread and becomes one reply card for the owner, with no AI set up", async () => {
     await post(message(1004, `/start ${HOOK}`));
     await post(message(1004, "Do you do weekend furnace tune-ups?"));
@@ -212,6 +215,9 @@ describe("a customer's message", () => {
 });
 
 describe("approving a reply", () => {
+  // The acknowledgment has its own tests below; off here, each test sees only what it covers.
+  beforeEach(() => store().setStandingRule(SESSION, SHOP.id, "acknowledge", false, DAYTIME.toISOString()));
+
   it("queues it for the customer and sends it into their chat, then adds it to the thread", async () => {
     await post(message(1010, `/start ${HOOK}`));
     await post(message(1010, "Do you service heat pumps?"));
@@ -230,15 +236,16 @@ describe("approving a reply", () => {
     expect(thread[2]).toMatchObject({ skill: "inquiry", cardKey: card.key, outboxId: entry.id, providerId: "101" });
   });
 
-  it("waits for morning when approved in quiet hours", async () => {
+  it("goes out the moment it's approved, even late at night", async () => {
     await post(message(1011, `/start ${HOOK}`));
     await post(message(1011, "Do you service heat pumps?"));
     const [card] = (await cards()).filter((c) => c.channel === "telegram");
     if (card === undefined) throw new Error("test setup: no card");
-    // 11 p.m. in New York.
-    const decided = await decideCard(store(), SESSION, card, { decision: "approve" }, new Date("2026-11-09T04:00:00Z"));
-    expect(decided.ok && decided.response.blocked).toContain("Quiet hours: messages wait until 8 a.m.");
-    expect(decided.ok && decided.response.outbox?.sentAt).toBe("2026-11-09T13:00:00.000Z");
+    // 11 p.m. in New York: quiet hours hold texts, never a Telegram reply.
+    const lateNight = new Date("2026-11-09T04:00:00Z");
+    const decided = await decideCard(store(), SESSION, card, { decision: "approve" }, lateNight);
+    expect(decided.ok && decided.response.blocked).toBeFalsy();
+    expect(decided.ok && decided.response.outbox?.sentAt).toBe(lateNight.toISOString());
   });
 });
 
@@ -376,32 +383,39 @@ describe("the acknowledgment rule", () => {
     expect(await acks()).toEqual([]);
   });
 
-  it("waits for morning in quiet hours, and turning the rule off cancels it", async () => {
-    await setRule(true);
-    // 11 p.m. in New York.
+  it("goes out at once even late at night", async () => {
+    // 11 p.m. in New York: quiet hours hold texts, never a Telegram reply.
     vi.setSystemTime(new Date("2026-11-09T04:00:00Z"));
     await post(message(1104, `/start ${HOOK}`));
     telegram.reset();
     await post(message(1104, "Are you open tomorrow?"));
-    const [queued] = await acks();
-    expect(queued).toMatchObject({ delivery: "queued", sentAt: "2026-11-09T13:00:00.000Z" });
-    expect(telegram.calls).toEqual([]);
+    expect((await acks())[0]).toMatchObject({ delivery: "sent" });
+    expect(telegram.calls).toEqual([{ method: "sendMessage", body: expect.objectContaining({ text: `Thanks, ${SHOP.name} got your message and will reply soon.` }) }]);
+  });
 
+  /** Queue an acknowledgment for the chat's customer without sending it, as when Telegram asked us to retry later. */
+  async function queuedAck(chatId: number) {
+    await post(message(chatId, `/start ${HOOK}`));
+    const [contact] = await store().listContacts(SESSION, SHOP.id);
+    if (contact === undefined) throw new Error("test setup: no contact");
+    const entry = await queueAcknowledgment(store(), SESSION, { business: SHOP, contact, at: DAYTIME });
+    if (entry === null) throw new Error("test setup: nothing queued");
+    return entry;
+  }
+
+  it("turning the rule off cancels one still waiting to send", async () => {
+    await queuedAck(1106);
     const { setAcknowledgment } = await import("@/lib/server/standing-rules");
     await setAcknowledgment(SESSION, SHOP, false);
     expect((await acks())[0]).toMatchObject({ delivery: "failed", note: expect.stringContaining("turned off") });
   });
 
   it("isn't sent when the rule was turned off after it was queued", async () => {
-    await setRule(true);
-    vi.setSystemTime(new Date("2026-11-09T04:00:00Z"));
-    await post(message(1105, `/start ${HOOK}`));
-    await post(message(1105, "Are you open tomorrow?"));
+    const queued = await queuedAck(1105);
     // Turned off behind the API's back, so only the dispatcher's own check stands in the way.
     await store().setStandingRule(SESSION, SHOP.id, "acknowledge", false, DAYTIME.toISOString());
     telegram.reset();
-    const [queued] = await acks();
-    expect(await dispatchEntry(store(), SESSION, queued?.id ?? "", DAYTIME, { fetch: telegram.fetch.bind(telegram), env: ENV })).toBe("failed");
+    expect(await dispatchEntry(store(), SESSION, queued.id, DAYTIME, { fetch: telegram.fetch.bind(telegram), env: ENV })).toBe("failed");
     expect(telegram.calls).toEqual([]);
   });
 });

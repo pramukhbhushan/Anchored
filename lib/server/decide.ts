@@ -130,7 +130,7 @@ export async function decideCard(store: Store, session: string, card: CardRecord
 
 /**
  * Queue the fixed acknowledgment for a customer's Telegram message when the owner turned the `acknowledge` rule on.
- * At most one per customer per window, held for morning in quiet hours. Returns `null` when nothing was queued: the
+ * At most one per customer per window, sent at once. Returns `null` when nothing was queued: the
  * rule is off, one already went out in this window, or the rules refuse it.
  */
 export async function queueAcknowledgment(
@@ -143,9 +143,7 @@ export async function queueAcknowledgment(
   const body = acknowledgmentText(business.name);
   const draft: CardDraft = { agent: null, skill: null, title: "", body, reason: "", checks: [], action: "", channel: "telegram" };
   const check = checkSend(draft, { now: at, timeZone: OWNER_TIME_ZONE, hasConsent: contact.consent !== null });
-  // Only quiet hours delay it; any other refusal means no acknowledgment at all.
-  const sendAt = check.ok ? at : check.reason.startsWith("Quiet hours") ? nextAllowedHour(draft, at) : null;
-  if (sendAt === null) return null;
+  if (!check.ok) return null;
   return store.addRuleOutbox(session, {
     businessId: business.id,
     cardId: null,
@@ -153,7 +151,7 @@ export async function queueAcknowledgment(
     to: contact.name,
     contactId: contact.id,
     body,
-    sentAt: sendAt.toISOString(),
+    sentAt: at.toISOString(),
     delivery: "queued",
     note: null,
     rule: "acknowledge",

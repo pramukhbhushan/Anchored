@@ -178,8 +178,8 @@ describe("checkSend for Telegram", () => {
     expect(checkSend(MESSAGE, DAYTIME)).toEqual({ ok: true });
   });
 
-  it("waits for morning in quiet hours", () => {
-    expect(checkSend(MESSAGE, { ...DAYTIME, now: NINE_PM_NEW_YORK })).toEqual({ ok: false, reason: "Quiet hours: messages wait until 8 a.m." });
+  it("sends at any hour, since quiet hours are a texting rule and the customer opened the chat", () => {
+    expect(checkSend(MESSAGE, { ...DAYTIME, now: NINE_PM_NEW_YORK })).toEqual({ ok: true });
   });
 
   it("refuses allergy talk, a blank and a customer with no OK on file", () => {

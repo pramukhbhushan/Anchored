@@ -68,7 +68,7 @@ function RuleControl({ businessName, state, save, unavailableReason }: Acknowled
       <h2 id={`${id}-title`}>Acknowledgment rule</h2>
       <p>When a customer messages, Anchored sends this right away so they know it arrived. Your real reply still waits for your OK.</p>
       <blockquote className={styles.template}>Thanks, {businessName} got your message and will reply soon.</blockquote>
-      <p>Quiet hours and stop requests still apply. A reply may wait until morning.</p>
+      <p>It never goes to a customer who sent /stop.</p>
       <p className={styles.saved}>{saved === null ? "Saved rule state isn't available yet." : saved.enabled ? "Right now: On" : "Right now: Off"}</p>
       {saved !== null && <label className={styles.choice}><input type="checkbox" checked={draft} disabled={!canChange || busy} onChange={(event) => { setDraft(event.currentTarget.checked); setNotice(""); }} />Send this right away, without waiting for my OK</label>}
       {canChange ? <div><Button size="sm" onClick={() => void submit()} disabled={busy || draft === saved.enabled}>{busy ? "Saving..." : "Save"}</Button></div> : <p>{unavailableReason ?? "This rule can't be changed yet. Check back when rule controls are available."}</p>}

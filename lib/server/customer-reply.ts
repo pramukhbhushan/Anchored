@@ -103,7 +103,7 @@ async function cardFor(
     title: `Telegram message from ${name}`,
     body,
     reason: said,
-    checks: ["They messaged the business first", byModel ? "Adds no price, time or link your profile doesn't have" : "Written from a template, with no facts added", "Sends 8 a.m. to 8 p.m. only"],
+    checks: ["They messaged the business first", byModel ? "Adds no price, time or link your profile doesn't have" : "Written from a template, with no facts added"],
     action: "Send on Telegram",
     channel: "telegram",
   };

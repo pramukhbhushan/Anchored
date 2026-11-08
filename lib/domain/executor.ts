@@ -65,8 +65,11 @@ export function checkSend(card: CardDraft, ctx: SendContext): SendCheck {
     return refuse(`Texts must end with "${OPT_OUT_LINE}" Add it, then approve again.`);
   }
   if (!ctx.hasConsent) return refuse(telegram ? "No consent on file: this customer hasn't messaged you on Telegram." : "No consent on file: texts need the customer's OK first.");
+  // A Telegram reply answers a chat the customer opened, so it goes out the moment the owner approves it.
+  // Quiet hours are a texting rule: solicitation laws bar texts at night, and no such rule covers a chat reply.
+  if (telegram) return { ok: true };
   const hour = localHour(ctx.now, ctx.timeZone);
-  if (hour >= QUIET_FROM_HOUR || hour < QUIET_UNTIL_HOUR) return refuse(telegram ? "Quiet hours: messages wait until 8 a.m." : "Quiet hours: texts wait until 8 a.m.");
+  if (hour >= QUIET_FROM_HOUR || hour < QUIET_UNTIL_HOUR) return refuse("Quiet hours: texts wait until 8 a.m.");
   return { ok: true };
 }
 
