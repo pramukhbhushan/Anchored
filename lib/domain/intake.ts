@@ -2,6 +2,7 @@ import {
   candidateFor,
   candidatesFromSales,
   correctVocabulary,
+  nameFromSample,
   confirmAll,
   conflictLine,
   detailText,
@@ -862,6 +863,9 @@ function withAnswerDetails(before: IntakeDraft, after: IntakeDraft, field: Intak
   if (reading.intent === "answer" && field === "voice" && reading.text !== "") {
     const example = candidateFor("examples", reading.text, "owner", "high");
     if (example) found.push(example);
+    // A sample signed "Mike from Brightwater" already names the owner, so the name is never asked again.
+    const name = nameFromSample(reading.text);
+    if (name !== undefined && after.details?.ownerName === undefined) found.push({ key: "ownerName", value: name, sourceType: "owner", quote: clip(reading.text, 240), confidence: "high" });
   }
   const kind = after.facts.kind;
   if (kind && kind !== before.facts.kind && after.details?.vocabulary === undefined) {

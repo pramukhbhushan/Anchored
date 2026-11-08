@@ -399,6 +399,21 @@ export function parseDetail<K extends FieldKey>(key: K, text: string): ProfileDe
   return read as ProfileDetails[K];
 }
 
+// Words that look like a name in a greeting but aren't the owner's.
+const NOT_A_NAME = /^(?:Hi|Hey|Hello|Thanks|Thank|Dear|Mr|Mrs|Ms|Dr|Good|See|We|I|The|Our|Sorry|Sure|Yes|No)$/;
+
+/** The owner's first name from a reply they sent, when they sign it: "Mike from Brightwater here", "Thanks, Dana". */
+export function nameFromSample(text: string): string | undefined {
+  const clean = text.replace(/\s+/g, " ").trim();
+  const found = [
+    /\b([A-Z][a-z'-]{1,29}) (?:from|at|with|over at|here at) [A-Z]/.exec(clean)?.[1],
+    /\b(?:thanks|thank you|cheers|best|regards|talk soon|see you soon)[,!.]?\s+([A-Z][a-z'-]{1,29})[.!]?$/i.exec(clean)?.[1],
+    /(?:^|\s)[-~]\s*([A-Z][a-z'-]{1,29})[.!]?$/.exec(clean)?.[1],
+    /(?:my name is|i'm|i am|this is) ([A-Z][a-z'-]{1,29})\b/.exec(clean)?.[1],
+  ].find((name) => name !== undefined && !NOT_A_NAME.test(name));
+  return found;
+}
+
 /** A candidate for `key` read from `text`, or `null`. The quote is the whole text, cut to a readable length. */
 export function candidateFor(key: FieldKey, text: string, sourceType: SourceType, confidence: Confidence): DetailCandidate | null {
   const value = parseDetail(key, text);

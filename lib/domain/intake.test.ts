@@ -189,6 +189,13 @@ describe("the question plan", () => {
     expect(question(twice).field).not.toBe("gap:vocabulary");
   });
 
+  it("reads the owner's first name from a voice sample that signs it, so it never asks for it", () => {
+    const draft = plumber();
+
+    expect(draft.details?.ownerName).toBe("Mike");
+    expect(throughGaps(draft).gaps).not.toContain("gap:ownerName");
+  });
+
   it("offers a plumber only the chips and words that fit the trade", () => {
     const named = converse([text("Brightwater Plumbing, Silver Spring, MD"), picks("Home services"), text("Drain cleaning and water heaters for homeowners")]).draft;
     const labels = (draft: IntakeDraft) => (question(draft).options ?? []).map((option) => option.label);
