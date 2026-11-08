@@ -49,4 +49,4 @@
 .sent{padding:10px;color:var(--ink-2);font-size:var(--fs-sm)}
 .sent:focus{outline:none}
 
-.local{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;background:var(--skip-soft);color:var(--ink-2);font-size:var(--fs-fine);font-weight:600;white-space:nowrap}
+.confirm{display:flex;flex-direction:column;gap:8px;padding:8px 10px 10px;font-size:var(--fs-fine);color:var(--ink-2)}

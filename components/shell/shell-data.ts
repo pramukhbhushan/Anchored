@@ -1,9 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import { isAuthEnabled } from "@/lib/auth/config";
-import { isAiConfigured } from "@/lib/server/ai";
 import { getFeed, listBusinesses } from "@/lib/server/data";
-import { isDatabaseConfigured } from "@/lib/store";
 import type { BusinessProfile } from "@/lib/domain/types";
 
 // =============================================================================
@@ -11,7 +8,7 @@ import type { BusinessProfile } from "@/lib/domain/types";
 // =============================================================================
 // Server reads for the app shell. `businessSummaries` lists every business with
 // its count of approvals waiting, once per request, so the shell layout and the
-// business list page share one read. `demoStatus` says which services are off.
+// business list page share one read.
 
 /** What the shell shows for one business: its name, kind and approvals waiting. */
 export interface BusinessSummary {
@@ -21,13 +18,6 @@ export interface BusinessSummary {
   readonly kind: BusinessProfile["kind"];
   /** Approvals waiting, or `null` when the count couldn't be read. */
   readonly pending: number | null;
-}
-
-/** Which outside services this server has, so the shell can say when it runs as a demo. */
-export interface DemoStatus {
-  readonly aiOn: boolean;
-  readonly databaseOn: boolean;
-  readonly accountsOn: boolean;
 }
 
 /** Return the count of pending cards for `business`, or `null` when the feed can't be read. */
@@ -43,7 +33,7 @@ async function pendingCount(business: BusinessProfile): Promise<number | null> {
   }
 }
 
-/** Return every business the viewer can open, case studies first, each with its approvals count. */
+/** Return every business the viewer can open, the example first, each with its approvals count. */
 // `cache` dedupes the read within one request: the layout and the `/app` page both call this.
 export const businessSummaries = cache(async (): Promise<BusinessSummary[]> => {
   const businesses = await listBusinesses();
@@ -57,8 +47,3 @@ export const businessSummaries = cache(async (): Promise<BusinessSummary[]> => {
     })),
   );
 });
-
-/** Report whether an AI provider, a database and accounts are configured. */
-export function demoStatus(): DemoStatus {
-  return { aiOn: isAiConfigured(), databaseOn: isDatabaseConfigured(), accountsOn: isAuthEnabled() };
-}

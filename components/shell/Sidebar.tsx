@@ -4,7 +4,6 @@ import { BookOpen, LayoutGrid, PanelLeftClose, PanelLeftOpen, Plus, X, type Luci
 import Link from "next/link";
 import { useEffect, useRef, type ReactNode, type Ref } from "react";
 import { AnchorMark } from "@/components/ui/AnchorMark";
-import { ResetDemoButton } from "@/components/shell/ResetDemoButton";
 import { APP_HREF, NEW_BUSINESS_HREF, SECTIONS, businessHref } from "@/components/routes";
 import type { ShellLocation } from "@/components/shell/location";
 import { SECTION_ICON } from "@/components/shell/nav";
@@ -14,8 +13,8 @@ import type { BusinessSummary } from "@/components/shell/shell-data";
 // Module Overview
 // =============================================================================
 // The app sidebar: inside a business, that business's pages with the
-// approvals count; elsewhere, every business the viewer can open. Then "How
-// it's built", "Reset demo" and the collapse toggle, with a drag handle on its
+// approvals count; elsewhere, the viewer's businesses and the example. Then
+// "How it's built" and the collapse toggle, with a drag handle on its
 // right edge. Collapsed, it is a 64px icon rail whose names move into
 // tooltips. At phone width `AppShell` slides it in as a drawer instead.
 
@@ -188,7 +187,7 @@ export function Sidebar({
         {current === null && (
           <>
             <BusinessGroup label="Your businesses" businesses={own} openId={openId} />
-            <BusinessGroup label="Sample businesses" businesses={samples} openId={openId} />
+            <BusinessGroup label="Example" businesses={samples} openId={openId} />
           </>
         )}
         <ul className="side-list side-new">
@@ -208,7 +207,6 @@ export function Sidebar({
           <BookOpen aria-hidden="true" size={16} />
           <span className="side-foot-text">How it&apos;s built</span>
         </Link>
-        <ResetDemoButton ownCount={own.length} />
         <button
           type="button"
           className="side-foot-link side-collapse"

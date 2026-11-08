@@ -112,7 +112,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 
 /* ---------- interaction: quick transitions and a press state on everything clickable ---------- */
 @media (prefers-reduced-motion:no-preference){
-  .btn,.linkbtn,.icon-btn,.tab,.side-link,.side-foot-link,.biz-row,.case,.switcher-btn,.switcher-item,.toggle,.demo summary,
+  .btn,.linkbtn,.icon-btn,.tab,.side-link,.side-foot-link,.biz-row,.case,.switcher-btn,.switcher-item,.toggle,
   .palette-item,.explainer summary,.tool-checks summary,.nav a,a{transition:background-color var(--ease),border-color var(--ease),color var(--ease),filter var(--ease),box-shadow var(--ease),transform var(--ease)}
   .btn:active:not([disabled]),.tab:active,.icon-btn:active,.side-link:active,.biz-row:active{transform:translateY(1px)}
 }
@@ -214,6 +214,7 @@ body:has(.compare-tray) .toast{bottom:calc(88px + env(safe-area-inset-bottom,0px
 .nav{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
 .nav a{display:inline-flex;align-items:center;min-height:40px;padding:6px 10px;border-radius:var(--r);text-decoration:none;color:var(--ink-2);font-weight:600;font-size:15px}
 .nav a[aria-current="page"],.nav a:hover{background:var(--sheet);color:var(--ink)}
+.top-end{display:flex;align-items:center;gap:10px;flex:none}
 .top-cta{flex:none}
 @media (max-width:640px){:root{--gutter:16px}}
 
@@ -249,7 +250,7 @@ body:has(.compare-tray) .toast{bottom:calc(88px + env(safe-area-inset-bottom,0px
   @keyframes thunk{from{transform:rotate(-12deg) scale(1.5);opacity:0}to{transform:rotate(-4deg) scale(1);opacity:1}}
 }
 
-/* ---------- Case study cards (/app) ---------- */
+/* ---------- The example business card (/app) ---------- */
 .cases{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px;align-items:stretch}
 .case{position:relative;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:10px;min-width:0}
 .case h3{font-size:var(--fs-lg)}
@@ -260,6 +261,11 @@ body:has(.compare-tray) .toast{bottom:calc(88px + env(safe-area-inset-bottom,0px
 .case ul{margin:auto 0 0;padding:10px 0 0;list-style:none;display:flex;flex-direction:column;gap:10px;border-top:1px dashed var(--line)}
 .case li{display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:var(--fs-sm)}
 .case .go{padding-top:6px}
+/* The one example card spans the page, so on a wide page its workflows sit beside the number instead of far below it */
+@container app (min-width:900px){
+  .case-wide{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto 1fr;column-gap:var(--s-7)}
+  .case-wide > ul{grid-column:2;grid-row:1 / span 3;align-self:center;margin:0;padding:0 0 0 var(--s-6);border-top:0;border-left:1px dashed var(--line)}
+}
 /* The title link stretches over the whole card so the card is one big tap target */
 .case-link{color:var(--ink);text-decoration:none}
 .case-link::after{content:"";position:absolute;inset:0;border-radius:var(--r)}
@@ -323,7 +329,6 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .side-foot-link{display:flex;align-items:center;gap:10px;min-height:36px;padding:6px 10px;border-radius:var(--r);color:var(--ink-2);font-size:var(--fs-sm);font-weight:600;text-decoration:none;background:none;border:0;width:100%;cursor:pointer;text-align:left}
 .side-foot-link svg{flex:none;color:var(--muted)}
 .side-foot-link:hover{background:var(--hover);color:var(--ink)}
-.reset-confirm{display:flex;flex-direction:column;gap:10px;padding:10px;border-radius:var(--r);background:var(--warn-soft);font-size:var(--fs-fine)}
 .side-collapse{display:flex}
 
 /* ---------- collapsed sidebar: a 64px icon rail; names move into tooltips. The drawer is never collapsed ---------- */
@@ -337,7 +342,6 @@ html[data-dev] .side-foot{padding-bottom:64px}
   .shell[data-collapsed="true"] .side-link,.shell[data-collapsed="true"] .side-foot-link{justify-content:center;padding-inline:0}
   .shell[data-collapsed="true"] .side-group{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
   .shell[data-collapsed="true"] .side-count{position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;font-size:10.5px}
-  .shell[data-collapsed="true"] .reset-confirm{position:absolute;left:calc(100% + 8px);bottom:10px;width:260px;z-index:46;box-shadow:var(--shadow)}
 }
 
 /* ---------- top bar ---------- */
@@ -380,14 +384,6 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .palette-hint{display:inline-flex;gap:3px;margin-left:4px}
 .topbar-end{margin-left:auto;display:flex;align-items:center;gap:10px}
 
-/* ---------- demo badge ---------- */
-.demo{position:relative}
-.demo summary{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:3px 10px;border-radius:999px;background:var(--warn-soft);color:var(--warn);font-size:var(--fs-fine);font-weight:600;list-style:none;white-space:nowrap}
-.demo summary:hover{box-shadow:inset 0 0 0 1.5px var(--warn)}
-.demo summary::-webkit-details-marker{display:none}
-.demo-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:40;width:min(340px,calc(100vw - 32px));padding:12px 14px;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);font-size:var(--fs-sm);color:var(--ink-2)}
-.demo-pop ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
-
 /* ---------- page area: the full width beside the sidebar ---------- */
 .content{container:app / inline-size;width:100%;padding:var(--s-6) var(--gutter) var(--s-8)}
 .content:focus{outline:none;box-shadow:none}
@@ -415,12 +411,10 @@ html[data-dev] .side-foot{padding-bottom:64px}
   .shell[data-drawer="open"] .side{transition:transform .2s ease}
 }
 @media (max-width:640px){
-  /* The title says "(sample)" at this width, so the pill would repeat it */
+  /* The title says "(example)" at this width, so the pill would repeat it */
   .switcher,.palette-open,.sample-pill{display:none}
   .topbar-mark{display:inline-flex;color:var(--ink)}
   .topbar-title{display:block;min-width:0;flex:1;font-weight:600;font-size:var(--fs-md);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .demo-text{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-  .demo summary{padding:3px 8px}
   .content{padding-top:var(--s-5);padding-bottom:var(--s-7)}
   .page-head{margin-bottom:var(--s-5)}
 }
@@ -454,7 +448,8 @@ html[data-dev] .side-foot{padding-bottom:64px}
 @container app (min-width:820px){.with-rail{grid-template-columns:minmax(0,1fr) var(--rail-w)}}
 
 /* ---------- /app: your businesses ---------- */
-.biz-list{list-style:none;margin:0;padding:0;display:grid;gap:var(--s-4);grid-template-columns:repeat(auto-fill,minmax(min(100%,420px),1fr))}
+/* auto-fit, not auto-fill: an owner with one or two businesses gets rows that span the page, not a column beside empty tracks */
+.biz-list{list-style:none;margin:0;padding:0;display:grid;gap:var(--s-4);grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))}
 .biz-row{display:flex;align-items:center;gap:var(--s-3) var(--s-4);height:100%;min-height:64px;padding:var(--s-4);background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);color:var(--ink);text-decoration:none}
 .biz-row:hover{border-color:var(--ink);box-shadow:var(--shadow);color:var(--ink)}
 .biz-initial{flex:none;display:grid;place-items:center;width:38px;height:38px;border-radius:var(--r);background:var(--skip-soft);font-family:var(--display);font-stretch:100%;font-weight:800;font-size:var(--fs-lg)}

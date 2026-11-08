@@ -28,7 +28,7 @@ function isApiError(value: unknown): value is ApiError {
 }
 
 /** Send `body` as JSON to an API route and return the parsed response, or throw an `ApiCallError`. */
-export async function callApi<T>(url: string, method: "POST" | "PUT", body?: unknown): Promise<T> {
+export async function callApi<T>(url: string, method: "POST" | "PUT" | "DELETE", body?: unknown): Promise<T> {
   const init: RequestInit = {
     method,
     headers: body === undefined ? undefined : { "content-type": "application/json" },

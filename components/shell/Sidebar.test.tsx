@@ -40,7 +40,7 @@ describe("Sidebar", () => {
     expect(within(nav()).getByRole("link", { name: /Rosa's Taqueria/ })).toHaveAttribute("href", "/app/b/rosa");
     expect(within(nav()).getByRole("link", { name: /Apex Heating/ })).toHaveAttribute("href", "/app/b/apex");
     expect(within(nav()).getByText("Your businesses")).toBeInTheDocument();
-    expect(within(nav()).getByText("Sample businesses")).toBeInTheDocument();
+    expect(within(nav()).getByText("Example")).toBeInTheDocument();
   });
 
   it("marks All businesses as the current page on the business list", () => {
@@ -68,7 +68,7 @@ describe("Sidebar", () => {
     expect(nav().querySelectorAll('[aria-current="page"]')).toHaveLength(1);
     // Inside a business the top bar's switcher does the switching, so the sidebar lists no other business.
     expect(within(nav()).queryByRole("link", { name: /Greenfield Lawn/ })).not.toBeInTheDocument();
-    expect(within(nav()).queryByText("Sample businesses")).not.toBeInTheDocument();
+    expect(within(nav()).queryByText("Example")).not.toBeInTheDocument();
   });
 
   it("marks the overview as the page on a business's front page", () => {

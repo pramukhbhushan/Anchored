@@ -60,21 +60,19 @@ function useModKey(): string {
 
 /** Return what the top bar names at phone width: the open business, or the page. */
 function titleOf(location: ShellLocation, current: BusinessSummary | undefined): string {
-  if (current !== undefined) return current.kind === "case" ? `${current.name} (sample)` : current.name;
+  if (current !== undefined) return current.kind === "case" ? `${current.name} (example)` : current.name;
   return location.page === "new" ? "New business" : "All businesses";
 }
 
-/** Render the shell around `children`; `demo` and `account` are server-rendered slots for the top bar. */
+/** Render the shell around `children`; `account` is a server-rendered slot for the top bar. */
 export function AppShell({
   businesses,
   initiallyCollapsed,
-  demo,
   account,
   children,
 }: {
   readonly businesses: readonly BusinessSummary[];
   readonly initiallyCollapsed: boolean;
-  readonly demo: ReactNode;
   readonly account: ReactNode;
   readonly children: ReactNode;
 }) {
@@ -201,10 +199,7 @@ export function AppShell({
               <kbd>K</kbd>
             </span>
           </button>
-          <div className="topbar-end">
-            {demo}
-            {account}
-          </div>
+          <div className="topbar-end">{account}</div>
         </header>
         <main id="app-main" className="content" tabIndex={-1}>
           {children}

@@ -17,7 +17,7 @@ const PALETTE = { name: "Jump to a page or business" };
 
 function renderShell() {
   return render(
-    <AppShell businesses={BUSINESSES} initiallyCollapsed={false} demo={null} account={null}>
+    <AppShell businesses={BUSINESSES} initiallyCollapsed={false} account={null}>
       <p>Page content</p>
     </AppShell>,
   );
@@ -80,7 +80,7 @@ describe("CommandPalette", () => {
     await userEvent.keyboard("{Meta>}k{/Meta}");
 
     expect(results()).toEqual(
-      expect.arrayContaining(["Rosa's Taqueria (sample)", "Apex Heating (sample)", "Greenfield Lawn", "All businesses", "Start a new business"]),
+      expect.arrayContaining(["Rosa's Taqueria (example)", "Apex Heating", "Greenfield Lawn", "All businesses", "Start a new business"]),
     );
   });
 
@@ -99,16 +99,16 @@ describe("CommandPalette", () => {
 
     await userEvent.keyboard("rosa");
 
-    expect(results()).toEqual(["Rosa's Taqueria (sample)"]);
+    expect(results()).toEqual(["Rosa's Taqueria (example)"]);
   });
 
   it("matches every typed word, in any order", async () => {
     renderShell();
     await userEvent.keyboard("{Meta>}k{/Meta}");
 
-    await userEvent.keyboard("sample heat");
+    await userEvent.keyboard("example taq");
 
-    expect(results()).toEqual(["Apex Heating (sample)"]);
+    expect(results()).toEqual(["Rosa's Taqueria (example)"]);
   });
 
   it("says so when nothing matches", async () => {
@@ -135,15 +135,15 @@ describe("CommandPalette", () => {
     setLocation({ pathname: "/app/b/rosa", segments: ["b", "rosa"] });
     renderShell();
     await userEvent.keyboard("{Meta>}k{/Meta}");
-    await userEvent.keyboard("sample");
-    expect(results()).toEqual(["Rosa's Taqueria (sample)", "Apex Heating (sample)"]);
+    await userEvent.keyboard("businesses");
+    expect(results()).toEqual(["Apex Heating", "Greenfield Lawn", "Rosa's Taqueria (example)", "All businesses"]);
 
     await userEvent.keyboard("{ArrowDown}");
-    expect(within(palette()).getByRole("option", { name: "Apex Heating (sample)" })).toHaveAttribute("aria-selected", "true");
-    expect(within(palette()).getByRole("option", { name: "Rosa's Taqueria (sample)" })).toHaveAttribute("aria-selected", "false");
+    expect(within(palette()).getByRole("option", { name: "Greenfield Lawn" })).toHaveAttribute("aria-selected", "true");
+    expect(within(palette()).getByRole("option", { name: "Apex Heating" })).toHaveAttribute("aria-selected", "false");
 
     await userEvent.keyboard("{Enter}");
-    expect(router.push).toHaveBeenCalledExactlyOnceWith("/app/b/apex");
+    expect(router.push).toHaveBeenCalledExactlyOnceWith("/app/b/greenfield");
   });
 
   it("goes to a result the owner clicks", async () => {
