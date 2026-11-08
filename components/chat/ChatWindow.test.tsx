@@ -127,6 +127,36 @@ describe("ChatWindow, business mode", () => {
     await waitFor(() => expect(router.refresh).toHaveBeenCalledTimes(1));
   });
 
+  it("links a reply that drafted work to its card in Approvals, and refreshes the approvals count", async () => {
+    const asked: ChatMessage = { id: "m4", role: "owner", text: "text Dana we're running 20 minutes late", at: "2026-11-06T14:02:00Z" };
+    const drafted: ChatMessage = {
+      id: "m5",
+      role: "anchored",
+      text: "Front Desk drafted a text to Dana. It's waiting in Approvals, and nothing goes out until you approve it.",
+      at: "2026-11-06T14:02:02Z",
+      card: { key: "greenfield:chat:m5", title: "Text Dana we're running 20 minutes late", status: "pending" },
+    };
+    const fetchSpy = chatRoute(json({ messages: [GREETING, asked, drafted], changes: [] }));
+    await renderLoadedChat();
+
+    await userEvent.type(textBox(), "text Dana we're running 20 minutes late{Enter}");
+
+    const link = await within(thread()).findByRole("link", { name: "Text Dana we're running 20 minutes late, Waiting in Approvals" });
+    expect(link).toHaveAttribute("href", "/app/b/greenfield/approvals#card-greenfield-chat-m5");
+    expect(thread()).toHaveTextContent("Front Desk drafted a text to Dana");
+    expect(sentJson(fetchSpy, 1).body).toEqual({ text: "text Dana we're running 20 minutes late" });
+    expect(router.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows when a draft from the chat was approved", async () => {
+    const approved: ChatMessage = { ...REPLY, card: { key: "greenfield:chat:m3", title: "Write a post about our fall cleanup", status: "approved" } };
+    stubFetch(() => json({ messages: [GREETING, OWNER_SAID, approved], changes: [] }));
+
+    render(<ChatWindow mode="business" businessId="greenfield" />);
+
+    expect(await screen.findByRole("link", { name: "Write a post about our fall cleanup, Approved" })).toBeInTheDocument();
+  });
+
   it("leaves the page alone when a reply changed nothing", async () => {
     chatRoute(json(ANSWERED));
     await renderLoadedChat();

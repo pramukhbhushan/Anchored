@@ -72,6 +72,15 @@
 .changes li svg{flex:none;align-self:center;color:var(--ink-2)}
 .area{flex:none;min-width:4.6em;color:var(--muted)}
 
+/* ---------- the draft a business chat reply made, linking to Approvals ---------- */
+.draft{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--line);border-radius:var(--r);background:var(--sheet);color:var(--ink);font-size:var(--fs-sm);text-decoration:none}
+.draft:hover .draftTitle{text-decoration:underline}
+.draft:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.draft svg{flex:none;color:var(--ink-2)}
+.draftText{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.draftTitle{font-weight:700;overflow-wrap:anywhere}
+.draftStatus{color:var(--muted);font-size:var(--fs-fine)}
+
 /* =============================================================================
    Composer: chips, the text box, errors and the finish
    ============================================================================= */
