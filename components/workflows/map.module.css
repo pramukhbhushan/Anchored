@@ -2,8 +2,8 @@
    Module Overview
    =============================================================================
    The Workflows map in the Harbor Chart brand: the drafts waiting for the
-   owner's OK, then the chart on a sea chart grid with its key in a corner and
-   a details panel on its right. Ring colors match the plan band and the bill:
+   owner's OK, then the chart on a sea chart grid with its key in one corner,
+   the zoom buttons in another, and a details panel on its right. Ring colors match the plan band and the bill:
    ink for Anchored, green for a tool the owner has, blue for a new tool, grey
    dashes for work nobody handles. Carbon yellow marks only what waits for the
    owner's OK. When the engine lays the jobs out in columns, it sets
@@ -77,6 +77,15 @@
 
 .tip{position:absolute;z-index:5;pointer-events:none;max-width:260px;background:var(--ink);color:var(--paper);border-radius:var(--r);padding:9px 12px;font-size:var(--fs-sm);line-height:1.4;box-shadow:var(--shadow);transform:translate(-50%,calc(-100% - 12px))}
 .tip[data-below="true"]{transform:translate(-50%,0)}
+
+/* ---------- Zoom ---------- */
+.zoom{position:absolute;z-index:3;left:14px;bottom:14px;display:flex;flex-direction:column;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.zoom button{width:40px;height:40px;display:grid;place-items:center;border:0;background:none;color:var(--ink);cursor:pointer}
+.zoom button+button{border-top:1px solid var(--line)}
+.zoom button:hover{background:var(--hover)}
+.zoom button:focus-visible{outline:2px solid var(--link);outline-offset:-2px}
+/* The column fits the width and the page scrolls it, so there is nothing to zoom */
+.stage[data-layout="column"] .zoom{display:none}
 
 /* ---------- The key ---------- */
 .legend{position:absolute;z-index:3;left:14px;top:12px;list-style:none;margin:0;display:flex;flex-direction:column;gap:6px;font-size:var(--fs-fine);color:var(--ink-2);background:color-mix(in srgb,var(--sheet) 90%,transparent);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;pointer-events:none}

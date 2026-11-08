@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, CalendarCheck, CircleDollarSign, Users, X, type LucideIcon } from "lucide-react";
+import { ArrowRight, CalendarCheck, CircleDollarSign, Maximize2, Minus, Plus, Users, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { workflowIcon } from "@/components/business/workflow-icons";
@@ -20,10 +20,13 @@ import type { WorkflowId } from "@/lib/domain/types";
 // map a yellow trail runs from the business to every job with a draft
 // waiting, which wears a count. Tapping a job opens a panel with its
 // automations, each a link to its own page, and the way to change who handles
-// it. Ring colors match the plan band and the bill: ink for Anchored, green
-// for a tool the owner has, blue for a new tool, grey dashes for work nobody
-// handles. On a narrow screen the jobs hang in one column under each part of
-// the day. React renders every circle once; a small spring engine in
+// it. Tapping a stage zooms in on it and its jobs. The owner can also zoom
+// with the buttons, a pinch, Ctrl and the scroll wheel, or a double-click,
+// and drag the map to move it. Ring colors match the plan band and the bill:
+// ink for Anchored, green for a tool the owner has, blue for a new tool, grey
+// dashes for work nobody handles. On a narrow screen the jobs hang in one
+// column under each part of the day, which the page scrolls instead of a
+// zoom. React renders every circle once; a small spring engine in
 // `useEffect` moves them, so hovering pops a circle and the rest drift and
 // settle. Reduced motion places them still.
 
@@ -242,7 +245,8 @@ export function WorkflowMap({
   const els = useRef(new Map<string, NodeEls>());
   const selRef = useRef<Selection>(sel);
   const activateRef = useRef<(id: string) => void>(() => {});
-  const relayout = useRef<() => void>(() => {});
+  const zoomRef = useRef<{ by: (factor: number) => void; fit: () => void }>({ by: () => {}, fit: () => {} });
+  const relayout = useRef<(focus?: boolean) => void>(() => {});
 
   const refFor = (id: string, part: keyof NodeEls) => (el: SVGElement | null) => {
     const entry = els.current.get(id) ?? { g: null, body: null, ring: null, halo: null, lab: null, sub: null, icon: null, badge: null, link: null, trail: null, inner: null };
@@ -260,7 +264,7 @@ export function WorkflowMap({
 
   useEffect(() => {
     selRef.current = sel;
-    relayout.current();
+    relayout.current(true);
     // In columns the panel sits under a tall map, so bring it to the owner.
     if (sel !== null && wrapRef.current?.dataset.layout === "column") {
       const smooth = !matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -287,6 +291,8 @@ export function WorkflowMap({
     let hover: string | null = null;
     let hot: Set<string> | null = null;
     let lit: Set<string> | null = null;
+    // What the camera shows: the whole map, one stage after a tap on it, or wherever the owner zoomed.
+    let view: "fit" | "stage" | "user" = "fit";
     let drag: { id: string; sx: number; sy: number; dx: number; dy: number; moved: boolean } | null = null;
     let pan: { sx: number; sy: number; px: number; py: number; moved: boolean } | null = null;
     let raf = 0;
@@ -294,7 +300,8 @@ export function WorkflowMap({
     const related = (id: string) => new Set([id, byId.get(id)?.parent ?? "", ...(children.get(id) ?? [])].filter(Boolean));
     const selId = () => { const s = selRef.current; return s === null ? null : s.type === "stage" ? `s:${s.id}` : `j:${s.id}`; };
 
-    const layout = () => {
+    /** Place every circle and point the camera; `focus` says the owner just opened or closed something. */
+    const layout = (focus = false) => {
       const rect = svg.getBoundingClientRect();
       if (!rect.width) return;
       column = rect.width < COLUMN_BELOW;
@@ -304,7 +311,8 @@ export function WorkflowMap({
       lit = sid === null ? null : related(sid);
       // A wide chart stretches the ring sideways, so the jobs spread into the room beside it.
       const spots = column ? columnLayout(stages) : ringLayout(stages, Math.max(1, Math.min(1.5, (rect.width / rect.height) * 0.85)));
-      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      // Each circle's box with its label, so the camera can fit the whole map or one stage.
+      const boxes = new Map<string, readonly [number, number, number, number]>();
       for (const n of nodes) {
         const b = bodies.get(n.id)!, s = spots.get(n.id);
         if (!s) continue;
@@ -322,35 +330,81 @@ export function WorkflowMap({
         // Room for the label: about 11px a letter, 10px a letter for the monospace subline, two lines and the subline.
         const w = Math.max(Math.max(...n.lines.map((l) => l.length)) * 11, n.sub.length * 10), h = n.lines.length * 22 + 22;
         const across = s.label === "left" || s.label === "right";
-        x0 = Math.min(x0, s.x - (s.label === "left" ? r + 14 + w : across ? r + 10 : Math.max(r, w / 2) + 10));
-        x1 = Math.max(x1, s.x + (s.label === "right" ? r + 14 + w : across ? r + 10 : Math.max(r, w / 2) + 10));
-        y0 = Math.min(y0, s.y - (s.label === "above" ? r + 24 + h : across ? Math.max(r, h / 2) + 12 : r + 18));
-        y1 = Math.max(y1, s.y + (s.label === "below" ? r + 22 + h : across ? Math.max(r, h / 2) + 8 : r + 10));
+        boxes.set(n.id, [
+          s.x - (s.label === "left" ? r + 14 + w : across ? r + 10 : Math.max(r, w / 2) + 10),
+          s.y - (s.label === "above" ? r + 24 + h : across ? Math.max(r, h / 2) + 12 : r + 18),
+          s.x + (s.label === "right" ? r + 14 + w : across ? r + 10 : Math.max(r, w / 2) + 10),
+          s.y + (s.label === "below" ? r + 22 + h : across ? Math.max(r, h / 2) + 8 : r + 10),
+        ]);
       }
-      cam.tx = (x0 + x1) / 2; cam.ty = (y0 + y1) / 2; cam.px = 0; cam.py = 0;
+      // Nothing placed means nothing to aim at, and an empty box would send the camera to NaN.
+      if (boxes.size === 0) return;
+      const bounds = (ids: ReadonlySet<string> | null) => {
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (const [id, [a, b, c, d]] of boxes) {
+          if (ids !== null && !ids.has(id)) continue;
+          x0 = Math.min(x0, a); y0 = Math.min(y0, b); x1 = Math.max(x1, c); y1 = Math.max(y1, d);
+        }
+        return { x0, y0, x1, y1 };
+      };
+      // Point the camera at a box, as close as `max` allows; return the scale that would fit it whole.
+      const aim = ({ x0, y0, x1, y1 }: ReturnType<typeof bounds>, max: number) => {
+        const fit = Math.min((vp.w - vp.panel - 32) / (x1 - x0), (vp.h - 40) / (y1 - y0));
+        cam.tx = (x0 + x1) / 2; cam.ty = (y0 + y1) / 2; cam.px = 0; cam.py = 0;
+        cam.ts = Math.max(0.45, Math.min(max, fit));
+        return fit;
+      };
+      const f = sid === null ? undefined : bodies.get(sid);
+      const open = selRef.current;
       if (column) {
-        cam.ts = Math.max(0.6, Math.min(1.1, (vp.w - 24) / (x1 - x0)));
+        view = "fit";
+        const all = bounds(null);
+        cam.tx = (all.x0 + all.x1) / 2; cam.ty = (all.y0 + all.y1) / 2; cam.px = 0; cam.py = 0;
+        cam.ts = Math.max(0.6, Math.min(1.1, (vp.w - 24) / (all.x1 - all.x0)));
         // The chart grows to the column's height, and the page scrolls instead of the map shrinking.
-        const want = Math.ceil((y1 - y0) * cam.ts + 24);
+        const want = Math.ceil((all.y1 - all.y0) * cam.ts + 24);
         if (Math.abs(chart.clientHeight - want) > 2) chart.style.height = `${want}px`;
       } else {
         chart.style.height = "";
-        const fit = Math.min((vp.w - vp.panel - 32) / (x1 - x0), (vp.h - 40) / (y1 - y0));
-        cam.ts = Math.max(0.45, Math.min(1.15, fit));
-        // Too little room beside the panel to show it all: center on what is open instead.
-        const f = sid === null ? undefined : bodies.get(sid);
-        if (f && fit < 0.45) { cam.tx = f.tx; cam.ty = f.ty; }
+        if (open?.type === "stage" && sid !== null && (focus || view === "stage")) {
+          // Tapping a stage zooms in on it and its jobs, and a resize keeps it there.
+          view = "stage";
+          aim(bounds(new Set([sid, ...(children.get(sid) ?? [])])), 1.6);
+        } else if (view !== "fit" && f) {
+          // Zoomed in: keep the zoom and bring the open job into view beside the panel.
+          cam.tx = f.tx; cam.ty = f.ty; cam.px = 0; cam.py = 0;
+        } else if (!(view === "user" && f === undefined)) {
+          // Otherwise show it all; with too little room beside the panel, center on what is open instead.
+          view = "fit";
+          if (aim(bounds(null), 1.15) < 0.45 && f) { cam.tx = f.tx; cam.ty = f.ty; }
+        }
       }
-      const f = sid === null ? undefined : bodies.get(sid);
       if (f) f.sv += 0.09;
     };
-    relayout.current = () => requestAnimationFrame(layout);
+    relayout.current = (focus = false) => requestAnimationFrame(() => layout(focus));
 
     const origin = () => ({ ox: (vp.w - vp.panel) / 2 + cam.px, oy: vp.h / 2 + cam.py });
     const toWorld = (cx: number, cy: number): [number, number] => {
       const r = svg.getBoundingClientRect(), { ox, oy } = origin();
       return [(cx - r.left - ox) / cam.s + cam.x, (cy - r.top - oy) / cam.s + cam.y];
     };
+
+    /** Zoom to `scale`, keeping the spot under the screen point (`cx`, `cy`) where it is; `instant` skips the ease, for a pinch. */
+    const zoomTo = (scale: number, cx: number, cy: number, instant = false) => {
+      if (column) return;
+      const rect = svg.getBoundingClientRect(), { ox, oy } = origin();
+      const sx = cx - rect.left - ox, sy = cy - rect.top - oy;
+      const [wx, wy] = [cam.x + sx / cam.s, cam.y + sy / cam.s];
+      cam.ts = Math.max(0.3, Math.min(2.5, scale));
+      cam.tx = wx - sx / cam.ts; cam.ty = wy - sy / cam.ts;
+      if (instant) { cam.x = cam.tx; cam.y = cam.ty; cam.s = cam.ts; }
+      view = "user";
+    };
+    const zoomBy = (factor: number) => {
+      const rect = svg.getBoundingClientRect();
+      zoomTo(cam.ts * factor, rect.left + (vp.w - vp.panel) / 2, rect.top + vp.h / 2);
+    };
+    zoomRef.current = { by: zoomBy, fit: () => { view = "fit"; layout(); } };
 
     const setHover = (id: string | null) => {
       if (drag?.moved) return;
@@ -372,7 +426,7 @@ export function WorkflowMap({
       const enter = () => setHover(n.id), leave = () => setHover(null);
       const key = (e: KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activateRef.current(n.id); } };
       const down = (e: PointerEvent) => {
-        if (e.button !== 0) return;
+        if (e.button !== 0 || pinch) return;
         e.stopPropagation();
         const b = bodies.get(n.id)!, [wx, wy] = toWorld(e.clientX, e.clientY);
         drag = { id: n.id, sx: e.clientX, sy: e.clientY, dx: wx - b.x, dy: wy - b.y, moved: false };
@@ -413,9 +467,43 @@ export function WorkflowMap({
       if (drag) { const b = bodies.get(drag.id)!; b.ox = 0; b.oy = 0; }
       drag = null; pan = null;
     };
-    const bgDown = (e: PointerEvent) => { if (e.button === 0 && !drag && !column) pan = { sx: e.clientX, sy: e.clientY, px: cam.px, py: cam.py, moved: false }; };
+    const bgDown = (e: PointerEvent) => { if (e.button === 0 && !drag && !column && !pinch) pan = { sx: e.clientX, sy: e.clientY, px: cam.px, py: cam.py, moved: false }; };
     addEventListener("pointermove", move); addEventListener("pointerup", up); addEventListener("pointercancel", cancel);
     svg.addEventListener("pointerdown", bgDown);
+
+    // A trackpad pinch arrives as a wheel with Ctrl held, as does Ctrl or Cmd with a mouse wheel; a plain wheel scrolls the page.
+    const wheel = (e: WheelEvent) => {
+      if (column || !(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      zoomTo(cam.ts * Math.exp(-Math.max(-30, Math.min(30, e.deltaY)) * 0.01), e.clientX, e.clientY);
+    };
+    // Double-clicking the open sea zooms in there.
+    const dbl = (e: MouseEvent) => {
+      if (column || (e.target as Element).closest("[role=button]")) return;
+      zoomTo(cam.ts * 1.6, e.clientX, e.clientY);
+    };
+    // Two fingers pinch to zoom; the second finger cancels whatever the first one started.
+    const touches = new Map<number, { x: number; y: number }>();
+    let pinch: { d0: number; s0: number } | null = null;
+    const pair = () => { const [a, b] = [...touches.values()]; return a && b ? { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 } : null; };
+    const touchDown = (e: PointerEvent) => {
+      if (e.pointerType !== "touch" || column) return;
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const p = touches.size === 2 ? pair() : null;
+      if (p) { pinch = { d0: p.d, s0: cam.s }; cancel(); }
+    };
+    const touchMove = (e: PointerEvent) => {
+      if (!touches.has(e.pointerId)) return;
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const p = pinch ? pair() : null;
+      if (pinch && p) zoomTo((pinch.s0 * p.d) / pinch.d0, p.mx, p.my, true);
+    };
+    const touchUp = (e: PointerEvent) => { touches.delete(e.pointerId); if (touches.size < 2) pinch = null; };
+    svg.addEventListener("wheel", wheel, { passive: false });
+    svg.addEventListener("dblclick", dbl);
+    // Capture, so a finger that lands on a circle still counts toward a pinch.
+    svg.addEventListener("pointerdown", touchDown, true);
+    addEventListener("pointermove", touchMove); addEventListener("pointerup", touchUp); addEventListener("pointercancel", touchUp);
     const ro = new ResizeObserver(() => layout());
     ro.observe(svg);
 
@@ -543,6 +631,8 @@ export function WorkflowMap({
       ro.disconnect();
       removeEventListener("pointermove", move); removeEventListener("pointerup", up); removeEventListener("pointercancel", cancel);
       svg.removeEventListener("pointerdown", bgDown);
+      svg.removeEventListener("wheel", wheel); svg.removeEventListener("dblclick", dbl); svg.removeEventListener("pointerdown", touchDown, true);
+      removeEventListener("pointermove", touchMove); removeEventListener("pointerup", touchUp); removeEventListener("pointercancel", touchUp);
       cleanups.forEach((c) => c());
     };
   }, [nodes, byId, children, stages]);
@@ -631,6 +721,11 @@ export function WorkflowMap({
             </g>
           </svg>
           <div ref={tipRef} className={styles.tip} hidden />
+          <div className={styles.zoom} role="group" aria-label="Zoom the map">
+            <button type="button" aria-label="Zoom in" title="Zoom in. You can also pinch, or hold Ctrl and scroll." onClick={() => zoomRef.current.by(1.3)}><Plus aria-hidden="true" size={18} /></button>
+            <button type="button" aria-label="Zoom out" title="Zoom out" onClick={() => zoomRef.current.by(1 / 1.3)}><Minus aria-hidden="true" size={18} /></button>
+            <button type="button" aria-label="Show the whole map" title="Show the whole map" onClick={() => zoomRef.current.fit()}><Maximize2 aria-hidden="true" size={16} /></button>
+          </div>
         </div>
         <ul className={styles.legend} aria-label="What the colors mean">
           {kinds.map((k) => <li key={k}><i className={styles.dot} data-kind={k} />{KEY[k]}</li>)}
