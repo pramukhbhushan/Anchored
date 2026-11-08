@@ -51,6 +51,14 @@ Each rule protects an owner's customers or data, and breaking one can pass every
 - **Migrations are append-only.** Name a new one `YYYYMMDDHHMMSS_name.sql`, with a timestamp after the newest file on `main`. Once merged, a migration is frozen; change the schema with a new file.
 - **Rate-limit each new API mutation in `middleware.ts`.** A route that calls a model or creates rows gets its own entry in `LIMITS` and a match in `limitFor`; any other falls into the shared `mutation` bucket. The route reads its body through `readBody` in `lib/server/http.ts` with a schema from `lib/api/schemas.ts`.
 
+## UI rules
+
+The owner wants every page to use the whole screen and adapt to it. `app/globals.css` holds the tokens.
+
+- **Fill the width.** Give pages and sections no `max-width`; lay repeated items in grids with `repeat(auto-fill, minmax(min(100%, <n>px), 1fr))`, and switch layouts with `@container app` queries, since the sidebar changes the space. Cap only running text, at about `65ch`. Phones get one column with no sideways scroll.
+- **Spacing and type come from tokens:** `--s-1` to `--s-8` (4 to 64px; 12px inside a card, 16 to 24px between cards, 48px between sections), `--pad` for card padding, and the seven `--fs-*` sizes.
+- **Say each thing once per page.** One filled button per region, at most one badge per card, boxes only for things the owner decides (approval cards, the brief, the bill), and secondary detail behind a `<details>`. Carbon yellow marks only the brief, the BUILD stamp, the active nav item and the approvals count.
+
 ## Working in parallel
 
 Several teammates and agents work at once, each in its own git worktree on its own branch, and all of it lands on `main`.

@@ -484,7 +484,22 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .steps-list{margin:0;padding-left:20px;color:var(--ink-2);display:flex;flex-direction:column;gap:6px;font-size:var(--fs-md)}
 
 /* ---------- overview: one reading column, the morning brief its one loud object ---------- */
-.ov{max-width:var(--read-w)}
+/* The overview uses the whole width: at wide sizes the brief splits into what waits and today's numbers. */
+.ov{min-width:0}
+@container app (min-width:1000px){
+  .brief{display:grid;grid-template-columns:minmax(0,3fr) minmax(280px,2fr);column-gap:var(--s-7);align-items:start}
+  .brief > :not(.brief-lines){grid-column:1}
+  .brief-lines{grid-column:2;grid-row:1 / span 3;margin:0;padding:var(--s-1) 0 0 var(--s-6);border-top:0;border-left:1px solid var(--line);gap:var(--s-3)}
+}
+/* Every workflow and its path as ledger rows: as many columns as the width holds. */
+.ov-wf{margin-top:var(--s-7)}
+.ov-wf-head{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s-4);margin-bottom:var(--s-3)}
+.ov-wf-head h2{font-size:var(--fs-xl);font-weight:800}
+.ov-wf-head a{font-size:var(--fs-sm);font-weight:600}
+.ov-wf-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));column-gap:var(--s-6);border-top:1px dashed var(--line)}
+.ov-wf-list li{border-bottom:1px dashed var(--line);min-width:0}
+.ov-wf-list a{display:flex;justify-content:space-between;align-items:center;gap:var(--s-3);min-height:52px;padding:var(--s-3) 0;color:var(--ink);font-weight:600;text-decoration:none}
+.ov-wf-list a:hover span{text-decoration:underline;text-underline-offset:3px}
 .slip{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;min-width:0}
 .slip-head{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s-3);flex-wrap:wrap;padding:var(--s-3) var(--pad) var(--s-4);background:var(--carbon);color:var(--on-carbon)}
 .slip-head h2{font-size:var(--fs-lg);font-stretch:100%;font-weight:800}
@@ -532,7 +547,7 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .prof-compact .prof-row{grid-template-columns:84px minmax(0,1fr)}
 
 /* Profile page: one reading column, the facts card then the recent changes */
-.prof-page{max-width:var(--read-w)}
+.prof-page{min-width:0}
 
 .changes-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 .changes-list li{display:flex;align-items:baseline;gap:10px;padding:8px 0;border-top:1px dashed var(--line);font-size:var(--fs-sm)}
@@ -540,7 +555,7 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .changes-list time{margin-left:auto;flex:none;font-size:var(--fs-fine);color:var(--muted)}
 
 /* ---------- workflows: the work order, one ruled line per workflow that opens to change its path ---------- */
-.wf-order{max-width:var(--page-w)}
+.wf-order{min-width:0}
 .wf-group{padding:var(--s-2) var(--pad) var(--s-3)}
 .wf-group+.wf-group{padding-top:var(--s-6)}
 .wf-label{padding:var(--s-2) 0 var(--s-3);font-family:var(--body);font-stretch:100%;font-size:var(--fs-sm);font-weight:600;color:var(--muted);letter-spacing:0}
@@ -592,7 +607,7 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .toggle:hover{color:var(--ink);background:var(--hover)}
 .toggle input{width:18px;height:18px;accent-color:var(--ink)}
 .tools-none{max-width:65ch;color:var(--muted)}
-.trows{max-width:var(--page-w)}
+.trows{min-width:0}
 /* Fixed columns, so scores, names and actions line up down the ranking */
 .trow-head,.trow{display:grid;grid-template-columns:48px minmax(0,1.2fr) minmax(0,1fr) 260px;column-gap:var(--s-5)}
 .trow-head{padding-bottom:var(--s-2);border-bottom:1px solid var(--line);font-size:var(--fs-fine);font-weight:600;color:var(--muted)}
@@ -631,7 +646,7 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .crit-name{font-weight:600}
 .crit-note{grid-column:1 / -1;color:var(--muted)}
 /* In flow after the list, so showing it never moves a row the owner is about to tap */
-.compare-tray{position:sticky;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:15;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;max-width:var(--page-w);margin-top:var(--s-4);padding:12px 16px;background:var(--ink);color:var(--paper);border-radius:var(--r);box-shadow:var(--shadow)}
+.compare-tray{position:sticky;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:15;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;margin-top:var(--s-4);padding:12px 16px;background:var(--ink);color:var(--paper);border-radius:var(--r);box-shadow:var(--shadow)}
 .compare-tray .btn{background:var(--paper);border-color:var(--paper);color:var(--ink)}
 .compare-tray .btn-secondary{background:transparent;border-color:var(--paper);color:var(--paper)}
 .dialog{width:min(1200px,calc(100vw - 32px));max-height:calc(100dvh - 48px);padding:0;border:0;border-radius:8px;background:var(--sheet);color:var(--ink);box-shadow:var(--shadow)}
@@ -641,7 +656,7 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .dialog .scroll{padding:4px 20px 20px}
 .cmp-table td{min-width:160px}
 .cmp-note{display:block;margin-top:4px;font-size:var(--fs-fine);color:var(--muted)}
-.queue{max-width:var(--page-w)}
+.queue{min-width:0}
 .queue summary{display:inline-flex;align-items:center;min-height:40px;font-weight:600;color:var(--link);text-decoration:underline;text-underline-offset:3px}
 .queue summary:hover{color:var(--ink)}
 .queue-note{margin-top:var(--s-2);font-size:var(--fs-sm);color:var(--muted);max-width:65ch}
@@ -649,8 +664,8 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .queue .rtable td{overflow-wrap:anywhere}
 
 /* ---------- approvals: one reading column of cards and the outbox as a sticky right rail ---------- */
-.feed{min-width:0;max-width:var(--read-w)}
-.feed-list{display:flex;flex-direction:column;gap:var(--s-4)}
+.feed{min-width:0}
+.feed-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,460px),1fr));gap:var(--s-4);align-items:start}
 /* Inside a card 12, between cards 16, a card's padding 24: the tiers read as separate things */
 .card{display:flex;flex-direction:column;gap:var(--s-3);padding:var(--pad);background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);min-width:0;scroll-margin-top:calc(var(--top-h) + var(--s-4))}
 .card:target{border-color:var(--ink)}
