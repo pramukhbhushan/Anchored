@@ -1,0 +1,85 @@
+/* =============================================================================
+   Module Overview
+   =============================================================================
+   The Tools page's ranked rows: fit ring, the tool's letter tile and price
+   chip, the workflows it covers as icon chips, its check dots, and its one
+   action. One row per tool keeps the ranking read top to bottom. At wide sizes
+   every part takes its own column; narrower, the parts stack beside the ring.
+   Layouts switch on `@container app`, the page area beside the sidebar. */
+
+.board{min-width:0}
+.rows{min-width:0}
+.none{max-width:65ch;color:var(--muted)}
+
+/* =============================================================================
+   Row layout
+   ============================================================================= */
+
+/* Phone: the ring on the left, everything else stacked beside it */
+.head{display:none}
+.row{display:grid;grid-template-columns:48px minmax(0,1fr);grid-template-areas:"fit tool" ". covers" ". checks" ". acts" "detail detail";gap:var(--s-3);align-items:start;padding:var(--s-4) 0;border-bottom:1px dashed var(--line)}
+.fit{grid-area:fit}
+.tool{grid-area:tool}
+.covers{grid-area:covers}
+.checksCell{grid-area:checks}
+.acts{grid-area:acts}
+.detail{grid-area:detail}
+
+/* Tablet: the action stays in a right column, so Choose lines up down the list */
+@container app (min-width:640px){
+  .row{grid-template-columns:48px minmax(0,1fr) auto;grid-template-areas:"fit tool acts" ". covers acts" ". checks acts" ". detail detail";column-gap:var(--s-5)}
+}
+
+/* Wide: each part gets a column, headed once at the top */
+@container app (min-width:1100px){
+  .head,.row{grid-template-columns:48px minmax(0,1.1fr) minmax(0,1.5fr) 220px 210px;column-gap:var(--s-5)}
+  .row{grid-template-areas:"fit tool covers checks acts" ". detail detail detail detail";align-items:center}
+  .head{display:grid;padding-bottom:var(--s-2);border-bottom:1px solid var(--line);font-size:var(--fs-fine);font-weight:600;color:var(--muted)}
+  .head span:first-child{text-align:center}
+  .acts{align-self:start}
+}
+
+/* =============================================================================
+   Parts of a row
+   ============================================================================= */
+
+/* ---------- the tool: a letter tile in place of a logo, the name, and the price chip ---------- */
+.tool{display:flex;align-items:center;gap:var(--s-3);min-width:0}
+.mono{display:inline-grid;place-items:center;flex:none;width:40px;height:40px;border-radius:var(--r);font-family:var(--display);font-stretch:100%;font-weight:800;font-size:var(--fs-md);letter-spacing:.02em;
+  /* Mixing with the theme's own sheet and ink keeps every hue readable in light and dark */
+  background:color-mix(in oklch,oklch(66% .13 var(--hue)) 26%,var(--sheet));
+  color:color-mix(in oklch,oklch(50% .14 var(--hue)) 70%,var(--ink))}
+.toolText{min-width:0}
+.toolText h3{font-family:var(--body);font-stretch:100%;font-size:var(--fs-md);font-weight:600;line-height:1.35;letter-spacing:0;overflow-wrap:anywhere}
+.toolMeta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-1) var(--s-2);margin-top:2px}
+.chip{display:inline-flex;align-items:center;padding:1px 8px;border:1px solid var(--line);border-radius:999px;font-size:var(--fs-fine);font-weight:600;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.other{font-size:var(--fs-fine);color:var(--warn)}
+
+/* ---------- what it covers: one chip per workflow, the same icon as on the Workflows page ---------- */
+.covers{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:var(--s-2);min-width:0}
+.cover{display:inline-flex;align-items:center;gap:6px;min-width:0;padding:2px 10px 2px 2px;border-radius:999px;background:var(--sheet);border:1px solid var(--line);font-size:var(--fs-fine);font-weight:600;color:var(--ink-2)}
+.cover > span{border-radius:50%}
+/* The workflow the page is filtered to reads in full ink */
+.cover[data-active]{border-color:var(--ink);color:var(--ink)}
+
+/* ---------- the checks: seven dots, and the count beside them, opening the detail ---------- */
+.checksBtn{display:inline-flex;align-items:center;gap:var(--s-2);min-height:36px;margin-left:-8px;padding:4px 8px;border:0;border-radius:var(--r);background:none;color:var(--ink-2);font-size:var(--fs-sm);font-weight:600;cursor:pointer;text-align:left}
+.checksBtn:hover{background:var(--hover);color:var(--ink)}
+.checksBtn > span:not(:first-child){text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.checksBtn svg{flex:none;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.checksBtn svg{transition:transform var(--ease)}}
+.checksBtn[aria-expanded="true"] svg{transform:rotate(180deg)}
+
+/* ---------- the action: Choose, or where it already runs; Compare stays quiet ---------- */
+.acts{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-1) var(--s-4)}
+@container app (min-width:640px){.acts{flex-direction:column;align-items:flex-end;gap:var(--s-1)}}
+.status{display:inline-flex;align-items:flex-start;gap:var(--s-1);min-height:34px;padding-top:6px;font-size:var(--fs-sm);font-weight:600;color:var(--good)}
+@container app (min-width:640px){.status{text-align:right;max-width:24ch}}
+.status svg{flex:none;margin-top:2px}
+.compare{color:var(--ink-2);text-decoration:none}
+.compare[aria-pressed="true"]{color:var(--ink)}
+
+/* ---------- the detail behind the dots ---------- */
+.detail{display:flex;flex-direction:column;gap:var(--s-3);padding:var(--s-2) 0 var(--s-1) var(--s-4);border-left:2px solid var(--line);min-width:0}
+.detail[hidden]{display:none}
+.detailLine{max-width:65ch;font-size:var(--fs-sm);color:var(--ink-2)}
