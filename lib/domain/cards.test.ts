@@ -4,7 +4,7 @@ import { CARD_TEMPLATES, type CardBody, type CardSkill, draftFeed, simulateCard 
 import { EXAMPLES, exampleProfile, SAMPLE_BUSINESS } from "@/lib/domain/cases";
 import { checkSend, QUIET_HOURS_RULE } from "@/lib/domain/executor";
 import { activeAgents, workflowIdsOf } from "@/lib/domain/paths";
-import type { BusinessProfile, Choice, ChoiceMap, WorkflowId } from "@/lib/domain/types";
+import type { BusinessProfile, Choice, ChoiceMap, TradeKey, WorkflowId } from "@/lib/domain/types";
 import { careerCoach, hvacShop } from "@/test/trades";
 
 // =============================================================================
@@ -186,13 +186,67 @@ describe("inquiry cards", () => {
   const title = (reach: readonly string[]) => CARD_TEMPLATES.inquiry({ ...hvacShop(), reach }, 0).title;
 
   it("name the website only for a business that said it has a website form", () => {
-    expect(title(["Phone calls", "Website form"])).toBe("New inquiry from your website: Sam");
-    expect(title(["Phone calls", "Walk-ins"])).toBe("New inquiry from Sam");
+    expect(title(["Phone calls", "Website form"])).toMatch(/^New inquiry from your website: \p{Lu}\p{L}+$/u);
+    expect(title(["Phone calls", "Walk-ins"])).toMatch(/^New inquiry from \p{Lu}\p{L}+$/u);
   });
 
   it("name the first written channel the owner has", () => {
-    expect(title(["Instagram or Facebook", "Email"])).toBe("New inquiry on social media: Sam");
-    expect(title(["Email"])).toBe("New inquiry by email: Sam");
+    expect(title(["Instagram or Facebook", "Email"])).toMatch(/^New inquiry on social media: /);
+    expect(title(["Email"])).toMatch(/^New inquiry by email: /);
+  });
+
+  it("offer meeting times only to a business that keeps a calendar tool", () => {
+    const shop = { ...hvacShop(), tools: ["QuickBooks Online"] };
+    const noCalendar = CARD_TEMPLATES.inquiry(shop, 0);
+    expect(noCalendar.body).not.toMatch(/\d/);
+    expect(noCalendar.checks).not.toContain("Times match your calendar");
+    const withCalendar = CARD_TEMPLATES.inquiry({ ...shop, tools: ["Calendly"] }, 0);
+    expect(withCalendar.body).toMatch(/\d{1,2} [ap]\.m\./);
+    expect(withCalendar.checks).toContain("Times match your calendar");
+  });
+});
+
+describe("fallback drafts", () => {
+  const TRADES: readonly TradeKey[] = ["home", "restaurant", "store", "coach", "any"];
+  const asTrade = (tradeKey: TradeKey, id = "b_same"): BusinessProfile => ({ ...hvacShop(), id, tradeKey });
+
+  it("pick contact names from the business id, so two businesses rarely share one", () => {
+    const names = Array.from({ length: 12 }, (_, i) => CARD_TEMPLATES.inquiry(asTrade("home", `b_${i}`), 0).to);
+    expect(new Set(names).size).toBeGreaterThanOrEqual(10);
+    expect(CARD_TEMPLATES.inquiry(asTrade("home", "b_3"), 0).to).toBe(names[3]);
+  });
+
+  it("give one person one name across a card's title, body and recipient", () => {
+    const card = CARD_TEMPLATES.closer(asTrade("home", "b_family"), 0);
+    const [first, last] = (card.to ?? "").split(" ");
+    expect(card.title).toContain(last);
+    expect(card.body).toContain(`Hi ${first}`);
+  });
+
+  it("word the same skill differently for each trade", () => {
+    for (const skill of ["inquiry", "showup", "reviewer", "reviewdrafter"] as const) {
+      const texts = TRADES.map((trade) => {
+        const card = CARD_TEMPLATES[skill](asTrade(trade), 0);
+        return `${card.title} ${card.body}`;
+      });
+      expect(new Set(texts).size, skill).toBe(TRADES.length);
+    }
+  });
+
+  it("word a forwarded customer question for the trade", () => {
+    const titles = TRADES.map((trade) => CARD_TEMPLATES.triage({ ...asTrade(trade), signals: [] }, 0).title);
+    expect(new Set(titles).size).toBe(TRADES.length);
+  });
+
+  it("are marked as examples on an owner's business, and the example business keeps its researched cards unmarked", () => {
+    const own = draftFeed(hvacShop(), {});
+    expect(own.length).toBeGreaterThan(1);
+    for (const card of own) expect(card.example, card.key).toBe(true);
+    for (const card of draftFeed(SAMPLE_BUSINESS, {})) expect(card.example, card.key).toBeUndefined();
+  });
+
+  it("never mark a simulated event as an example", () => {
+    expect(simulateCard(hvacShop(), {}, 1)?.example).toBeUndefined();
   });
 });
 

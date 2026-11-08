@@ -218,6 +218,8 @@ export interface CardDraft {
   readonly to?: string;
   /** Dollars riding on this card, when the research gives a figure. */
   readonly stake?: number;
+  /** A starter Anchored wrote to show an agent's work, not a reply to a real customer. Absent on real cards. */
+  readonly example?: true;
 }
 
 /** A card draft with the stable key that ties it to stored state. */
