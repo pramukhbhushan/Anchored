@@ -305,6 +305,8 @@ export interface BusinessProfile {
   readonly placeId?: string;
   /** How many times the profile has been saved. The store sets it; every save keeps a copy in the profile's history. */
   readonly version?: number;
+  /** The Google Sheet the owner keeps invoices in, shared with Anchored's service account. Bookkeeping reads it on request. */
+  readonly invoiceSheet?: { readonly id: string; readonly connectedAt: string };
   readonly caseStudy?: {
     readonly label: string;
     readonly stat: string;

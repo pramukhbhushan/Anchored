@@ -4,6 +4,7 @@ import type { BusinessChatResponse, CardRecord, ChatMessage } from "@/lib/api/co
 import { SKILLS } from "@/lib/domain/agents";
 import { money } from "@/lib/domain/details";
 import { findPlaceholder, mentionsAllergen } from "@/lib/domain/executor";
+import { asksToCheckSheet, sheetIdFromText, sheetSyncReply } from "@/lib/domain/invoice-sheet";
 import { followUpQuestion, readInvoiceMessage, talksAboutInvoice, type InvoiceMessage } from "@/lib/domain/invoices";
 import { allowedLists, applyChanges, changeReply, readChanges, readDetailChanges, type FactChanges } from "@/lib/domain/intake";
 import { agentForSkill, agentName, chosenSkills, resolveChoices } from "@/lib/domain/paths";
@@ -21,10 +22,12 @@ import {
 } from "@/lib/domain/requests";
 import type { BusinessProfile, Channel, KeyedCard, SkillId } from "@/lib/domain/types";
 import { LANGUAGE_OPTIONS, REACH_OPTIONS, SIGNALS, TOOL_OPTIONS } from "@/lib/domain/workflows";
+import { ConnectorError } from "@/lib/connectors/errors";
 import { LlmResponseError, type LlmProvider } from "@/lib/llm";
 import { newFacts } from "@/lib/server/ai";
 import { getBudgetedLlm } from "@/lib/server/ai-budget";
 import { checkEvent, ingestEvent } from "@/lib/server/ingest";
+import { sheetsServiceAccount, syncInvoiceSheet } from "@/lib/server/invoice-sheet";
 import { quoted, shortPhrase } from "@/lib/server/intake-ai";
 import { getStore } from "@/lib/store";
 import type { ChatThread, NewChatMessage } from "@/lib/store/types";
@@ -38,7 +41,8 @@ import type { ChatThread, NewChatMessage } from "@/lib/store/types";
 // Approvals behind the reply that links to it. An owner telling Bookkeeping
 // about money owed or paid, such as "Sam Lee owes $240 on invoice 1042" or
 // "Sam paid 1042", becomes the same event a webhook would send, read in code
-// by `readInvoiceMessage`. Any other message is read for
+// by `readInvoiceMessage`. A Google Sheets link connects the owner's invoice
+// sheet, and "check my invoice sheet" reads it again. Any other message is read for
 // what changed (with the model when one is set up, else the rules), and the
 // rebuilt profile is saved. The example business is shared, so its chat
 // answers but never changes or stores anything.
@@ -102,6 +106,9 @@ export async function sendBusinessChat(session: string, business: BusinessProfil
   const opening: NewChatMessage[] = stored.length === 0 ? [{ role: "anchored", text: welcomeText(business, chosen) }] : [];
   // Money owed or paid goes to Bookkeeping first, before the general request reader sees it.
   if (chosen.includes("nudger")) {
+    const sheetId = sheetIdFromText(text);
+    if (sheetId !== null) return answerSheet(session, business, text, sheetId, true, { stored, cards, opening });
+    if (business.invoiceSheet && asksToCheckSheet(text)) return answerSheet(session, business, text, business.invoiceSheet.id, false, { stored, cards, opening });
     const invoice = readInvoiceMessage(text);
     if (invoice.kind !== "none" && talksAboutInvoice(invoice, text)) return answerInvoice(session, business, text, invoice, { stored, cards, opening });
   }
@@ -201,6 +208,31 @@ async function answerInvoice(session: string, business: BusinessProfile, text: s
   const title = `${name} owes ${money(amount)}${number ? ` on invoice ${number}` : ""}`;
   const linked = result.ok ? [...thread.cards, { key, title, status: "pending" as const }] : thread.cards;
   return { messages: linkCards(business, [...thread.stored, ...saved], linked), changes: [] };
+}
+
+/**
+ * Connect the owner's invoice sheet, or read it again, and say what the check found. A sheet is saved on the
+ * profile only once Anchored has read it, so a link the robot can't open connects nothing.
+ */
+async function answerSheet(session: string, business: BusinessProfile, text: string, sheetId: string, connecting: boolean, thread: ThreadSoFar): Promise<BusinessChatResponse> {
+  const store = getStore();
+  const account = sheetsServiceAccount();
+  let reply: string;
+  if (account === null) {
+    reply = "Google Sheets isn't set up on this server yet, so I can't read your sheet. You can still tell me about invoices here, like \"Sam Lee owes $240 on invoice 1042.\"";
+  } else {
+    try {
+      const result = await syncInvoiceSheet(session, business, sheetId, account);
+      if (connecting) await store.saveBusiness(session, { ...business, invoiceSheet: { id: sheetId, connectedAt: new Date().toISOString() } }, "chat");
+      reply = `${connecting ? "Connected your invoice sheet. " : ""}${sheetSyncReply(result)}${connecting ? ' Say "check my invoice sheet" any time to read it again.' : ""}`;
+    } catch (error) {
+      if (!(error instanceof ConnectorError)) throw error;
+      reply = error.message;
+    }
+  }
+  const latest = await store.listCards(session, business.id);
+  const saved = await store.addMessages(session, threadOf(business), [...thread.opening, { role: "owner", text }, { role: "anchored", text: reply }]);
+  return { messages: linkCards(business, [...thread.stored, ...saved], latest), changes: [] };
 }
 
 /** The fields of a stored card that a chat reply's link shows. */

@@ -1400,6 +1400,7 @@ export function applyChanges(business: BusinessProfile, changes: FactChanges): {
     // The engine rebuilds only what the facts decide; what the owner told agents directly stays.
     ...(business.crew ? { crew: business.crew } : {}),
     ...(business.placeId ? { placeId: business.placeId } : {}),
+    ...(business.invoiceSheet ? { invoiceSheet: business.invoiceSheet } : {}),
     ...(business.version !== undefined ? { version: business.version } : {}),
     ...detailsAfter(business, changes.details ?? []),
   };
