@@ -20,10 +20,16 @@ import type {
 // onboarding spawns for one business through `spawnNicheAgents`; `rulesFor`
 // lists the rules every agent here works under.
 
-/** The Claude model behind a tier and why that tier fits the work. */
+/** Why a tier fits the work. Which model runs it depends on the server's AI settings, read as an `AiSetup`. */
 export interface ModelTierDef {
-  readonly model: string;
   readonly why: string;
+}
+
+/** The AI provider a server runs and its model for each tier. */
+export interface AiSetup {
+  /** The provider's name for owners, such as "Claude" or "Featherless". */
+  readonly label: string;
+  readonly models: Readonly<Record<ModelTier, string>>;
 }
 
 /** A niche agent onboarding can spawn, and the onboarding fact that spawns it. */
@@ -382,9 +388,9 @@ function sellsFood(business: Pick<BusinessProfile, "tradeKey" | "signals">): boo
 // Model tiers
 // =============================================================================
 
-/** The Claude model each tier runs on. */
+/** Why each tier fits its work. The model behind it comes from the server's AI settings. */
 export const MODEL_TIERS: Readonly<Record<ModelTier, ModelTierDef>> = {
-  quick: { model: "Claude Haiku 5.5", why: "Short, routine text, so the fastest model is enough." },
-  default: { model: "Claude Sonnet 5.5", why: "Writes in your voice about a specific job." },
-  complex: { model: "Claude Opus 5.5", why: "Plans across many records." },
+  quick: { why: "Short, routine text, so the fastest model is enough." },
+  default: { why: "Writes in your voice about a specific job." },
+  complex: { why: "Plans across many records." },
 };

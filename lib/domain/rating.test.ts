@@ -28,7 +28,13 @@ describe("rateTool", () => {
 
   it("marks connects as not met when the business doesn't use the tool's platform", () => {
     const rating = rateTool(tool("jobber-ai"), restaurant);
-    expect(rating.checks.connects).toEqual(["no", "ours", "Needs Jobber, which you don't use"]);
+    expect(rating.checks.connects).toEqual(["no", "ours", "Needs Jobber, which isn't in the tools you named"]);
+  });
+
+  it("never says a tool sold to every kind of business was built for this one", () => {
+    const anyBusiness = rateTool(tool("claude"), hvacShop()).checks.proven;
+    expect(anyBusiness).toEqual(["unknown", "pilot", "Sold to any kind of business. No 30-day results published yet"]);
+    expect(rateTool(tool("jobber-ai"), hvacShop()).checks.proven[2]).toBe("Built for businesses like yours. No 30-day results published yet");
   });
 
   it("marks connects as met when the business uses the tool's platform", () => {

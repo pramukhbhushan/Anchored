@@ -3,7 +3,7 @@ import { asSentence } from "@/components/agent-labels";
 import styles from "@/components/stack/stack.module.css";
 import { Badge } from "@/components/ui/Badge";
 import { fitLine } from "@/components/view-helpers";
-import { MODEL_TIERS, rulesFor, SKILLS } from "@/lib/domain/agents";
+import { MODEL_TIERS, rulesFor, SKILLS, type AiSetup } from "@/lib/domain/agents";
 import { toolName } from "@/lib/domain/catalog";
 import type { ChosenTool } from "@/lib/domain/paths";
 import { CHECKS, rateTool, usesSoftware } from "@/lib/domain/rating";
@@ -14,20 +14,22 @@ import type { ActiveAgent, BusinessProfile, Tool } from "@/lib/domain/types";
 // =============================================================================
 // The Stack page's closed "Under the hood" disclosure, for judges and the
 // curious: what Anchored knows and reads, each agent's skills with what they
-// read, may do and never do, the Claude model behind each, and how each
+// read, may do and never do, the model this server runs for each, and how each
 // chosen tool scored. A native `details`, so it needs no client code.
 
 const VOICE_PREVIEW = 60;
 
-/** Render the disclosure with the profile, data sources, agent skills and tool checks. */
+/** Render the disclosure with the profile, data sources, agent skills and tool checks; `ai` is this server's model setup, `null` when AI is off. */
 export function UnderTheHood({
   business,
   agents,
   tools,
+  ai,
 }: {
   readonly business: BusinessProfile;
   readonly agents: readonly ActiveAgent[];
   readonly tools: readonly ChosenTool[];
+  readonly ai: AiSetup | null;
 }) {
   const reads = [
     ...new Set([
@@ -43,7 +45,7 @@ export function UnderTheHood({
         <ChevronRight className={styles.chev} aria-hidden="true" size={20} />
         <span>
           <span className={styles.hoodTitle}>Under the hood</span>
-          <span className={styles.hoodSub}>Skills, Claude models, setup steps and tool scores for each piece</span>
+          <span className={styles.hoodSub}>Skills, AI models, setup steps and tool scores for each piece</span>
         </span>
       </summary>
       <div className={styles.hoodBody}>
@@ -84,7 +86,7 @@ export function UnderTheHood({
         </div>
         <div className={styles.hoodGrid}>
           {agents.map((agent) => (
-            <AgentPanel key={agent.id} business={business} agent={agent} />
+            <AgentPanel key={agent.id} business={business} agent={agent} ai={ai} />
           ))}
           {tools.map(({ tool, path }) => (
             <ToolPanel key={tool.id} business={business} tool={tool} path={path} />
@@ -100,7 +102,7 @@ export function UnderTheHood({
 // -----------------------------------------------------------------
 
 /** Render one agent with each skill it runs here: reads, does, never, model and setup. */
-function AgentPanel({ business, agent }: { readonly business: BusinessProfile; readonly agent: ActiveAgent }) {
+function AgentPanel({ business, agent, ai }: { readonly business: BusinessProfile; readonly agent: ActiveAgent; readonly ai: AiSetup | null }) {
   const reason = spawnReason(business, agent);
   return (
     <article className={styles.hoodPanel}>
@@ -145,7 +147,13 @@ function AgentPanel({ business, agent }: { readonly business: BusinessProfile; r
               </dd>
               <dt>Model</dt>
               <dd>
-                {tier.model}, {skill.tier} tier. <span className="muted">{tier.why} Anchored picks it for you.</span>
+                {ai === null ? (
+                  "No AI model is set up here, so Anchored's rules write these drafts."
+                ) : (
+                  <>
+                    {ai.models[skill.tier]} on {ai.label}, {skill.tier} tier. <span className="muted">{tier.why} Anchored picks it for you.</span>
+                  </>
+                )}
               </dd>
               <dt>Set up</dt>
               <dd>

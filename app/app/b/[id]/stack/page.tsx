@@ -7,6 +7,7 @@ import { UnderTheHood } from "@/components/stack/UnderTheHood";
 import { ButtonLink } from "@/components/ui/Button";
 import { PageHeader, SectionHeader } from "@/components/ui/PageHeader";
 import { activeAgents, chosenTools } from "@/lib/domain/paths";
+import { aiSetup } from "@/lib/server/ai";
 import { getBusinessOrNotFound, getChoices } from "@/lib/server/data";
 
 // =============================================================================
@@ -49,7 +50,7 @@ export default async function StackPage({ params }: { readonly params: Promise<{
         />
       </section>
 
-      <UnderTheHood business={business} agents={activeAgents(business, choices)} tools={tools} />
+      <UnderTheHood business={business} agents={activeAgents(business, choices)} tools={tools} ai={aiSetup()} />
     </>
   );
 }

@@ -171,7 +171,7 @@ export function changeOptions(business: BusinessProfile, choices: Readonly<Recor
     list.push(
       option("new", {
         title: `Sign up for ${toolName(fresh)}`,
-        detail: `${steps.does}. ${capitalize(priceText(fresh, business))}, fits you ${fit} of 100.`,
+        detail: `${steps.does}. ${capitalize(priceText(fresh, business))}, fits you ${fit} of 100. Price checked ${fresh.checkedOn}.`,
         request: { workflow: id, path: "buy", toolId: fresh.id },
         runner: toolName(fresh),
       }),

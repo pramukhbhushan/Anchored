@@ -749,3 +749,19 @@ export function normalizeName(name: string): string {
 export function fitsTrade(tool: Tool, tradeKey: TradeKey): boolean {
   return tool.for.includes(tradeKey) || tool.for.includes("any");
 }
+
+/** Say when a set of facts was checked, from dates like "Nov 6, 2026": "Nov 6 and 7, 2026", or `null` for none. */
+export function checkedSpan(dates: readonly string[]): string | null {
+  // Unique and in calendar order, so the phrase reads the same whatever order the tools came in.
+  const days = [...new Set(dates)].map((text) => ({ text, at: Date.parse(text) })).sort((a, z) => a.at - z.at);
+  const first = days[0];
+  const last = days.at(-1);
+  if (first === undefined || last === undefined) return null;
+  if (days.length === 1) return first.text;
+  const parts = days.map(({ text }) => /^(\w+) (\d+), (\d+)$/.exec(text));
+  const [head] = parts;
+  const sameMonth = head !== null && head !== undefined && parts.every((p) => p !== null && p[1] === head[1] && p[3] === head[3]);
+  if (!sameMonth) return `${first.text} to ${last.text}`;
+  const dayNumbers = parts.map((p) => p?.[2] ?? "");
+  return `${head[1]} ${dayNumbers.slice(0, -1).join(", ")} and ${dayNumbers.at(-1)}, ${head[3]}`;
+}

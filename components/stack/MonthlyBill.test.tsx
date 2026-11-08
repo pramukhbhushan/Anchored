@@ -25,6 +25,7 @@ const BILL: Bill = {
     { id: "turnon", amount: 0, lines: [{ key: "qbo", name: "QuickBooks Online", does: ["Keeps your books"], price: "Already paid" }] },
     { id: "skip", amount: 0, lines: [] },
   ],
+  pricesCheckedOn: "Nov 6 and 7, 2026",
 };
 
 /** Nothing chosen yet: no plan, no tools, and two workflows skipped. */
@@ -46,6 +47,7 @@ const NOTHING_YET: Bill = {
       ],
     },
   ],
+  pricesCheckedOn: null,
 };
 
 describe("MonthlyBill", () => {
@@ -102,5 +104,14 @@ describe("MonthlyBill", () => {
     expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(4);
     expect(screen.getByText("Calls")).toBeInTheDocument();
     expect(screen.getByText("Social")).toBeInTheDocument();
+  });
+
+  it("dates the tool prices on the bill, and claims no date with no tool on it", () => {
+    const { unmount } = render(<MonthlyBill bill={BILL} />);
+    expect(screen.getByText(/Tool prices come from pages checked Nov 6 and 7, 2026\./)).toBeInTheDocument();
+    unmount();
+
+    render(<MonthlyBill bill={NOTHING_YET} />);
+    expect(screen.queryByText(/pages checked/)).not.toBeInTheDocument();
   });
 });

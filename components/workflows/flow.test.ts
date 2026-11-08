@@ -92,6 +92,12 @@ describe("workflowFlow", () => {
     expect(flowOf(SAMPLE_BUSINESS, "social", { social: { path: "build", skills: ["posts"] } }).routes[0]?.trigger).toMatch(/menu/);
   });
 
+  it("says when a new tool's price was checked", () => {
+    const options = changeOptions(hvacShop(), resolveChoices(hvacShop(), {}), "calls");
+    const fresh = options.find((option) => option.kind === "new");
+    expect(fresh?.detail).toMatch(/Price checked \w+ \d+, 2026\.$/);
+  });
+
   it("keeps the money at stake on work nothing handles yet, with no result", () => {
     const flow = flowOf(SAMPLE_BUSINESS, "disputes", { disputes: { path: "skip" } });
     expect(flow.routes).toEqual([{ key: "disputes", trigger: TOOL_STEPS.disputes.trigger, draft: null, rule: null, result: null }]);

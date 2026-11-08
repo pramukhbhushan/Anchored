@@ -4,7 +4,7 @@ import { APP_HREF } from "@/components/routes";
 import { ButtonLink } from "@/components/ui/Button";
 import { PageHeader, SectionHeader } from "@/components/ui/PageHeader";
 import { CORE_AGENTS } from "@/lib/domain/agents";
-import { TOOLS } from "@/lib/domain/catalog";
+import { checkedSpan, TOOLS } from "@/lib/domain/catalog";
 
 // =============================================================================
 // Module Overview
@@ -85,7 +85,7 @@ const STATUS: readonly Pair[] = [
     "Live. The rules run in code. With an AI provider set, it also rewrites the reasons in the owner's words.",
   ],
   ["Chat onboarding", "Live. Rules ask the questions; with an AI provider set, the model reads free answers too."],
-  ["Seven-check ratings", `Live. Computed in code from ${TOOLS.length} tools, with facts checked Nov 6 and 7, 2026.`],
+  ["Seven-check ratings", `Live. Computed in code from ${TOOLS.length} tools, with facts checked ${checkedSpan(TOOLS.map((tool) => tool.checkedOn)) ?? "by hand"}.`],
   ["Paths, stack and cost", "Live, saved to your account."],
   ["Rewrite in my voice", "Live when an AI provider is set."],
   [

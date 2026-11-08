@@ -15,7 +15,7 @@ import { getBudgetedLlm } from "@/lib/server/ai-budget";
 // words, and `rewriteInVoice` redrafts a card. The model never sets a workflow,
 // path or score; code owns those decisions and checks every reply.
 
-export { aiLabel, isAiConfigured } from "@/lib/llm";
+export { aiLabel, aiSetup, isAiConfigured } from "@/lib/llm";
 
 /** Return the configured provider, or throw when AI is off. */
 function requireLlm() {
