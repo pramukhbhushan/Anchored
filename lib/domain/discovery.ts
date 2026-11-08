@@ -79,6 +79,12 @@ function cleanField(value: string): string {
   return text.length > FIELD_MAX ? `${text.slice(0, FIELD_MAX - 1).trimEnd()}…` : text;
 }
 
+/** A cleaned price, or "Not stated" when a "$" has no amount after it, as when a page fills its prices in with JavaScript. */
+function cleanPrice(value: string): string {
+  const price = cleanField(value);
+  return /\$(?!\s*\d)/.test(price) ? NOT_STATED : price;
+}
+
 /** Whether the research names `product`: the whole name, or each of its words, so "Podium AI Employee" passes a page that says "Podium" and "AI employee" apart. */
 function mentioned(product: string, research: string): boolean {
   if (research.includes(normalizeName(product))) return true;
@@ -154,7 +160,7 @@ export function vetCandidates(input: DiscoveryInput): DiscoveryResult {
     listings.push({
       name,
       workflow: input.workflow,
-      price: cleanField(candidate.price),
+      price: cleanPrice(candidate.price),
       connects: cleanField(candidate.connects),
       data: cleanField(candidate.data),
       contract: cleanField(candidate.contract),
