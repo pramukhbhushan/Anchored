@@ -159,6 +159,15 @@ describe("Workflows page", () => {
     expect(circle("Answer and return calls")).toHaveAccessibleName("Answer and return calls. Certus");
   });
 
+  it("offers buttons to zoom the map in and out and to show it whole again", async () => {
+    await renderWorkflows(SAMPLE_BUSINESS.id);
+
+    const zoom = screen.getByRole("group", { name: "Zoom the map" });
+    for (const name of ["Zoom in", "Zoom out", "Show the whole map"]) {
+      expect(within(zoom).getByRole("button", { name })).toBeInTheDocument();
+    }
+  });
+
   it("opens a job's drafts, automations and who else could handle it with one tap", async () => {
     const user = userEvent.setup();
     await renderWorkflows(SAMPLE_BUSINESS.id);
