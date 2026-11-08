@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { CORE_AGENTS } from "@/lib/domain/agents";
-import type { CoreAgentId } from "@/lib/domain/types";
+import { displayAgentName } from "@/components/agent-labels";
+import { presentAgents } from "@/components/business/agents/view-model";
 import { BOAT_SYMBOL, pennant } from "@/components/site/harbor/Boats";
 import styles from "@/components/site/harbor/harbor.module.css";
 
@@ -11,10 +12,11 @@ import styles from "@/components/site/harbor/harbor.module.css";
 // sails a dashed route into one harbor marked You, beside a log of how one
 // missed call becomes a booked job, a paid invoice and a review.
 
-const AGENT_ORDER: readonly CoreAgentId[] = ["frontdesk", "followup", "books", "content", "internal"];
-const POSITIONS: Readonly<Record<CoreAgentId, readonly [number, number]>> = {
-  frontdesk: [70, 70],
-  followup: [110, 330],
+type FleetAgentId = "customer" | "books" | "content" | "internal";
+const AGENT_ORDER: readonly FleetAgentId[] = ["customer", "books", "content", "internal"];
+const AGENTS = presentAgents(Object.values(CORE_AGENTS).map((agent) => ({ ...agent, niche: false, approval: "every-card" as const })));
+const POSITIONS: Readonly<Record<FleetAgentId, readonly [number, number]>> = {
+  customer: [70, 70],
   books: [300, 370],
   content: [60, 210],
   internal: [260, 40],
@@ -25,11 +27,11 @@ const SOUNDINGS: readonly (readonly [number, number, string])[] = [
 ];
 
 /** The hand-offs, in the order one customer meets them. */
-const FLOW: readonly { readonly when: string; readonly agent: CoreAgentId; readonly what: string; readonly how: string }[] = [
-  { when: "9:12", agent: "frontdesk", what: "A call goes unanswered", how: "Front Desk drafts a text back with two open times." },
-  { when: "Day 3", agent: "followup", what: "The quote goes quiet", how: "Follow-up's Closer drafts a friendly check-in." },
+const FLOW: readonly { readonly when: string; readonly agent: FleetAgentId; readonly what: string; readonly how: string }[] = [
+  { when: "9:12", agent: "customer", what: "A call goes unanswered", how: "Customer drafts a text back with two open times." },
+  { when: "Day 3", agent: "customer", what: "The quote goes quiet", how: "Customer's Closer drafts a friendly check-in." },
   { when: "Day 30", agent: "books", what: "The invoice runs late", how: "Bookkeeping's Payment Nudger drafts a reminder." },
-  { when: "Job done", agent: "content", what: "A review comes in", how: "Follow-up asks for the review. Content drafts your reply." },
+  { when: "Job done", agent: "content", what: "A review comes in", how: "Customer asks for the review. Marketing drafts your reply for you to copy." },
   { when: "7:00", agent: "internal", what: "Every morning", how: "Internal Communications sums up what needs you today and what it's worth." },
 ];
 
@@ -38,7 +40,7 @@ export function FleetChart() {
   return (
     <div className={styles.chart}>
       <div className={styles.map}>
-        <svg viewBox="0 0 700 420" role="img" aria-label="Chart: five agent routes converging on your approvals">
+        <svg viewBox="0 0 700 420" role="img" aria-label="Chart: four agent routes converging on your approvals">
           {[40, 76, 112, 148, 184, 220, 256].map((r) => (
             <ellipse key={r} className={styles.contourLine} cx={HARBOR[0]} cy={HARBOR[1]} rx={r * 1.4} ry={r} />
           ))}
@@ -57,7 +59,7 @@ export function FleetChart() {
                   <use href={`#${BOAT_SYMBOL[id]}`} />
                 </svg>
                 <text className={styles.clabel} x={x + 30} y={y + 48} textAnchor="middle">
-                  {CORE_AGENTS[id].name.split(" ")[0]}
+                  {displayAgentName(AGENTS.find((agent) => agent.id === id)?.name ?? id).split(" ")[0]}
                 </text>
               </g>
             );

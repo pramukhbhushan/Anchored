@@ -1,3 +1,5 @@
+import { presentAgents, cardsForAgent } from "@/components/business/agents/view-model";
+import { agentHref } from "@/components/routes";
 import { ChevronRight, Inbox, MessageSquare, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -164,6 +166,16 @@ export default async function OverviewPage({ params }: { readonly params: Promis
             )}
           </ul>
         </div>
+      </section>
+
+      <section className="ov-wf" aria-labelledby="ov-agents-title">
+        <div className="ov-wf-head"><h2 id="ov-agents-title">Your agents</h2></div>
+        <ul className="ov-wf-list">
+          {presentAgents(activeAgents(business, choices)).map((agent) => {
+            const count = cardsForAgent(waiting, agent.id).length;
+            return <li key={agent.id}><Link href={agentHref(business.id, agent.id)}><span>{agent.name}</span><span className="ov-who">{count > 0 ? `${count} waiting for your OK` : "Nothing waiting"}</span></Link></li>;
+          })}
+        </ul>
       </section>
 
       <section className="ov-wf" aria-labelledby="ov-wf-title">

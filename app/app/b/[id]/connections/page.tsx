@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { TelegramSetup } from "@/components/connections/TelegramSetup";
 import { ConnectionsPanel } from "@/components/connections/ConnectionsPanel";
 import { ContactsList } from "@/components/connections/ContactsList";
 import { NEW_BUSINESS_HREF } from "@/components/routes";
@@ -29,6 +30,9 @@ export default async function ConnectionsPage({ params }: { readonly params: Pro
   return (
     <>
       <PageHeader title="Connections" description="Connect your own texting number, email and Stripe. Anchored sends only what you approve." />
+      <section className="section">
+        <TelegramSetup businessId={business.id} url={null} unavailableReason={isSample ? "Set up your own business to try Telegram when it is available." : "Telegram isn't available for this business yet. Existing email and invoice connections are listed below."} />
+      </section>
       <section className="section" aria-labelledby="services">
         <SectionHeader id="services" title="Services" />
         <ConnectionsPanel

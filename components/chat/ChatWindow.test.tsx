@@ -1,5 +1,6 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { describe, expect, it } from "vitest";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import type { BusinessChatResponse, ChatMessage, IntakeResponse, StartIntakeResponse } from "@/lib/api/contract";
@@ -227,6 +228,87 @@ describe("ChatWindow, business mode", () => {
   });
 });
 
+describe("ChatWindow, agent context", () => {
+  it("scopes the request to the agent while loading the shared business history", async () => {
+    const fetchSpy = chatRoute(json(ANSWERED));
+    render(<ChatWindow mode="business" businessId="greenfield" agent="customer" agentName="Customer" />);
+    await waitFor(() => expect(thread()).toHaveTextContent(GREETING.text));
+
+    const input = screen.getByRole("textbox", { name: "Message Customer" });
+    expect(input).toHaveAttribute("placeholder", "Ask Customer for a draft");
+    expect(screen.getByRole("region", { name: "Conversation with Customer about this business" })).toBeInTheDocument();
+    await userEvent.type(input, "Reply to Dana{Enter}");
+
+    await waitFor(() => expect(thread()).toHaveTextContent(REPLY.text));
+    expect(sentJson(fetchSpy, 0)).toMatchObject({ method: "GET", url: CHAT_URL });
+    expect(sentJson(fetchSpy, 1)).toEqual({ method: "POST", url: CHAT_URL, body: { text: "Reply to Dana", agent: "customer" } });
+  });
+
+  it("discards an old history load after switching businesses", async () => {
+    const previous = deferred<Response>();
+    const nextGreeting = { ...GREETING, id: "next", text: "What changed at Apex Heating?" };
+    stubFetch((url) => url === CHAT_URL ? previous.promise : json({ messages: [nextGreeting], changes: [] }));
+    const { rerender } = render(<ChatWindow mode="business" businessId="greenfield" />);
+
+    rerender(<ChatWindow mode="business" businessId="apex" />);
+    await waitFor(() => expect(thread()).toHaveTextContent(nextGreeting.text));
+    await act(async () => previous.resolve(json(LOADED)));
+
+    await waitFor(() => {
+      expect(thread()).toHaveTextContent(nextGreeting.text);
+      expect(thread()).not.toHaveTextContent(GREETING.text);
+    });
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+  });
+
+  it("ignores an old agent's reply and refresh after selecting another agent", async () => {
+    const previous = deferred<Response>();
+    const oldDraft: BusinessChatResponse = {
+      messages: [{ ...REPLY, text: "Old Customer reply", card: { key: "old-card", title: "Old Customer card", status: "pending" } }],
+      changes: [],
+    };
+    const fetchSpy = chatRoute(previous.promise);
+    const { rerender } = render(<ChatWindow mode="business" businessId="greenfield" agent="customer" agentName="Customer" />);
+    await waitFor(() => expect(thread()).toHaveTextContent(GREETING.text));
+    await userEvent.type(screen.getByRole("textbox", { name: "Message Customer" }), "Reply to Dana{Enter}");
+
+    rerender(<ChatWindow mode="business" businessId="greenfield" agent="content" agentName="Marketing" />);
+    const input = await screen.findByRole("textbox", { name: "Message Marketing" });
+    await waitFor(() => expect(input).toBeEnabled());
+    await act(async () => previous.resolve(json(oldDraft)));
+
+    await waitFor(() => {
+      expect(thread()).not.toHaveTextContent("Old Customer reply");
+      expect(router.refresh).not.toHaveBeenCalled();
+    });
+    expect(input).toHaveValue("");
+    expect(sentJson(fetchSpy, 1).body).toEqual({ text: "Reply to Dana", agent: "customer" });
+    expect(sentJson(fetchSpy, 2)).toMatchObject({ method: "GET", url: CHAT_URL });
+  });
+
+  it("drops the old context's unsent composer text when switching agents", async () => {
+    chatRoute();
+    const { rerender } = render(<ChatWindow mode="business" businessId="greenfield" agent="customer" agentName="Customer" />);
+    await waitFor(() => expect(thread()).toHaveTextContent(GREETING.text));
+    await userEvent.type(screen.getByRole("textbox", { name: "Message Customer" }), "Private customer draft");
+
+    rerender(<ChatWindow mode="business" businessId="greenfield" agent="books" agentName="Bookkeeping" />);
+
+    expect(await screen.findByRole("textbox", { name: "Message Bookkeeping" })).toHaveValue("");
+    expect(thread()).not.toHaveTextContent("Private customer draft");
+  });
+
+  it("keeps an agent Ask read-only on the shared example", async () => {
+    const fetchSpy = chatRoute();
+    render(<ChatWindow mode="business" businessId="greenfield" agent="customer" agentName="Customer" readOnly />);
+    await waitFor(() => expect(thread()).toHaveTextContent(GREETING.text));
+
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Set up your business" })).toBeInTheDocument();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("ChatWindow, text box size", () => {
   function grip(): HTMLElement {
     return screen.getByRole("separator", { name: "Resize the text box" });
@@ -338,5 +420,56 @@ describe("ChatWindow, onboarding", () => {
 
     expect(router.push).toHaveBeenCalledExactlyOnceWith("/app/b/biz-7/workflows");
     expect(router.refresh).toHaveBeenCalled();
+  });
+});
+
+describe("ChatWindow, StrictMode effect replay", () => {
+  it("opens one intake and accepts the first answer after a delayed start", async () => {
+    const started = deferred<Response>();
+    const fetchSpy = stubFetch((url) => url === INTAKE_URL ? started.promise : json(asking(CONFIRM)));
+    render(<StrictMode><ChatWindow mode="intake" /></StrictMode>);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    await act(async () => started.resolve(json({ ...asking(REACH), intakeId: INTAKE_ID } satisfies StartIntakeResponse)));
+
+    const chips = await screen.findByRole("group", { name: "Pick all that apply, then Done" });
+    await userEvent.click(within(chips).getByRole("button", { name: "Phone calls" }));
+    expect(within(chips).getByRole("button", { name: "Phone calls" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(within(chips).getByRole("button", { name: "Done (1)" }));
+    expect(await screen.findByRole("button", { name: "Looks right" })).toBeEnabled();
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(sentJson(fetchSpy, 1)).toMatchObject({ method: "POST", url: `${INTAKE_URL}/${INTAKE_ID}`, body: { picks: ["Phone calls"] } });
+  });
+
+  it("resumes one saved intake without opening a duplicate during effect replay", async () => {
+    window.sessionStorage.setItem("anchored.intake", INTAKE_ID);
+    const resumed = deferred<Response>();
+    const fetchSpy = stubFetch((_url, init) => (init?.method ?? "GET") === "GET" ? resumed.promise : json(asking(CONFIRM)));
+    render(<StrictMode><ChatWindow mode="intake" /></StrictMode>);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(sentJson(fetchSpy, 0)).toMatchObject({ method: "GET", url: `${INTAKE_URL}/${INTAKE_ID}` });
+    await act(async () => resumed.resolve(json(asking(REACH))));
+
+    const chips = await screen.findByRole("group", { name: "Pick all that apply, then Done" });
+    await userEvent.click(within(chips).getByRole("button", { name: "Email" }));
+    await userEvent.click(within(chips).getByRole("button", { name: "Done (1)" }));
+    expect(await screen.findByRole("button", { name: "Looks right" })).toBeEnabled();
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(sentJson(fetchSpy, 1)).toMatchObject({ method: "POST", url: `${INTAKE_URL}/${INTAKE_ID}` });
+  });
+
+  it("loads scoped business chat after a delayed GET during effect replay", async () => {
+    const loaded = deferred<Response>();
+    const fetchSpy = stubFetch((_url, init) => (init?.method ?? "GET") === "GET" ? loaded.promise : json(ANSWERED));
+    render(<StrictMode><ChatWindow mode="business" businessId="greenfield" agent="customer" agentName="Customer" /></StrictMode>);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    await act(async () => loaded.resolve(json(LOADED)));
+
+    const input = await screen.findByRole("textbox", { name: "Message Customer" });
+    await waitFor(() => expect(input).toBeEnabled());
+    await userEvent.type(input, "Reply to Dana{Enter}");
+    await waitFor(() => expect(thread()).toHaveTextContent(REPLY.text));
+    const posts = fetchSpy.mock.calls.filter(([, init]) => init?.method === "POST");
+    expect(posts).toHaveLength(1);
+    expect(posts[0]?.[1]?.body).toBe(JSON.stringify({ text: "Reply to Dana", agent: "customer" }));
   });
 });

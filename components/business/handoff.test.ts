@@ -27,6 +27,11 @@ function param(href: string, name: string): string | null {
 }
 
 describe("handOff", () => {
+  it("provides no personal-app or clipboard fallback for Telegram, even for a copy-shaped action", () => {
+    expect(handOff({ ...TEXT, channel: "telegram", action: "Send message" }, SHOP)).toBeNull();
+    expect(handOff({ ...TEXT, channel: "telegram", action: "Copy post" }, SHOP)).toBeNull();
+  });
+
   it("opens the texting app with the words typed out, leaving a named customer for the owner to pick", () => {
     const step = handOff(TEXT, SHOP);
 

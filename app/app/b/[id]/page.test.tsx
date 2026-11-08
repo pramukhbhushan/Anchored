@@ -108,3 +108,17 @@ describe("Overview page", () => {
     expect(within(brief()).queryByText(/samples until/)).not.toBeInTheDocument();
   });
 });
+
+describe("agent workspace entry points", () => {
+  it("groups Customer work once without replacing the workflow ledger", async () => {
+    const shop = hvacShop();
+    await stores.current!.setChoice(SESSION, shop.id, "leads", { path: "build", skills: ["inquiry"] });
+    await stores.current!.setChoice(SESSION, shop.id, "quotes", { path: "build", skills: ["closer"] });
+    await renderOverview(shop.id);
+    const agents = screen.getByRole("region", { name: "Your agents" });
+    expect(within(agents).getAllByRole("link", { name: /Customer/ })).toHaveLength(1);
+    expect(within(agents).getByRole("link", { name: /Customer/ })).toHaveAttribute("href", `/app/b/${shop.id}/workflows/customer`);
+    expect(screen.getByRole("region", { name: "Your workflows" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Morning brief" })).toBeInTheDocument();
+  });
+});

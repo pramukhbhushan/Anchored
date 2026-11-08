@@ -26,7 +26,7 @@ export type HandOffBusiness = Pick<BusinessProfile, "name" | "reach" | "tools">;
 
 /** An approved draft: the text the owner approved, and the card fields that say where it goes. */
 export interface ApprovedDraft {
-  readonly channel: OutboxEntry["channel"];
+  readonly channel: OutboxEntry["channel"] | "telegram";
   readonly to: string;
   readonly body: string;
   readonly title: string;
@@ -88,7 +88,7 @@ function postPlaces(business: HandOffBusiness, title: string): PastePlace[] {
 }
 
 /** Return the approved draft behind an outbox entry, or `null` for a list entry whose card left the feed. */
-export function approvedDraft(entry: OutboxEntry, card: Pick<CardRecord, "body" | "title" | "action"> | undefined): ApprovedDraft | null {
+export function approvedDraft(entry: Omit<OutboxEntry, "channel"> & Pick<ApprovedDraft, "channel">, card: Pick<CardRecord, "body" | "title" | "action"> | undefined): ApprovedDraft | null {
   if (card === undefined) return entry.channel === "list" ? null : { channel: entry.channel, to: entry.to, body: entry.body, title: "", action: "" };
   // A list entry logs "action: body", so the card holds the words the owner approved.
   return { channel: entry.channel, to: entry.to, body: entry.channel === "list" ? card.body : entry.body, title: card.title, action: card.action };
@@ -96,6 +96,8 @@ export function approvedDraft(entry: OutboxEntry, card: Pick<CardRecord, "body" 
 
 /** Return the owner's last step for an approved draft, or `null` when it stays inside Anchored, such as a rep list. */
 export function handOff(draft: ApprovedDraft, business: HandOffBusiness): HandOff | null {
+  // Only Anchored's connected bot can send to this chat. A personal app is not a safe fallback.
+  if (draft.channel === "telegram") return null;
   if (draft.channel === "sms") {
     // A group text from a personal phone has no consent records behind it, so a send to many goes through a texting service.
     if (massAudience(draft.action) !== null) {

@@ -1,6 +1,8 @@
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { businessHref } from "@/components/routes";
+import { businessHref, cardAnchor } from "@/components/routes";
+import type { ApprovedDraft } from "@/components/business/handoff";
+import type { OutboxEntry } from "@/lib/api/contract";
 import { draftFeed } from "@/lib/domain/cards";
 import { SAMPLE_BUSINESS } from "@/lib/domain/cases";
 import { resolveChoices } from "@/lib/domain/paths";
@@ -27,6 +29,18 @@ const stores = vi.hoisted(() => ({ current: null as Store | null }));
 vi.mock("@/lib/store", () => ({ getStore: () => stores.current }));
 vi.mock("@/lib/server/session", () => ({ getSessionId: async () => SESSION }));
 
+const futureOutbox = vi.hoisted(() => new Array<Omit<OutboxEntry, "channel"> & Pick<ApprovedDraft, "channel">>());
+vi.mock("@/lib/server/data", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/server/data")>();
+  return {
+    ...actual,
+    getFeed: async (...args: Parameters<typeof actual.getFeed>) => {
+      const feed = await actual.getFeed(...args);
+      return { ...feed, outbox: [...feed.outbox, ...futureOutbox] };
+    },
+  };
+});
+
 const { default: ApprovalsPage } = await import("./page");
 
 /** Render the Approvals page for business `id`. */
@@ -35,6 +49,7 @@ async function renderApprovals(id: string) {
 }
 
 beforeEach(async () => {
+  futureOutbox.length = 0;
   stores.current = new MemoryStore();
   await stores.current.saveBusiness(SESSION, hvacShop());
 });
@@ -53,6 +68,31 @@ describe("Approvals page", () => {
     expect(screen.getByText("Agents draft each text, email and post. Nothing goes out until you approve it.")).toBeInTheDocument();
     expect(screen.queryByText(/Example drafts/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Watch an agent draft" })).toBeInTheDocument();
+  });
+
+  it("shows a sent Telegram message without a personal-app send action", async () => {
+    futureOutbox.push({ id: "tg-1", businessId: hvacShop().id, cardId: "card-tg", channel: "telegram", to: "Dana Lewis", body: "Thanks, Dana. Your quote is ready.", sentAt: "2026-11-07T15:00:00Z", delivery: "sent", note: null });
+
+    await renderApprovals(hvacShop().id);
+
+    const outbox = screen.getByRole("complementary", { name: "Outbox" });
+    expect(within(outbox).getByText("Telegram message to Dana Lewis")).toBeInTheDocument();
+    expect(outbox).toHaveTextContent("Thanks, Dana. Your quote is ready.");
+    expect(within(outbox).getByText("Sent by Anchored")).toBeInTheDocument();
+    expect(within(outbox).queryByRole("link", { name: /Send from/ })).not.toBeInTheDocument();
+  });
+
+  it("points a failed Telegram message to Connections instead of a manual send bypass", async () => {
+    futureOutbox.push({ id: "tg-2", businessId: hvacShop().id, cardId: "card-tg", channel: "telegram", to: "Dana Lewis", body: "Thanks, Dana.", sentAt: "2026-11-07T15:00:00Z", delivery: "failed", note: "The bot could not reach this chat." });
+
+    await renderApprovals(hvacShop().id);
+
+    const outbox = screen.getByRole("complementary", { name: "Outbox" });
+    expect(outbox).toHaveTextContent("Didn't send: The bot could not reach this chat. Check the Telegram connection.");
+    expect(within(outbox).getByRole("link", { name: "See connections" })).toHaveAttribute("href", businessHref(hvacShop().id, "connections"));
+    expect(within(outbox).queryByRole("link", { name: /Send from/ })).not.toBeInTheDocument();
+    expect(within(outbox).queryByRole("button", { name: /Copy/ })).not.toBeInTheDocument();
+    expect(outbox).not.toHaveTextContent("Send it yourself");
   });
 
   it("offers to send an approved text from the owner's phone", async () => {
@@ -118,6 +158,31 @@ describe("Approvals page", () => {
     expect(within(outbox).getByText("You send each one yourself")).toBeInTheDocument();
     expect(within(outbox).getByText(note)).toBeInTheDocument();
     expect(within(outbox).getByRole("link", { name: "Send from your phone" })).toBeInTheDocument();
+  });
+});
+
+describe("Approvals history links", () => {
+  it.each(["approved", "skipped"] as const)("reveals the %s card named by a deep link", async (status) => {
+    const shop = hvacShop();
+    const draft = draftFeed(shop, resolveChoices(shop, {}))[0];
+    if (draft === undefined) throw new Error("Expected an example draft");
+    await stores.current!.ensureCards(SESSION, shop.id, [draft]);
+    const card = (await stores.current!.listCards(SESSION, shop.id))[0];
+    if (card === undefined) throw new Error("Expected the stored card");
+    await stores.current!.updateCard(SESSION, card.id, { status, decidedAt: "2026-11-07T15:00:00Z" });
+    const previousUrl = window.location.href;
+    try {
+      window.history.replaceState(null, "", `#${cardAnchor(card.key)}`);
+
+      await renderApprovals(shop.id);
+
+      const target = document.getElementById(cardAnchor(card.key));
+      expect(target).toHaveTextContent(card.title);
+      expect(target?.closest("details")).toHaveAttribute("open");
+      expect(target).toHaveTextContent(status === "skipped" ? "Skipped" : "Approved");
+    } finally {
+      window.history.replaceState(null, "", previousUrl);
+    }
   });
 });
 

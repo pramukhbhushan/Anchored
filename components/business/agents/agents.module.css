@@ -1,0 +1,22 @@
+/* =============================================================================
+   Module Overview
+   =============================================================================
+   Agent workspaces extend the current full-width pages. Columns respond to
+   the available app container, and only pending decisions receive boxes. */
+.workspace{display:grid;gap:var(--s-5);min-width:0}
+.workspace h2{font-size:var(--fs-xl)}
+.workspace h3{font-size:var(--fs-lg)}
+.workspace nav{font-size:var(--fs-sm);overflow-wrap:anywhere}
+.columns{display:grid;gap:var(--s-7);min-width:0}
+.section{display:grid;gap:var(--s-4);align-content:start;min-width:0}
+.drafts{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:var(--s-4);padding:0;margin:0;list-style:none}
+.preview{display:grid;justify-items:start;align-content:start;gap:var(--s-3);padding:var(--pad);border:1px solid var(--line);border-radius:var(--r);background:var(--sheet);min-width:0}
+.preview h3,.words{overflow-wrap:anywhere}
+.words{white-space:pre-wrap;max-width:65ch}
+.activity{margin:0;padding:0;list-style:none}
+.activity li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:var(--s-3);padding:var(--s-3) 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.activity span{color:var(--muted);font-size:var(--fs-sm)}
+.details{border-top:1px solid var(--line);padding-top:var(--s-4)}
+.details summary{font-weight:600}
+.details ul{display:grid;gap:var(--s-3);padding-inline-start:var(--s-5)}
+@container app (min-width:960px){.columns{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}}

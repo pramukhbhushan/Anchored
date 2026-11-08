@@ -1,13 +1,14 @@
 import { CheckCheck, Plug } from "lucide-react";
 import type { Metadata } from "next";
 import { AgentCard } from "@/components/business/AgentCard";
+import { OpenFromHash } from "@/components/business/OpenFromHash";
 import { cardSource } from "@/components/agent-labels";
 import { businessHref } from "@/components/routes";
 import { ResizablePanel } from "@/components/resize/ResizablePanel";
 import { SendYourself } from "@/components/business/SendYourself";
 import { SimulateButton } from "@/components/business/SimulateButton";
 import { WritingStarters } from "@/components/business/WritingStarters";
-import { approvedDraft, handOff, type HandOff, type HandOffBusiness } from "@/components/business/handoff";
+import { approvedDraft, handOff, type ApprovedDraft, type HandOff, type HandOffBusiness } from "@/components/business/handoff";
 import { buttonClass, ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader, SectionHeader } from "@/components/ui/PageHeader";
@@ -32,23 +33,33 @@ import { getBusinessOrNotFound, getChoices, getFeed } from "@/lib/server/data";
 
 export const metadata: Metadata = { title: "Approvals" };
 
-const CHANNEL_LABEL: Readonly<Record<OutboxEntry["channel"], string>> = {
+type DisplayEntry = Omit<OutboxEntry, "channel"> & Pick<ApprovedDraft, "channel">;
+
+const CHANNEL_LABEL: Readonly<Record<DisplayEntry["channel"], string>> = {
   sms: "Text",
   email: "Email",
-  telegram: "Telegram",
   list: "Logged",
+  telegram: "Telegram message",
 };
 
+/** Report whether a delivery renders its message body instead of a list action. */
+function isMessage(channel: string): boolean {
+  return channel === "sms" || channel === "telegram";
+}
+
 /** Return the outbox line for an email or list entry, from its card when the feed still has it. */
-function logText(entry: OutboxEntry, card: CardRecord | undefined): string {
+function logText(entry: DisplayEntry, card: CardRecord | undefined): string {
   if (card === undefined) return `${CHANNEL_LABEL[entry.channel]}: ${entry.to}`;
   return entry.channel === "email" ? `Email to ${entry.to}: ${card.title}` : `${card.action}: ${card.title}`;
 }
 
 /** Say where one outbox entry stands, or `null` when the owner sends it and there is nothing to add. */
-function deliveryLine(entry: OutboxEntry, held: boolean): string | null {
+function deliveryLine(entry: DisplayEntry, held: boolean): string | null {
   if (entry.delivery === "sent") return "Sent by Anchored";
-  if (entry.delivery === "failed") return entry.note === null ? "Didn't send. Send it yourself." : `Didn't send: ${entry.note}`;
+  if (entry.delivery === "failed") {
+    if (entry.channel === "telegram") return entry.note === null ? "Didn't send. Check the Telegram connection." : `Didn't send: ${entry.note} Check the Telegram connection.`;
+    return entry.note === null ? "Didn't send. Send it yourself." : `Didn't send: ${entry.note}`;
+  }
   if (held) return `Ready to send at ${sendTimeText(new Date(entry.sentAt))}`;
   if (entry.delivery === "sending") return "Sending now";
   // Due but not yet picked up: the scheduled sender takes it on its next run, so nothing has gone out yet.
@@ -63,7 +74,7 @@ function OutboxItem({
   queued,
   business,
 }: {
-  readonly entry: OutboxEntry;
+  readonly entry: DisplayEntry;
   readonly card?: CardRecord;
   readonly queued: boolean;
   readonly business: HandOffBusiness;
@@ -77,12 +88,13 @@ function OutboxItem({
   const draft = approvedDraft(entry, card);
   const step: HandOff | null = !ownerSends || draft === null ? null : handOff(draft, business);
   const send = step === null ? null : <SendYourself handOff={step} />;
-  if (entry.channel === "sms") {
+  if (isMessage(entry.channel)) {
     return (
       <li className={`bubble${held ? " is-queued" : ""}`}>
-        <small>Text to {entry.to}</small>
+        <small>{CHANNEL_LABEL[entry.channel]} to {entry.to}</small>
         {entry.body}
         {when}
+        {entry.channel === "telegram" && entry.delivery === "failed" && <a href={businessHref(entry.businessId, "connections")}>See connections</a>}
         {send}
       </li>
     );
@@ -136,6 +148,7 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
 
   return (
     <>
+      <OpenFromHash />
       <PageHeader
         title="Approvals"
         description={

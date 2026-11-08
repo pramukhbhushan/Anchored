@@ -42,6 +42,16 @@ One page shows the monthly bill and what each piece does. Tools you already pay 
 
 For how the code fits together, see [`docs/architecture.md`](docs/architecture.md).
 
+## Agent workspaces
+
+This branch adds the first part of the agent dashboard. Active agents appear under Workflows in the sidebar and in the command palette. Their pages show existing drafts, recent decisions and the jobs they handle. Overview also links to each active agent. Approvals remains the single queue for reviewing, editing and deciding a draft; existing workflow-map and automation-detail URLs are unchanged.
+
+Under `/app/b/<id>/workflows/`, the core workspace route tokens are `customer`, `books`, `content` and `internal`. A destination opens only when that agent is active in the business's plan. Active niche agents also get workspaces. Customer currently groups the existing Front Desk and Follow-up records for display; the underlying domain and stored identifiers have not been migrated to four agents. Other workspace titles continue to use the current domain names.
+
+Use Open Chat on a workspace to ask for a draft through the existing general business chat. Agent-scoped Ask, customer conversation history, the Telegram test link and QR rendering slot, the acknowledgment rule, and Daily Brief Run now are prepared as separate UI components but are not connected to a backend contract yet. Unavailable states are shown instead of sample customer history or enabled controls. The existing Overview summary and configured service behavior described below remain available.
+
+The remaining data and capability requirements are listed in [Agent presentation integration](components/business/agents/integration.md). Component tests cover the prepared states; real Telegram delivery, rule authorization and brief execution still require integrated server and provider verification.
+
 ## Run it locally
 
 You need Node.js 26, the version in `.nvmrc`.

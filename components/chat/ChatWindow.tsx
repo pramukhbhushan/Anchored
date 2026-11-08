@@ -23,17 +23,17 @@ import styles from "./chat.module.css";
 // the owner says what changed and the page refreshes to show the new plan, or
 // asks an agent for work and follows the reply's link to the draft in Approvals.
 
-/** Onboard a new business, or talk to one that exists. The example business passes `readOnly`; `starters` are the first messages offered. */
+/** Onboard or chat about a business; supply optional agent context only when the server supports scoped requests. */
 export type ChatWindowProps =
   | { readonly mode: "intake" }
-  | { readonly mode: "business"; readonly businessId: string; readonly readOnly?: boolean; readonly starters?: readonly string[] };
+  | { readonly mode: "business"; readonly businessId: string; readonly readOnly?: boolean; readonly starters?: readonly string[]; readonly agent?: string; readonly agentName?: string };
 
 /** Render the chat for `props.mode`. */
 export function ChatWindow(props: ChatWindowProps) {
   return props.mode === "intake" ? (
     <IntakeChat />
   ) : (
-    <BusinessChat businessId={props.businessId} readOnly={props.readOnly ?? false} starters={props.starters ?? GENERIC_STARTERS} />
+    <BusinessChat key={JSON.stringify([props.businessId, props.agent ?? null])} businessId={props.businessId} readOnly={props.readOnly ?? false} starters={props.starters ?? GENERIC_STARTERS} agent={props.agent} agentName={props.agentName} />
   );
 }
 
@@ -54,13 +54,28 @@ interface Outgoing {
 /** Run one chat request at a time, showing the owner's words while it runs and a retry when it fails. */
 function useSender(): { outgoing: Outgoing | null; busy: boolean; run: (text: string | null, work: () => Promise<void>) => Promise<void> } {
   const [outgoing, setOutgoing] = useState<Outgoing | null>(null);
+  const mounted = useRef(true);
+  const running = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
   async function run(text: string | null, work: () => Promise<void>): Promise<void> {
+    if (!mounted.current || running.current) return;
+    // StrictMode replays effects on the same instance. Keep its in-flight
+    // request locked so the one intake start can settle after setup replays.
+    running.current = true;
     setOutgoing({ text, status: "sending" });
     try {
       await work();
-      setOutgoing(null);
+      if (mounted.current) setOutgoing(null);
     } catch (error) {
-      setOutgoing({ text, status: "failed", error: errorText(error), retry: () => void run(text, work) });
+      if (mounted.current) setOutgoing({ text, status: "failed", error: errorText(error), retry: () => void run(text, work) });
+    } finally {
+      running.current = false;
     }
   }
   return { outgoing, busy: outgoing?.status === "sending", run };
@@ -304,39 +319,46 @@ function BusinessChat({
   businessId,
   readOnly,
   starters,
+  agent,
+  agentName,
 }: {
   readonly businessId: string;
   readonly readOnly: boolean;
   readonly starters: readonly string[];
+  readonly agent?: string;
+  readonly agentName?: string;
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<readonly ChatMessage[] | null>(null);
   const { outgoing, busy, run } = useSender();
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const mounted = useRef(false);
+  const contextName = agent === undefined ? null : (agentName ?? agent);
   const url = `/api/businesses/${encodeURIComponent(businessId)}/chat`;
 
   useEffect(() => {
-    let live = true;
+    mounted.current = true;
     void run(null, async () => {
       const chat = await getApi<BusinessChatResponse>(url, LOAD_FAILED);
-      if (live) setMessages(chat.messages);
+      if (mounted.current) setMessages(chat.messages);
     });
     return () => {
-      live = false;
+      mounted.current = false;
     };
-    // `run` is recreated each render on purpose; loading depends only on which business this is.
+    // A keyed BusinessChat remounts when the business or selected agent changes.
   }, [url]);
 
   async function send(text: string): Promise<void> {
     if (busy || readOnly) return;
     await run(text, async () => {
-      const chat = await callApi<BusinessChatResponse>(url, "POST", { text });
+      const chat = await callApi<BusinessChatResponse>(url, "POST", agent === undefined ? { text } : { text, agent });
+      if (!mounted.current) return;
       setMessages(chat.messages);
       // Changed facts can add or drop workflows, and a new draft raises the approvals count in the sidebar,
       // so the page around the chat re-renders from the server.
       if (chat.changes.length > 0 || chat.messages.at(-1)?.card !== undefined) router.refresh();
     });
-    inputRef.current?.focus();
+    if (mounted.current) inputRef.current?.focus();
   }
 
   const fresh = messages !== null && messages.every((message) => message.role === "anchored");
@@ -347,7 +369,7 @@ function BusinessChat({
           messages={messages ?? []}
           outgoing={outgoing}
           typing={busy || messages === null ? "typing" : null}
-          label="Conversation with Anchored about this business"
+          label={contextName === null ? "Conversation with Anchored about this business" : `Conversation with ${contextName} about this business`}
           businessId={businessId}
         />
         <div className={styles.composer}>
@@ -370,7 +392,7 @@ function BusinessChat({
                   ))}
                 </div>
               )}
-              <Composer inputRef={inputRef} placeholder="Tell Anchored what changed, or ask your agents for a draft" disabled={messages === null || outgoing?.status === "failed"} busy={busy} onSend={(text) => void send(text)} />
+              <Composer inputRef={inputRef} label={contextName === null ? "Message Anchored" : `Message ${contextName}`} placeholder={contextName === null ? "Tell Anchored what changed, or ask your agents for a draft" : `Ask ${contextName} for a draft`} disabled={messages === null || outgoing?.status === "failed"} busy={busy} onSend={(text) => void send(text)} />
             </>
           )}
         </div>
@@ -579,12 +601,14 @@ function QuickReplies({
 /** The text box: Enter sends, Shift+Enter starts a new line, and the grip above it makes it taller or shorter. */
 function Composer({
   inputRef,
+  label = "Message Anchored",
   placeholder,
   disabled,
   busy,
   onSend,
 }: {
   readonly inputRef: RefObject<HTMLTextAreaElement | null>;
+  readonly label?: string;
   readonly placeholder: string;
   readonly disabled: boolean;
   readonly busy: boolean;
@@ -613,7 +637,7 @@ function Composer({
     <form className={styles.form} onSubmit={submit}>
       <BoxGrip box={inputRef} controls={id} size={size} />
       <label htmlFor={id} className={styles.srOnly}>
-        Message Anchored
+        {label}
       </label>
       <textarea
         id={id}

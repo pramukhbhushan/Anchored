@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
-import { SendYourself } from "@/components/business/SendYourself";
+import { describe, expect, it, vi } from "vitest";
+import { copyText, SendYourself } from "@/components/business/SendYourself";
 import type { HandOff } from "@/components/business/handoff";
 
 // =============================================================================
@@ -58,6 +58,22 @@ describe("SendYourself", () => {
       expect(screen.getByRole("button", { name: "Share" })).toBeInTheDocument();
     } finally {
       Reflect.deleteProperty(navigator, "share");
+    }
+  });
+});
+
+describe("copyText", () => {
+  it("removes its hidden fallback textarea even when copying throws", async () => {
+    userEvent.setup();
+    vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(new Error("Clipboard denied"));
+    Object.defineProperty(document, "execCommand", { configurable: true, value: () => { throw new Error("Copy denied"); } });
+    const before = document.querySelectorAll("textarea").length;
+    try {
+      expect(await copyText("Private customer text")).toBe(false);
+      expect(document.querySelectorAll("textarea")).toHaveLength(before);
+      expect(document.body).not.toHaveTextContent("Private customer text");
+    } finally {
+      Reflect.deleteProperty(document, "execCommand");
     }
   });
 });

@@ -3,7 +3,7 @@
 import { Building2, CornerDownLeft, LayoutGrid, Plus, Search, BookOpen, type LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { APP_HREF, NEW_BUSINESS_HREF, SECTIONS, businessHref } from "@/components/routes";
+import { APP_HREF, NEW_BUSINESS_HREF, SECTIONS, businessHref, agentHref } from "@/components/routes";
 import { SECTION_ICON, SECTION_SHORTCUT } from "@/components/shell/nav";
 import type { ShellLocation } from "@/components/shell/location";
 import type { BusinessSummary } from "@/components/shell/shell-data";
@@ -55,7 +55,11 @@ function commandsFor(businesses: readonly BusinessSummary[], location: ShellLoca
     { id: "app:new", group: "Anchored", label: "Set up a new business", href: NEW_BUSINESS_HREF, icon: Plus },
     { id: "app:built", group: "Anchored", label: "How it's built", href: "/built", icon: BookOpen },
   ];
-  return [...pages, ...places, ...app];
+  const agents: Command[] = current === undefined ? [] : (current.agents ?? []).map((agent) => ({
+    id: `agent:${agent.id}`, group: `${current.name} agents`, label: agent.name,
+    href: agentHref(current.id, agent.id), icon: SECTION_ICON.workflows,
+  }));
+  return [...pages, ...agents, ...places, ...app];
 }
 
 /** Keep the commands whose label or group contains every word of `query`. */

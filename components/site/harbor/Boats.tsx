@@ -10,8 +10,12 @@ import styles from "@/components/site/harbor/harbor.module.css";
 // the hero, and the anchor for the closing call to action. Colors come from
 // the `.harbor` tokens, so every drawing follows light and dark mode.
 
+/** Boat identities accept old records and the canonical Customer presentation. */
+export type BoatAgentId = CoreAgentId | "customer" | "frontdesk" | "followup";
+
 /** The symbol id for each core agent's boat. */
-export const BOAT_SYMBOL: Readonly<Record<CoreAgentId, string>> = {
+export const BOAT_SYMBOL: Readonly<Record<BoatAgentId, string>> = {
+  customer: "boat-frontdesk",
   frontdesk: "boat-frontdesk",
   followup: "boat-followup",
   books: "boat-books",
@@ -20,7 +24,8 @@ export const BOAT_SYMBOL: Readonly<Record<CoreAgentId, string>> = {
 };
 
 /** The kind of boat each agent is drawn as. */
-export const BOAT_KIND: Readonly<Record<CoreAgentId, string>> = {
+export const BOAT_KIND: Readonly<Record<BoatAgentId, string>> = {
+  customer: "Harbor launch",
   frontdesk: "Harbor launch",
   followup: "Sloop",
   books: "Cargo barge",
@@ -29,8 +34,8 @@ export const BOAT_KIND: Readonly<Record<CoreAgentId, string>> = {
 };
 
 /** The pennant color token for each agent. */
-export function pennant(id: CoreAgentId): string {
-  return `var(--p-${id})`;
+export function pennant(id: BoatAgentId): string {
+  return `var(--p-${id === "customer" ? "frontdesk" : id})`;
 }
 
 // The helm wheel's eight spokes, from the hub to just past the rim.
