@@ -2,6 +2,8 @@
 
 Nov 7, 2026 · @Eric
 
+Updated Nov 8, 2026 with implementation ownership for Eric and Pramukh. Revised later on Nov 8: Eric owns the dashboard, the Customer agent and Internal Communications; Pramukh owns Bookkeeping, Marketing and the shared agent groundwork.
+
 This document specifies how Anchored builds and integrates its four agents: Customer, Bookkeeping, Marketing and Internal Communications. It starts from `origin/main` after PR #40 and the decisions recorded in [Anchored: Agents and Dashboard Direction](https://claude.ai/artifact/GjTfXtEhN5vqeTYGh9QYF4):
 
 - Telegram replaces Twilio for every customer message, through one shared Anchored bot.
@@ -13,6 +15,8 @@ This document specifies how Anchored builds and integrates its four agents: Cust
 - Forwarded customer emails stay one-off cards for now.
 
 The repo's core rule holds throughout: code decides, the model writes text, and the owner approves before anything important reaches a customer.
+
+Repository review for this work split used local commit `28c2a76`, the merge of PR #45, which matched the locally recorded `origin/main`. The handoff's statement that Eric's branch was 98 commits behind is stale. A remote refresh failed because GitHub SSH authentication was unavailable, so newer remote commits were not verified.
 
 ## BUSINESS POSTURE
 
@@ -33,7 +37,7 @@ Anchored helps a small business owner find where AI saves them time, compare too
 | An agent sends something wrong to a customer | The owner loses the customer and their trust in Anchored | Code checks every draft; the owner approves every send except the acknowledgment template |
 | Judges can't test the agents | The deliverable requires a link judges can use | Guest sign-in, an example business, the simulator, and a Telegram link guests can open |
 | Agents look like a sales funnel for Anchored | The prompt asks to compare tools, not to sell ours | Each job keeps three paths, and Anchored's own agent is labeled as ours |
-| The bot answers slowly because every reply waits for approval | Customers expect a quick reply | The acknowledgment rule replies at once; the real answer follows after approval |
+| The bot answers slowly because every reply waits for approval | Customers expect a quick reply | The acknowledgment rule replies as soon as send checks allow; the real answer follows after approval |
 | Model costs run up on a public deploy | A public link invites heavy use | `AI_DAILY_CALL_CAP`, a provider spend cap, and the rules fallback |
 | Telegram doesn't match how US customers reach small businesses | Judges may question the channel | The channel sits behind one interface; SMS and phone return in the 16-week plan |
 
@@ -106,8 +110,8 @@ Every agent runs the same loop, built on the existing ingest, decide and dispatc
 1. In: a connector webhook or the simulator calls `ingestEvent(session, business, source, payload, origin)`.
 2. Route: code picks the skill. `SOURCE_SKILLS` maps a source to candidate skills, filtered to the skills this business chose. For a Telegram message, the thread decides (see the Customer agent).
 3. Draft: the skill's card template fills the facts. For skills that write free text, the model writes the body, and code rejects any price, time, link or number not in the profile, the event or the thread.
-4. Check: the allergy lock, then the standing rule check. If the acknowledgment rule covers it, the card goes straight to the outbox; otherwise it waits in Approvals.
-5. Decide: the owner approves, edits or skips in Approvals or on the agent's page. `decideCard` runs `checkSend` and writes the outbox row.
+4. Check: the allergy lock, then the standing rule check. A fixed acknowledgment covered by an explicitly approved standing rule enters the centralized decision path with its rule authorization recorded. Other drafts wait in Approvals. No webhook or ingest handler writes directly to the outbox.
+5. Decide: the owner approves, edits or skips through the existing card-decision API. Agent pages link to the same Approvals queue. `decideCard` remains the only caller of `Store.addOutbox`, runs `checkSend`, and records whether authorization came from the owner's tap or the approved acknowledgment rule.
 6. Out: `GET /api/cron/dispatch` sends queued rows through the connector, running `checkSend` again.
 7. Back in: the connector's reply, delivery result or payment status comes back as a new event, and the loop starts over.
 
@@ -178,7 +182,7 @@ The Customer agent holds every conversation with a customer, from the first mess
 
 #### How work goes back out
 
-- The acknowledgment rule, if the owner turned it on, sends a fixed template at once: "Thanks, {business} got your message and will reply soon." It is logged in the outbox under the rule.
+- The acknowledgment rule starts off. If the owner explicitly approves it, code fills the fixed template "Thanks, {business} got your message and will reply soon." No model call is needed. The centralized decision path records the rule authorization and runs `checkSend` before queuing it. Dispatch checks again. Quiet hours, STOP, consent and the allergy lock still apply, so the acknowledgment can wait until morning. It is logged in the outbox under the rule.
 - The real reply is a card. Code picks the skill from the thread: an open quote goes to Closer, a pending booking to Show-up Keeper, a catering request to Catering Responder, and anything else to Inquiry Responder.
 - The model writes the reply from the profile and the last 10 thread messages, with the customer's text marked as data. Code rejects any price, time, link or number not found in the profile or thread, then falls back to the template.
 - After approval, the dispatcher calls `sendMessage` as plain text, with no Markdown parsing, and stores the message id. Links go out as inline URL buttons. The outbox can delete a message within 48 hours with `deleteMessage`.
@@ -191,14 +195,16 @@ The Customer agent holds every conversation with a customer, from the first mess
 
 #### Implementation
 
-| Step | Files |
-| --- | --- |
-| Merge the agents and add `character` | `lib/domain/types.ts`, `lib/domain/agents.ts`, `components/agent-labels.ts` |
-| Telegram adapter: `sendMessage`, `deleteMessage`, read an update, check the secret header | `lib/connectors/telegram.ts`, with a fake-`fetch` test |
-| Webhook route and contact handling | `app/api/hooks/telegram/route.ts`, `lib/server/hooks.ts`, `lib/domain/contacts.ts` |
-| Threads and thread-based routing | New migration, `Store` methods in `types.ts`, `memory.ts` and `supabase.ts`, `lib/server/ingest.ts` |
-| Model-written reply with the fact check | New `lib/server/customer-reply.ts`, reusing the check in `lib/server/ai.ts` |
-| Telegram channel and delivery | `Channel` in `types.ts`, `deliveryFor`, `lib/server/dispatch.ts`; opt-out line for SMS only in `lib/domain/executor.ts` |
+| Step | Files | Owner |
+| --- | --- | --- |
+| Merge the agents and add `character` (shared groundwork, lands first) | `lib/domain/types.ts`, `lib/domain/agents.ts` | Pramukh |
+| Update agent labels in the interface | `components/agent-labels.ts` | Eric |
+| Telegram adapter: `sendMessage`, `deleteMessage`, read an update, check the secret header | `lib/connectors/telegram.ts`, with a fake-`fetch` test | Eric |
+| Webhook route and contact handling | `app/api/hooks/telegram/route.ts`, new `lib/server/telegram-hooks.ts`, Telegram fields in `lib/domain/contacts.ts` | Eric |
+| Threads and thread-based routing | Migration `20261108000300_telegram_threads.sql`, thread and Telegram `Store` methods in `types.ts`, `memory.ts` and `supabase.ts`, new `lib/domain/threads.ts`, the `telegram` source in `lib/server/ingest.ts` | Eric |
+| Model-written reply with the fact check | New `lib/server/customer-reply.ts`, reusing the check in `lib/server/ai.ts` | Eric |
+| Acknowledgment standing rule | `lib/server/decide.ts`, a rules route under `app/api/businesses/[id]/` | Eric |
+| Telegram channel and delivery | `Channel` in `types.ts`, `deliveryFor`, `lib/server/dispatch.ts`; opt-out line for SMS only in `lib/domain/executor.ts` | Eric |
 
 ### Agent 2: Bookkeeping
 
@@ -248,13 +254,13 @@ Bookkeeping (`books`) watches money owed to the business and money it pays out. 
 
 #### Implementation
 
-| Step | Files |
-| --- | --- |
-| `invoice.paid` reader and `invoice-paid` source | `lib/connectors/stripe.ts`, `app/api/hooks/stripe/[hookId]/route.ts`, `lib/server/ingest.ts` |
-| Cancel pending reminders on payment | `lib/server/ingest.ts`, a `Store` method to skip open cards by invoice number |
-| Supplier invoice extraction with the number check | `lib/server/ingest.ts`, a small extractor in `lib/server/` |
-| Telegram delivery for reminders | `deliveryFor` in `lib/domain/contacts.ts` |
-| `character` for `books` | `lib/domain/agents.ts` |
+| Step | Files | Owner |
+| --- | --- | --- |
+| `invoice.paid` reader and `invoice-paid` source | `lib/connectors/stripe.ts`, `app/api/hooks/stripe/[hookId]/route.ts`, `lib/server/ingest.ts` | Pramukh |
+| Cancel pending reminders on payment | `lib/server/ingest.ts`, a `Store` method to skip open cards by invoice number | Pramukh |
+| Supplier invoice extraction with the number check | `lib/server/ingest.ts`, a small extractor in `lib/server/` | Pramukh |
+| Telegram delivery for reminders, after Eric's Telegram channel lands | `deliveryFor` in `lib/domain/contacts.ts` | Pramukh |
+| `character` for `books` | `lib/domain/agents.ts` | Pramukh |
 
 ### Agent 3: Marketing
 
@@ -302,12 +308,12 @@ Marketing (`content`) keeps the business visible: it drafts posts from the busin
 
 #### Implementation
 
-| Step | Files |
-| --- | --- |
-| `character` for `content` | `lib/domain/agents.ts` |
-| Weekly post tick | `lib/server/dispatch.ts`, or a small cron route next to it |
-| Post ideas read from finished jobs and threads | `CARD_TEMPLATES.posts` in `lib/domain/cards.ts`, `lib/server/ingest.ts` |
-| 30-day review retention | New migration with a purge function, scheduled like `purge_expired_demo_data()` |
+| Step | Files | Owner |
+| --- | --- | --- |
+| `character` for `content` | `lib/domain/agents.ts` | Pramukh |
+| Weekly post tick | `lib/server/dispatch.ts`, or a small cron route next to it | Pramukh |
+| Post ideas read from finished jobs and threads | `CARD_TEMPLATES.posts` in `lib/domain/cards.ts`, `lib/server/ingest.ts` | Pramukh |
+| 30-day review retention | New migration with a purge function, scheduled like `purge_expired_demo_data()` | Pramukh |
 
 ### Agent 4: Internal Communications
 
@@ -354,12 +360,120 @@ Internal Communications is how the four agents add up to one view for the owner.
 
 #### Implementation
 
-| Step | Files |
+| Step | Files | Owner |
+| --- | --- | --- |
+| Handoff cards with `parent_key` (shared groundwork) | `lib/server/handoff.ts`, migration `20261108000400_bookkeeping.sql`, `Store` methods | Pramukh |
+| Forwarded-email triage and handoffs | `app/api/hooks/email/route.ts`, `lib/server/hooks.ts`, `CARD_TEMPLATES.triage`, calling `createHandoffCard` and Pramukh's `receiveSupplierInvoice` | Eric |
+| Brief from code-computed numbers | `lib/domain/brief.ts`, a brief job in `app/api/cron/brief/route.ts`, Run now route | Eric |
+| License Clerk renewal reminders | `lib/server/ingest.ts`, the brief job's daily pass | Eric |
+| Overview rows per agent | `app/app/b/[id]/page.tsx`, reusing the brief queries | Eric |
+| Owner Telegram link (stretch) | `app/api/hooks/telegram/route.ts`, with an `owner-<id>` start parameter | Eric |
+
+### Parallel implementation plan
+
+Eric owns the owner's dashboard, the demo experience, the Customer agent end to end (Telegram, threads, customer replies and the acknowledgment rule) and Internal Communications (triage, the daily brief and renewal reminders). Pramukh owns the shared agent groundwork, Bookkeeping and Marketing. Pramukh's step-by-step plan is in `pramukh_tasks.md`.
+
+Splitting by agent puts both teammates in the same ingest, store, approval and dispatch files. Three rules keep that safe:
+
+1. Pramukh lands the shared groundwork first, in one small PR: the `customer` id merge, `character` on every core agent, `cards.parent_key`, `cards.stake` and a `createHandoffCard` helper. Eric branches from that commit for his server work.
+2. Edits to shared files (`lib/server/ingest.ts`, `lib/server/dispatch.ts`, `lib/server/decide.ts`, `lib/domain/executor.ts`, `lib/domain/contacts.ts`, `lib/domain/types.ts`, `lib/store/**`, `lib/api/schemas.ts`, `middleware.ts`) are additive only: new entries, new functions, new branches. Neither teammate rewrites or reorders code the other depends on. Each says in chat before touching a shared file.
+3. Migration timestamps are reserved: Eric `20261108000300_telegram_threads.sql`; Pramukh `20261108000400_bookkeeping.sql` and `20261108000500_marketing_reviews.sql`. Any later migration takes the next free number after the newest file on `main`.
+
+Both teammates can implement and test independently against the interface agreement below. Full end-to-end verification happens after their work is combined. Eric's load is now much the larger one, since he also owns the demo, documentation and browser verification. If time runs short, the agent pages can reuse one shared agent page layout, the QR code can wait (the plain link works), and License Clerk can stay on its existing starter card. Pramukh picks up overflow server tasks by agreement.
+
+#### What the dashboard pieces are
+
+| Piece | What the owner sees | Why it matters |
+| --- | --- | --- |
+| Telegram link and QR code | The business's `t.me/<bot>?start=<hookId>` link and a QR code of it, on the Customer page and Connections | A judge scans it with a phone camera and is messaging the business in seconds; an owner can print it on a counter sign. The link alone does the same job |
+| Overview rows | One row per agent on the business's home screen, such as "Bookkeeping: 2 reminders waiting, $480 overdue" | The owner sees all four agents at a glance. The numbers use the same queries as the brief |
+| Daily brief display | Internal Communications' one card a day: what's waiting ranked by `stake`, what was sent, what was flagged, plus Run now | One summary instead of four inboxes. Run now lets the demo show it without waiting a day |
+| Approvals | The single queue of every agent's drafts, each with approve, edit or skip | The owner's control point. Nothing reaches a customer without it, except the approved acknowledgment rule. Agent pages link here rather than having their own buttons |
+
+#### Eric: dashboard, demo experience, the Customer agent and Internal Communications
+
+| Work package | Deliverable |
 | --- | --- |
-| Handoff cards with `parent_key` | `lib/server/ingest.ts`, a new migration, `Store` methods |
-| Brief from code-computed numbers | `lib/domain/brief.ts`, a brief job beside `lib/server/dispatch.ts` |
-| Overview rows per agent | `app/app/b/[id]/page.tsx`, reusing the brief queries |
-| Owner Telegram link (stretch) | `app/api/hooks/telegram/route.ts`, with an `owner-<id>` start parameter |
+| Agent pages and navigation | Pages for Customer, Bookkeeping, Marketing and Internal Communications under Workflows; active agents in the sidebar and command palette; role, voice, limits, enabled skills, waiting drafts and recent activity |
+| Customer conversations | Customer list, ordered thread history, linked drafts, delivery status and links into the single Approvals queue |
+| Agent Ask boxes | Reuse `ChatWindow`, send the selected agent as context, and show the resulting approval-card link; keep top-level Chat as the general entry |
+| Setup and owner controls | Telegram test link and QR code on Customer and Connections, visible to guests; an acknowledgment toggle that requires explicit approval and shows the server's saved state |
+| Overview and approvals | Per-agent overview rows, daily brief display and Run now, handoff information, Telegram delivery labels, and Marketing Copy buttons with destination links |
+| Demo and documentation | README updates, demo walkthrough, responsive browser checks and the submission video |
+| Telegram integration | Adapter and verified webhook, `/start`, `/stop`, blocked-bot handling, update deduplication, per-chat and per-business limits, business test URLs, approved sends and provider message ids, Telegram webhook setup script |
+| Customer persistence | Telegram identity and business routing, thread messages, standing rules, both Store backends and reset for each |
+| Customer execution | Thread-based skill selection, last 10 messages as context, fact-checked model text, template fallback, fixed acknowledgment rule, Telegram channel in dispatch and send-time checks, billing questions handed to Bookkeeping through `createHandoffCard` |
+| Customer server reads | Conversations and Telegram setup reads for his own screens |
+| Internal Communications | Forwarded-email triage with handoff cards through `createHandoffCard`, supplier invoices passed to Pramukh's `receiveSupplierInvoice`, code-computed brief numbers, daily and Run now brief execution, renewal reminders, the brief cron entry and the Internal Communications page read |
+
+#### Pramukh: shared groundwork, Bookkeeping and Marketing
+
+| Work package | Deliverable |
+| --- | --- |
+| Shared agent definitions (lands first) | Merge Front Desk and Follow-up into Customer, keep the 19 skills, add each character, handle legacy stored agent identifiers, `cards.parent_key` and `cards.stake`, `createHandoffCard` |
+| Bookkeeping | Paid-invoice reader, cancellation of pending and queued reminders for that invoice, at most two reminders per invoice, supplier invoice extraction and checked amounts, Telegram delivery once Eric's channel lands |
+| Marketing | Weekly and finished-job triggers, profile-based post context, review flags on the customer's thread, 30-day review retention for every session, no double contact with Review Asker; approved output remains copy and paste |
+| Bookkeeping and Marketing feeds for the brief | Overdue totals, canceled reminders, price increases, waiting posts and review flags, exposed as read functions the brief and overview rows call |
+| Server interfaces and deployment plumbing | Agent page reads for Bookkeeping and Marketing, validated agent-scoped chat, cron configuration (`vercel.json`, including Eric's brief entry) and environment examples |
+
+#### File ownership
+
+Ownership includes each module's tests. Neither teammate edits the other's files without agreement. Shared files follow the three rules above.
+
+| Owner | Files |
+| --- | --- |
+| Eric | `components/**`, `app/app/**`, `app/globals.css`, presentation styles, `README.md`, the demo walkthrough, `lib/connectors/telegram.ts`, `app/api/hooks/telegram/**`, `lib/server/telegram-hooks.ts`, `lib/server/customer-reply.ts`, `lib/domain/threads.ts`, the rules route, `20261108000300_telegram_threads.sql`, `scripts/telegram-webhook.ts`, `lib/domain/brief.ts`, `app/api/hooks/email/**`, `app/api/cron/brief/**`, the brief Run now route |
+| Pramukh | `lib/domain/agents.ts`, `lib/domain/cards.ts` (except `CARD_TEMPLATES.triage` and `brief`, which Eric edits), `lib/connectors/stripe.ts`, `app/api/hooks/stripe/**`, `app/api/cron/posts/**`, new modules `lib/server/handoff.ts`, `supplier-invoice.ts`, `posts.ts`, `lib/domain/posts.ts`, `lib/domain/reviews.ts`, his reserved migrations, `vercel.json` and `.env.example` |
+| Shared, additive only | `lib/domain/types.ts`, `lib/domain/contacts.ts`, `lib/domain/executor.ts`, `lib/connectors/email.ts`, `lib/server/ingest.ts`, `lib/server/dispatch.ts`, `lib/server/decide.ts`, `lib/server/hooks.ts`, `lib/server/data.ts`, `lib/store/**`, `lib/api/**`, `app/api/cron/dispatch/**`, `middleware.ts` |
+
+`components/shell/shell-data.ts` belongs to Eric even though it runs on the server. Eric owns `components/agent-labels.ts`; Pramukh owns the underlying definitions in `lib/domain/agents.ts`. Domain demo fixtures in `lib/domain/cases.ts` belong to Pramukh; Eric's screen fixtures stay in presentation test or development code.
+
+Each teammate starts from the same refreshed `origin/main` commit in a separate branch and worktree, and Eric's server branch picks up Pramukh's groundwork PR as soon as it lands. Suggested branches are `feat/agent-groundwork` (Pramukh, small, first), `feat/customer-agent` and `feat/agent-dashboard` (Eric), and `feat/books-and-marketing` (Pramukh). Use separate browser-test ports, such as 3101 and 3102, leaving port 3000 alone. Follow the repository's landing workflow and pass `npm run check` on the merged tree before opening each PR.
+
+#### Interface agreement before implementation
+
+Agree on exact field names, request and response shapes, read-function signatures and errors in writing before either side builds against them. This is a design agreement, not a prerequisite implementation PR. Each teammate owns the production API types and schemas for his own agents' routes, added to `lib/api/` additively. Eric builds a small presentation data adapter and local fixtures against the same agreement, then connects that adapter to the real interfaces.
+
+Two cross-agent calls need agreeing too:
+
+| Interface | Provider | Caller | Shape |
+| --- | --- | --- | --- |
+| `createHandoffCard(session, business, { toSkill, parentKey, contactId, facts })` | Pramukh (`lib/server/handoff.ts`) | Eric, for billing questions on a Telegram thread and for triage handoffs | Returns the new card's key, or `null` when the business didn't choose `toSkill` |
+| `receiveSupplierInvoice(session, business, email)` | Pramukh (`lib/server/supplier-invoice.ts`) | Eric's triage, when it labels an email a supplier invoice | Returns the Price Watch card key, or `null` when no checked price change was found |
+| Bookkeeping and Marketing brief feeds | Pramukh (`lib/server/data.ts`) | Eric's brief job and overview rows | Code-computed counts and dollar amounts only; the model never adds a number |
+| `Store.listThreadMessages(session, businessId, contactId, limit)` and a `flagThread(session, businessId, contactId, note)` helper | Eric | Pramukh, for post ideas and bad-review flags | Oldest first; never includes STOP contacts in post ideas |
+
+| Interface | Required behavior and data |
+| --- | --- |
+| Agent identities | Canonical core ids are `customer`, `books`, `content`, `internal`. Existing niche agents continue working. Define how old `frontdesk` and `followup` values map to Customer |
+| Agent page data | Agent description, voice and limits, enabled skills, pending cards and recent activity, scoped to the current business |
+| Customer conversations | Contact identity and consent/STOP status, ordered messages with direction, time, skill and linked card, plus delivery status |
+| Telegram setup | Server supplies the business's test URL or an availability reason. Eric renders the link and QR code, including for guests. Credentials never reach the browser |
+| Agent Ask | Extend the existing business-chat request with optional agent context. Code validates that the agent is active and restricts drafting to its enabled skills. Without context, general Chat keeps its current behavior |
+| Standing rule | `acknowledge` is off until explicitly approved. The mutation returns the saved rule state; the interface uses that state rather than assuming success |
+| Daily brief | Code-computed counts, amounts, flags and last-run time. Run now returns the resulting brief/card and does not send to a customer |
+| Card decisions | Keep the existing card-decision API and one Approvals queue. Agent pages link to those same cards |
+
+Eric's fixtures cover an empty business, pending approval, stopped contact, quiet-hours delay, failed delivery, paid invoice and locked allergy question. Fixtures are development/test inputs, never silent replacements for failed production requests. Pramukh tests the agreed responses without requiring Eric's screens. Neither teammate waits for the other's implementation to begin their own work.
+
+Keep backend changes additive while the branches are separate, including temporary compatibility for legacy agent identifiers and existing callers. Do not remove compatibility until the combined application passes its checks. Each teammate updates exhaustive mappings and tests for his own agents; coordinate any remaining incompatibilities at integration. Whoever merges second resolves conflicts in shared files and reruns `npm run check`.
+
+#### Integration details to preserve
+
+- Routing: the repo already has `app/app/b/[id]/workflows/[workflow]/[automation]/page.tsx`. Eric must not add a sibling `[agent]` directory at the same dynamic level. Use one shared segment name, such as `[segment]`, with agent landing pages at `workflows/[segment]/page.tsx` and existing automation detail pages at `workflows/[segment]/[automation]/page.tsx`. Update parameter readers and preserve existing automation URLs. Add `agentHref` in `components/routes.ts`.
+- Standing-rule authorization: `decideCard` remains the only caller of `Store.addOutbox`. Eric extends the centralized decision path for the explicitly approved fixed acknowledgment, records the authorization, and runs `checkSend` at approval and dispatch. Ingest and webhook handlers do not bypass that path. Bookkeeping and Marketing cards never use a standing rule.
+- Quiet hours: the current executor returns early for email and checks quiet hours for SMS. Eric adds the designed quiet-hours behavior for Telegram and customer email, keeps the opt-out line SMS-only, and verifies that STOP and consent are checked at send time. Pramukh's payment reminders rely on the same checks. Internal list cards, including every Marketing draft, do not send to customers.
+- Guest access: the shared example business remains read-only. A guest's own business can have its Telegram test link and receive messages. Eric renders that distinction and enforces it on the server.
+
+#### Completion checks
+
+Eric is done when all assigned screens work against the agreed fixtures, agent Ask and owner controls issue the correct requests, navigation and existing workflow URLs work, Marketing drafts can be copied, and phone layouts have no sideways scrolling. On the Customer agent, he is done when backend tests prove message-to-card-to-send behavior, webhook verification and duplicate-update protection, STOP and blocked-bot enforcement, standing-rule authorization, quiet-hours behavior for Telegram and fallback operation without AI keys. On Internal Communications, he is done when triage hands each forwarded email to the right agent or the owner, and the brief's numbers come only from code.
+
+Pramukh is done when backend tests prove paid-invoice cancellation, the two-reminder limit, checked supplier amounts, handoff cards with `parent_key`, the weekly and finished-job post triggers, bad-review flags, 30-day review retention and the brief feeds, all with session isolation and fallback operation without AI keys.
+
+For both, new Store data is covered by both backends and reset, and migrations enable row-level security.
+
+Together, run one real-phone flow after integration: create a guest business, open its Telegram link, send a message, see its thread and draft, approve the reply, receive it in Telegram, send `/stop`, and verify another send is blocked. Also verify an allergy lock, a paid-invoice cancellation, a Marketing copy action and a brief refresh. Finish with `npm run check` on the combined tree and land through PRs. Eric leads browser and demo verification and fixes the Telegram flow; Pramukh handles Bookkeeping and Marketing fixes.
 
 ### C4 CONTEXT
 
@@ -542,7 +656,7 @@ flowchart TB
 
 ### Design
 
-- Question: who owns which agent? Assumption: to be split between Eric and Pramukh after review.
-- Question: does the Customer agent's reply use the default or quick tier? Assumption: `quick` for the acknowledgment, `default` for replies, matching each skill's `tier` in `SKILLS`.
+- Decision: Eric owns dashboard presentation, owner controls, documentation, the demo, the Customer agent end to end and Internal Communications. Pramukh owns the shared agent groundwork and the execution, integrations and persistence for Bookkeeping and Marketing. The Parallel implementation plan defines file boundaries, shared-file rules and the interface agreement.
+- Decision: the acknowledgment uses a fixed template and makes no model call. Customer replies use the selected skill's `tier` in `SKILLS`, with checked output and a template fallback.
 - Question: can Vercel Cron run every few minutes on the team's plan? Assumption: if not, an outside scheduler calls `/api/cron/dispatch` with the same bearer token.
 - Question: does the `character` text change card templates? Assumption: no. Templates stay as they are; the character applies only where the model writes text.
