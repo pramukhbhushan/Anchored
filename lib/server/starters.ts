@@ -2,13 +2,14 @@ import "server-only";
 import { after } from "next/server";
 import { z } from "zod";
 import { CALENDAR_CHECK, customerNames, draftFeed, standingKey } from "@/lib/domain/cards";
+import { ownerFirstName, voiceSample } from "@/lib/domain/details";
 import { ensureOptOut, mentionsAllergen } from "@/lib/domain/executor";
 import { resolveChoices } from "@/lib/domain/paths";
 import { STARTER_LIMIT, STARTER_RECIPIENT, starterSkills, startersDue, type WritableSkill } from "@/lib/domain/starters";
 import type { BusinessProfile, KeyedCard } from "@/lib/domain/types";
 import type { LlmProvider } from "@/lib/llm";
 import { tierForTask } from "@/lib/llm/task-tier";
-import { newFacts } from "@/lib/server/ai";
+import { newFacts, plainPunctuation } from "@/lib/server/ai";
 import { getBudgetedLlm } from "@/lib/server/ai-budget";
 import { getStore } from "@/lib/store";
 
@@ -39,13 +40,13 @@ type Written = z.infer<typeof replySchema>["starters"][number];
 
 // What each skill's starter is about, told to the model. Code picked the skill; the model only words the moment.
 const MOMENTS: Readonly<Record<WritableSkill, string>> = {
-  inquiry: "A new customer asked a question in writing. Draft the first reply, thanking them and asking what they need or a good time to talk.",
-  callback: "A customer called and nobody picked up. Draft the text back asking what they need and offering to call them.",
+  inquiry: "A new customer asked a question in writing. Draft the first reply, thanking them, asking what they need, and offering two times to talk written exactly as [first time] or [second time].",
+  callback: "A customer called and nobody picked up. Draft the text back asking what they need and offering to call them back at two times written exactly as [first time] or [second time].",
   showup: "A customer is booked for tomorrow. Draft the reminder text asking them to confirm or reschedule.",
   catering: "Someone asked about a catering or event order. Draft the first reply asking for the date and how many people.",
   closer: "A customer got a quote and has gone quiet. Draft a friendly check-in text that adds no new offer.",
   callfollow: "A prospect said they'd think about it after a call. Draft a short check-in email that adds no new offer.",
-  reviewer: `A customer's job or visit just finished. Draft the text thanking them and asking for a Google review. Write no link; end with "I'll send the link next."`,
+  reviewer: `A customer's job or visit just finished. Draft the text thanking them and asking for a Google review. Write no link and promise none; Anchored adds the owner's review link if they have one.`,
   referral: "A customer is near the end of their work with the business. Draft an email asking for two lines about their experience and anyone they'd suggest.",
   nudger: `A customer's invoice is past due. Draft a friendly reminder email. State no amount and no invoice number; end with "If paying online is easier, I'll send the link next."`,
   posts: "Draft a short social media or Google post the owner copies and posts. The contact is who the post is for, such as 'Neighbors'.",
@@ -68,6 +69,9 @@ const OFFERED_NAMES = STARTER_LIMIT * 2;
 
 // Longest text each field may hold. A longer draft is replaced, not cut, so no sentence ends mid-word.
 const MAX = { title: 90, whyNow: 140, sms: 300, other: 700 } as const;
+// The two open times a callback or first reply offers. The owner fills them in, and `checkSend` holds the send until they do.
+const TIME_BLANKS = /\[(?:first|second) time\]/g;
+const TIME_BLANK_SKILLS: readonly WritableSkill[] = ["callback", "inquiry"];
 // Any bracket a template blank or markup would use: "[your link]", "{name}", "<b>".
 const BLANK_OR_MARKUP = /[[\]{}<>]/;
 // A weekday, month or season in a title or reason could contradict the day the owner reads it.
@@ -75,11 +79,12 @@ const DATED = /\b(?:(?:mon|tues|wednes|thurs|fri|satur|sun)day|january|february|
 
 /** Every fact the owner gave, the only source a draft may take a number, link or amount from. */
 function profileFacts(business: BusinessProfile): string {
-  return [business.name, business.trade, business.place, business.size, business.revenue, business.customers, ...business.languages, ...business.reach, ...business.tools, ...business.tasks, business.voice].join(" ");
+  return [business.name, business.trade, business.place, business.size, business.revenue, business.customers, ...business.languages, ...business.reach, ...business.tools, ...business.tasks, business.voice, voiceSample(business)].join(" ");
 }
 
 /** The prompt for `skills`, with the owner's profile as data and code's channel for each skill. */
 function starterPrompt(business: BusinessProfile, skills: readonly WritableSkill[], channels: ReadonlyMap<WritableSkill, KeyedCard["channel"]>, names: readonly string[]): string {
+  const first = ownerFirstName(business);
   const lines = skills.map((skill) => `- ${skill}: ${MOMENTS[skill]} Write ${CHANNEL_GUIDE[channels.get(skill) ?? "list"]}.`).join("\n");
   return `You write starter drafts for Anchored, which drafts texts, emails and posts that a small business owner approves before anything is sent. These starters show the owner what each of their agents will draft. Write one starter for each skill below, for this business only.
 
@@ -90,13 +95,13 @@ For each starter, write:
 - "skill": the skill id from the list.
 - "contact": the customer, written exactly as one of these names: ${names.join(", ")}. Use a different one for each starter.
 - "title": one short line the owner reads in their approvals, saying what happened.
-- "body": the draft itself, in the owner's voice from <voice>, using the customer's first name.
+- "body": the draft itself, sounding like the owner's own message in <voice>: the same greeting, length and tone. Use the customer's first name${first ? `, and sign it or introduce yourself as ${first} the way the sample does` : ""}.
 - "whyNow": one short sentence on why this is worth sending now.
 
 Rules:
 - Write no digits at all unless the same number appears in <profile>. Say "tomorrow morning", not a clock time.
 - No prices, dollar amounts, discounts, phone numbers, emails or links.
-- No square brackets or blanks to fill in.
+- No square brackets or blanks to fill in, except exactly [first time] and [second time] where a skill above asks for them. The owner fills those in.
 - Never mention allergies or allergens.
 - Name no weekday, month or season in the title or whyNow.
 - Mention only products, services and channels <profile> names.
@@ -113,18 +118,7 @@ Languages: ${business.languages.join(", ")}
 Jobs that eat their week: ${business.tasks.join("; ")}
 </profile>
 
-<voice>${business.voice}</voice>`;
-}
-
-/** Tidy one string from the model: straight quotes, trimmed, wrapping quotes gone, any long dash turned into a comma. */
-function tidy(text: string): string {
-  return text
-    .replace(/[‘’]/g, "'")
-    .replace(/[“”]/g, '"')
-    .trim()
-    .replace(/^"(.*)"$/s, "$1")
-    .replace(/\s*[–—]\s*/g, ", ")
-    .trim();
+<voice>${voiceSample(business)}</voice>`;
 }
 
 /** Why `draft` can't become `skill`'s starter, or `null` when it passes every rule. */
@@ -137,7 +131,8 @@ function rejection(draft: Written, skill: WritableSkill, channel: KeyedCard["cha
     if (!offered.includes(draft.contact)) return `"${draft.contact}" isn't one of the names offered`;
     if (usedNames.has(draft.contact.toLowerCase())) return `${draft.contact} is already on another starter`;
   }
-  if (BLANK_OR_MARKUP.test(all)) return "it left a blank or markup";
+  const unblanked = TIME_BLANK_SKILLS.includes(skill) ? all.replace(TIME_BLANKS, "") : all;
+  if (BLANK_OR_MARKUP.test(unblanked)) return "it left a blank or markup";
   if (mentionsAllergen(all)) return "it mentions an allergen";
   if (DATED.test(`${draft.title} ${draft.whyNow}`)) return "it names a day, month or season";
   const invented = newFacts(facts, all);
@@ -146,15 +141,17 @@ function rejection(draft: Written, skill: WritableSkill, channel: KeyedCard["cha
 }
 
 /** `template` with the model's words in place: code keeps the channel, action, checks, agent and key. */
-function withWords(template: KeyedCard, skill: WritableSkill, words: Written): KeyedCard {
+function withWords(template: KeyedCard, skill: WritableSkill, words: Written, reviewLink: string | undefined): KeyedCard {
+  // Code adds the owner's review link to a review request; the model writes no links.
+  const body = skill === "reviewer" && reviewLink !== undefined ? `${words.body} ${reviewLink}` : words.body;
   // A template's dollar figure is made up for the example; a written starter makes no claim about money.
   const { stake: _invented, ...card } = template;
   return {
     ...card,
     // The prompt forbids clock times, so a written starter offers none for the calendar check to vouch for.
-    checks: card.checks.filter((check) => check !== CALENDAR_CHECK),
+    checks: [...card.checks.filter((check) => check !== CALENDAR_CHECK), ...(/\[(?:first|second) time\]/.test(words.body) ? ["You fill in the two times"] : [])],
     title: words.title,
-    body: template.channel === "sms" ? ensureOptOut(words.body) : words.body,
+    body: template.channel === "sms" ? ensureOptOut(body) : body,
     reason: words.whyNow,
     ...(STARTER_RECIPIENT[skill] === "person" ? { to: words.contact } : {}),
   };
@@ -180,7 +177,7 @@ async function writtenWords(llm: LlmProvider, business: BusinessProfile, skills:
     // Code picked the skills: a starter for any other skill, or a second one for the same skill, is dropped.
     if (skill === undefined || accepted.has(skill)) continue;
     // A card title reads as a label, so a closing period the model added comes off.
-    const draft: Written = { skill, contact: tidy(raw.contact), title: tidy(raw.title).replace(/\.$/, ""), body: tidy(raw.body), whyNow: tidy(raw.whyNow) };
+    const draft: Written = { skill, contact: plainPunctuation(raw.contact), title: plainPunctuation(raw.title).replace(/\.$/, ""), body: plainPunctuation(raw.body), whyNow: plainPunctuation(raw.whyNow) };
     const reason = rejection(draft, skill, channels.get(skill) ?? "list", facts, names, usedNames);
     if (reason !== null) {
       console.warn(`[Starters] Kept the template for ${business.id} ${skill}: ${reason}.`);
@@ -227,7 +224,7 @@ export async function writeStarters(session: string, business: BusinessProfile):
     const template = templates.get(skill);
     if (template === undefined) return [];
     const words = written.get(skill);
-    return [words === undefined ? template : withWords(template, skill, words)];
+    return [words === undefined ? template : withWords(template, skill, words, business.details?.reviewLink)];
   });
   await store.ensureCards(session, business.id, cards);
 }

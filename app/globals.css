@@ -740,8 +740,10 @@ fieldset.field{border:0;padding:0;margin:0}
 .auto-crumbs li+li::before{content:"›";margin-right:6px}
 .auto-crumbs li[aria-current="page"]{color:var(--ink)}
 .auto-head{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-4) var(--s-5)}
-.auto-bub{flex:none;width:64px;height:64px;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--ink);background:var(--sheet);box-shadow:0 0 0 5px var(--paper),0 0 0 10px var(--ocean,var(--link))}
-.auto-head[data-kind="owned"] .auto-bub,.auto-head[data-kind="new"] .auto-bub{box-shadow:0 0 0 5px var(--paper),0 0 0 10px var(--coral,#FF6A4D)}
+.auto-bub{flex:none;width:64px;height:64px;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--ink);background:var(--sheet);box-shadow:0 0 0 5px var(--paper),0 0 0 10px var(--ink)}
+/* The ring colors match the Workflows map and the bill: ink for Anchored, green for a tool the owner has, blue for a new one */
+.auto-head[data-kind="owned"] .auto-bub{box-shadow:0 0 0 5px var(--paper),0 0 0 10px var(--good)}
+.auto-head[data-kind="new"] .auto-bub{box-shadow:0 0 0 5px var(--paper),0 0 0 10px var(--buy)}
 .auto-head[data-kind="none"] .auto-bub{box-shadow:none;border-style:dashed;color:var(--muted)}
 .auto-head[data-wait="true"] .auto-bub{box-shadow:0 0 0 5px var(--paper),0 0 0 10px var(--carbon)}
 .auto-head-text{flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:var(--s-2)}

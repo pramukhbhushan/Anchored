@@ -152,30 +152,33 @@ function ServiceBlock({
       <p className={styles.does}>{copy.does}</p>
       <p className={view.connected ? styles.on : styles.off}>{status}</p>
       {!view.connected && <p className={styles.does}>{copy.until}</p>}
-      {view.unavailable !== null && <p className={styles.reason}>{view.unavailable}</p>}
 
-      {view.setup.length > 0 && (
-        <div className={styles.setup}>
-          {view.setup.map((item) => (
-            <SetupValue key={item.label} label={item.label} value={item.value} />
-          ))}
-        </div>
-      )}
+      <div className={styles.foot}>
+        {view.unavailable !== null && <p className={styles.reason}>{view.unavailable}</p>}
 
-      {showForm && <ConnectForm kind={view.kind} connected={view.connected} busy={busy} onSubmit={onConnect} />}
+        {view.setup.length > 0 && (
+          <div className={styles.setup}>
+            {view.setup.map((item) => (
+              <SetupValue key={item.label} label={item.label} value={item.value} />
+            ))}
+          </div>
+        )}
 
-      {canChange && view.connected && (
-        <div className={styles.acts}>
-          <Button variant="quiet" size="sm" onClick={onDisconnect} disabled={busy}>
-            Disconnect
-          </Button>
-        </div>
-      )}
-      {error !== null && (
-        <p className={styles.error} role="alert">
-          {error}
-        </p>
-      )}
+        {showForm && <ConnectForm kind={view.kind} connected={view.connected} busy={busy} onSubmit={onConnect} />}
+
+        {canChange && view.connected && (
+          <div className={styles.acts}>
+            <Button variant="quiet" size="sm" onClick={onDisconnect} disabled={busy}>
+              Disconnect
+            </Button>
+          </div>
+        )}
+        {error !== null && (
+          <p className={styles.error} role="alert">
+            {error}
+          </p>
+        )}
+      </div>
     </section>
   );
 }

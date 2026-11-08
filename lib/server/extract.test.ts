@@ -47,4 +47,21 @@ describe("validFacts", () => {
 
     expect(found.map((fact) => [fact.key, fact.value])).toEqual([["hours", "9 to 6"]]);
   });
+
+  it("drops a pricing method the quoted words don't state, so prices alone never flip how the owner charges", () => {
+    const text = "Drain cleaning, water heater installs and emergency leak repair for homeowners. Service calls start at $129, water heaters around $1,800.";
+    const found = validFacts(
+      {
+        facts: [
+          { field: "pricingMethod", value: "menu", quote: "Service calls start at $129, water heaters around $1,800", confidence: "medium" },
+          { field: "prices", value: "Service call $129; Water heater $1,800", quote: "Service calls start at $129, water heaters around $1,800", confidence: "high" },
+        ],
+      },
+      "owner",
+      text,
+      ["pricingMethod", "prices"],
+    );
+
+    expect(found.map((fact) => fact.key)).toEqual(["prices"]);
+  });
 });

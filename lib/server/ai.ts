@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { voiceSample } from "@/lib/domain/details";
 import { OPT_OUT_LINE } from "@/lib/domain/executor";
 import { workflowIdsOf } from "@/lib/domain/paths";
 import type { BusinessProfile, OnboardingAnswers, WorkflowId, WorkflowPlan } from "@/lib/domain/types";
@@ -98,15 +99,26 @@ A reply in their voice: ${answers.voice}
 export async function rewriteInVoice(business: BusinessProfile, body: string): Promise<string> {
   const prompt = `Rewrite the message inside <message> so it sounds like the owner of ${business.name}, a ${business.trade}. Their voice sample is inside <voice>. Keep every fact, name, time and amount exactly. Do not add prices, offers or promises. Keep it under 60 words. Reply with only the rewritten message.
 
-<voice>${business.voice}</voice>
+<voice>${voiceSample(business)}</voice>
 
 <message>${body}</message>`;
 
-  const text = (await requireLlm().generateText({ tier: tierForTask("short_reword"), prompt, maxTokens: 1000 })).replace(/^"|"$/g, "").trim().slice(0, 600);
+  const text = plainPunctuation(await requireLlm().generateText({ tier: tierForTask("short_reword"), prompt, maxTokens: 1000 })).slice(0, 600);
   const added = newFacts(body, text);
   if (added.length > 0) throw new LlmResponseError(`The rewrite added details that weren't in the draft: ${added.join(", ")}.`);
   // The opt-out line is a texting rule, so code restores it if the rewrite dropped it.
   return body.includes(OPT_OUT_LINE) && !text.includes(OPT_OUT_LINE) ? `${text} ${OPT_OUT_LINE}` : text;
+}
+
+/** Model text in house punctuation: straight quotes, no wrapping quotes, and any long dash turned into a comma. */
+export function plainPunctuation(text: string): string {
+  return text
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .trim()
+    .replace(/^"(.*)"$/s, "$1")
+    .replace(/\s*[\u2013\u2014]\s*/g, ", ")
+    .trim();
 }
 
 // Links, emails, phone numbers, money and other numbers are facts a rewrite must not invent.

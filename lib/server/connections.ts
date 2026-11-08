@@ -45,7 +45,17 @@ export const TWILIO_CHECK: TwilioCheck = (accountSid, authToken, phone) => check
 
 const EXAMPLE_REFUSAL = "The example business can't connect services. Set up your business first.";
 const GUEST_REFUSAL = "Save your work with an email or Google account first, so the services you connect stay yours.";
-const NO_SECRETS = "This server can't store credentials yet. Set CONNECTOR_SECRET_KEY.";
+// Owners see these; the setting an operator must add goes to the server log instead.
+const NO_SECRETS = "Not available yet. Anchored can't keep sign-ins for outside services until its setup is finished.";
+const NO_EMAIL_OUT = "Sending email from Anchored isn't available yet.";
+const NO_EMAIL_IN = "Forwarding email to Anchored isn't available yet.";
+const OPERATOR_FIX: Readonly<Record<ConnectionKind, string>> = {
+  texting: "Set CONNECTOR_SECRET_KEY.",
+  stripe: "Set CONNECTOR_SECRET_KEY.",
+  "email-out": "Set RESEND_API_KEY and EMAIL_FROM_ADDRESS.",
+  "email-in": "Set INBOUND_EMAIL_ADDRESS to one address.",
+};
+const warned = new Set<ConnectionKind>();
 
 // =============================================================================
 // Who may connect, and where the webhooks point
@@ -77,16 +87,25 @@ export function forwardingAddress(hookId: string, inbound: string): string | nul
   return `${trimmed.slice(0, at)}+${hookId}@${trimmed.slice(at + 1)}`;
 }
 
-/** Why this server can't offer `kind`, or `null` when it can. */
+/** Why this server can't offer `kind` in owner words, or `null` when it can. Logs the operator's fix once per kind. */
 function unavailableReason(kind: ConnectionKind, env: Env): string | null {
+  const reason = ownerReason(kind, env);
+  if (reason !== null && !warned.has(kind)) {
+    warned.add(kind);
+    console.warn(`[Connections] ${kind} is unavailable on this server. ${OPERATOR_FIX[kind]}`);
+  }
+  return reason;
+}
+
+function ownerReason(kind: ConnectionKind, env: Env): string | null {
   switch (kind) {
     case "texting":
     case "stripe":
       return canStoreSecrets(env) ? null : NO_SECRETS;
     case "email-out":
-      return env.RESEND_API_KEY?.trim() && env.EMAIL_FROM_ADDRESS?.trim() ? null : "Email sending isn't set up on this server yet.";
+      return env.RESEND_API_KEY?.trim() && env.EMAIL_FROM_ADDRESS?.trim() ? null : NO_EMAIL_OUT;
     case "email-in":
-      return env.INBOUND_EMAIL_ADDRESS && forwardingAddress("x", env.INBOUND_EMAIL_ADDRESS) !== null ? null : "Email forwarding isn't set up on this server yet.";
+      return env.INBOUND_EMAIL_ADDRESS && forwardingAddress("x", env.INBOUND_EMAIL_ADDRESS) !== null ? null : NO_EMAIL_IN;
   }
 }
 

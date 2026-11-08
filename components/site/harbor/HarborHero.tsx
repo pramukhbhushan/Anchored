@@ -103,14 +103,16 @@ export function HarborHero({ children }: { readonly children: ReactNode }) {
       const bw = boat.offsetWidth, bh = (bw * 420) / 640;
 
       // The boat starts centered on the chart circles; the water sits under it, never over the headline.
+      const amp = narrow ? 8 : 12;
       let level: number;
       if (narrow) level = H * (1 - (0.1 + 0.32 * e));
       else {
         const ringY = H * 0.04 + (W * 0.7 * 300) / 800;
-        const l0 = Math.max(ringY + bh * 0.36, copy.offsetHeight + 28);
+        // The back wave crests 26px plus its amplitude above `level`; keep those crests 16px under the copy's last line.
+        const copyBottom = copy.offsetTop + copy.offsetHeight;
+        const l0 = Math.max(ringY + bh * 0.36, copyBottom + 26 + amp * 0.8 + 16);
         level = l0 + (Math.min(l0, H * 0.57) - l0) * e;
       }
-      const amp = narrow ? 8 : 12;
       const w1: Wave = { base: level - 26, len: 120, sp: 0.6, ph: 0, amp: amp * 0.8 };
       const w2: Wave = { base: level - 10, len: 170, sp: 0.45, ph: 2, amp };
       const w3: Wave = { base: level + 8, len: 90, sp: 0.8, ph: 4, amp: amp * 0.7 };
@@ -169,7 +171,7 @@ export function HarborHero({ children }: { readonly children: ReactNode }) {
         </svg>
         <canvas className={styles.back} ref={backRef} aria-hidden="true" />
         <div className={styles.big} ref={bigRef} aria-hidden="true">
-          <small>Return missed calls · Chase quotes · Get paid</small>
+          <small>AI that fits how you work</small>
           Anchored
         </div>
         <div className={styles.boat} ref={boatRef} aria-hidden="true">

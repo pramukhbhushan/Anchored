@@ -411,6 +411,20 @@ describe("ChatWindow, onboarding", () => {
     expect(sentJson(fetchSpy, 1)).toMatchObject({ method: "POST", url: `${INTAKE_URL}/${INTAKE_ID}`, body: { picks: ["Phone calls", "Email"] } });
   });
 
+  it("counts progress against the planned questions, so details found along the way never move the total", async () => {
+    const planned = ["name", "kind", "what", "reach", "tools", "signals", "languages", "week", "voice"] as const;
+    const known = [
+      ...planned.map((field, i) => ({ field, label: field, value: i < 3 ? "x" : null, state: i < 3 ? ("known" as const) : ("open" as const) })),
+      { field: "prices" as const, label: "Prices", value: "Service call $129", state: "known" as const },
+      { field: "vocabulary" as const, label: "Your words", value: "customers", state: "known" as const },
+    ];
+    stubFetch((url) => (url === INTAKE_URL ? json({ ...asking(REACH), known, intakeId: INTAKE_ID } satisfies StartIntakeResponse) : json(asking(REACH))));
+    render(<ChatWindow mode="intake" />);
+
+    expect((await screen.findAllByText("3 of 9")).length).toBeGreaterThan(0);
+    expect(screen.queryByText("5 of 11")).toBeNull();
+  });
+
   it("opens the new plan on the Workflows page once the owner confirms", async () => {
     intakeRoute(CONFIRM, { ...asking(CONFIRM), question: null, done: true, businessId: "biz-7" });
     render(<ChatWindow mode="intake" />);

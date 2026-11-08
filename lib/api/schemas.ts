@@ -3,6 +3,7 @@ import { licensesSchema } from "@/lib/domain/renewals";
 import type { ScheduleFollowupRequest, CancelFollowupRequest, SaveLicensesRequest } from "@/lib/api/contract";
 import { z } from "zod";
 import type {
+  AddJobRequest,
   ApprovePlanRequest,
   BusinessChatRequest,
   ConnectRequest,
@@ -84,6 +85,12 @@ export const setChoiceSchema = z.union([
   z.object({ workflow: workflowId, path: z.enum(["turnon", "buy"]), toolId: z.string().min(1).max(60) }),
   z.object({ workflow: workflowId, path: z.enum(["build", "skip"]) }),
 ]) satisfies z.ZodType<SetChoiceRequest>;
+
+// Adding a job only to leave it undone would change nothing, so there is no "skip".
+export const addJobSchema = z.union([
+  z.object({ workflow: workflowId, path: z.enum(["turnon", "buy"]), toolId: z.string().min(1).max(60) }),
+  z.object({ workflow: workflowId, path: z.literal("build") }),
+]) satisfies z.ZodType<AddJobRequest>;
 
 export const approvePlanSchema = z.object({ approved: z.literal(true) }) satisfies z.ZodType<ApprovePlanRequest>;
 

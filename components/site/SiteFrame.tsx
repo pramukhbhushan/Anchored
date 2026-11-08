@@ -32,7 +32,7 @@ function SiteHeader({ pathname, authEnabled, viewer }: { readonly pathname: stri
   const signedOut = authEnabled && viewer === null;
   const links = [
     { href: "/", label: "How it works", current: pathname === "/" },
-    { href: "/#example", label: "Example", current: false },
+    { href: "/app/b/restaurant", label: "Example", current: false },
     { href: "/built", label: "How it's built", current: pathname === "/built" },
   ];
   return (

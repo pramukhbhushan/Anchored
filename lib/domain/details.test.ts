@@ -15,6 +15,7 @@ import {
   parsePrices,
   readinessFor,
   vocabularyGuess,
+  nameFromSample,
   type DetailCandidate,
 } from "@/lib/domain/details";
 
@@ -80,6 +81,9 @@ describe("confirmAll and needsOwner", () => {
 
   it("offers no guess for a kind of business with no usual words", () => {
     expect(vocabularyGuess("any", "Dental office")).toBeNull();
+    // A bakery takes orders; only a sit-down restaurant has guests and reservations.
+    expect(vocabularyGuess("restaurant", "Bakery")?.value).toMatchObject({ customer: "customer", bookingTerm: "order" });
+    expect(vocabularyGuess("restaurant", "Family restaurant")?.value).toMatchObject({ customer: "guest", bookingTerm: "reservation" });
   });
 });
 
@@ -101,6 +105,9 @@ describe("parseDetail", () => {
   });
 
   it("reads the owner's words for customers and work", () => {
+    expect(nameFromSample("Hey Mrs. Patel, Mike from Brightwater here. I can come by Thursday.")).toBe("Mike");
+    expect(nameFromSample("Thanks for reaching out! See you soon. Thanks, Dana")).toBe("Dana");
+    expect(nameFromSample("Hi Mr. Jones, thanks for calling Brightwater.")).toBeUndefined();
     expect(parseDetail("vocabulary", "Homeowners, and a service call")).toEqual({ customer: "homeowner", workUnit: "service call", priceTerm: "price", bookingTerm: "booking" });
     expect(parseDetail("vocabulary", "guests / order / price / reservation")).toEqual({ customer: "guest", workUnit: "order", priceTerm: "price", bookingTerm: "reservation" });
   });
