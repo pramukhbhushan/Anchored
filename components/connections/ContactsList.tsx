@@ -123,7 +123,7 @@ export function ContactsList({ businessId, canChange, contacts }: ContactsListPr
 
       {canChange && (
         <form className={styles.form} onSubmit={onAdd} aria-label="Add a customer">
-          <div className={styles.fields}>
+          <div className={styles.contactFields}>
             <div className={styles.field}>
               <label htmlFor={ids.name}>Name</label>
               <input id={ids.name} name="name" type="text" required autoComplete="off" className={styles.input} />
