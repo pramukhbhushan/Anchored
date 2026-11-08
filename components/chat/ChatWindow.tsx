@@ -248,7 +248,8 @@ function IntakeChat() {
               <p>Your plan is ready to review.</p>
               <Button
                 onClick={() => {
-                  router.push(businessHref(builtId));
+                  // The plan is the Workflows page, where the landing page's "Open the full plan" also lands.
+                  router.push(businessHref(builtId, "workflows"));
                   // The shell's sidebar and switcher were rendered before this business existed; refresh them to list it.
                   router.refresh();
                 }}
@@ -346,7 +347,7 @@ function BusinessChat({
             // Anchored's own message in the thread says why the example can't change; the footer only offers the way out.
             <div className={styles.readOnly}>
               <ButtonLink variant="secondary" size="sm" href={NEW_BUSINESS_HREF}>
-                Start your own business
+                Set up your business
               </ButtonLink>
             </div>
           ) : (
@@ -500,7 +501,8 @@ function QuickReplies({
               onClick={() => onToggle(option.value)}
               disabled={disabled}
             >
-              {picked.includes(option.value) && <Check size={14} strokeWidth={2.8} aria-hidden="true" />}
+              {/* A plus that turns into a check, the same width, so picking one never shifts the chips under the pointer */}
+              {picked.includes(option.value) ? <Check size={14} strokeWidth={2.8} aria-hidden="true" /> : <Plus size={14} strokeWidth={2.4} aria-hidden="true" />}
               {option.label}
             </button>
           ) : (

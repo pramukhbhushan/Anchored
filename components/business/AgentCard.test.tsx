@@ -243,7 +243,7 @@ describe("AgentCard", () => {
     renderCard(MASS);
 
     await userEvent.click(screen.getByRole("button", { name: /^Approve/ }));
-    await userEvent.click(screen.getByRole("button", { name: "Yes, send to 118 customers" }));
+    await userEvent.click(screen.getByRole("button", { name: "Yes, approve for 118 customers" }));
 
     await findToast(/Approved/);
     expect(fetchSpy).toHaveBeenCalledTimes(1);

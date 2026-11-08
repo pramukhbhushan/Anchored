@@ -57,7 +57,7 @@ export default async function WorkflowsPage({ params }: { readonly params: Promi
 
   return (
     <>
-      <PageHeader title="Workflows" />
+      <PageHeader title="Workflows" description="Your plan: each job AI can take on, with Anchored's pick for it." />
       <PlanSummary
         counts={countPaths(planned.map((w) => choices[w.id]))}
         cost={stackCost(business, choices)}
@@ -70,7 +70,7 @@ export default async function WorkflowsPage({ params }: { readonly params: Promi
         </header>
         <div className="slip-perf" aria-hidden="true" />
         <Group business={business} label="Shared by every business" list={shared} choices={choices} />
-        {added.length > 0 && <Group business={business} label="Added from your answers" list={added} choices={choices} />}
+        {added.length > 0 && <Group business={business} label={business.kind === "case" ? "Added from what this business does" : "Added from your answers"} list={added} choices={choices} />}
       </section>
       <OpenFromHash />
     </>

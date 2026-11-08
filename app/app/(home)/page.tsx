@@ -26,7 +26,7 @@ export const metadata: Metadata = { title: "Your businesses" };
 function waitingText(pending: number | null): string {
   if (pending === null) return "Approvals unavailable";
   if (pending === 0) return "All caught up";
-  return pending === 1 ? "1 approval waiting" : `${pending} approvals waiting`;
+  return pending === 1 ? "1 draft waiting" : `${pending} drafts waiting`;
 }
 
 /** Render one of the viewer's businesses as a row linking to its overview. */
@@ -69,6 +69,11 @@ function SampleCard({ business }: { readonly business: BusinessProfile }) {
           <p className="case-text">{business.caseStudy.statText}</p>
         </div>
       )}
+      {/* The title's link already covers the card; this says so where the eye lands, so it is hidden from screen readers. */}
+      <p className="case-go" aria-hidden="true">
+        Open the example
+        <ArrowRight size={16} />
+      </p>
       <ul>
         {topWorkflows(business, 3).map((w) => (
           <li key={w.id}>
@@ -97,7 +102,7 @@ export default async function BusinessesPage() {
           own.length === 0 ? undefined : (
             <ButtonLink href={NEW_BUSINESS_HREF}>
               <Plus aria-hidden="true" size={16} />
-              Start your own business
+              Set up your business
             </ButtonLink>
           )
         }
@@ -106,8 +111,8 @@ export default async function BusinessesPage() {
       {own.length === 0 ? (
         <EmptyState
           icon={<Store size={22} />}
-          title="Map your first business"
-          actions={<ButtonLink href={NEW_BUSINESS_HREF}>Start your own business</ButtonLink>}
+          title="Set up your first business"
+          actions={<ButtonLink href={NEW_BUSINESS_HREF}>Set up your business</ButtonLink>}
         >
           Answer a few questions in chat, and Anchored maps where AI can help. Until then, explore the example below.
         </EmptyState>
@@ -123,7 +128,7 @@ export default async function BusinessesPage() {
         <SectionHeader
           id="samples"
           title="Example business"
-          description="Explore it to see how Anchored works: change paths, approve cards and try an example event. What you change stays in your account and never reaches a real customer."
+          description="Explore it to see how Anchored works: change paths, approve cards and watch an agent draft one. What you change stays in your account and never reaches a real customer."
         />
         <div className="cases">
           {samples.map((business) => (

@@ -10,7 +10,7 @@ import { deferred, json, sentJson, stubFetch } from "@/test/http";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// "Try an example event" asks the cards route for one more draft, says who
+// "Watch an agent draft" asks the cards route for one more draft, says who
 // drafted it with a link to see it, and refreshes the feed.
 
 const ADDED: CardRecord = {
@@ -48,7 +48,7 @@ describe("SimulateButton", () => {
     const fetchSpy = stubFetch(() => answer(ADDED));
     renderButton();
 
-    await userEvent.click(screen.getByRole("button", { name: "Try an example event" }));
+    await userEvent.click(screen.getByRole("button", { name: "Watch an agent draft" }));
 
     const toast = await screen.findByText(/Follow-up agent/);
     expect(toast).toHaveRole("status");
@@ -61,7 +61,7 @@ describe("SimulateButton", () => {
     stubFetch(() => answer(null));
     renderButton();
 
-    await userEvent.click(screen.getByRole("button", { name: "Try an example event" }));
+    await userEvent.click(screen.getByRole("button", { name: "Watch an agent draft" }));
 
     expect(await screen.findByRole("link", { name: "See it" })).toBeInTheDocument();
     expect(router.refresh).toHaveBeenCalledTimes(1);
@@ -86,10 +86,10 @@ describe("SimulateButton", () => {
     stubFetch(() => json({ error: "Pick a path that uses an agent first." }, 400));
     renderButton();
 
-    await userEvent.click(screen.getByRole("button", { name: "Try an example event" }));
+    await userEvent.click(screen.getByRole("button", { name: "Watch an agent draft" }));
 
     expect(await screen.findByText("Pick a path that uses an agent first.")).toHaveRole("status");
     expect(router.refresh).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Try an example event" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Watch an agent draft" })).toBeEnabled();
   });
 });

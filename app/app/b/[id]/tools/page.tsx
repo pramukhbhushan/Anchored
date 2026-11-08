@@ -87,7 +87,7 @@ export default async function ToolsPage({
             {queue.length === 1 ? "it" : "them"}
           </summary>
           <p className="queue-note">
-            A discovery agent found these. None gets a score until a person checks its price, contract and data terms.
+            Our research found these. None gets a score until a person checks its price, contract and data terms.
           </p>
           <table className="rtable">
             <thead>

@@ -50,7 +50,7 @@ describe("BusinessSwitcher", () => {
     expect(screen.queryByRole("link", { name: "All businesses" })).not.toBeInTheDocument();
   });
 
-  it("lists the owner's businesses apart from the example, between All businesses and Start a new business", async () => {
+  it("lists the owner's businesses apart from the example, between All businesses and Set up a new business", async () => {
     await openAt(AT_HOME);
 
     const own = within(screen.getByRole("list", { name: "Your businesses" }));
@@ -61,7 +61,7 @@ describe("BusinessSwitcher", () => {
     expect(example.map((a) => a.textContent)).toEqual([expect.stringContaining("Rosa's Taqueria")]);
     const links = screen.getAllByRole("link");
     expect(links.at(0)).toHaveAccessibleName("All businesses");
-    expect(links.at(-1)).toHaveAccessibleName("Start a new business");
+    expect(links.at(-1)).toHaveAccessibleName("Set up a new business");
   });
 
   it("leaves out the owner's group when they have no business yet", async () => {
@@ -77,7 +77,7 @@ describe("BusinessSwitcher", () => {
     expect(link(/^Rosa's Taqueria/)).toHaveAttribute("href", "/app/b/rosa/tools");
     expect(link(/^Apex Heating/)).toHaveAttribute("href", "/app/b/apex/tools");
     expect(link("All businesses")).toHaveAttribute("href", "/app");
-    expect(link("Start a new business")).toHaveAttribute("href", "/app/new");
+    expect(link("Set up a new business")).toHaveAttribute("href", "/app/new");
   });
 
   it("links each business to its overview from the business list", async () => {
@@ -118,7 +118,7 @@ describe("BusinessSwitcher", () => {
     expect(link(/^Greenfield Lawn/)).toHaveFocus();
 
     await userEvent.keyboard("{End}");
-    expect(link("Start a new business")).toHaveFocus();
+    expect(link("Set up a new business")).toHaveFocus();
 
     await userEvent.keyboard("{ArrowDown}");
     expect(link("All businesses")).toHaveFocus();
@@ -130,8 +130,8 @@ describe("BusinessSwitcher", () => {
 
     await userEvent.keyboard("{ArrowUp}");
 
-    expect(link("Start a new business")).toHaveFocus();
-    expect(link("Start a new business")).toHaveAttribute("aria-current", "page");
+    expect(link("Set up a new business")).toHaveFocus();
+    expect(link("Set up a new business")).toHaveAttribute("aria-current", "page");
   });
 
   it("closes with Escape and hands focus back to the button", async () => {

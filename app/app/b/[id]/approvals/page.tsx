@@ -99,6 +99,12 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
     <>
       <PageHeader
         title="Approvals"
+        description={
+          business.kind === "case"
+            ? "Agents draft each text, email and post. Nothing goes out until you approve it."
+            : // No connector is live yet, so every card here is an agent's sample.
+              "Sample drafts from your agents. Nothing goes out until you approve it."
+        }
         actions={
           <>
             <a className={buttonClass("quiet", "md", "only-narrow")} href="#outbox">
@@ -117,7 +123,7 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
           ) : (
             <EmptyState icon={<CheckCheck size={22} />} title="You're all caught up">
               {canSimulate
-                ? "New drafts land here as your agents work. Try an example event to see one arrive."
+                ? "New drafts land here as your agents work. Tap Watch an agent draft to see one arrive."
                 : chosenSkills(business, choices).length > 0
                   ? "New drafts land here as your agents work."
                   : "Choose Build on a workflow and its agent starts drafting here."}

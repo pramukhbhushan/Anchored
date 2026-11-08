@@ -28,7 +28,7 @@ function threadOf(business: BusinessProfile): ChatThread {
 /** The opening line of a business's chat. */
 function welcomeText(business: BusinessProfile): string {
   return business.kind === "case"
-    ? `${business.name} is an example business, so its chat can't change anything. Start your own business to tell Anchored what changes.`
+    ? `In your own business, this is where you tell Anchored what changed, like "we started doing catering", and it updates your workflows. ${business.name} is an example, so its chat can't change anything. Set up your business to try it.`
     : `Tell me what's changed at ${business.name}, like a new service, a new way customers reach you, or a new tool, and I'll update your profile and workflows.`;
 }
 
@@ -51,7 +51,7 @@ export async function listBusinessChat(session: string, business: BusinessProfil
 export async function sendBusinessChat(session: string, business: BusinessProfile, text: string): Promise<BusinessChatResponse> {
   if (business.kind === "case") {
     return {
-      messages: [unsaved("welcome", "anchored", welcomeText(business)), unsaved("owner", "owner", text), unsaved("reply", "anchored", `${business.name} is an example business, so Anchored can't change it. Start your own business and tell me about it there.`)],
+      messages: [unsaved("welcome", "anchored", welcomeText(business)), unsaved("owner", "owner", text), unsaved("reply", "anchored", `${business.name} is an example, so I can't change it. Set up your business and tell me about it there.`)],
       changes: [],
     };
   }

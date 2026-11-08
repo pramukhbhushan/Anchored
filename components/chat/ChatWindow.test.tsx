@@ -189,7 +189,7 @@ describe("ChatWindow, business mode", () => {
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Send" })).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Things you can tell Anchored" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Start your own business" })).toHaveAttribute("href", "/app/new");
+    expect(screen.getByRole("link", { name: "Set up your business" })).toHaveAttribute("href", "/app/new");
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });

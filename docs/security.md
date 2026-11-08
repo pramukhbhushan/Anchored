@@ -31,7 +31,7 @@ Each API route that takes a body reads it through `readBody` in `lib/server/http
 Routes also check path parameters against data the session owns:
 
 - A card or business id outside the session returns 404. The code-defined example business is the one exception, open to every session.
-- `POST /api/businesses/[id]/cards`, "Try an example event", runs only on the example business and returns 409 for an owner's own.
+- `POST /api/businesses/[id]/cards`, "Watch an agent draft", runs only on the example business and returns 409 for an owner's own.
 - `PUT /api/businesses/[id]/choices` accepts only a path and a tool that `pathOptions` offers for that workflow.
 - `POST /api/ingest/[source]` accepts only the sources in its `SOURCE_SKILLS` map, each with its own payload schema.
 

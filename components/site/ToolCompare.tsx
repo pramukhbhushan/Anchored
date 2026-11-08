@@ -140,7 +140,7 @@ export function ToolCompare({ business, workflow }: { readonly business: Busines
 
       {waiting.length > 0 && (
         <p className={styles.queue}>
-          <b>Found by the discovery agent, not scored yet:</b> {joinNames(waiting)}. A listing gets a score only after a
+          <b>Found in our research, not scored yet:</b> {joinNames(waiting)}. A listing gets a score only after a
           person checks its facts.
         </p>
       )}

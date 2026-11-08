@@ -268,6 +268,7 @@ body:has(.compare-tray) .toast{bottom:calc(88px + env(safe-area-inset-bottom,0px
 }
 /* The title link stretches over the whole card so the card is one big tap target */
 .case-link{color:var(--ink);text-decoration:none}
+.case-go{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-sm);font-weight:600;text-decoration:underline;text-underline-offset:3px}
 .case-link::after{content:"";position:absolute;inset:0;border-radius:var(--r)}
 .case:has(.case-link):hover{border-color:var(--ink);box-shadow:var(--shadow)}
 .case-link:focus-visible{outline:none;box-shadow:none}
@@ -351,7 +352,7 @@ html[data-dev] .side-foot{padding-bottom:64px}
 /* The two sides grow equally from zero, so the Jump to bar sits at the true center.
    The bar leaves each side 320px, room for the switcher and the Example pill, and grows to 560px.
    Each side keeps its content's width, so on a narrow bar the Jump to bar shrinks first. */
-.topbar-start{flex:1 1 0;display:flex;align-items:center;gap:12px}
+.topbar-start{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:12px}
 
 /* ---------- business switcher: a trigger and a panel of links, matching the sidebar's business rows ---------- */
 .switcher{position:relative;display:inline-flex;flex:0 1 340px;min-width:0}
@@ -417,8 +418,8 @@ html[data-dev] .side-foot{padding-bottom:64px}
   .shell[data-drawer="open"] .side{transition:transform .2s ease}
 }
 @media (max-width:640px){
-  /* The title says "(example)" at this width, so the pill would repeat it */
-  .switcher,.palette-open,.sample-pill{display:none}
+  /* The title stands in for the switcher at this width; the Example pill stays beside it, where truncation can't cut it off */
+  .switcher,.palette-open{display:none}
   .topbar-end{flex:none}
   .topbar-mark{display:inline-flex;color:var(--ink)}
   .topbar-title{display:block;min-width:0;flex:1;font-weight:600;font-size:var(--fs-md);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -488,6 +489,19 @@ html[data-dev] .side-foot{padding-bottom:64px}
 /* ---------- overview: one reading column, the morning brief its one loud object ---------- */
 /* The overview uses the whole width: at wide sizes the brief splits into what waits and today's numbers. */
 .ov{min-width:0}
+/* The example's four stops: numbered ledger cells, no box, since nothing here is the owner's to decide */
+.tour{margin-bottom:var(--s-5)}
+.tour-title{margin-bottom:var(--s-2);font-size:var(--fs-sm);font-weight:600;color:var(--muted)}
+.tour-list{list-style:none;margin:0;padding:0;counter-reset:stop;display:grid;grid-template-columns:minmax(0,1fr);column-gap:var(--s-5);border-top:1px dashed var(--line)}
+/* One, two or four across, never three and one left over */
+@container app (min-width:520px){.tour-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@container app (min-width:860px){.tour-list{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.tour-list li{counter-increment:stop;min-width:0;border-bottom:1px dashed var(--line)}
+.tour-list a{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:var(--s-3);padding:var(--s-3) 0;color:var(--ink);text-decoration:none}
+.tour-list a::before{content:counter(stop);grid-row:span 2;display:grid;place-items:center;width:26px;height:26px;border:1.5px solid var(--ink);border-radius:50%;font-size:var(--fs-fine);font-weight:700;font-variant-numeric:tabular-nums}
+.tour-list b{font-weight:600}
+.tour-list span{font-size:var(--fs-sm);color:var(--ink-2)}
+.tour-list a:hover b{text-decoration:underline;text-underline-offset:3px}
 @container app (min-width:1000px){
   .brief{display:grid;grid-template-columns:minmax(0,3fr) minmax(280px,2fr);column-gap:var(--s-7);align-items:start}
   .brief > :not(.brief-lines){grid-column:1}

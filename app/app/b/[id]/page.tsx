@@ -1,6 +1,7 @@
 import { ChevronRight, Inbox, MessageSquare, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ExampleTour } from "@/components/business/ExampleTour";
 import { SimulateButton } from "@/components/business/SimulateButton";
 import { NEW_BUSINESS_HREF, businessHref, cardAnchor } from "@/components/routes";
 import { ButtonLink } from "@/components/ui/Button";
@@ -16,7 +17,8 @@ import { getBusinessOrNotFound, getChoices, getFeed } from "@/lib/server/data";
 // Module Overview
 // =============================================================================
 // The overview, the page an owner opens each day: the morning brief on the
-// carbon work-order slip, then a ledger of every workflow and its path. The brief leads with how
+// carbon work-order slip, then a ledger of every workflow and its path. The
+// example business opens with four stops for a first visitor. The brief leads with how
 // many approvals wait and links each one, then says what rides on them, what
 // is new, what the stack costs and, once there is any, what the owner has done.
 
@@ -75,7 +77,7 @@ export default async function OverviewPage({ params }: { readonly params: Promis
           business.kind === "case" ? (
             <ButtonLink href={NEW_BUSINESS_HREF} variant="secondary">
               <Plus aria-hidden="true" size={16} />
-              Start your own business
+              Set up your business
             </ButtonLink>
           ) : (
             <ButtonLink href={businessHref(business.id, "chat")} variant="secondary">
@@ -85,6 +87,8 @@ export default async function OverviewPage({ params }: { readonly params: Promis
           )
         }
       />
+
+      {business.kind === "case" && <ExampleTour businessId={business.id} />}
 
       <section className="slip" aria-labelledby="brief-title">
         <header className="slip-head">
@@ -97,7 +101,7 @@ export default async function OverviewPage({ params }: { readonly params: Promis
             {waiting.length > 0 ? (
               <>
                 <p className="brief-count">
-                  <b>{waiting.length}</b> {waiting.length === 1 ? "waits for you" : "wait for you"}
+                  <b>{waiting.length}</b> {waiting.length === 1 ? "draft waits for you" : "drafts wait for you"}
                 </p>
                 <ButtonLink href={approvalsHref}>
                   <Inbox aria-hidden="true" size={16} />
@@ -126,6 +130,8 @@ export default async function OverviewPage({ params }: { readonly params: Promis
           {waiting.length > ROWS_SHOWN && <p className="brief-more">and {waiting.length - ROWS_SHOWN} more</p>}
 
           <ul className="brief-lines">
+            {/* No connector is live yet, so an owner's own cards are the agents' samples; the example's are understood as examples. */}
+            {business.kind === "custom" && waiting.length > 0 && <li>These drafts are samples until you connect your phone and email.</li>}
             {atStake > 0 && <li>{money(atStake)} rides on today&apos;s cards.</li>}
             {fresh.length > 0 && (
               <li>

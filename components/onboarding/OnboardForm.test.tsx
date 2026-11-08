@@ -56,7 +56,7 @@ describe("OnboardForm", () => {
     }
     await userEvent.click(submit());
 
-    await waitFor(() => expect(router.push).toHaveBeenCalledExactlyOnceWith("/app/b/biz-42"));
+    await waitFor(() => expect(router.push).toHaveBeenCalledExactlyOnceWith("/app/b/biz-42/workflows"));
     expect(router.refresh).toHaveBeenCalled();
     const sent = sentJson(fetchSpy, 0);
     expect(sent).toMatchObject({ method: "POST", url: "/api/businesses" });

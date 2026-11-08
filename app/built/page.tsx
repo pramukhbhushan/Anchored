@@ -20,7 +20,7 @@ type Pair = readonly [name: string, text: string];
 const CHALLENGE: readonly Pair[] = [
   [
     "Discovery",
-    `A discovery agent searches for tools for each workflow and records price, integrations, data terms, contract, source link and date checked. New listings wait in a review queue until a person checks them. The catalog starts with ${TOOLS.length} tools from our research.`,
+    `A discovery agent, designed but not built yet, will search for tools for each workflow and record price, integrations, data terms, contract, source link and date checked. New listings wait in a review queue until a person checks them. The catalog starts with ${TOOLS.length} tools from our research.`,
   ],
   [
     "Rating beyond reviews",

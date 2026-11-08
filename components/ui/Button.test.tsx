@@ -53,9 +53,9 @@ describe("Button", () => {
 
 describe("ButtonLink", () => {
   it("renders a link to its href, not a button", () => {
-    render(<ButtonLink href="/app/new">Start a new business</ButtonLink>);
+    render(<ButtonLink href="/app/new">Set up a new business</ButtonLink>);
 
-    expect(screen.getByRole("link", { name: "Start a new business" })).toHaveAttribute("href", "/app/new");
+    expect(screen.getByRole("link", { name: "Set up a new business" })).toHaveAttribute("href", "/app/new");
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });
