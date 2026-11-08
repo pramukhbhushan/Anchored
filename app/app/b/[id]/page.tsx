@@ -101,7 +101,7 @@ export default async function OverviewPage({ params }: { readonly params: Promis
             {waiting.length > 0 ? (
               <>
                 <p className="brief-count">
-                  <b>{waiting.length}</b> {waiting.length === 1 ? "waits for you" : "wait for you"}
+                  <b>{waiting.length}</b> {waiting.length === 1 ? "draft waits for you" : "drafts wait for you"}
                 </p>
                 <ButtonLink href={approvalsHref}>
                   <Inbox aria-hidden="true" size={16} />
@@ -130,6 +130,8 @@ export default async function OverviewPage({ params }: { readonly params: Promis
           {waiting.length > ROWS_SHOWN && <p className="brief-more">and {waiting.length - ROWS_SHOWN} more</p>}
 
           <ul className="brief-lines">
+            {/* No connector is live yet, so an owner's own cards are the agents' samples; the example's are understood as examples. */}
+            {business.kind === "custom" && waiting.length > 0 && <li>These drafts are samples until you connect your phone and email.</li>}
             {atStake > 0 && <li>{money(atStake)} rides on today&apos;s cards.</li>}
             {fresh.length > 0 && (
               <li>

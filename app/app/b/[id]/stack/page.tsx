@@ -34,6 +34,7 @@ export default async function StackPage({ params }: { readonly params: Promise<{
     <>
       <PageHeader
         title="Stack"
+        description="What your plan costs each month, and where each job goes once it starts."
         actions={
           <ButtonLink href={businessHref(business.id, "workflows")} variant="secondary">
             Change paths

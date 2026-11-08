@@ -99,6 +99,12 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
     <>
       <PageHeader
         title="Approvals"
+        description={
+          business.kind === "case"
+            ? "Agents draft each text, email and post. Nothing goes out until you approve it."
+            : // No connector is live yet, so every card here is an agent's sample.
+              "Sample drafts from your agents. Nothing goes out until you approve it."
+        }
         actions={
           <>
             <a className={buttonClass("quiet", "md", "only-narrow")} href="#outbox">

@@ -26,7 +26,7 @@ export const metadata: Metadata = { title: "Your businesses" };
 function waitingText(pending: number | null): string {
   if (pending === null) return "Approvals unavailable";
   if (pending === 0) return "All caught up";
-  return pending === 1 ? "1 approval waiting" : `${pending} approvals waiting`;
+  return pending === 1 ? "1 draft waiting" : `${pending} drafts waiting`;
 }
 
 /** Render one of the viewer's businesses as a row linking to its overview. */
