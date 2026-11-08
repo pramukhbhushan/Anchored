@@ -80,6 +80,9 @@ describe("confirmAll and needsOwner", () => {
 
   it("offers no guess for a kind of business with no usual words", () => {
     expect(vocabularyGuess("any", "Dental office")).toBeNull();
+    // A bakery takes orders; only a sit-down restaurant has guests and reservations.
+    expect(vocabularyGuess("restaurant", "Bakery")?.value).toMatchObject({ customer: "customer", bookingTerm: "order" });
+    expect(vocabularyGuess("restaurant", "Family restaurant")?.value).toMatchObject({ customer: "guest", bookingTerm: "reservation" });
   });
 });
 

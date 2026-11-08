@@ -21,7 +21,7 @@ export type CardSkill = Exclude<SkillId, "brief">;
  * they never repeat it. `agents` are the agents at work here; triage hands email only to one of them.
  */
 export type CardTemplate = (
-  business: Pick<BusinessProfile, "id" | "name" | "tradeKey" | "reach" | "tools" | "signals">,
+  business: Pick<BusinessProfile, "id" | "name" | "trade" | "tradeKey" | "reach" | "tools" | "signals" | "details">,
   variant: number,
   agents?: readonly ActiveAgent[],
 ) => CardBody;
@@ -46,17 +46,27 @@ function inquiryChannel(business: Pick<BusinessProfile, "reach">): string | null
   return null;
 }
 
-/** One line of a post: an invitation to stop by for a business customers walk into, a message otherwise. */
-function postLine(business: Pick<BusinessProfile, "reach">, variant: number, google: boolean): string {
+/** What a post can name: the first item the owner prices, else what they said to promote, else nothing. */
+function offerOf(business: Pick<BusinessProfile, "details">): string | null {
+  const item = business.details?.prices?.find((price) => price.item !== "")?.item ?? business.details?.promoteFocus?.[0];
+  return item ? item.toLowerCase() : null;
+}
+
+/** One line of a post, naming the business and what it offers: an invitation to stop by for a business customers walk into, a message otherwise. */
+function postLine(business: Pick<BusinessProfile, "reach" | "name" | "trade" | "tradeKey" | "details">, variant: number, google: boolean): string {
+  const offer = offerOf(business);
+  const about = offer ? `${capitalized(offer)} from ${business.name}` : `${business.name}, your local ${business.trade.toLowerCase()}`;
   if (business.reach.includes("Walk-ins")) {
     return google
-      ? pick(variant, "Stop by this week, or call ahead to book a time.", "Planning a visit? Check our listing for this week's hours before you stop by.", "A look at what we've been working on. Stop by and say hi.")
-      : pick(variant, "Stop by this week, or call ahead to book a time.", "Thanks to everyone who came by this week. See you soon.", "A look at what we've been working on. Stop by and say hi.");
+      ? pick(variant, "Stop by this week, or call ahead to book a time.", "Planning a visit? Check our listing for this week's hours before you stop by.", `${about}. Stop by and say hi.`)
+      : pick(variant, "Stop by this week, or call ahead to book a time.", "Thanks to everyone who came by this week. See you soon.", `${about}. Stop by and say hi.`);
   }
-  // A coach or a field trade has no counter to stop by; the post asks for a message instead.
+  // A coach or a field trade has no counter to stop by; the post asks for a message instead, in the owner's own word for a booking.
+  const booking = business.details?.vocabulary?.bookingTerm ?? TRADE_WORDS[business.tradeKey].booking;
+  const open = `${business.name} has openings for new ${booking}s this month. Send us a message to find a time.`;
   return google
-    ? pick(variant, "Taking new bookings this month. Send us a message to find a time.", "Getting in touch? Check our listing for this week's hours first.", "A look at what we've been working on. Send us a message with any questions.")
-    : pick(variant, "Taking new bookings this month. Send us a message to find a time.", "Thanks to everyone we worked with this week.", "A look at what we've been working on. Send us a message with any questions.");
+    ? pick(variant, open, "Getting in touch? Check our listing for this week's hours first.", `${about}. Send us a message with any questions.`)
+    : pick(variant, open, "Thanks to everyone we worked with this week.", `${about}. Send us a message with any questions.`);
 }
 
 /** Whether the owner said customers find them on Google or that they keep a Google Business Profile. */

@@ -189,6 +189,24 @@ describe("the question plan", () => {
     expect(question(twice).field).not.toBe("gap:vocabulary");
   });
 
+  it("offers a plumber only the chips and words that fit the trade", () => {
+    const named = converse([text("Brightwater Plumbing, Silver Spring, MD"), picks("Home services"), text("Drain cleaning and water heaters for homeowners")]).draft;
+    const labels = (draft: IntakeDraft) => (question(draft).options ?? []).map((option) => option.label);
+
+    expect(labels(named)).not.toEqual(expect.arrayContaining(["Walk-ins"]));
+    expect(labels(named)).not.toContain("Delivery apps");
+    const signals = answer(answer(named, picks("Phone calls")), picks());
+    expect(question(signals).field).toBe("signals");
+    expect(labels(signals).join(" ")).not.toMatch(/catering|SNAP|tables/i);
+    expect(labels(signals)).toContain("Customers book appointments");
+  });
+
+  it("keeps every chip for a trade it doesn't know", () => {
+    const named = converse([text("Ridge Dental, Laurel, MD"), text("dental office"), text("Cleanings and fillings")]).draft;
+
+    expect((question(named).options ?? []).map((option) => option.label)).toEqual(expect.arrayContaining(["Walk-ins", "Delivery apps"]));
+  });
+
   it("fills several facts from one sentence and skips the questions they answer", () => {
     let draft = answer(newDraft(), text("I run a food truck in Baltimore that does catering"));
     expect(draft.facts).toMatchObject({ kind: "Food truck", place: "Baltimore" });

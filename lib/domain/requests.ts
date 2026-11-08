@@ -523,7 +523,7 @@ function listText(items: readonly string[]): string {
 
 // A request an owner could type for each skill, in the order the chat suggests them.
 const ASK_EXAMPLES: readonly { readonly skill: AskableSkill; readonly text: string }[] = [
-  { skill: "posts", text: "Write a post about this week's special" },
+  { skill: "posts", text: "Write a post for our Google listing" },
   { skill: "closer", text: "Follow up on the quote we sent last week" },
   { skill: "callback", text: "Text back the caller we missed this morning" },
   { skill: "inquiry", text: "Reply to the newest inquiry" },
@@ -539,13 +539,13 @@ const ASK_EXAMPLES: readonly { readonly skill: AskableSkill; readonly text: stri
 ];
 
 /** A request the owner could type that one of `chosen` drafts, or a post request when none of them takes requests. */
-/** The example request for one skill, such as "Write a post about this week's special", or `null` when chat can't ask it for work. */
+/** The example request for one skill, such as "Write a post for our Google listing", or `null` when chat can't ask it for work. */
 export function askExampleFor(skill: string): string | null {
   return ASK_EXAMPLES.find((example) => example.skill === skill)?.text ?? null;
 }
 
 export function askExample(chosen: readonly SkillId[]): string {
-  return ASK_EXAMPLES.find(({ skill }) => chosen.includes(skill))?.text ?? "Write a post about this week's special";
+  return ASK_EXAMPLES.find(({ skill }) => chosen.includes(skill))?.text ?? "Write a post for our Google listing";
 }
 
 /** Whether any of `chosen` takes requests in chat. */

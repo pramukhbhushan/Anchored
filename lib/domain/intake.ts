@@ -612,6 +612,26 @@ function plainOption(value: string, label: string): IntakeOption {
   return { value, label, selected: false, suggested: false };
 }
 
+// Chips that don't fit a trade: a plumber has no walk-ins, delivery apps, tables or SNAP. An unknown trade sees them all.
+const OFF_TRADE: Readonly<Record<TradeKey, { readonly reach: readonly string[]; readonly tools: readonly string[]; readonly signals: readonly string[] }>> = {
+  home: { reach: ["Walk-ins", "Delivery apps"], tools: ["Cash register", "Toast", "OpenTable", "DoorDash", "Clover"], signals: ["catering", "snap"] },
+  restaurant: { reach: [], tools: ["Jobber", "Housecall Pro", "Calendly"], signals: ["quotes", "memberships"] },
+  store: { reach: [], tools: ["Jobber", "Housecall Pro", "OpenTable", "Calendly", "Toast"], signals: ["quotes", "appointments", "memberships"] },
+  coach: { reach: ["Walk-ins", "Delivery apps"], tools: ["Cash register", "Toast", "OpenTable", "DoorDash", "Clover", "Jobber", "Housecall Pro"], signals: ["catering", "snap", "suppliers", "shifts"] },
+  any: { reach: [], tools: [], signals: [] },
+};
+
+/** `values` without the ones that don't fit the trade, keeping any the owner already chose. */
+function fitting<T extends string>(values: readonly T[], chosen: readonly string[], off: readonly string[]): T[] {
+  return values.filter((value) => !off.includes(value) || chosen.includes(value));
+}
+
+/** A signal's chip label in the trade's words: only a restaurant books tables. */
+function signalLabel(id: string, tradeKey: TradeKey): string {
+  if (id === "appointments" && tradeKey !== "restaurant" && tradeKey !== "any") return "Customers book appointments";
+  return SIGNALS.find((signal) => signal.id === id)?.label ?? id;
+}
+
 /** The chips for one step, or `undefined` for a question answered in words. */
 function optionsFor(step: IntakeStep, draft: IntakeDraft): IntakeOption[] | undefined {
   const { facts } = draft;
@@ -625,15 +645,19 @@ function optionsFor(step: IntakeStep, draft: IntakeDraft): IntakeOption[] | unde
       return rankOptions(KIND_LABELS.map((label) => ({ ...plainOption(label, label), suggested: label === guess })));
     }
     case "reach":
-      return listOptions(REACH_OPTIONS, facts.reach, hint.reach);
+      return listOptions(fitting(REACH_OPTIONS, facts.reach, OFF_TRADE[hint.tradeKey].reach), facts.reach, hint.reach);
     case "tools":
-      return listOptions(TOOL_OPTIONS, facts.tools, hint.tools);
+      return listOptions(fitting(TOOL_OPTIONS, facts.tools, OFF_TRADE[hint.tradeKey].tools), facts.tools, hint.tools);
     case "signals":
       return listOptions(
-        SIGNALS.map((signal) => signal.id),
+        fitting(
+          SIGNALS.map((signal) => signal.id),
+          facts.signals,
+          OFF_TRADE[hint.tradeKey].signals,
+        ),
         facts.signals,
         hint.signals,
-        (id) => SIGNALS.find((signal) => signal.id === id)?.label ?? id,
+        (id) => signalLabel(id, hint.tradeKey),
       );
     case "languages":
       return listOptions(LANGUAGE_OPTIONS, facts.languages, []);
@@ -726,7 +750,7 @@ export function pendingGaps(draft: IntakeDraft): FieldKey[] {
 // Tap answers for the details with a fixed set of values.
 const GAP_CHOICES: Readonly<Partial<Record<FieldKey, readonly (readonly [string, string])[]>>> = {
   pricingMethod: [
-    ["menu", "A set menu"],
+    ["menu", "Set prices"],
     ["hourly", "By the hour"],
     ["quote", "A quote for each request"],
     ["packages", "Packages"],

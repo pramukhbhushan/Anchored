@@ -169,7 +169,7 @@ const STEP_TEXT: Readonly<Record<NextStep["step"], string>> = {
 };
 
 const METHOD_TEXT: Readonly<Record<NonNullable<ProfileDetails["pricingMethod"]>, string>> = {
-  menu: "a set menu",
+  menu: "set prices",
   hourly: "by the hour",
   quote: "a quote for each request",
   packages: "packages",
@@ -427,9 +427,13 @@ const TRADE_VOCABULARY: Readonly<Partial<Record<TradeKey, Vocabulary>>> = {
   coach: { customer: "client", workUnit: "session", priceTerm: "rate", bookingTerm: "session" },
 };
 
+// Only a sit-down place has guests and reservations. A bakery, cafe or food truck takes orders.
+const SIT_DOWN = /\b(?:restaurants?|diners?|bistros?|dining|steakhouse|trattoria|grill)\b/i;
+const TAKEOUT_VOCABULARY: Vocabulary = { customer: "customer", workUnit: "order", priceTerm: "price", bookingTerm: "order" };
+
 /** A low-confidence vocabulary guess from the kind of business the owner named, or `null` for a kind with no usual words. */
 export function vocabularyGuess(tradeKey: TradeKey, kindAnswer: string): DetailCandidate | null {
-  const value = TRADE_VOCABULARY[tradeKey];
+  const value = tradeKey === "restaurant" && !SIT_DOWN.test(kindAnswer) ? TAKEOUT_VOCABULARY : TRADE_VOCABULARY[tradeKey];
   return value ? { key: "vocabulary", value, sourceType: "owner", quote: kindAnswer.slice(0, 120), confidence: "low" } : null;
 }
 

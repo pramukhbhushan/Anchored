@@ -266,6 +266,11 @@ describe("fallback drafts", () => {
 describe("post cards", () => {
   const posts =(business: BusinessProfile): CardBody[] => VARIANTS.map((variant) => CARD_TEMPLATES.posts(business, variant));
 
+  it("never offers a field trade bookings or a vague look at our work", () => {
+    for (const card of posts(exampleProfile("hvac"))) expect(card.body).not.toMatch(/new bookings|what we've been working on/i);
+    for (const card of posts(exampleProfile("corner"))) expect(card.body).not.toMatch(/what we've been working on/i);
+  });
+
   it("drafts Google listing posts only for a business that uses Google", () => {
     const corner = exampleProfile("corner");
     expect(corner.reach).not.toContain("Google");
