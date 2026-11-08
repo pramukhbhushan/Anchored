@@ -108,10 +108,9 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
   const canSimulate = business.kind === "case" && chosenSkills(business, choices).length > 0;
   const canRewrite = isAiConfigured();
   const handOffBusiness: HandOffBusiness = { name: business.name, reach: business.reach, tools: business.tools };
-  // An owner's feed holds examples until a connected channel's real drafts replace them.
-  const showsExamples = business.kind === "custom" && !feed.examplesHidden;
-
   const waiting = feed.cards.filter((c) => c.status === "pending");
+  // The subtitle calls the drafts examples only while an example still waits; once they're cleared it would be false.
+  const showsExamples = business.kind === "custom" && !feed.examplesHidden && waiting.some((c) => c.example === true);
   const decided = feed.cards.filter((c) => c.status !== "pending");
   const cardById = new Map(feed.cards.map((c) => [c.id, c]));
   const now = new Date().toISOString();

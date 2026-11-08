@@ -153,6 +153,7 @@ describe("Approvals page examples", () => {
 
     expect(screen.getByRole("heading", { name: "Connect a phone or inbox to see real drafts" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Set up a connection" })).toHaveAttribute("href", businessHref(hvacShop().id, "connections"));
+    expect(screen.queryByText(/Example drafts/)).not.toBeInTheDocument();
   });
 
   it("tells a connected owner with nothing waiting that new drafts land here", async () => {
