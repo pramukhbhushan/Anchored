@@ -118,7 +118,7 @@ export function WatchBill() {
             );
           })}
         </ol>
-        <p className={styles.billNote}>Example day based on the HVAC case study. In the demo, approved texts land in a demo outbox and nothing is sent.</p>
+        <p className={styles.billNote}>An example day drawn from the HVAC research. The shop is a sample, and none of these texts went to anyone.</p>
       </div>
     </div>
   );
