@@ -65,9 +65,9 @@ function approvedMessage(card: CardRecord, copied: boolean | null): string {
       : `Approved. Your browser blocked the clipboard, so copy the ${thing} from the outbox.`;
   }
   if (card.channel === "locked") return "Marked as yours";
-  if (card.channel === "sms") return "Approved. Text added to the demo outbox.";
-  if (card.channel === "email") return "Approved. Email added to the demo outbox.";
-  return "Approved and logged in the demo outbox.";
+  if (card.channel === "sms") return "Approved. The text waits in your outbox.";
+  if (card.channel === "email") return "Approved. The email waits in your outbox.";
+  return "Approved and logged in your outbox.";
 }
 
 /** Return the status line for a decided card. */

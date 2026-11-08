@@ -21,7 +21,7 @@ export const SECTIONS: readonly { readonly section: Section | null; readonly lab
   { section: "profile", label: "Profile" },
 ];
 
-/** The list of businesses and the case studies. */
+/** The list of the viewer's businesses and the example. */
 export const APP_HREF = "/app";
 
 /** Chat onboarding for a new business. */

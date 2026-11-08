@@ -12,11 +12,11 @@ import type { EventCardResponse, SimulateRequest } from "@/lib/api/contract";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// "Simulate a new event": asks the cards route to draft one more card from a
-// chosen skill, the way a missed call or a new invoice would, then toasts who
-// drafted it and refreshes the feed.
+// "Try an example event", on the example business only: asks the cards route
+// to draft one more card from a chosen skill, the way a missed call or a new
+// invoice would, then toasts who drafted it and refreshes the feed.
 
-/** Render the simulate button; `agentNames` names agents in the toast, whose link goes to `seeHref`. */
+/** Render the example-event button; `agentNames` names agents in the toast, whose link goes to `seeHref`. */
 export function SimulateButton({
   businessId,
   agentNames,
@@ -59,7 +59,7 @@ export function SimulateButton({
   return (
     <Button variant="secondary" onClick={simulate} disabled={busy || refreshing}>
       <Zap aria-hidden="true" size={16} />
-      {busy || refreshing ? "Drafting..." : "Simulate a new event"}
+      {busy || refreshing ? "Drafting..." : "Try an example event"}
     </Button>
   );
 }

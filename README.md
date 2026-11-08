@@ -6,7 +6,7 @@ Built for the University of Maryland AI for Small Business Hack-a-thon, Fall 202
 
 ## How it works
 
-To look around without typing anything, open the app and pick a sample business, such as College Park Heating & Air.
+To look around without typing anything, open the app and explore the example business, Linden Street Kitchen, a restaurant built from our research. Then start your own.
 
 ### 1. Describe your business
 
@@ -28,9 +28,9 @@ Each tool gets a score out of 100 for your business. The score comes from seven 
 
 ### 4. Approve before anything goes out
 
-Agents write each text or email as a card. You approve, edit or skip it. Anchored also holds texts during quiet hours and texts only customers who agreed to get them. In this demo, approved messages land in a demo outbox and nothing is sent.
+Agents write each text or email as a card. You approve, edit or skip it. Anchored also holds texts during quiet hours and texts only customers who agreed to get them. Anchored isn't connected to texting or email yet, so approved messages wait in the outbox and nothing is sent.
 
-![Approvals page with draft cards and the demo outbox](docs/screenshots/4-approve.png)
+![Approvals page with draft cards and the outbox](docs/screenshots/4-approve.png)
 
 ### 5. See what it costs
 
@@ -80,7 +80,7 @@ Every variable is optional for `npm run dev`. `.env.example` lists them all with
 | `SUPABASE_SERVICE_ROLE_KEY` | The server's key for the store, which saves businesses, choices, cards, and the outbox in Supabase Postgres. It never reaches the browser |
 | `ANCHORED_ALLOW_MEMORY_STORE` | Set to `1` to let a production build run on the in-memory store, for example to test `next start` on your machine |
 
-With the two `NEXT_PUBLIC_SUPABASE_*` variables unset, accounts are off. Each visitor gets an anonymous session cookie instead, and the app shows "Local demo".
+With the two `NEXT_PUBLIC_SUPABASE_*` variables unset, accounts are off. Each visitor gets an anonymous session cookie instead, and the account menu says "This browser". Use this mode for local development and CI only.
 
 Next.js copies every `NEXT_PUBLIC_` variable into the browser bundle when it builds. After you add or change one, rebuild the app, or redeploy it on Vercel.
 
@@ -127,8 +127,8 @@ Accounts and saved data both need a Supabase project. Do these steps in the Supa
 5. Under **Authentication > URL Configuration**, set where Supabase may send visitors back:
    - Set **Site URL** to the production address, such as `https://anchored.vercel.app`.
    - Add `http://localhost:3000/**` and `https://<your-domain>/**` to **Redirect URLs**. To sign in on Vercel preview deploys, also add `https://*-<your-team>.vercel.app/**`.
-6. Before a judged demo, set up your own SMTP server under **Authentication > Emails**. The built-in email service sends only a few emails an hour and is meant for testing.
-7. If judges will share one network, raise **Anonymous sign-ins** under **Authentication > Rate Limits**. Supabase counts that limit per IP address.
+6. Before launch, set up your own SMTP server under **Authentication > Emails**. The built-in email service sends only a few emails an hour and is meant for testing.
+7. If many guests will sign in from one network, raise **Anonymous sign-ins** under **Authentication > Rate Limits**. Supabase counts that limit per IP address.
 
 A magic link works only in the browser that asked for it. That browser holds the one-time verifier that `/auth/callback` needs to finish the sign-in.
 
@@ -136,16 +136,37 @@ A guest who adds an email under **Save your work** keeps the same user id. Their
 
 The server reads and writes with the service role key, which bypasses row-level security. `20261107000200_auth_policies.sql` adds policies as a second layer. With them, a signed-in user's own token can reach only the rows whose `session_id` is that user's id. The anon key alone reaches nothing.
 
-`purge_expired_demo_data()` deletes demo rows older than 30 days once you schedule it with `pg_cron`. It skips rows that belong to email and Google accounts, and deletes guests' rows.
+`purge_expired_demo_data()` deletes guests' and anonymous sessions' rows older than 30 days once you schedule it with `pg_cron`. It skips rows that belong to email and Google accounts. The name dates from the hackathon build; migrations are frozen, so it stays.
 
 ## Deploy to Vercel
 
-1. Set up Supabase as described above, with every migration run.
-2. Import the repository in Vercel. The default Next.js settings work.
-3. Under **Settings > Environment Variables**, add `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`. For AI, add `AI_PROVIDER`, `AI_API_KEY`, `AI_DAILY_CALL_CAP` and `APP_URL`.
-4. Deploy, then add the deployment's address to Supabase's **Site URL** and **Redirect URLs**.
+Production runs on Vercel with Supabase for both data and sign-in. `next build` needs no secrets, so the build itself never fails for a missing key. A production server with no store settings refuses its first data read instead of keeping work in memory.
 
-Judges can test without an account through **Continue as guest**, and each one sees only their own businesses and cards. **Reset demo** clears a session.
+1. Create a Supabase project, then do these steps in its dashboard:
+   1. Run every file in `supabase/migrations/` in filename order, oldest first, in the **SQL Editor**. With the Supabase CLI linked to the project, `supabase db push` does the same.
+   2. Under **Authentication > Sign In / Providers**, leave **Email** on, turn on **Allow anonymous sign-ins**, and turn on **Google** with the client ID and secret of a Google OAuth web client. In Google Cloud, add `https://<project-ref>.supabase.co/auth/v1/callback` to that client's authorized redirect URIs.
+   3. Under **Authentication > URL Configuration**, set **Site URL** to your Vercel domain, such as `https://anchored.vercel.app`. Add `https://anchored.vercel.app/**` to **Redirect URLs**, and `https://*-<your-team>.vercel.app/**` if you want sign-in on preview deploys.
+   4. Under **Authentication > Emails**, set up your own SMTP server. The built-in email service sends only a few emails an hour.
+2. Import the repository in Vercel. The default Next.js settings work.
+3. Under **Settings > Environment Variables**, add these for the Production environment:
+
+   | Variable | Value |
+   | --- | --- |
+   | `NEXT_PUBLIC_SUPABASE_URL` | The project URL, from **Project Settings > Data API** |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | The anon or publishable key, from **Project Settings > API Keys** |
+   | `SUPABASE_SERVICE_ROLE_KEY` | The service role or secret key, from the same page. Server only |
+   | `AI_PROVIDER` | Optional. One of `anthropic`, `openai`, `openrouter`, `featherless`, `openai-compatible` |
+   | `AI_API_KEY` | The key for that provider |
+   | `AI_BASE_URL` | Optional for the named providers, required for `openai-compatible` |
+   | `AI_MODEL` | The model, required for every provider except `anthropic` |
+   | `AI_DAILY_CALL_CAP` | Model calls allowed per UTC day. Default 2000 |
+   | `APP_URL` | Your Vercel domain, such as `https://anchored.vercel.app` |
+
+   Leave `ANCHORED_ALLOW_MEMORY_STORE` unset in production.
+4. Deploy. Vercel builds with the `NEXT_PUBLIC_` values, so redeploy after you change either one.
+5. Open the domain, sign in, map a business, sign out, and sign back in to check that the business is still there.
+
+Visitors can try Anchored without an account through **Continue as guest**, and each one sees only their own businesses and cards. **Delete my businesses** in the account menu clears everything a visitor saved.
 
 ## Project layout
 
@@ -153,7 +174,7 @@ Judges can test without an account through **Continue as guest**, and each one s
 | --- | --- |
 | `app/` | Pages and API routes |
 | `components/` | React components, grouped by feature: `ui/` primitives, `shell/` app chrome, and folders such as `business/` and `stack/` |
-| `lib/domain/` | Workflows, agents and skills, the catalog, ratings, the rules engine, case studies, card templates and the executor. Pure TypeScript with tests |
+| `lib/domain/` | Workflows, agents and skills, the catalog, ratings, the rules engine, the example business, card templates and the executor. Pure TypeScript with tests |
 | `lib/api/` | The request and response types of every API route, and the Zod schema for every request body |
 | `lib/llm/` | The model layer: the `LlmProvider` interface and one adapter per provider |
 | `lib/auth/` | Supabase Auth clients, the sign-in paths and the `Viewer` type |

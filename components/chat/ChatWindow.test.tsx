@@ -11,7 +11,7 @@ import { deferred, json, sentJson, stubFetch } from "@/test/http";
 // =============================================================================
 // The business chat as an owner uses it: tell Anchored what changed, see the
 // reply, wait while it is sending, recover when a send fails, and find no text
-// box on a read-only sample. `fetch` plays the chat route.
+// box on the read-only example. `fetch` plays the chat route.
 
 const CHAT_URL = "/api/businesses/greenfield/chat";
 
@@ -181,7 +181,7 @@ describe("ChatWindow, business mode", () => {
     expect(textBox()).toBeEnabled();
   });
 
-  it("has no text box on a read-only sample, only a way to start the owner's own business", async () => {
+  it("has no text box on the read-only example, only a way to start the owner's own business", async () => {
     const fetchSpy = chatRoute();
     render(<ChatWindow mode="business" businessId="greenfield" readOnly />);
     await waitFor(() => expect(thread()).toHaveTextContent(GREETING.text));

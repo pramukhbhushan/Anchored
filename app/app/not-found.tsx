@@ -19,12 +19,12 @@ export default function BusinessNotFound() {
         <>
           <ButtonLink href={APP_HREF}>All businesses</ButtonLink>
           <ButtonLink href={NEW_BUSINESS_HREF} variant="secondary">
-            Start a new business
+            Start your own business
           </ButtonLink>
         </>
       }
     >
-      It may have been deleted when the demo was reset, or it belongs to another account.
+      It may have been deleted, or it belongs to another account.
     </EmptyState>
   );
 }

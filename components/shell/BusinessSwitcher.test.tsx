@@ -10,7 +10,7 @@ import { APEX, AT_HOME, AT_NEW, BUSINESSES, ROSA, atBusiness } from "@/test/shel
 // Module Overview
 // =============================================================================
 // The business picker in the top bar, a button that opens a panel of links:
-// it shows where the owner is, lists their businesses apart from the samples
+// it shows where the owner is, lists their businesses apart from the example
 // with each one's trade and approvals waiting, and each link keeps the page
 // they were on. The arrow keys and Escape work it from the keyboard.
 
@@ -50,25 +50,25 @@ describe("BusinessSwitcher", () => {
     expect(screen.queryByRole("link", { name: "All businesses" })).not.toBeInTheDocument();
   });
 
-  it("lists the owner's businesses apart from the samples, between All businesses and Start a new business", async () => {
+  it("lists the owner's businesses apart from the example, between All businesses and Start a new business", async () => {
     await openAt(AT_HOME);
 
+    const own = within(screen.getByRole("list", { name: "Your businesses" }));
+    expect(own.getAllByRole("link").map((a) => a.textContent)).toEqual([expect.stringContaining("Apex Heating"), expect.stringContaining("Greenfield Lawn")]);
     // A screen reader hears the trade and the count after the name.
-    expect(within(screen.getByRole("list", { name: "Your businesses" })).getByRole("link")).toHaveAccessibleName(
-      /^Greenfield Lawn\s*, Landscaping\s*, 2 waiting$/,
-    );
-    const samples = within(screen.getByRole("list", { name: "Sample businesses" })).getAllByRole("link");
-    expect(samples.map((a) => a.textContent)).toEqual([expect.stringContaining("Rosa's Taqueria"), expect.stringContaining("Apex Heating")]);
+    expect(own.getByRole("link", { name: /^Greenfield Lawn/ })).toHaveAccessibleName(/^Greenfield Lawn\s*, Landscaping\s*, 2 waiting$/);
+    const example = within(screen.getByRole("list", { name: "Example" })).getAllByRole("link");
+    expect(example.map((a) => a.textContent)).toEqual([expect.stringContaining("Rosa's Taqueria")]);
     const links = screen.getAllByRole("link");
     expect(links.at(0)).toHaveAccessibleName("All businesses");
     expect(links.at(-1)).toHaveAccessibleName("Start a new business");
   });
 
   it("leaves out the owner's group when they have no business yet", async () => {
-    await openAt(AT_HOME, [ROSA, APEX]);
+    await openAt(AT_HOME, [ROSA]);
 
     expect(screen.queryByRole("list", { name: "Your businesses" })).not.toBeInTheDocument();
-    expect(screen.getByRole("list", { name: "Sample businesses" })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Example" })).toBeInTheDocument();
   });
 
   it("links each business to the page the owner is on", async () => {
@@ -108,14 +108,14 @@ describe("BusinessSwitcher", () => {
   });
 
   it("opens on the open business with the down arrow and walks the list with the arrow keys", async () => {
-    render(<BusinessSwitcher businesses={BUSINESSES} location={atBusiness("rosa", null)} />);
+    render(<BusinessSwitcher businesses={BUSINESSES} location={atBusiness("apex", null)} />);
     trigger().focus();
 
     await userEvent.keyboard("{ArrowDown}");
-    expect(link(/^Rosa's Taqueria/)).toHaveFocus();
+    expect(link(/^Apex Heating/)).toHaveFocus();
 
     await userEvent.keyboard("{ArrowDown}");
-    expect(link(/^Apex Heating/)).toHaveFocus();
+    expect(link(/^Greenfield Lawn/)).toHaveFocus();
 
     await userEvent.keyboard("{End}");
     expect(link("Start a new business")).toHaveFocus();

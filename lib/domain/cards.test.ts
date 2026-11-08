@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { CORE_AGENTS, SKILLS } from "@/lib/domain/agents";
 import { CARD_TEMPLATES, type CardBody, type CardSkill, draftFeed, simulateCard } from "@/lib/domain/cards";
-import { CASE_STUDIES, caseStudyById, EXAMPLES, exampleProfile } from "@/lib/domain/cases";
+import { EXAMPLES, exampleProfile, SAMPLE_BUSINESS } from "@/lib/domain/cases";
 import { checkSend, QUIET_HOURS_RULE } from "@/lib/domain/executor";
 import { activeAgents, workflowIdsOf } from "@/lib/domain/paths";
 import type { BusinessProfile, Choice, ChoiceMap, WorkflowId } from "@/lib/domain/types";
+import { careerCoach, hvacShop } from "@/test/trades";
 
 // =============================================================================
 // Module Overview
@@ -19,15 +20,11 @@ const VARIANTS = [0, 1, 2, 3] as const;
 const TEMPLATE_SKILLS = Object.keys(CARD_TEMPLATES) as CardSkill[];
 
 const EVERY_BUSINESS: readonly BusinessProfile[] = [
-  ...CASE_STUDIES,
+  SAMPLE_BUSINESS,
+  hvacShop(),
+  careerCoach(),
   ...EXAMPLES.map((example) => exampleProfile(example.id)),
 ];
-
-function caseStudy(id: string): BusinessProfile {
-  const found = caseStudyById(id);
-  if (found === undefined) throw new Error(`no case study \`${id}\``);
-  return found;
-}
 
 /** The given picks, with every other workflow of the business skipped. */
 function only(business: BusinessProfile, picks: ChoiceMap): ChoiceMap {
@@ -37,7 +34,7 @@ function only(business: BusinessProfile, picks: ChoiceMap): ChoiceMap {
 }
 
 describe("draftFeed", () => {
-  const restaurant = caseStudy("restaurant");
+  const restaurant = SAMPLE_BUSINESS;
 
   it("shows the allergy card only when the catering skill is chosen", () => {
     const allergy = { title: "Allergy question from Ana", channel: "locked", skill: "catering" };
@@ -53,13 +50,12 @@ describe("draftFeed", () => {
   });
 
   it("uses the researched card and stamps the agent that runs the skill", () => {
-    const hvac = caseStudy("hvac");
-    const [first] = draftFeed(hvac, only(hvac, { calls: { path: "build", skills: ["callback"] } }));
+    const [first] = draftFeed(restaurant, only(restaurant, { catering: { path: "build", skills: ["catering"] } }));
     expect(first).toMatchObject({
-      key: "hvac:callback",
+      key: "restaurant:catering",
       agent: "frontdesk",
-      skill: "callback",
-      title: "Missed call at 7:42 p.m. from (301) 555-0192",
+      skill: "catering",
+      title: "Party of 40 in three weeks, from your catering form",
     });
   });
 
@@ -123,7 +119,7 @@ describe("simulateCard", () => {
 });
 
 describe("triage", () => {
-  const restaurant = caseStudy("restaurant");
+  const restaurant = SAMPLE_BUSINESS;
 
   function triageCard(business: BusinessProfile, choices: ChoiceMap): CardBody {
     const card = draftFeed(business, choices).find((candidate) => candidate.skill === "triage");
@@ -138,8 +134,7 @@ describe("triage", () => {
   });
 
   it("keeps the email for the owner when no agent here checks prices", () => {
-    const hvac = caseStudy("hvac");
-    const card = triageCard(hvac, {});
+    const card = triageCard(hvacShop(), {});
     expect(card.action).toBe("Add it to your list");
     expect(card.body).not.toContain("Bookkeeping");
   });
@@ -226,10 +221,6 @@ describe("every drafted card", () => {
   it("names no weekday in a title or reason, which could contradict today's date", () => {
     const weekday = /\b(?:mon|tues|wednes|thurs|fri|satur|sun)day\b/i;
     for (const [label, card] of drafts) expect(`${card.title} ${card.reason}`, label).not.toMatch(weekday);
-  });
-
-  it("asks HVAC callers about heat or AC, whatever the month", () => {
-    expect(caseStudy("hvac").cards?.callback?.body).toContain("Is your heat or AC fully off, or running but not keeping up?");
   });
 });
 

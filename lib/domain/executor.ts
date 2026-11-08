@@ -5,7 +5,7 @@ import type { CardDraft } from "@/lib/domain/types";
 // =============================================================================
 // The rules plain code enforces before anything reaches a customer. `checkSend`
 // refuses a locked thread, allergy talk, an unfilled `[placeholder]`, or a text
-// without `OPT_OUT_LINE`, consent, or daytime in `DEMO_TIME_ZONE`, whatever the
+// without `OPT_OUT_LINE`, consent, or daytime in `OWNER_TIME_ZONE`, whatever the
 // model drafted. `sendTimeText` prints send times in that zone for the views.
 
 /** When and for whom a card would be sent. */
@@ -23,9 +23,9 @@ export type SendCheck = { readonly ok: true } | { readonly ok: false; readonly r
 /** The line every text must end with, so the customer can always opt out. */
 export const OPT_OUT_LINE = "Reply STOP to opt out.";
 
-// Every demo business is in Maryland. A real account would store its own time zone.
+// Anchored serves Maryland businesses for now. Once a business stores its own time zone, this becomes its default.
 /** The time zone quiet hours are checked in, and the one the views print dates and send times in. */
-export const DEMO_TIME_ZONE = "America/New_York";
+export const OWNER_TIME_ZONE = "America/New_York";
 
 // Texts wait from 8 p.m. until 8 a.m. local time.
 const QUIET_FROM_HOUR = 20;
@@ -72,9 +72,9 @@ export function ensureOptOut(body: string): string {
   return rest === "" ? OPT_OUT_LINE : `${rest} ${OPT_OUT_LINE}`;
 }
 
-/** Return a send time as the owner reads it in `DEMO_TIME_ZONE`, such as "Mon 8:00 AM". */
+/** Return a send time as the owner reads it in `OWNER_TIME_ZONE`, such as "Mon 8:00 AM". */
 export function sendTimeText(date: Date): string {
-  return new Intl.DateTimeFormat("en-US", { timeZone: DEMO_TIME_ZONE, weekday: "short", hour: "numeric", minute: "2-digit" }).format(date);
+  return new Intl.DateTimeFormat("en-US", { timeZone: OWNER_TIME_ZONE, weekday: "short", hour: "numeric", minute: "2-digit" }).format(date);
 }
 
 /** The first square-bracketed blank in `body`, such as "[your review link]", or `null` when there is none. */

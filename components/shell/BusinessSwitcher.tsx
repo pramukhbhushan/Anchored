@@ -11,7 +11,7 @@ import type { BusinessSummary } from "@/components/shell/shell-data";
 // Module Overview
 // =============================================================================
 // The business picker in the top bar: a button that opens a panel of links,
-// with "All businesses" on top, the owner's businesses apart from the samples,
+// with "All businesses" on top, the owner's businesses apart from the example,
 // and "Start a new business" at the foot. Each business shows its trade and
 // its approvals waiting, and a check marks the one that is open. Picking a
 // business keeps the section the owner is on. The panel is a disclosure of
@@ -252,7 +252,7 @@ export function BusinessSwitcher({
         {samples.length > 0 && (
           <>
             <p className="switcher-group" id={samplesId}>
-              Sample businesses
+              Example
             </p>
             <ul className="switcher-list" aria-labelledby={samplesId}>
               {samples.map((b) => (

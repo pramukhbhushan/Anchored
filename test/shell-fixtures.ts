@@ -4,7 +4,7 @@ import type { BusinessSummary } from "@/components/shell/shell-data";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The businesses the shell tests open: one the owner made and two samples,
+// The businesses the shell tests open: two the owner made and the example,
 // each with the approvals count the sidebar shows, plus the places a viewer
 // can be. Test data only; nothing in the app imports this.
 
@@ -18,7 +18,7 @@ export const GREENFIELD: BusinessSummary = {
 
 export const ROSA: BusinessSummary = { id: "rosa", name: "Rosa's Taqueria", trade: "Restaurant", kind: "case", pending: 3 };
 
-export const APEX: BusinessSummary = { id: "apex", name: "Apex Heating", trade: "HVAC", kind: "case", pending: null };
+export const APEX: BusinessSummary = { id: "apex", name: "Apex Heating", trade: "HVAC", kind: "custom", pending: null };
 
 export const BUSINESSES: readonly BusinessSummary[] = [ROSA, APEX, GREENFIELD];
 

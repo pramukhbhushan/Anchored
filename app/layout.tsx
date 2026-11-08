@@ -4,14 +4,15 @@ import type { ReactNode } from "react";
 import { SiteFrame } from "@/components/site/SiteFrame";
 import { ToastProvider } from "@/components/ui/Toast";
 import { isAuthEnabled } from "@/lib/auth/config";
+import { findViewer } from "@/lib/server/session";
 import "./globals.css";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
 // The root layout: fonts, the toast provider and `SiteFrame`, which draws the
-// site header outside `/app`. Archivo keeps its `wdth` axis because the CSS
-// stretches it from 72% to 125%; both fonts feed `--display` and `--body`.
+// site header outside `/app` for whoever is signed in. Archivo keeps its `wdth`
+// axis because the CSS stretches it from 72% to 125%; both fonts feed `--display` and `--body`.
 
 const archivo = Archivo({ subsets: ["latin"], axes: ["wdth"], variable: "--font-archivo", display: "swap" });
 const publicSans = Public_Sans({
@@ -37,12 +38,17 @@ export const viewport: Viewport = {
 };
 
 /** Wrap every page in the fonts, the toast region and the site frame. */
-export default function RootLayout({ children }: { readonly children: ReactNode }) {
+export default async function RootLayout({ children }: { readonly children: ReactNode }) {
+  const authEnabled = isAuthEnabled();
+  // Only accounts need the visitor here; with them off the header never changes, so pages stay static.
+  const viewer = authEnabled ? await findViewer() : null;
   return (
     <html lang="en" className={`${archivo.variable} ${publicSans.variable}`} data-dev={process.env.NODE_ENV === "development" ? "" : undefined}>
       <body>
         <ToastProvider>
-          <SiteFrame authEnabled={isAuthEnabled()}>{children}</SiteFrame>
+          <SiteFrame authEnabled={authEnabled} viewer={viewer}>
+            {children}
+          </SiteFrame>
         </ToastProvider>
       </body>
     </html>

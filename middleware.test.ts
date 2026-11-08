@@ -159,7 +159,7 @@ describe("limitFor", () => {
     for (const [method, path] of [
       ["PUT", "/api/businesses/b_1/choices"],
       ["POST", "/api/cards/abc-123"],
-      ["POST", "/api/reset"],
+      ["DELETE", "/api/businesses"],
       ["PUT", "/api/businesses"],
       ["POST", "/api/businesses/b_1"],
       ["POST", "/api/cards/abc/rewrite/extra"],
@@ -186,18 +186,18 @@ describe("middleware with accounts off", () => {
   useAccounts(false);
 
   it("refuses a cross-site API mutation with a JSON error", async () => {
-    const response = await middleware(request("/api/reset", { method: "POST", ip: "198.51.100.1", headers: { origin: "https://evil.example" } }));
+    const response = await middleware(request("/api/businesses", { method: "DELETE", ip: "198.51.100.1", headers: { origin: "https://evil.example" } }));
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ error: expect.any(String) });
   });
 
   it("lets a cross-site GET through, since reads change nothing", async () => {
-    const response = await middleware(request("/api/businesses/hvac/cards", { ip: "198.51.100.2", headers: { origin: "https://evil.example" } }));
+    const response = await middleware(request("/api/businesses/restaurant/cards", { ip: "198.51.100.2", headers: { origin: "https://evil.example" } }));
     expect(response.status).toBe(200);
   });
 
   it("refuses a body over the cap with 413", async () => {
-    const response = await middleware(request("/api/reset", { method: "POST", ip: "198.51.100.3", headers: { "content-length": "70000" } }));
+    const response = await middleware(request("/api/businesses", { method: "DELETE", ip: "198.51.100.3", headers: { "content-length": "70000" } }));
     expect(response.status).toBe(413);
     expect(await response.json()).toEqual({ error: expect.stringContaining("64 KB") });
   });
@@ -216,7 +216,7 @@ describe("middleware with accounts off", () => {
     const cookie = `${SESSION_COOKIE}=${crypto.randomUUID()}`;
     const ip = "198.51.100.40";
     const turn = async (path: string) => (await middleware(request(path, { method: "POST", ip, headers: { cookie } }))).status;
-    // One onboarding runs 11 to 14 chat calls, and Reset demo keeps the session.
+    // One onboarding runs 11 to 14 chat calls, and an owner may onboard more than once.
     for (let onboarding = 0; onboarding < 3; onboarding += 1) {
       for (let call = 0; call < 14; call += 1) expect(await turn("/api/intake/abc-123"), `onboarding ${onboarding + 1}`).toBe(200);
     }
@@ -230,7 +230,7 @@ describe("middleware with accounts off", () => {
     const cookie = `${SESSION_COOKIE}=${crypto.randomUUID()}`;
     await createBusinesses(10, "198.51.100.5", cookie);
     expect(await createBusiness("198.51.100.5", cookie)).toBe(429);
-    expect((await middleware(request("/api/reset", { method: "POST", ip: "198.51.100.5", headers: { cookie } }))).status).toBe(200);
+    expect((await middleware(request("/api/businesses", { method: "DELETE", ip: "198.51.100.5", headers: { cookie } }))).status).toBe(200);
   });
 
   it("lets a room of judges on one IP each onboard, up to the looser per-IP limit", async () => {
@@ -278,7 +278,7 @@ describe("middleware with accounts off", () => {
   });
 
   it("lets a visitor reach the app without signing in", async () => {
-    const response = await middleware(request("/app/b/hvac", { ip: "198.51.100.11" }));
+    const response = await middleware(request("/app/b/restaurant", { ip: "198.51.100.11" }));
     expect(response.status).toBe(200);
   });
 });
@@ -306,12 +306,12 @@ describe("middleware with accounts on", () => {
   });
 
   it("sends a signed-out visitor bound for the app to sign in, keeping the path and query", async () => {
-    const response = await middleware(request("/app/b/hvac/tools?workflow=quotes", { ip: "198.51.100.20" }));
+    const response = await middleware(request("/app/b/restaurant/tools?workflow=quotes", { ip: "198.51.100.20" }));
     expect(response.status).toBe(307);
     const location = new URL(response.headers.get("location") ?? "");
     expect(location.host).toBe(HOST);
     expect(location.pathname).toBe("/login");
-    expect(location.searchParams.get("next")).toBe("/app/b/hvac/tools?workflow=quotes");
+    expect(location.searchParams.get("next")).toBe("/app/b/restaurant/tools?workflow=quotes");
   });
 
   it("guards `/app` itself but not paths that only start with the same letters", async () => {
@@ -326,7 +326,7 @@ describe("middleware with accounts on", () => {
 
   it("lets a signed-in visitor into the app", async () => {
     const cookie = await sessionCookie(key, crypto.randomUUID());
-    expect((await middleware(request("/app/b/hvac", { ip: "198.51.100.25", headers: { cookie } }))).status).toBe(200);
+    expect((await middleware(request("/app/b/restaurant", { ip: "198.51.100.25", headers: { cookie } }))).status).toBe(200);
   });
 
   it("refuses a session whose token was signed by some other key", async () => {
@@ -347,7 +347,7 @@ describe("middleware with accounts on", () => {
   });
 
   it("still refuses a cross-site API mutation before any session work", async () => {
-    const response = await middleware(request("/api/reset", { method: "POST", ip: "198.51.100.24", headers: { origin: "https://evil.example" } }));
+    const response = await middleware(request("/api/businesses", { method: "DELETE", ip: "198.51.100.24", headers: { origin: "https://evil.example" } }));
     expect(response.status).toBe(403);
   });
 });

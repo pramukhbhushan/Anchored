@@ -6,8 +6,8 @@ import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, WorkflowId } from "
 // Module Overview
 // =============================================================================
 // The `Store` interface every persistence backend implements. Each call takes
-// the demo session id, so one judge's choices and cards never reach another's.
-// `SupabaseStore` is the real backend; `MemoryStore` runs the demo without keys.
+// the visitor's session id, so one owner's choices and cards never reach another's.
+// `SupabaseStore` is the production backend; `MemoryStore` runs without keys.
 
 /** Fields of a card that a decision or a rewrite may change. */
 export interface CardPatch {
@@ -39,7 +39,7 @@ export interface IntakeRecord {
 /** Persistence for businesses, choices, cards, the outbox, raw events and chats. */
 export interface Store {
   readonly kind: "supabase" | "memory";
-  /** Return the session's own businesses, oldest first. Case studies are not stored. */
+  /** Return the session's own businesses, oldest first. The example business lives in code and is not stored. */
   listBusinesses(session: string): Promise<BusinessProfile[]>;
   getBusiness(session: string, id: string): Promise<BusinessProfile | null>;
   saveBusiness(session: string, business: BusinessProfile): Promise<void>;
@@ -63,7 +63,7 @@ export interface Store {
   saveIntake(session: string, intake: IntakeRecord): Promise<void>;
   /** Count one model call against the day's cap for every visitor together; `false` once the cap is reached. */
   useAiCall(day: string, cap: number): Promise<boolean>;
-  /** Delete everything the session created, so the demo starts fresh. */
+  /** Delete everything the session created, as "Delete my businesses" asks. */
   reset(session: string): Promise<void>;
 }
 

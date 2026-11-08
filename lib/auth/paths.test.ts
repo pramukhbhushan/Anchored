@@ -11,7 +11,7 @@ describe("needsSignIn", () => {
   it("covers the app and every page inside it", () => {
     expect(needsSignIn("/app")).toBe(true);
     expect(needsSignIn("/app/")).toBe(true);
-    expect(needsSignIn("/app/b/hvac/workflows")).toBe(true);
+    expect(needsSignIn("/app/b/restaurant/workflows")).toBe(true);
   });
 
   it("leaves the public pages, the API and look-alike paths open", () => {
@@ -23,7 +23,7 @@ describe("needsSignIn", () => {
 
 describe("safeNextPath", () => {
   it("keeps a path on this site with its query and fragment", () => {
-    expect(safeNextPath("/app/b/hvac?workflow=quotes#tools")).toBe("/app/b/hvac?workflow=quotes#tools");
+    expect(safeNextPath("/app/b/restaurant?workflow=quotes#tools")).toBe("/app/b/restaurant?workflow=quotes#tools");
     expect(safeNextPath("/")).toBe("/");
   });
 
@@ -60,7 +60,7 @@ describe("safeNextPath", () => {
 
 describe("loginHref and callbackUrl", () => {
   it("carry `next` encoded, so its own query survives the round trip", () => {
-    const next = "/app/b/hvac?workflow=quotes&x=1";
+    const next = "/app/b/restaurant?workflow=quotes&x=1";
     const login = new URL(loginHref(next), "https://anchored.example.com");
     expect(login.pathname).toBe("/login");
     expect(login.searchParams.get("next")).toBe(next);

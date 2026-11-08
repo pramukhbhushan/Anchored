@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { caseStudyById, exampleProfile } from "@/lib/domain/cases";
+import { exampleProfile, SAMPLE_BUSINESS } from "@/lib/domain/cases";
 import { toolById } from "@/lib/domain/catalog";
 import { rateTool, usesSoftware } from "@/lib/domain/rating";
-import type { BusinessProfile, Tool } from "@/lib/domain/types";
+import type { Tool } from "@/lib/domain/types";
+import { hvacShop } from "@/test/trades";
 
 // =============================================================================
 // Module Overview
@@ -15,14 +16,8 @@ function tool(id: string): Tool {
   return found;
 }
 
-function caseStudy(id: string): BusinessProfile {
-  const found = caseStudyById(id);
-  if (found === undefined) throw new Error(`no case study \`${id}\``);
-  return found;
-}
-
 describe("rateTool", () => {
-  const restaurant = caseStudy("restaurant");
+  const restaurant = SAMPLE_BUSINESS;
 
   it("rates Certus above Maple for the restaurant", () => {
     const certus = rateTool(tool("certus"), restaurant);
@@ -37,7 +32,7 @@ describe("rateTool", () => {
   });
 
   it("marks connects as met when the business uses the tool's platform", () => {
-    expect(rateTool(tool("jobber-ai"), caseStudy("hvac")).checks.connects[0]).toBe("met");
+    expect(rateTool(tool("jobber-ai"), hvacShop()).checks.connects[0]).toBe("met");
   });
 
   it("checks the languages the business serves besides English", () => {

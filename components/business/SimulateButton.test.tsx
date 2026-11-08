@@ -10,13 +10,13 @@ import { deferred, json, sentJson, stubFetch } from "@/test/http";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// "Simulate a new event" asks the cards route for one more draft, says who
+// "Try an example event" asks the cards route for one more draft, says who
 // drafted it with a link to see it, and refreshes the feed.
 
 const ADDED: CardRecord = {
   id: "card-9",
   key: "followup:closer:9",
-  businessId: "greenfield",
+  businessId: "restaurant",
   status: "pending",
   edited: false,
   createdAt: "2026-11-06T16:00:00Z",
@@ -38,7 +38,7 @@ function answer(added: CardRecord | null): Response {
 function renderButton() {
   return render(
     <ToastProvider>
-      <SimulateButton businessId="greenfield" agentNames={{ followup: "Follow-up" }} seeHref="#waiting" />
+      <SimulateButton businessId="restaurant" agentNames={{ followup: "Follow-up" }} seeHref="#waiting" />
     </ToastProvider>,
   );
 }
@@ -48,12 +48,12 @@ describe("SimulateButton", () => {
     const fetchSpy = stubFetch(() => answer(ADDED));
     renderButton();
 
-    await userEvent.click(screen.getByRole("button", { name: "Simulate a new event" }));
+    await userEvent.click(screen.getByRole("button", { name: "Try an example event" }));
 
     const toast = await screen.findByText(/Follow-up agent/);
     expect(toast).toHaveRole("status");
     expect(within(toast).getByRole("link", { name: "See it" })).toHaveAttribute("href", "#waiting");
-    expect(sentJson(fetchSpy, 0)).toEqual({ method: "POST", url: "/api/businesses/greenfield/cards", body: {} });
+    expect(sentJson(fetchSpy, 0)).toEqual({ method: "POST", url: "/api/businesses/restaurant/cards", body: {} });
     expect(router.refresh).toHaveBeenCalledTimes(1);
   });
 
@@ -61,7 +61,7 @@ describe("SimulateButton", () => {
     stubFetch(() => answer(null));
     renderButton();
 
-    await userEvent.click(screen.getByRole("button", { name: "Simulate a new event" }));
+    await userEvent.click(screen.getByRole("button", { name: "Try an example event" }));
 
     expect(await screen.findByRole("link", { name: "See it" })).toBeInTheDocument();
     expect(router.refresh).toHaveBeenCalledTimes(1);
@@ -86,10 +86,10 @@ describe("SimulateButton", () => {
     stubFetch(() => json({ error: "Pick a path that uses an agent first." }, 400));
     renderButton();
 
-    await userEvent.click(screen.getByRole("button", { name: "Simulate a new event" }));
+    await userEvent.click(screen.getByRole("button", { name: "Try an example event" }));
 
     expect(await screen.findByText("Pick a path that uses an agent first.")).toHaveRole("status");
     expect(router.refresh).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Simulate a new event" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Try an example event" })).toBeEnabled();
   });
 });

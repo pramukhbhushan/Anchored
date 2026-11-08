@@ -9,7 +9,6 @@ import { ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader, SectionHeader } from "@/components/ui/PageHeader";
 import { placeOf, topWorkflows } from "@/components/view-helpers";
-import { CASE_STUDIES } from "@/lib/domain/cases";
 import { WORKFLOWS } from "@/lib/domain/workflows";
 import type { BusinessProfile } from "@/lib/domain/types";
 import { listBusinesses } from "@/lib/server/data";
@@ -18,8 +17,8 @@ import { listBusinesses } from "@/lib/server/data";
 // Module Overview
 // =============================================================================
 // `/app`, the first page after sign-in: the viewer's own businesses with what
-// waits on each, or a first-run empty state, then the three researched sample
-// businesses with their headline number and top workflows.
+// waits on each, or a first-run empty state, then the example business with
+// its headline number and top workflows, marked as an example to explore.
 
 export const metadata: Metadata = { title: "Your businesses" };
 
@@ -54,11 +53,11 @@ function OwnRow({ business, pending }: { readonly business: BusinessProfile; rea
   );
 }
 
-/** Render one sample business card: its headline number and top three workflows. */
+/** Render the example business card: its headline number and top three workflows. */
 function SampleCard({ business }: { readonly business: BusinessProfile }) {
   return (
-    <article className="case">
-      <p className="who">{business.caseStudy?.label ?? business.trade}</p>
+    <article className="case case-wide">
+      <p className="who">Example</p>
       <h3>
         <Link href={businessHref(business.id)} className="case-link">
           {business.name}
@@ -87,6 +86,7 @@ export default async function BusinessesPage() {
   const [businesses, summaries] = await Promise.all([listBusinesses(), businessSummaries()]);
   const pendingById = new Map(summaries.map((s) => [s.id, s.pending]));
   const own = businesses.filter((b) => b.kind === "custom");
+  const samples = businesses.filter((b) => b.kind === "case");
 
   return (
     <>
@@ -97,7 +97,7 @@ export default async function BusinessesPage() {
           own.length === 0 ? undefined : (
             <ButtonLink href={NEW_BUSINESS_HREF}>
               <Plus aria-hidden="true" size={16} />
-              Start a new business
+              Start your own business
             </ButtonLink>
           )
         }
@@ -107,9 +107,9 @@ export default async function BusinessesPage() {
         <EmptyState
           icon={<Store size={22} />}
           title="Map your first business"
-          actions={<ButtonLink href={NEW_BUSINESS_HREF}>Start a new business</ButtonLink>}
+          actions={<ButtonLink href={NEW_BUSINESS_HREF}>Start your own business</ButtonLink>}
         >
-          Answer a few questions in chat, and Anchored maps where AI can help.
+          Answer a few questions in chat, and Anchored maps where AI can help. Until then, explore the example below.
         </EmptyState>
       ) : (
         <ul className="biz-list" aria-label="Your businesses">
@@ -122,11 +122,11 @@ export default async function BusinessesPage() {
       <section className="section" aria-labelledby="samples">
         <SectionHeader
           id="samples"
-          title="Sample businesses"
-          description="Pick paths and approve cards freely. Your picks stay in this session."
+          title="Example business"
+          description="Explore it to see how Anchored works: change paths, approve cards and try an example event. What you change stays in your account and never reaches a real customer."
         />
         <div className="cases">
-          {CASE_STUDIES.map((business) => (
+          {samples.map((business) => (
             <SampleCard key={business.id} business={business} />
           ))}
         </div>

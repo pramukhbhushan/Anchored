@@ -41,12 +41,12 @@ function commandsFor(businesses: readonly BusinessSummary[], location: ShellLoca
           icon: SECTION_ICON[section ?? "overview"],
           keys: SECTION_SHORTCUT[section ?? "overview"],
         }));
-  // The owner's own businesses come first, as in the sidebar; samples follow.
+  // The owner's own businesses come first, as in the sidebar; the example follows.
   const ordered = [...businesses.filter((b) => b.kind === "custom"), ...businesses.filter((b) => b.kind === "case")];
   const places: Command[] = ordered.map((b) => ({
     id: `biz:${b.id}`,
     group: "Businesses",
-    label: b.kind === "case" ? `${b.name} (sample)` : b.name,
+    label: b.kind === "case" ? `${b.name} (example)` : b.name,
     href: businessHref(b.id),
     icon: Building2,
   }));
