@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { OpenFromHash } from "@/components/business/OpenFromHash";
-import { automationHref, businessHref, toolsHref } from "@/components/routes";
+import { automationHref, businessHref, cardAnchor, toolsHref } from "@/components/routes";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { changeOptions, workflowFlow, type HandlerKind } from "@/components/workflows/flow";
 import { PlanBand } from "@/components/workflows/PlanBand";
@@ -18,10 +18,11 @@ import { getBusinessOrNotFound, getChoices, getFeed, getSavedChoices } from "@/l
 // Module Overview
 // =============================================================================
 // The Workflows page: Anchored's plan for the business and where it stands
-// with the owner, then a map of how the business runs day to day: the
-// business in the middle, its stages, jobs and automations one level at a
-// time, each automation linking to its own page. Under the map, the same jobs
-// as a list, each drawn from what starts it to what the owner gets.
+// with the owner, then a map of how the business runs day to day: the drafts
+// waiting for the owner's OK, each linking to its card in Approvals, then the
+// business in the middle with every stage and job around it at once. A job
+// opens its automations and the way to change who handles it. Under the map,
+// the same jobs as a list, each drawn from what starts it to what the owner gets.
 // `#wf-<id>` links land on one workflow in the list.
 
 export const metadata: Metadata = { title: "Workflows" };
@@ -44,25 +45,30 @@ export default async function WorkflowsPage({ params }: { readonly params: Promi
       isNew: business.workflows[workflow]?.isNew ?? false,
     })),
   }));
+  const approvalsHref = businessHref(business.id, "approvals");
   const map: MapStage[] = stages.map(({ stage, jobs }) => ({
     id: stage.id,
     name: stage.name,
     blurb: stage.blurb,
-    jobs: jobs.map(({ flow }) => ({
+    jobs: jobs.map(({ flow, options }) => ({
       id: flow.id,
       name: flow.name,
       kind: flow.handler.kind,
       handler: flow.handler.name,
       note: flow.handler.note,
-      automations: automationsOf(flow, stage).map((a) => ({
-        key: a.key,
-        name: a.name,
-        summary: automationSummary(a),
-        handler: a.kind === "none" ? "Nobody yet" : `${a.handler}. ${a.note}`,
-        result: a.result,
-        waiting: pending.filter((card) => card.skill === a.key).length,
-        href: automationHref(business.id, a.workflow, a.key),
-      })),
+      options,
+      compareHref: toolsHref(business.id, flow.id),
+      automations: automationsOf(flow, stage).map((a) => {
+        const waiting = pending.filter((card) => card.skill === a.key);
+        return {
+          key: a.key,
+          name: a.name,
+          summary: automationSummary(a),
+          waiting: waiting.length,
+          href: automationHref(business.id, a.workflow, a.key),
+          reviewHref: waiting[0] === undefined ? null : `${approvalsHref}#${cardAnchor(waiting[0].key)}`,
+        };
+      }),
     })),
   }));
   const counts: Record<HandlerKind, number> = { agent: 0, owned: 0, new: 0, none: 0 };
@@ -83,7 +89,7 @@ export default async function WorkflowsPage({ params }: { readonly params: Promi
         stackHref={businessHref(business.id, "stack")}
         canApprove={!isSampleBusinessId(business.id)}
       />
-      <WorkflowMap businessName={business.name} stages={map} />
+      <WorkflowMap businessId={business.id} businessName={business.name} stages={map} approvalsHref={approvalsHref} pendingTotal={pending.length} />
       <details className="wf-list">
         <summary>See every job as a list, step by step</summary>
         <WorkflowGraph
