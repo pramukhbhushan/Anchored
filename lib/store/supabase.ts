@@ -4,7 +4,7 @@ import type { CardRecord, CardStatus, ChatMessage, OutboxEntry } from "@/lib/api
 import type { ConnectionKind } from "@/lib/domain/connections";
 import type { ConsentSource, Contact } from "@/lib/domain/contacts";
 import type { IntakeDraft, ProfileChange } from "@/lib/domain/intake";
-import type { BusinessProfile, CardDraft, Choice, ChoiceMap, KeyedCard, WorkflowId } from "@/lib/domain/types";
+import type { BusinessProfile, CardDraft, Choice, ChoiceMap, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
 import {
   NotFoundError,
   type CardPatch,
@@ -15,6 +15,7 @@ import {
   type NewContact,
   type NewOutboxEntry,
   type OutboxPatch,
+  type ProfileVersion,
   type Store,
   type StoredConnection,
 } from "./types";
@@ -168,9 +169,30 @@ export class SupabaseStore implements Store {
     return data ? (data.profile as BusinessProfile) : null;
   }
 
-  async saveBusiness(session: string, business: BusinessProfile): Promise<void> {
-    const { error } = await this.db.from("businesses").upsert({ id: business.id, session_id: session, profile: business });
+  async saveBusiness(session: string, business: BusinessProfile, changedBy: ProfileChangeSource = "owner"): Promise<BusinessProfile> {
+    // The store owns the count: read the newest stored version instead of trusting the caller's copy.
+    const latest = await this.db.from("profile_versions").select("version").eq("session_id", session).eq("business_id", business.id).order("version", { ascending: false }).limit(1).maybeSingle();
+    if (latest.error) fail("saveBusiness", latest.error);
+    const version = ((latest.data as { version: number } | null)?.version ?? 0) + 1;
+    const saved: BusinessProfile = { ...business, version };
+    const { error } = await this.db.from("businesses").upsert({ id: business.id, session_id: session, profile: saved });
     if (error) fail("saveBusiness", error);
+    // Two saves racing for one number keep the first copy; the profile itself is still saved.
+    const history = await this.db
+      .from("profile_versions")
+      .upsert({ session_id: session, business_id: business.id, version, changed_by: changedBy, snapshot: saved }, { onConflict: "session_id,business_id,version", ignoreDuplicates: true });
+    if (history.error) fail("saveBusiness history", history.error);
+    return saved;
+  }
+
+  async listProfileVersions(session: string, businessId: string): Promise<ProfileVersion[]> {
+    const { data, error } = await this.db.from("profile_versions").select("version, changed_by, snapshot, created_at").eq("session_id", session).eq("business_id", businessId).order("version", { ascending: false });
+    if (error) fail("listProfileVersions", error);
+    // `snapshot` is written only by `saveBusiness` from a typed `BusinessProfile`.
+    return (data ?? []).map((row) => {
+      const version = row as { version: number; changed_by: ProfileChangeSource; snapshot: BusinessProfile; created_at: string };
+      return { version: version.version, changedBy: version.changed_by, savedAt: version.created_at, snapshot: version.snapshot };
+    });
   }
 
   async getChoices(session: string, businessId: string): Promise<ChoiceMap> {
@@ -236,6 +258,20 @@ export class SupabaseStore implements Store {
     const { data, error } = await this.db.from("cards").update(update).eq("session_id", session).eq("id", id).eq("status", "pending").select(CARD_COLUMNS).maybeSingle();
     if (error) fail("updatePendingCard", error);
     return data ? toCard(data as CardRow) : null;
+  }
+
+  async supersedePendingCards(session: string, businessId: string, contact: string, exceptKey: string): Promise<number> {
+    const { data, error } = await this.db
+      .from("cards")
+      .update({ status: "superseded", decided_at: new Date().toISOString() })
+      .eq("session_id", session)
+      .eq("business_id", businessId)
+      .eq("status", "pending")
+      .eq("draft->>contact", contact)
+      .neq("key", exceptKey)
+      .select("id");
+    if (error) fail("supersedePendingCards", error);
+    return (data ?? []).length;
   }
 
   async useAiCall(day: string, cap: number): Promise<boolean> {
@@ -390,7 +426,7 @@ export class SupabaseStore implements Store {
 
   async reset(session: string): Promise<void> {
     // Outbox rows cascade from cards; the other tables are cleared one by one.
-    for (const table of ["cards", "workflow_choices", "events", "chat_messages", "intake_drafts", "contacts", "connections", "businesses"] as const) {
+    for (const table of ["cards", "workflow_choices", "events", "chat_messages", "intake_drafts", "contacts", "connections", "profile_versions", "businesses"] as const) {
       const { error } = await this.db.from(table).delete().eq("session_id", session);
       if (error) fail(`reset ${table}`, error);
     }

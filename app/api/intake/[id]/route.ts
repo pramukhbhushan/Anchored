@@ -61,7 +61,7 @@ export async function POST(request: Request, { params }: Context) {
     let reply = turn.reply;
     if (reply === null) {
       const business = await buildProfileFromAnswers(draftToAnswers(turn.draft));
-      await store.saveBusiness(session, business);
+      await store.saveBusiness(session, business, "onboarding");
       // The starters are written after this response, so the plan appears without waiting on the model.
       scheduleStarters(session, business);
       businessId = business.id;

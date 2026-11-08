@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { profileFromFacts } from "@/lib/domain/engine";
 import type { KeyedCard } from "@/lib/domain/types";
 import { MemoryStore } from "./memory";
 
@@ -8,7 +9,7 @@ import { MemoryStore } from "./memory";
 // Behavior of `MemoryStore` that the server relies on: the pending-only card
 // update, the shared daily AI call cap, the bound on how many sessions it keeps,
 // the sending queue, contacts kept one per phone number, and connections found
-// by the hook id a webhook carries.
+// by the hook id a webhook carries, profile versions, and replaced drafts.
 
 const BUSINESS = "b_test";
 
@@ -119,5 +120,47 @@ describe("connections", () => {
 
     await store.reset("s1");
     expect(await store.findConnection("hook-new")).toBeNull();
+  });
+});
+
+describe("profile versions", () => {
+  it("bumps the version on each save and keeps every earlier copy readable", async () => {
+    const store = new MemoryStore();
+    const business = profileFromFacts({ name: "Apex Heating", trade: "HVAC", tradeKey: "home", reach: ["Phone calls"], tools: [], signals: [] });
+
+    const first = await store.saveBusiness("s1", business, "onboarding");
+    // A caller holding a stale copy still gets the next number: the store owns the count.
+    const second = await store.saveBusiness("s1", { ...business, details: { hours: "8 to 6" } }, "owner");
+
+    expect(first.version).toBe(1);
+    expect(second.version).toBe(2);
+    expect((await store.getBusiness("s1", business.id))?.details?.hours).toBe("8 to 6");
+    const history = await store.listProfileVersions("s1", business.id);
+    expect(history.map((v) => [v.version, v.changedBy])).toEqual([
+      [2, "owner"],
+      [1, "onboarding"],
+    ]);
+    expect(history[1]?.snapshot.details).toBeUndefined();
+    expect(await store.listProfileVersions("s2", business.id)).toEqual([]);
+  });
+});
+
+describe("supersedePendingCards", () => {
+  it("leaves one pending card per contact and keeps decided cards as they were", async () => {
+    const store = new MemoryStore();
+    const toContact = (n: number): KeyedCard => ({ ...card, key: `${BUSINESS}:sms:${n}`, contact: "+13015550192" });
+    await store.ensureCards("s1", BUSINESS, [toContact(1), toContact(2), { ...card, key: `${BUSINESS}:other`, contact: "+13015550111" }]);
+    const [one] = await store.listCards("s1", BUSINESS);
+    if (!one) throw new Error("test setup: card was not stored");
+    await store.updatePendingCard("s1", one.id, { status: "approved" });
+    await store.ensureCards("s1", BUSINESS, [toContact(3)]);
+
+    expect(await store.supersedePendingCards("s1", BUSINESS, "+13015550192", `${BUSINESS}:sms:3`)).toBe(1);
+
+    const byKey = new Map((await store.listCards("s1", BUSINESS)).map((c) => [c.key, c.status]));
+    expect(byKey.get(`${BUSINESS}:sms:1`)).toBe("approved");
+    expect(byKey.get(`${BUSINESS}:sms:2`)).toBe("superseded");
+    expect(byKey.get(`${BUSINESS}:sms:3`)).toBe("pending");
+    expect(byKey.get(`${BUSINESS}:other`)).toBe("pending");
   });
 });

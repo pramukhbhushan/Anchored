@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     const business = await buildProfile(parsed.data);
     if (!business) return fail(400, "That example doesn't exist. Pick one from the list.");
     const session = await getSessionId();
-    await getStore().saveBusiness(session, business);
+    await getStore().saveBusiness(session, business, "onboarding");
     // The starters are written after this response, so the owner reaches the plan without waiting on the model.
     scheduleStarters(session, business);
     return json<CreateBusinessResponse>({ id: business.id, business }, 201);

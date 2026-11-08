@@ -47,6 +47,7 @@ const PLACEHOLDER = /\[[^[\]\r\n]*\]/;
 /** Decide whether an approved card may be sent now. Throws `RangeError` for an unknown `timeZone`. */
 export function checkSend(card: CardDraft, ctx: SendContext): SendCheck {
   if (card.channel === "locked") return refuse("This thread is locked. Reply to the customer yourself.");
+  if (card.channel === "flag") return refuse("This card asks you for a fact. Nothing is sent from it.");
   // A list card only updates the owner's own lists, so no customer rule applies.
   if (card.channel === "list") return { ok: true };
   // Content rules come first: waiting for morning or consent wouldn't make this card safe.

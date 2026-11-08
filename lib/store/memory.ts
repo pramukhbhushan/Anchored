@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { CardRecord, ChatMessage, OutboxEntry } from "@/lib/api/contract";
 import type { ConnectionKind } from "@/lib/domain/connections";
 import type { Contact } from "@/lib/domain/contacts";
-import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, WorkflowId } from "@/lib/domain/types";
+import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
 import {
   NotFoundError,
   type CardPatch,
@@ -13,6 +13,7 @@ import {
   type NewContact,
   type NewOutboxEntry,
   type OutboxPatch,
+  type ProfileVersion,
   type Store,
   type StoredConnection,
 } from "./types";
@@ -35,6 +36,8 @@ interface SessionData {
   /** Chat messages by thread, keyed `${kind}:${id}`. */
   readonly threads: Map<string, ChatMessage[]>;
   readonly intakes: Map<string, IntakeRecord>;
+  /** Saved profile versions by business id, oldest first. */
+  readonly versions: Map<string, ProfileVersion[]>;
 }
 
 // Past this many sessions the oldest is dropped, so a server on memory can't grow without bound.
@@ -59,7 +62,7 @@ export class MemoryStore implements Store {
         const oldest = this.sessions.keys().next().value;
         if (oldest !== undefined) this.sessions.delete(oldest);
       }
-      found = { businesses: new Map(), choices: new Map(), cards: new Map(), outbox: [], contacts: new Map(), connections: new Map(), events: [], threads: new Map(), intakes: new Map() };
+      found = { businesses: new Map(), choices: new Map(), cards: new Map(), outbox: [], contacts: new Map(), connections: new Map(), events: [], threads: new Map(), intakes: new Map(), versions: new Map() };
       this.sessions.set(session, found);
     }
     return found;
@@ -78,8 +81,19 @@ export class MemoryStore implements Store {
     return this.peek(session)?.businesses.get(id) ?? null;
   }
 
-  async saveBusiness(session: string, business: BusinessProfile): Promise<void> {
-    this.data(session).businesses.set(business.id, business);
+  async saveBusiness(session: string, business: BusinessProfile, changedBy: ProfileChangeSource = "owner"): Promise<BusinessProfile> {
+    const data = this.data(session);
+    // The store owns the count, so a caller holding an older copy can't reuse a version number.
+    const history = data.versions.get(business.id) ?? [];
+    const version = (history.at(-1)?.version ?? 0) + 1;
+    const saved: BusinessProfile = { ...business, version };
+    data.businesses.set(business.id, saved);
+    data.versions.set(business.id, [...history, { version, changedBy, savedAt: new Date().toISOString(), snapshot: saved }]);
+    return saved;
+  }
+
+  async listProfileVersions(session: string, businessId: string): Promise<ProfileVersion[]> {
+    return [...(this.peek(session)?.versions.get(businessId) ?? [])].reverse();
   }
 
   async getChoices(session: string, businessId: string): Promise<ChoiceMap> {
@@ -125,6 +139,18 @@ export class MemoryStore implements Store {
     const card = this.peek(session)?.cards.get(cardId);
     if (!card || card.status !== "pending") return null;
     return this.updateCard(session, cardId, patch);
+  }
+
+  async supersedePendingCards(session: string, businessId: string, contact: string, exceptKey: string): Promise<number> {
+    const cards = this.peek(session)?.cards;
+    if (!cards) return 0;
+    let changed = 0;
+    for (const [id, card] of cards) {
+      if (card.businessId !== businessId || card.contact !== contact || card.key === exceptKey || card.status !== "pending") continue;
+      cards.set(id, { ...card, status: "superseded", decidedAt: new Date().toISOString() });
+      changed += 1;
+    }
+    return changed;
   }
 
   async useAiCall(day: string, cap: number): Promise<boolean> {
