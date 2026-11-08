@@ -157,7 +157,8 @@ Production runs on Vercel with Supabase for both data and sign-in. `next build` 
    2. Under **Authentication > Sign In / Providers**, leave **Email** on, turn on **Allow anonymous sign-ins**, and turn on **Google** with the client ID and secret of a Google OAuth web client. In Google Cloud, add `https://<project-ref>.supabase.co/auth/v1/callback` to that client's authorized redirect URIs.
    3. Under **Authentication > URL Configuration**, set **Site URL** to your Vercel domain, such as `https://anchored.vercel.app`. Add `https://anchored.vercel.app/**` to **Redirect URLs**, and `https://*-<your-team>.vercel.app/**` if you want sign-in on preview deploys.
    4. Under **Authentication > Emails**, set up your own SMTP server. The built-in email service sends only a few emails an hour.
-2. Import the repository in Vercel. The default Next.js settings work.
+   5. Under **Project Settings > JWT Keys**, check that the project signs with an asymmetric key, ECC or RSA, rather than the legacy shared secret. `middleware.ts` then checks each request's token itself. With the shared secret it asks Supabase Auth on every request, link prefetches included.
+2. Import the repository in Vercel. The default Next.js settings work. Under **Settings > Functions**, set **Function Region** to the region closest to your Supabase project. A click waits on one or two Supabase round trips and a full page load on three, so a server across the country adds that distance to each one.
 3. Under **Settings > Environment Variables**, add these for the Production environment:
 
    | Variable | Value |
