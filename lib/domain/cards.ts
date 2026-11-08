@@ -21,7 +21,7 @@ export type CardSkill = Exclude<SkillId, "brief">;
  * they never repeat it. `agents` are the agents at work here; triage hands email only to one of them.
  */
 export type CardTemplate = (
-  business: Pick<BusinessProfile, "id" | "name" | "tradeKey" | "reach" | "tools" | "signals">,
+  business: Pick<BusinessProfile, "id" | "kind" | "name" | "trade" | "tradeKey" | "reach" | "tools" | "signals" | "details">,
   variant: number,
   agents?: readonly ActiveAgent[],
 ) => CardBody;
@@ -46,17 +46,27 @@ function inquiryChannel(business: Pick<BusinessProfile, "reach">): string | null
   return null;
 }
 
-/** One line of a post: an invitation to stop by for a business customers walk into, a message otherwise. */
-function postLine(business: Pick<BusinessProfile, "reach">, variant: number, google: boolean): string {
+/** What a post can name: the first item the owner prices, else what they said to promote, else nothing. */
+function offerOf(business: Pick<BusinessProfile, "details">): string | null {
+  const item = business.details?.prices?.find((price) => price.item !== "")?.item ?? business.details?.promoteFocus?.[0];
+  return item ? item.toLowerCase() : null;
+}
+
+/** One line of a post, naming the business and what it offers: an invitation to stop by for a business customers walk into, a message otherwise. */
+function postLine(business: Pick<BusinessProfile, "reach" | "name" | "trade" | "tradeKey" | "details">, variant: number, google: boolean): string {
+  const offer = offerOf(business);
+  const about = offer ? `${capitalized(offer)} from ${business.name}` : `${business.name}, your local ${business.trade.toLowerCase()}`;
   if (business.reach.includes("Walk-ins")) {
     return google
-      ? pick(variant, "Stop by this week, or call ahead to book a time.", "Planning a visit? Check our listing for this week's hours before you stop by.", "A look at what we've been working on. Stop by and say hi.")
-      : pick(variant, "Stop by this week, or call ahead to book a time.", "Thanks to everyone who came by this week. See you soon.", "A look at what we've been working on. Stop by and say hi.");
+      ? pick(variant, "Stop by this week, or call ahead to book a time.", "Planning a visit? Check our listing for this week's hours before you stop by.", `${about}. Stop by and say hi.`)
+      : pick(variant, "Stop by this week, or call ahead to book a time.", "Thanks to everyone who came by this week. See you soon.", `${about}. Stop by and say hi.`);
   }
-  // A coach or a field trade has no counter to stop by; the post asks for a message instead.
+  // A coach or a field trade has no counter to stop by; the post asks for a message instead, in the owner's own word for a booking.
+  const booking = business.details?.vocabulary?.bookingTerm ?? TRADE_WORDS[business.tradeKey].booking;
+  const open = `${business.name} has openings for new ${booking}s this month. Send us a message to find a time.`;
   return google
-    ? pick(variant, "Taking new bookings this month. Send us a message to find a time.", "Getting in touch? Check our listing for this week's hours first.", "A look at what we've been working on. Send us a message with any questions.")
-    : pick(variant, "Taking new bookings this month. Send us a message to find a time.", "Thanks to everyone we worked with this week.", "A look at what we've been working on. Send us a message with any questions.");
+    ? pick(variant, open, "Getting in touch? Check our listing for this week's hours first.", `${about}. Send us a message with any questions.`)
+    : pick(variant, open, "Thanks to everyone we worked with this week.", `${about}. Send us a message with any questions.`);
 }
 
 /** Whether the owner said customers find them on Google or that they keep a Google Business Profile. */
@@ -192,6 +202,14 @@ const TRADE_WORDS: Readonly<Record<TradeKey, TradeWords>> = {
     forwarded: "Forwarded email: a question from a past customer",
   },
 };
+
+// Invoice lines for the example business's example events. Whole milk is the research's own example
+// (docs/research/corner-stores-and-restaurants.md); the rest follow the case study's avocado invoice.
+const EXAMPLE_RISES: readonly [{ readonly item: string; readonly was: number; readonly now: number }, ...{ readonly item: string; readonly was: number; readonly now: number }[]] = [
+  { item: "Whole milk", was: 31.4, now: 33.5 },
+  { item: "Limes", was: 38, now: 42 },
+  { item: "Cilantro", was: 24, now: 27 },
+];
 
 /** `text` with its first letter in capitals, for a booking word that starts a title. */
 function capitalized(text: string): string {
@@ -356,15 +374,21 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
       to: person.full,
     };
   },
-  // Supplier invoices can't reach Anchored yet, so the starter names no item, price or rise.
-  pricewatch: () => ({
-    title: "An item on your supplier invoice went up",
-    body: "Your latest invoice charges more for an item than last time. Add it to your list for the rep?",
-    reason: "Price rises pass unseen until margins shrink.",
-    checks: ["You check the invoice yourself"],
-    action: "Add to rep list",
-    channel: "list",
-  }),
+  // Supplier invoices can't reach an owner's business yet, so its starter names no item, price or rise. The example
+  // business shows researched invoice lines instead, a different one per example event.
+  pricewatch: (b, v) => {
+    const rise = b.kind === "case" && v !== STANDING_VARIANT ? pick(v, EXAMPLE_RISES[0], ...EXAMPLE_RISES) : null;
+    return {
+      title: rise ? `${rise.item} up $${(rise.now - rise.was).toFixed(2)} a case` : "An item on your supplier invoice went up",
+      body: rise
+        ? `Your latest invoice charges $${rise.now.toFixed(2)} a case for ${rise.item.toLowerCase()}, up from $${rise.was.toFixed(2)} on the one before. Add it to your list for the rep?`
+        : "Your latest invoice charges more for an item than last time. Add it to your list for the rep?",
+      reason: "Price rises pass unseen until margins shrink.",
+      checks: rise ? ["Compared with your last invoice on file"] : ["You check the invoice yourself"],
+      action: "Add to rep list",
+      channel: "list",
+    };
+  },
   // Google listing posts only for a business that said it uses Google. No profile holds hours, so no post states them,
   // and no title claims how long the owner has gone without posting.
   posts: (b, v) =>
