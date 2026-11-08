@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { AccountMenu } from "@/components/account/AccountMenu";
 import { AnchorMark } from "@/components/ui/AnchorMark";
+import { LandingHeader } from "@/components/site/harbor/LandingHeader";
 import { APP_HREF } from "@/components/routes";
 import { buttonClass } from "@/components/ui/Button";
 import type { Viewer } from "@/lib/auth/viewer";
@@ -15,7 +16,8 @@ import type { Viewer } from "@/lib/auth/viewer";
 // The site header and `<main>` for every page outside the app: the landing
 // page, "How it's built", sign-in and the 404. The header says "Sign in" to a
 // signed-out visitor and "Open app" with the account menu once signed in.
-// Under `/app` it steps aside, because the app shell draws its own chrome.
+// The landing page gets its own header, `LandingHeader`, with the theme
+// toggle. Under `/app` it steps aside, because the app shell draws its own chrome.
 
 /** Props for `SiteFrame`; `viewer` is `null` when nobody is signed in or accounts are off. */
 export interface SiteFrameProps {
@@ -64,7 +66,7 @@ export function SiteFrame({ authEnabled, viewer, children }: SiteFrameProps) {
   if (pathname === APP_HREF || pathname.startsWith(`${APP_HREF}/`)) return children;
   return (
     <>
-      <SiteHeader pathname={pathname} authEnabled={authEnabled} viewer={viewer} />
+      {pathname === "/" ? <LandingHeader authEnabled={authEnabled} viewer={viewer} /> : <SiteHeader pathname={pathname} authEnabled={authEnabled} viewer={viewer} />}
       <main id="main">{children}</main>
     </>
   );
