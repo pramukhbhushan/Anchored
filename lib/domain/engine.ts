@@ -97,17 +97,25 @@ function matchWorkflows(facts: BusinessFacts): Partial<Record<WorkflowId, Matche
                 : "Bookings bring deposits and invoices to track, and late ones need a polite nudge.",
           }
         : { fit: 1, why: "Quotes and bookings weren't mentioned, so there may be little to bill later." };
+  // Coaches and consultants sell through a first call, and the client decides weeks later, so the
+  // check-ins after "let me think about it" matter as much as the first reply. From the coaching research.
   w.leads =
-    leadsArriveInWriting || says("quotes")
+    facts.tradeKey === "coach"
       ? {
           fit: 3,
-          why: leadsArriveInWriting
-            ? "New inquiries arrive in forms and messages while you're busy."
-            : "People ask for prices and wait to hear back.",
+          why: "Clients think it over for weeks after a first call, and 'let me think about it' rarely gets a follow-up.",
+          skills: ["inquiry", "callfollow"],
         }
-      : says("catering")
-        ? { fit: 2, why: "Catering and event requests are leads, and each one waits on your reply." }
-        : { fit: 1, why: "Forms, messages and quote requests weren't mentioned, so there may be few leads to chase." };
+      : leadsArriveInWriting || says("quotes")
+        ? {
+            fit: 3,
+            why: leadsArriveInWriting
+              ? "New inquiries arrive in forms and messages while you're busy."
+              : "People ask for prices and wait to hear back.",
+          }
+        : says("catering")
+          ? { fit: 2, why: "Catering and event requests are leads, and each one waits on your reply." }
+          : { fit: 1, why: "Forms, messages and quote requests weren't mentioned, so there may be few leads to chase." };
   w.social = says("marketing")
     ? { fit: 1, why: "You already post or advertise. A post drafter can come later." }
     : {
@@ -116,7 +124,13 @@ function matchWorkflows(facts: BusinessFacts): Partial<Record<WorkflowId, Matche
         why: "Posting and ads weren't mentioned. Short posts and listing updates are a cheap place to start.",
       };
   w.quotes = says("quotes")
-    ? { fit: 3, why: "You send quotes, and quotes go quiet when nobody has time to chase them." }
+    ? {
+        fit: 3,
+        why: "You send quotes, and quotes go quiet when nobody has time to chase them.",
+        // Field trades price the job at the visit, and a spoken price is lost unless someone writes it down.
+        // Debrief turns the tech's voice note into a follow-up for Closer. From the HVAC research.
+        ...(facts.tradeKey === "home" ? { skills: ["closer", "debrief"] as const } : {}),
+      }
     : { fit: 0, why: "Quotes weren't mentioned. Add them if you write custom quotes." };
 
   if (says("suppliers")) {
