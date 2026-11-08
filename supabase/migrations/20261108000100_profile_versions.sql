@@ -1,59 +1,34 @@
 -- =============================================================================
--- Telegram: link codes, customer conversations, and the purge
+-- Profile versions: every save of a business profile keeps a copy
 -- =============================================================================
--- 1. `channel_links` holds the code in each business's Telegram link. A
---    customer who opens the link sends the code to the bot, which binds their
---    chat to that business.
--- 2. `conversations` holds each bound chat: its business, the agent that owns
---    it, and whether the customer opted out. A chat talks to one business at a
---    time, so the chat is the key.
--- 3. The 30-day purge covers the new tables and profile versions, and still
---    keeps real accounts.
--- The webhook has no visitor session, so `SupabaseStore` looks these tables up
--- by code and by chat with the service role, only after the webhook's secret checks out.
+-- `SupabaseStore.saveBusiness` writes the profile to `businesses` as before and
+-- adds one row here with the whole profile and what saved it: onboarding, the
+-- owner, the business chat, or an edit the owner made on a card. An earlier
+-- version stays readable after a later one replaces it. The 30-day purge of
+-- guest data now clears guests' versions too, and still keeps real accounts.
 
--- ---------- 1. link codes ----------
-create table if not exists channel_links (
-  code text primary key,
+create table if not exists profile_versions (
   session_id text not null,
   business_id text not null,
-  channel text not null check (channel in ('telegram')),
+  version integer not null check (version > 0),
+  snapshot jsonb not null,
+  changed_by text not null check (changed_by in ('onboarding', 'owner', 'chat', 'card_edit')),
   created_at timestamptz not null default now(),
-  unique (session_id, business_id, channel)
+  primary key (session_id, business_id, version)
 );
 
--- ---------- 2. conversations ----------
-create table if not exists conversations (
-  channel text not null check (channel in ('telegram')),
-  contact text not null,
-  session_id text not null,
-  business_id text not null,
-  display_name text not null default '',
-  owner_agent text not null default 'frontdesk' check (owner_agent in ('frontdesk', 'followup', 'books', 'closed')),
-  opted_out boolean not null default false,
-  updated_at timestamptz not null default now(),
-  primary key (channel, contact)
-);
-create index if not exists conversations_session_idx on conversations (session_id, business_id);
+alter table profile_versions enable row level security;
 
-alter table channel_links enable row level security;
-alter table conversations enable row level security;
-
-drop policy if exists channel_links_own_rows on channel_links;
-create policy channel_links_own_rows on channel_links
+-- As on the other tables: a signed-in user's own token reaches only their own rows.
+drop policy if exists profile_versions_own_rows on profile_versions;
+create policy profile_versions_own_rows on profile_versions
   for all to authenticated
   using (session_id = (select auth.uid())::text)
   with check (session_id = (select auth.uid())::text);
 
-drop policy if exists conversations_own_rows on conversations;
-create policy conversations_own_rows on conversations
-  for all to authenticated
-  using (session_id = (select auth.uid())::text)
-  with check (session_id = (select auth.uid())::text);
+grant select, insert, update, delete on profile_versions to authenticated;
 
-grant select, insert, update, delete on channel_links, conversations to authenticated;
-
--- ---------- 3. purge ----------
+-- ---------- purge ----------
 create or replace function purge_expired_demo_data()
 returns table (table_name text, deleted_rows bigint)
 language plpgsql
@@ -96,14 +71,6 @@ begin
   get diagnostics n = row_count;
   table_name := 'profile_versions'; deleted_rows := n; return next;
 
-  delete from conversations where updated_at < cutoff and session_id not in (select session_id from keep_sessions);
-  get diagnostics n = row_count;
-  table_name := 'conversations'; deleted_rows := n; return next;
-
-  delete from channel_links where created_at < cutoff and session_id not in (select session_id from keep_sessions);
-  get diagnostics n = row_count;
-  table_name := 'channel_links'; deleted_rows := n; return next;
-
   delete from businesses where created_at < cutoff and session_id not in (select session_id from keep_sessions);
   get diagnostics n = row_count;
   table_name := 'businesses'; deleted_rows := n; return next;
@@ -112,5 +79,4 @@ begin
   delete from ai_usage where day < (now() - interval '7 days')::date;
 end;
 $$;
-
 revoke execute on function purge_expired_demo_data() from public, anon, authenticated;

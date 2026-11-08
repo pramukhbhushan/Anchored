@@ -3,13 +3,16 @@ import type { CardRecord, DecideCardRequest, DecideCardResponse, OutboxEntry } f
 import { checkSend, OWNER_TIME_ZONE, ensureOptOut, sendTimeText } from "@/lib/domain/executor";
 import type { CardDraft } from "@/lib/domain/types";
 import type { Store } from "@/lib/store";
+import { planDelivery } from "@/lib/server/dispatch";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
 // Applies an owner's decision to a card. Plain code, not the model, sends: the
 // executor's `checkSend` rules run first, and a text blocked only by quiet
-// hours is queued for the first allowed hour instead of sent now.
+// hours is queued for the first allowed hour instead of sent now. The outbox
+// entry says who sends it: Anchored through a connected service, which
+// `lib/server/dispatch.ts` does, or the owner from their own phone or email.
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -28,13 +31,24 @@ function nextAllowedHour(card: CardDraft, now: Date): Date | null {
   return null;
 }
 
-/** Write the outbox entry for an approved card at `sentAt`. */
+/** Write the outbox entry for an approved card at `sentAt`, queued for Anchored to send when a connected service can. */
 async function send(store: Store, session: string, card: CardRecord, body: string, sentAt: Date): Promise<OutboxEntry | undefined> {
   // Neither kind sends: a locked card is the owner's to answer, and a flag card asks the owner for a fact.
   if (card.channel === "locked" || card.channel === "flag") return undefined;
   // A list card's body is what the owner keeps, such as a post to copy, so the outbox logs it with any edits.
   const text = card.channel === "list" ? `${card.action}: ${body}` : body;
-  return store.addOutbox(session, { businessId: card.businessId, cardId: card.id, channel: card.channel, to: card.to ?? "customer", body: text, sentAt: sentAt.toISOString() });
+  const to = card.to ?? "customer";
+  const plan = await planDelivery(store, session, card.businessId, { channel: card.channel, to });
+  return store.addOutbox(session, {
+    businessId: card.businessId,
+    cardId: card.id,
+    channel: card.channel,
+    to,
+    body: text,
+    sentAt: sentAt.toISOString(),
+    delivery: plan.by === "anchored" ? "queued" : "yours",
+    note: plan.by === "owner" ? plan.reason : null,
+  });
 }
 
 const ALREADY_DECIDED: DecisionResult = { ok: false, status: 409, error: "This card was already decided." };

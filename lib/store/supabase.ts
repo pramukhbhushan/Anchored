@@ -1,23 +1,23 @@
 import "server-only";
-import { randomBytes } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { CardRecord, CardStatus, ChatMessage, OutboxEntry } from "@/lib/api/contract";
+import type { ConnectionKind } from "@/lib/domain/connections";
+import type { ConsentSource, Contact } from "@/lib/domain/contacts";
 import type { IntakeDraft, ProfileChange } from "@/lib/domain/intake";
-import type { BusinessProfile, CardDraft, Choice, ChoiceMap, ConversationOwner, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
+import type { BusinessProfile, CardDraft, Choice, ChoiceMap, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
 import {
   NotFoundError,
   type CardPatch,
   type ChatThread,
-  type Conversation,
-  type ConversationChannel,
-  type ConversationPatch,
-  type DeliveryResult,
   type IntakeRecord,
   type NewChatMessage,
+  type NewConnection,
+  type NewContact,
   type NewOutboxEntry,
-  type Owned,
+  type OutboxPatch,
   type ProfileVersion,
   type Store,
+  type StoredConnection,
 } from "./types";
 
 // =============================================================================
@@ -26,8 +26,6 @@ import {
 // `SupabaseStore` persists Anchored data in the Postgres tables created by
 // `supabase/migrations`. It connects with the service role key from the server
 // only; row-level security has no policies, so the public anon key reads nothing.
-// `resolveChannelLink`, `findConversation` and `listUndelivered` are the lookups
-// that skip the session filter, for the Telegram webhook and the delivery job.
 
 // =============================================================================
 // Row shapes, as Postgres returns them
@@ -52,27 +50,30 @@ interface OutboxRow {
   recipient: string;
   body: string;
   sent_at: string;
-  contact: string | null;
-  delivered_at: string | null;
-  delivery_error: string | null;
+  delivery: OutboxEntry["delivery"];
+  delivery_note: string | null;
 }
 
-interface VersionRow {
-  version: number;
-  changed_by: ProfileChangeSource;
-  snapshot: BusinessProfile;
-  created_at: string;
+interface ContactRow {
+  id: string;
+  business_id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  consent_source: ConsentSource | null;
+  consent_at: string | null;
+  opted_out_at: string | null;
 }
 
-interface ConversationRow {
+interface ConnectionRow {
+  id: string;
   session_id: string;
   business_id: string;
-  channel: ConversationChannel;
-  contact: string;
-  display_name: string;
-  owner_agent: ConversationOwner;
-  opted_out: boolean;
-  updated_at: string;
+  kind: ConnectionKind;
+  hook_id: string;
+  settings: Record<string, string>;
+  secret: string | null;
+  created_at: string;
 }
 
 interface ChatMessageRow {
@@ -90,8 +91,9 @@ interface IntakeRow {
 }
 
 const CARD_COLUMNS = "id, business_id, key, draft, status, edited, created_at, decided_at";
-const OUTBOX_COLUMNS = "id, business_id, card_id, channel, recipient, body, sent_at, contact, delivered_at, delivery_error";
-const CONVERSATION_COLUMNS = "session_id, business_id, channel, contact, display_name, owner_agent, opted_out, updated_at";
+const OUTBOX_COLUMNS = "id, business_id, card_id, channel, recipient, body, sent_at, delivery, delivery_note";
+const CONTACT_COLUMNS = "id, business_id, name, phone, email, consent_source, consent_at, opted_out_at";
+const CONNECTION_COLUMNS = "id, session_id, business_id, kind, hook_id, settings, secret, created_at";
 const MESSAGE_COLUMNS = "id, role, body, changes, created_at";
 
 function toCard(row: CardRow): CardRecord {
@@ -99,22 +101,36 @@ function toCard(row: CardRow): CardRecord {
 }
 
 function toOutbox(row: OutboxRow): OutboxEntry {
+  return { id: row.id, businessId: row.business_id, cardId: row.card_id, channel: row.channel, to: row.recipient, body: row.body, sentAt: row.sent_at, delivery: row.delivery, note: row.delivery_note };
+}
+
+function toContact(row: ContactRow): Contact {
   return {
     id: row.id,
     businessId: row.business_id,
-    cardId: row.card_id,
-    channel: row.channel,
-    to: row.recipient,
-    body: row.body,
-    sentAt: row.sent_at,
-    ...(row.contact !== null ? { contact: row.contact } : {}),
-    ...(row.delivered_at !== null ? { deliveredAt: row.delivered_at } : {}),
-    ...(row.delivery_error !== null ? { deliveryError: row.delivery_error } : {}),
+    name: row.name,
+    phone: row.phone,
+    email: row.email,
+    consent: row.consent_source !== null && row.consent_at !== null ? { source: row.consent_source, at: row.consent_at } : null,
+    optedOutAt: row.opted_out_at,
   };
 }
 
-function toConversation(row: ConversationRow): Conversation {
-  return { channel: row.channel, contact: row.contact, businessId: row.business_id, displayName: row.display_name, owner: row.owner_agent, optedOut: row.opted_out, updatedAt: row.updated_at };
+function contactRow(session: string, contact: NewContact) {
+  return {
+    session_id: session,
+    business_id: contact.businessId,
+    name: contact.name,
+    phone: contact.phone,
+    email: contact.email,
+    consent_source: contact.consent?.source ?? null,
+    consent_at: contact.consent?.at ?? null,
+    opted_out_at: contact.optedOutAt,
+  };
+}
+
+function toConnection(row: ConnectionRow): StoredConnection {
+  return { id: row.id, businessId: row.business_id, kind: row.kind, hookId: row.hook_id, settings: row.settings, secret: row.secret, createdAt: row.created_at };
 }
 
 function toMessage(row: ChatMessageRow): ChatMessage {
@@ -174,7 +190,7 @@ export class SupabaseStore implements Store {
     if (error) fail("listProfileVersions", error);
     // `snapshot` is written only by `saveBusiness` from a typed `BusinessProfile`.
     return (data ?? []).map((row) => {
-      const version = row as VersionRow;
+      const version = row as { version: number; changed_by: ProfileChangeSource; snapshot: BusinessProfile; created_at: string };
       return { version: version.version, changedBy: version.changed_by, savedAt: version.created_at, snapshot: version.snapshot };
     });
   }
@@ -273,7 +289,8 @@ export class SupabaseStore implements Store {
       channel: entry.channel,
       recipient: entry.to,
       body: entry.body,
-      contact: entry.contact ?? null,
+      delivery: entry.delivery ?? "yours",
+      delivery_note: entry.note ?? null,
       ...(entry.sentAt ? { sent_at: entry.sentAt } : {}),
     };
     const { data, error } = await this.db.from("outbox").insert(row).select(OUTBOX_COLUMNS).single();
@@ -287,86 +304,80 @@ export class SupabaseStore implements Store {
     return (data ?? []).map((row) => toOutbox(row as OutboxRow));
   }
 
-  async markDelivered(session: string, outboxId: string, result: DeliveryResult): Promise<void> {
-    const update = "error" in result ? { delivery_error: result.error } : { delivered_at: result.deliveredAt };
-    const { data, error } = await this.db.from("outbox").update(update).eq("session_id", session).eq("id", outboxId).select("id").maybeSingle();
-    if (error) fail("markDelivered", error);
-    if (!data) throw new NotFoundError(`Outbox entry ${outboxId} not found in this session.`);
+  async claimOutbox(session: string, entryId: string): Promise<OutboxEntry | null> {
+    // `delivery = queued` in the filter makes the check and the write one statement: a second sender matches no row.
+    const { data, error } = await this.db.from("outbox").update({ delivery: "sending" }).eq("session_id", session).eq("id", entryId).eq("delivery", "queued").select(OUTBOX_COLUMNS).maybeSingle();
+    if (error) fail("claimOutbox", error);
+    return data ? toOutbox(data as OutboxRow) : null;
   }
 
-  async listUndelivered(now: Date, limit: number): Promise<Owned<OutboxEntry>[]> {
-    const { data, error } = await this.db
-      .from("outbox")
-      .select(`session_id, ${OUTBOX_COLUMNS}`)
-      .eq("channel", "telegram")
-      .is("delivered_at", null)
-      .is("delivery_error", null)
-      .lte("sent_at", now.toISOString())
-      .order("sent_at")
-      .limit(limit);
-    if (error) fail("listUndelivered", error);
-    return (data ?? []).map((row) => {
-      const typed = row as OutboxRow & { session_id: string };
-      return { session: typed.session_id, value: toOutbox(typed) };
-    });
-  }
-
-  async ensureChannelLink(session: string, businessId: string, channel: ConversationChannel): Promise<string> {
-    const found = await this.db.from("channel_links").select("code").eq("session_id", session).eq("business_id", businessId).eq("channel", channel).maybeSingle();
-    if (found.error) fail("ensureChannelLink", found.error);
-    if (found.data) return (found.data as { code: string }).code;
-    // 16 random bytes: the code is all that stands between a stranger and this business's chat, so it must not be guessable.
-    const code = randomBytes(16).toString("base64url");
-    const { error } = await this.db.from("channel_links").insert({ code, session_id: session, business_id: businessId, channel });
-    if (error) fail("ensureChannelLink", error);
-    return code;
-  }
-
-  async resolveChannelLink(code: string): Promise<Owned<{ businessId: string; channel: ConversationChannel }> | null> {
-    const { data, error } = await this.db.from("channel_links").select("session_id, business_id, channel").eq("code", code).maybeSingle();
-    if (error) fail("resolveChannelLink", error);
-    const row = data as { session_id: string; business_id: string; channel: ConversationChannel } | null;
-    return row ? { session: row.session_id, value: { businessId: row.business_id, channel: row.channel } } : null;
-  }
-
-  async getConversation(session: string, channel: ConversationChannel, contact: string): Promise<Conversation | null> {
-    const { data, error } = await this.db.from("conversations").select(CONVERSATION_COLUMNS).eq("session_id", session).eq("channel", channel).eq("contact", contact).maybeSingle();
-    if (error) fail("getConversation", error);
-    return data ? toConversation(data as ConversationRow) : null;
-  }
-
-  async bindConversation(session: string, conversation: Conversation): Promise<void> {
-    // The chat is the key, so binding it here replaces a binding to another business, as a new start link intends.
-    const { error } = await this.db.from("conversations").upsert({
-      session_id: session,
-      business_id: conversation.businessId,
-      channel: conversation.channel,
-      contact: conversation.contact,
-      display_name: conversation.displayName,
-      owner_agent: conversation.owner,
-      opted_out: conversation.optedOut,
-      updated_at: new Date().toISOString(),
-    });
-    if (error) fail("bindConversation", error);
-  }
-
-  async updateConversation(session: string, channel: ConversationChannel, contact: string, patch: ConversationPatch): Promise<Conversation | null> {
+  async settleOutbox(session: string, entryId: string, patch: OutboxPatch): Promise<void> {
     const update = {
-      ...(patch.displayName !== undefined ? { display_name: patch.displayName } : {}),
-      ...(patch.owner !== undefined ? { owner_agent: patch.owner } : {}),
-      ...(patch.optedOut !== undefined ? { opted_out: patch.optedOut } : {}),
-      updated_at: new Date().toISOString(),
+      delivery: patch.delivery,
+      ...(patch.note === undefined ? {} : { delivery_note: patch.note }),
+      ...(patch.providerId === undefined ? {} : { provider_id: patch.providerId }),
+      ...(patch.sentAt === undefined ? {} : { sent_at: patch.sentAt }),
     };
-    const { data, error } = await this.db.from("conversations").update(update).eq("session_id", session).eq("channel", channel).eq("contact", contact).select(CONVERSATION_COLUMNS).maybeSingle();
-    if (error) fail("updateConversation", error);
-    return data ? toConversation(data as ConversationRow) : null;
+    const { error } = await this.db.from("outbox").update(update).eq("session_id", session).eq("id", entryId);
+    if (error) fail("settleOutbox", error);
   }
 
-  async findConversation(channel: ConversationChannel, contact: string): Promise<Owned<Conversation> | null> {
-    const { data, error } = await this.db.from("conversations").select(CONVERSATION_COLUMNS).eq("channel", channel).eq("contact", contact).maybeSingle();
-    if (error) fail("findConversation", error);
-    const row = data as ConversationRow | null;
-    return row ? { session: row.session_id, value: toConversation(row) } : null;
+  async listDueOutbox(now: string, limit: number): Promise<{ readonly session: string; readonly entry: OutboxEntry }[]> {
+    const { data, error } = await this.db.from("outbox").select(`session_id, ${OUTBOX_COLUMNS}`).eq("delivery", "queued").lte("sent_at", now).order("sent_at").limit(limit);
+    if (error) fail("listDueOutbox", error);
+    return (data ?? []).map((row) => ({ session: (row as { session_id: string }).session_id, entry: toOutbox(row as OutboxRow) }));
+  }
+
+  async listContacts(session: string, businessId: string): Promise<Contact[]> {
+    const { data, error } = await this.db.from("contacts").select(CONTACT_COLUMNS).eq("session_id", session).eq("business_id", businessId).order("name");
+    if (error) fail("listContacts", error);
+    return (data ?? []).map((row) => toContact(row as ContactRow));
+  }
+
+  async saveContact(session: string, contact: NewContact): Promise<Contact> {
+    // One contact per phone number: a save for a number already on file updates that contact.
+    let id = contact.id;
+    if (id === undefined && contact.phone !== null) {
+      const { data, error } = await this.db.from("contacts").select("id").eq("session_id", session).eq("business_id", contact.businessId).eq("phone", contact.phone).maybeSingle();
+      if (error) fail("saveContact", error);
+      id = (data as { id: string } | null)?.id;
+    }
+    const row = contactRow(session, contact);
+    const query = id === undefined ? this.db.from("contacts").insert(row) : this.db.from("contacts").update(row).eq("session_id", session).eq("id", id);
+    const { data, error } = await query.select(CONTACT_COLUMNS).single();
+    if (error) fail("saveContact", error);
+    return toContact(data as ContactRow);
+  }
+
+  async deleteContact(session: string, businessId: string, contactId: string): Promise<void> {
+    const { error } = await this.db.from("contacts").delete().eq("session_id", session).eq("business_id", businessId).eq("id", contactId);
+    if (error) fail("deleteContact", error);
+  }
+
+  async listConnections(session: string, businessId: string): Promise<StoredConnection[]> {
+    const { data, error } = await this.db.from("connections").select(CONNECTION_COLUMNS).eq("session_id", session).eq("business_id", businessId);
+    if (error) fail("listConnections", error);
+    return (data ?? []).map((row) => toConnection(row as ConnectionRow));
+  }
+
+  async saveConnection(session: string, connection: NewConnection): Promise<StoredConnection> {
+    const row = { session_id: session, business_id: connection.businessId, kind: connection.kind, hook_id: connection.hookId, settings: connection.settings, secret: connection.secret };
+    // A new hook id replaces the old one, so the old webhook URLs stop working once the owner reconnects.
+    const { data, error } = await this.db.from("connections").upsert(row, { onConflict: "session_id,business_id,kind" }).select(CONNECTION_COLUMNS).single();
+    if (error) fail("saveConnection", error);
+    return toConnection(data as ConnectionRow);
+  }
+
+  async deleteConnection(session: string, businessId: string, kind: ConnectionKind): Promise<void> {
+    const { error } = await this.db.from("connections").delete().eq("session_id", session).eq("business_id", businessId).eq("kind", kind);
+    if (error) fail("deleteConnection", error);
+  }
+
+  async findConnection(hookId: string): Promise<{ readonly session: string; readonly connection: StoredConnection } | null> {
+    const { data, error } = await this.db.from("connections").select(CONNECTION_COLUMNS).eq("hook_id", hookId).maybeSingle();
+    if (error) fail("findConnection", error);
+    const row = data as ConnectionRow | null;
+    return row === null ? null : { session: row.session_id, connection: toConnection(row) };
   }
 
   async recordEvent(session: string, businessId: string, source: string, payload: Readonly<Record<string, unknown>>): Promise<void> {
@@ -415,7 +426,7 @@ export class SupabaseStore implements Store {
 
   async reset(session: string): Promise<void> {
     // Outbox rows cascade from cards; the other tables are cleared one by one.
-    for (const table of ["cards", "workflow_choices", "events", "chat_messages", "intake_drafts", "profile_versions", "conversations", "channel_links", "businesses"] as const) {
+    for (const table of ["cards", "workflow_choices", "events", "chat_messages", "intake_drafts", "contacts", "connections", "profile_versions", "businesses"] as const) {
       const { error } = await this.db.from(table).delete().eq("session_id", session);
       if (error) fail(`reset ${table}`, error);
     }

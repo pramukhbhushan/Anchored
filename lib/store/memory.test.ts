@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import { profileFromFacts } from "@/lib/domain/engine";
 import type { KeyedCard } from "@/lib/domain/types";
 import { MemoryStore } from "./memory";
-import { NotFoundError } from "./types";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
 // Behavior of `MemoryStore` that the server relies on: the pending-only card
 // update, the shared daily AI call cap, the bound on how many sessions it keeps,
-// profile versions, replaced drafts, and the Telegram links, chats and deliveries.
+// the sending queue, contacts kept one per phone number, and connections found
+// by the hook id a webhook carries, profile versions, and replaced drafts.
 
 const BUSINESS = "b_test";
 
@@ -76,6 +76,53 @@ describe("session bound", () => {
   });
 });
 
+describe("the sending queue", () => {
+  it("lets one sender claim a queued entry, and lists due entries from every session", async () => {
+    const store = new MemoryStore();
+    const early = await store.addOutbox("s1", { businessId: BUSINESS, cardId: "c1", channel: "sms", to: "+13015550192", body: "Hi", sentAt: "2026-11-08T13:00:00Z", delivery: "queued" });
+    await store.addOutbox("s2", { businessId: BUSINESS, cardId: "c2", channel: "sms", to: "+13015550193", body: "Hi", sentAt: "2026-11-08T14:00:00Z", delivery: "queued" });
+    await store.addOutbox("s2", { businessId: BUSINESS, cardId: "c3", channel: "sms", to: "+13015550194", body: "Later", sentAt: "2026-11-09T14:00:00Z", delivery: "queued" });
+    await store.addOutbox("s3", { businessId: BUSINESS, cardId: "c4", channel: "sms", to: "Dana", body: "Mine", sentAt: "2026-11-08T12:00:00Z" });
+
+    const due = await store.listDueOutbox("2026-11-08T15:00:00Z", 10);
+    expect(due.map(({ session, entry }) => `${session}:${entry.cardId}`)).toEqual(["s1:c1", "s2:c2"]);
+
+    expect((await store.claimOutbox("s1", early.id))?.delivery).toBe("sending");
+    expect(await store.claimOutbox("s1", early.id)).toBeNull();
+    await store.settleOutbox("s1", early.id, { delivery: "sent", note: null });
+    expect((await store.listOutbox("s1", BUSINESS))[0]).toMatchObject({ delivery: "sent", note: null });
+  });
+});
+
+describe("contacts", () => {
+  it("keeps one contact per phone number", async () => {
+    const store = new MemoryStore();
+    const base = { businessId: BUSINESS, name: "Dana", phone: "+13015550192", email: null, consent: null, optedOutAt: null };
+    const first = await store.saveContact("s1", base);
+    const again = await store.saveContact("s1", { ...base, name: "Dana Lewis", consent: { source: "texted-first", at: "2026-11-08T13:00:00Z" } });
+
+    expect(again.id).toBe(first.id);
+    expect(await store.listContacts("s1", BUSINESS)).toEqual([again]);
+    await store.deleteContact("s1", BUSINESS, again.id);
+    expect(await store.listContacts("s1", BUSINESS)).toEqual([]);
+  });
+});
+
+describe("connections", () => {
+  it("keeps one connection per kind and finds it by hook id from any session", async () => {
+    const store = new MemoryStore();
+    await store.saveConnection("s1", { businessId: BUSINESS, kind: "texting", hookId: "hook-old", settings: { phone: "+13015550100" }, secret: "x" });
+    const current = await store.saveConnection("s1", { businessId: BUSINESS, kind: "texting", hookId: "hook-new", settings: { phone: "+13015550101" }, secret: "y" });
+
+    expect(await store.listConnections("s1", BUSINESS)).toEqual([current]);
+    expect(await store.findConnection("hook-old")).toBeNull();
+    expect(await store.findConnection("hook-new")).toEqual({ session: "s1", connection: current });
+
+    await store.reset("s1");
+    expect(await store.findConnection("hook-new")).toBeNull();
+  });
+});
+
 describe("profile versions", () => {
   it("bumps the version on each save and keeps every earlier copy readable", async () => {
     const store = new MemoryStore();
@@ -101,74 +148,19 @@ describe("profile versions", () => {
 describe("supersedePendingCards", () => {
   it("leaves one pending card per contact and keeps decided cards as they were", async () => {
     const store = new MemoryStore();
-    const toChat = (n: number): KeyedCard => ({ ...card, key: `${BUSINESS}:tg:${n}`, channel: "telegram", contact: "chat-7" });
-    await store.ensureCards("s1", BUSINESS, [toChat(1), toChat(2), { ...card, key: `${BUSINESS}:other`, contact: "chat-9" }]);
+    const toContact = (n: number): KeyedCard => ({ ...card, key: `${BUSINESS}:sms:${n}`, contact: "+13015550192" });
+    await store.ensureCards("s1", BUSINESS, [toContact(1), toContact(2), { ...card, key: `${BUSINESS}:other`, contact: "+13015550111" }]);
     const [one] = await store.listCards("s1", BUSINESS);
     if (!one) throw new Error("test setup: card was not stored");
     await store.updatePendingCard("s1", one.id, { status: "approved" });
-    await store.ensureCards("s1", BUSINESS, [toChat(3)]);
+    await store.ensureCards("s1", BUSINESS, [toContact(3)]);
 
-    expect(await store.supersedePendingCards("s1", BUSINESS, "chat-7", `${BUSINESS}:tg:3`)).toBe(1);
+    expect(await store.supersedePendingCards("s1", BUSINESS, "+13015550192", `${BUSINESS}:sms:3`)).toBe(1);
 
     const byKey = new Map((await store.listCards("s1", BUSINESS)).map((c) => [c.key, c.status]));
-    expect(byKey.get(`${BUSINESS}:tg:1`)).toBe("approved");
-    expect(byKey.get(`${BUSINESS}:tg:2`)).toBe("superseded");
-    expect(byKey.get(`${BUSINESS}:tg:3`)).toBe("pending");
+    expect(byKey.get(`${BUSINESS}:sms:1`)).toBe("approved");
+    expect(byKey.get(`${BUSINESS}:sms:2`)).toBe("superseded");
+    expect(byKey.get(`${BUSINESS}:sms:3`)).toBe("pending");
     expect(byKey.get(`${BUSINESS}:other`)).toBe("pending");
-  });
-});
-
-describe("Telegram links and conversations", () => {
-  const chat = { channel: "telegram", contact: "chat-7", businessId: BUSINESS, displayName: "Sam", owner: "frontdesk", optedOut: false, updatedAt: "2026-11-07T15:00:00Z" } as const;
-
-  it("reuses one link code per business and resolves it to its session", async () => {
-    const store = new MemoryStore();
-    const code = await store.ensureChannelLink("s1", BUSINESS, "telegram");
-
-    expect(code).toMatch(/^[A-Za-z0-9_-]{22}$/);
-    expect(await store.ensureChannelLink("s1", BUSINESS, "telegram")).toBe(code);
-    expect(await store.resolveChannelLink(code)).toEqual({ session: "s1", value: { businessId: BUSINESS, channel: "telegram" } });
-    expect(await store.resolveChannelLink("not-a-code")).toBeNull();
-  });
-
-  it("binds a chat to one session at a time, and only that session can change it", async () => {
-    const store = new MemoryStore();
-    await store.bindConversation("s1", chat);
-
-    expect(await store.updateConversation("s2", "telegram", "chat-7", { optedOut: true })).toBeNull();
-    expect((await store.updateConversation("s1", "telegram", "chat-7", { owner: "followup" }))?.owner).toBe("followup");
-
-    // A start link from another business moves the chat there.
-    await store.bindConversation("s2", { ...chat, businessId: "b_other" });
-    expect(await store.getConversation("s1", "telegram", "chat-7")).toBeNull();
-    expect((await store.findConversation("telegram", "chat-7"))?.session).toBe("s2");
-  });
-
-  it("lists due Telegram entries until each is delivered or refused", async () => {
-    const store = new MemoryStore();
-    const base = { businessId: BUSINESS, channel: "telegram", to: "Sam", body: "Hi", contact: "chat-7" } as const;
-    const now = await store.addOutbox("s1", { ...base, cardId: "c1", sentAt: "2026-11-07T15:00:00Z" });
-    await store.addOutbox("s1", { ...base, cardId: "c2", sentAt: "2026-11-08T13:00:00Z" });
-    const refused = await store.addOutbox("s1", { ...base, cardId: "c3", sentAt: "2026-11-07T14:00:00Z" });
-    await store.addOutbox("s1", { ...base, channel: "sms", cardId: "c4", sentAt: "2026-11-07T14:00:00Z" });
-    await store.markDelivered("s1", refused.id, { error: "Telegram didn't take this message." });
-
-    const due = await store.listUndelivered(new Date("2026-11-07T16:00:00Z"), 10);
-    expect(due.map((d) => [d.session, d.value.cardId])).toEqual([["s1", "c1"]]);
-
-    await store.markDelivered("s1", now.id, { deliveredAt: "2026-11-07T16:00:01Z" });
-    expect(await store.listUndelivered(new Date("2026-11-07T16:00:00Z"), 10)).toEqual([]);
-    await expect(store.markDelivered("s2", now.id, { deliveredAt: "2026-11-07T16:00:01Z" })).rejects.toThrow(NotFoundError);
-  });
-
-  it("forgets a session's links and chats on reset", async () => {
-    const store = new MemoryStore();
-    const code = await store.ensureChannelLink("s1", BUSINESS, "telegram");
-    await store.bindConversation("s1", chat);
-
-    await store.reset("s1");
-
-    expect(await store.resolveChannelLink(code)).toBeNull();
-    expect(await store.findConversation("telegram", "chat-7")).toBeNull();
   });
 });

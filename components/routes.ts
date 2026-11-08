@@ -8,7 +8,7 @@ import type { WorkflowId } from "@/lib/domain/types";
 // pages in sidebar order; `sectionOf` narrows a URL segment to one of them.
 
 /** A sub-page of `/app/b/[id]`. The overview at `/app/b/[id]` itself is written `null`. */
-export type Section = "chat" | "workflows" | "tools" | "approvals" | "stack" | "profile";
+export type Section = "chat" | "workflows" | "tools" | "approvals" | "connections" | "stack" | "profile";
 
 /** The business pages in sidebar order, with the label each one shows. */
 export const SECTIONS: readonly { readonly section: Section | null; readonly label: string }[] = [
@@ -17,6 +17,7 @@ export const SECTIONS: readonly { readonly section: Section | null; readonly lab
   { section: "workflows", label: "Workflows" },
   { section: "tools", label: "Tools" },
   { section: "approvals", label: "Approvals" },
+  { section: "connections", label: "Connections" },
   { section: "stack", label: "Stack" },
   { section: "profile", label: "Profile" },
 ];

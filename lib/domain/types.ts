@@ -80,10 +80,10 @@ export type SignalId =
 export type ModelTier = "quick" | "default" | "complex";
 
 /**
- * Where an approved card goes. `telegram` replies to a customer through Anchored's bot. `locked` cards never send;
- * the owner handles them. `flag` cards never send either: Anchored is asking the owner for a missing fact.
+ * Where an approved card goes. `locked` cards never send; the owner handles them. `flag` cards never send either:
+ * Anchored is asking the owner for a missing fact.
  */
-export type Channel = "sms" | "email" | "list" | "telegram" | "locked" | "flag";
+export type Channel = "sms" | "email" | "list" | "locked" | "flag";
 
 // =============================================================================
 // Rating: the seven checks from docs/research/corner-stores-and-restaurants-notes/tools_by_job.md
@@ -223,7 +223,7 @@ export interface CardDraft {
   readonly to?: string;
   /** Dollars riding on this card, when the research gives a figure. */
   readonly stake?: number;
-  /** A stable key for the customer this card answers, such as a Telegram chat id. One pending card per contact. */
+  /** A stable key for the customer this card answers, such as a phone number. One pending card per contact. */
   readonly contact?: string;
   /** Profile fields the draft drew on, so an owner's edit to one of them can update the profile. */
   readonly fieldsUsed?: readonly FieldKey[];

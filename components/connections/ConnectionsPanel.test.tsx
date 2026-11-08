@@ -1,0 +1,109 @@
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it } from "vitest";
+import { ConnectionsPanel } from "@/components/connections/ConnectionsPanel";
+import type { ConnectionsResponse, ConnectionView } from "@/lib/api/contract";
+import { json, sentJson, stubFetch } from "@/test/http";
+
+// =============================================================================
+// Module Overview
+// =============================================================================
+// The services on the Connections page, as an owner uses them: connecting
+// texting sends the credentials and shows the number it connected with the
+// addresses to paste into Twilio, a service the server can't offer says why
+// with no form, a guest sees why they can't connect and no forms, and a
+// refused request shows the route's reason.
+
+const SID = `AC${"a".repeat(32)}`;
+
+/** A service that isn't connected and that this server offers. */
+function off(kind: ConnectionView["kind"]): ConnectionView {
+  return { kind, connected: false, detail: null, setup: [], unavailable: null };
+}
+
+const ALL_OFF: readonly ConnectionView[] = [off("texting"), off("email-out"), off("email-in"), off("stripe")];
+
+/** Return the block for the service named `name`. */
+function service(name: string) {
+  return within(screen.getByRole("region", { name }));
+}
+
+describe("ConnectionsPanel", () => {
+  it("connects texting with the owner's Twilio details, then shows the number and the addresses to paste", async () => {
+    const texting: ConnectionView = {
+      kind: "texting",
+      connected: true,
+      detail: "+13015550192",
+      setup: [
+        { label: "When a message comes in", value: "https://anchored.example/api/hooks/twilio/h1/sms" },
+        { label: "When a call comes in", value: "https://anchored.example/api/hooks/twilio/h1/voice" },
+      ],
+      unavailable: null,
+    };
+    const fetchSpy = stubFetch(() => json({ blocked: null, connections: [texting, ...ALL_OFF.slice(1)], contacts: [] } satisfies ConnectionsResponse));
+    render(<ConnectionsPanel businessId="b1" blocked={null} connections={ALL_OFF} />);
+
+    const block = service("Texting and missed calls");
+    expect(block.getByText("Not connected")).toBeInTheDocument();
+    await userEvent.type(block.getByLabelText("Account SID"), SID);
+    await userEvent.type(block.getByLabelText("Auth token"), "token-123");
+    await userEvent.type(block.getByLabelText("Twilio number"), "301 555 0192");
+    await userEvent.click(block.getByRole("button", { name: "Connect" }));
+
+    expect(sentJson(fetchSpy, 0)).toEqual({
+      method: "PUT",
+      url: "/api/businesses/b1/connections",
+      body: { kind: "texting", accountSid: SID, authToken: "token-123", phone: "301 555 0192" },
+    });
+    expect(await block.findByText("Connected to +13015550192")).toBeInTheDocument();
+    expect(block.getByLabelText("When a message comes in")).toHaveValue("https://anchored.example/api/hooks/twilio/h1/sms");
+    expect(block.getByRole("button", { name: "Copy when a call comes in" })).toBeInTheDocument();
+    expect(block.getByRole("button", { name: "Disconnect" })).toBeInTheDocument();
+  });
+
+  it("says why a service isn't offered and shows no form for it", () => {
+    const views = ALL_OFF.map((view) => (view.kind === "email-out" ? { ...view, unavailable: "Email sending isn't set up on this server yet." } : view));
+    render(<ConnectionsPanel businessId="b1" blocked={null} connections={views} />);
+
+    const block = service("Sending email");
+    expect(block.getByText("Email sending isn't set up on this server yet.")).toBeInTheDocument();
+    expect(block.queryByLabelText("Reply-to address")).not.toBeInTheDocument();
+    expect(block.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("tells a guest why they can't connect, once, and shows no forms", () => {
+    const reason = "Save your work with an email or Google account first, so the services you connect stay yours.";
+    render(<ConnectionsPanel businessId="b1" blocked={reason} connections={ALL_OFF} />);
+
+    expect(screen.getAllByText(reason)).toHaveLength(1);
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(service("Stripe invoices").getByText("When a Stripe invoice goes unpaid, Payment Nudger drafts a reminder.")).toBeInTheDocument();
+  });
+
+  it("shows the route's reason when connecting fails", async () => {
+    stubFetch(() => json({ error: "Enter the Twilio number in a form like +1 301 555 0192." }, 400));
+    render(<ConnectionsPanel businessId="b1" blocked={null} connections={ALL_OFF} />);
+
+    const block = service("Texting and missed calls");
+    await userEvent.type(block.getByLabelText("Account SID"), SID);
+    await userEvent.type(block.getByLabelText("Auth token"), "token-123");
+    await userEvent.type(block.getByLabelText("Twilio number"), "555");
+    await userEvent.click(block.getByRole("button", { name: "Connect" }));
+
+    expect(await block.findByRole("alert")).toHaveTextContent("Enter the Twilio number in a form like +1 301 555 0192.");
+    expect(block.getByText("Not connected")).toBeInTheDocument();
+  });
+
+  it("gets a forwarding address with one tap", async () => {
+    const address = "abc123+h2@inbound.postmarkapp.com";
+    const emailIn: ConnectionView = { kind: "email-in", connected: true, detail: address, setup: [{ label: "Forward customer emails to", value: address }], unavailable: null };
+    const fetchSpy = stubFetch(() => json({ blocked: null, connections: [off("texting"), off("email-out"), emailIn, off("stripe")], contacts: [] } satisfies ConnectionsResponse));
+    render(<ConnectionsPanel businessId="b1" blocked={null} connections={ALL_OFF} />);
+
+    await userEvent.click(service("Forwarded email").getByRole("button", { name: "Get my forwarding address" }));
+
+    expect(sentJson(fetchSpy, 0).body).toEqual({ kind: "email-in" });
+    expect(await service("Forwarded email").findByLabelText("Forward customer emails to")).toHaveValue(address);
+  });
+});

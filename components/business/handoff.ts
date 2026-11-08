@@ -96,8 +96,6 @@ export function approvedDraft(entry: OutboxEntry, card: Pick<CardRecord, "body" 
 
 /** Return the owner's last step for an approved draft, or `null` when it stays inside Anchored, such as a rep list. */
 export function handOff(draft: ApprovedDraft, business: HandOffBusiness): HandOff | null {
-  // Anchored's bot delivers a Telegram reply itself, so the owner has no step left.
-  if (draft.channel === "telegram") return null;
   if (draft.channel === "sms") {
     // A group text from a personal phone has no consent records behind it, so a send to many goes through a texting service.
     if (massAudience(draft.action) !== null) {

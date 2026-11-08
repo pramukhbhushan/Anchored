@@ -9,8 +9,9 @@ import { getSessionId } from "@/lib/server/session";
 // Module Overview
 // =============================================================================
 // GET /api/businesses/[id]/chat returns a business's chat. POST tells Anchored
-// what changed; the reply says what it updated in the profile and workflows.
-// The example business answers but stays read-only.
+// what changed, and the reply says what it updated in the profile and
+// workflows, or asks an agent for work, and the reply links to the drafted
+// card in Approvals. The example business answers but stays read-only.
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -28,7 +29,7 @@ export async function GET(_request: Request, { params }: Context) {
   }
 }
 
-/** Tell Anchored what changed at the business. */
+/** Tell Anchored what changed at the business, or ask one of its agents for a draft. */
 export async function POST(request: Request, { params }: Context) {
   const parsed = await readBody(request, businessChatSchema);
   if (!parsed.ok) return parsed.response;

@@ -1,6 +1,8 @@
-import type { CardRecord, CardStatus, ChatMessage, OutboxEntry } from "@/lib/api/contract";
+import type { CardRecord, CardStatus, ChatMessage, Delivery, OutboxEntry } from "@/lib/api/contract";
+import type { ConnectionKind } from "@/lib/domain/connections";
+import type { Contact } from "@/lib/domain/contacts";
 import type { IntakeDraft } from "@/lib/domain/intake";
-import type { BusinessProfile, Choice, ChoiceMap, ConversationOwner, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
+import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
 
 // =============================================================================
 // Module Overview
@@ -8,8 +10,6 @@ import type { BusinessProfile, Choice, ChoiceMap, ConversationOwner, KeyedCard, 
 // The `Store` interface every persistence backend implements. Each call takes
 // the visitor's session id, so one owner's choices and cards never reach another's.
 // `SupabaseStore` is the production backend; `MemoryStore` runs without keys.
-// Three lookups serve the Telegram webhook and the delivery job, which have no
-// visitor session: `resolveChannelLink`, `findConversation` and `listUndelivered`.
 
 /** Fields of a card that a decision or a rewrite may change. */
 export interface CardPatch {
@@ -19,8 +19,41 @@ export interface CardPatch {
   readonly decidedAt?: string | null;
 }
 
-/** A new outbox entry before the store assigns its id. */
-export type NewOutboxEntry = Omit<OutboxEntry, "id" | "sentAt"> & { readonly sentAt?: string };
+/** A new outbox entry before the store assigns its id. It is the owner's to send unless `delivery` says otherwise. */
+export type NewOutboxEntry = Omit<OutboxEntry, "id" | "sentAt" | "delivery" | "note"> & {
+  readonly sentAt?: string;
+  readonly delivery?: Delivery;
+  readonly note?: string | null;
+};
+
+/** What a finished or failed send changes on an outbox entry. */
+export interface OutboxPatch {
+  readonly delivery: Delivery;
+  readonly note?: string | null;
+  /** The provider's id for the message, such as Twilio's `SM...` sid. */
+  readonly providerId?: string;
+  /** When it actually went out. */
+  readonly sentAt?: string;
+}
+
+/** A connected service as stored. `secret` is encrypted by `lib/server/secrets.ts` before it reaches the store. */
+export interface StoredConnection {
+  readonly id: string;
+  readonly businessId: string;
+  readonly kind: ConnectionKind;
+  /** A random id that names this connection in webhook URLs and the forwarding address. Unique across every session. */
+  readonly hookId: string;
+  /** Settings safe to show, such as the texting number or the reply-to address. */
+  readonly settings: Readonly<Record<string, string>>;
+  readonly secret: string | null;
+  readonly createdAt: string;
+}
+
+/** A connection before the store assigns its id and time. */
+export type NewConnection = Omit<StoredConnection, "id" | "createdAt">;
+
+/** A contact before the store assigns its id; with `id` set, it replaces that contact. */
+export type NewContact = Omit<Contact, "id"> & { readonly id?: string };
 
 /** A chat thread: one onboarding intake, or one business's ongoing chat. */
 export interface ChatThread {
@@ -28,8 +61,8 @@ export interface ChatThread {
   readonly id: string;
 }
 
-/** A chat message before the store assigns its id and time. */
-export type NewChatMessage = Omit<ChatMessage, "id" | "at">;
+/** A chat message before the store assigns its id and time. A reply's card is read from the cards, never stored on it. */
+export type NewChatMessage = Omit<ChatMessage, "id" | "at" | "card">;
 
 /** An onboarding chat: the draft so far and, once the owner confirms, the business it built. */
 export interface IntakeRecord {
@@ -46,39 +79,10 @@ export interface ProfileVersion {
   readonly snapshot: BusinessProfile;
 }
 
-/** Channels a customer can reach a business on through Anchored itself. */
-export type ConversationChannel = "telegram";
-
-/** One customer's conversation with a business on a channel, and the agent that owns it. */
-export interface Conversation {
-  readonly channel: ConversationChannel;
-  /** The customer's key on the channel, such as a Telegram chat id. One chat talks to one business at a time. */
-  readonly contact: string;
-  readonly businessId: string;
-  /** The customer's name as the channel gives it. */
-  readonly displayName: string;
-  readonly owner: ConversationOwner;
-  readonly optedOut: boolean;
-  readonly updatedAt: string;
-}
-
-/** Fields of a conversation that a later message may change. */
-export interface ConversationPatch {
-  readonly displayName?: string;
-  readonly owner?: ConversationOwner;
-  readonly optedOut?: boolean;
-}
-
-/** What happened when Anchored handed an outbox entry to its channel. */
-export type DeliveryResult = { readonly deliveredAt: string } | { readonly error: string };
-
-/** A record found by a deployment-wide lookup, with the session it belongs to, so later calls stay session-scoped. */
-export interface Owned<T> {
-  readonly session: string;
-  readonly value: T;
-}
-
-/** Persistence for businesses, choices, cards, the outbox, raw events and chats. */
+/**
+ * Persistence for businesses, choices, cards, the outbox, raw events, chats, contacts and connections. Every method
+ * takes the session first and touches only its rows, except the three marked deployment-wide.
+ */
 export interface Store {
   readonly kind: "supabase" | "memory";
   /** Return the session's own businesses, oldest first. The example business lives in code and is not stored. */
@@ -101,15 +105,6 @@ export interface Store {
   supersedePendingCards(session: string, businessId: string, contact: string, exceptKey: string): Promise<number>;
   addOutbox(session: string, entry: NewOutboxEntry): Promise<OutboxEntry>;
   listOutbox(session: string, businessId: string): Promise<OutboxEntry[]>;
-  /** Record whether the channel took an outbox entry. */
-  markDelivered(session: string, outboxId: string, result: DeliveryResult): Promise<void>;
-  /** Return the code customers use to reach a business on `channel`, creating it on first use. */
-  ensureChannelLink(session: string, businessId: string, channel: ConversationChannel): Promise<string>;
-  getConversation(session: string, channel: ConversationChannel, contact: string): Promise<Conversation | null>;
-  /** Bind a customer's chat to a business in this session, replacing any earlier binding of that chat. */
-  bindConversation(session: string, conversation: Conversation): Promise<void>;
-  /** Apply `patch` to this session's conversation, and return it; `null` when the chat isn't bound here. */
-  updateConversation(session: string, channel: ConversationChannel, contact: string, patch: ConversationPatch): Promise<Conversation | null>;
   recordEvent(session: string, businessId: string, source: string, payload: Readonly<Record<string, unknown>>): Promise<void>;
   /** Return the latest `limit` messages of a thread, oldest first. */
   listMessages(session: string, thread: ChatThread, limit: number): Promise<ChatMessage[]>;
@@ -117,14 +112,23 @@ export interface Store {
   addMessages(session: string, thread: ChatThread, messages: readonly NewChatMessage[]): Promise<ChatMessage[]>;
   getIntake(session: string, id: string): Promise<IntakeRecord | null>;
   saveIntake(session: string, intake: IntakeRecord): Promise<void>;
-  /** Count one model call against the day's cap for every visitor together; `false` once the cap is reached. */
+  /** Count one model call against the day's cap for every visitor together; `false` once the cap is reached. Deployment-wide. */
   useAiCall(day: string, cap: number): Promise<boolean>;
-  /** Deployment-wide, for the Telegram webhook only: the business a link code opens, or `null`. */
-  resolveChannelLink(code: string): Promise<Owned<{ readonly businessId: string; readonly channel: ConversationChannel }> | null>;
-  /** Deployment-wide, for the Telegram webhook only: the conversation a chat is bound to, or `null`. */
-  findConversation(channel: ConversationChannel, contact: string): Promise<Owned<Conversation> | null>;
-  /** Deployment-wide, for the delivery job only: Telegram entries due by `now` that the channel hasn't taken or refused. */
-  listUndelivered(now: Date, limit: number): Promise<Owned<OutboxEntry>[]>;
+  /** Mark a queued entry as sending and return it; `null` when it isn't queued, so two senders can't both send it. */
+  claimOutbox(session: string, entryId: string): Promise<OutboxEntry | null>;
+  settleOutbox(session: string, entryId: string, patch: OutboxPatch): Promise<void>;
+  /** Queued entries due by `now`, oldest first, from every session, for the scheduled sender. Deployment-wide. */
+  listDueOutbox(now: string, limit: number): Promise<{ readonly session: string; readonly entry: OutboxEntry }[]>;
+  listContacts(session: string, businessId: string): Promise<Contact[]>;
+  /** Add a contact, or replace the one with the same `id` or phone number. */
+  saveContact(session: string, contact: NewContact): Promise<Contact>;
+  deleteContact(session: string, businessId: string, contactId: string): Promise<void>;
+  listConnections(session: string, businessId: string): Promise<StoredConnection[]>;
+  /** Connect a service, replacing the business's connection of the same kind. */
+  saveConnection(session: string, connection: NewConnection): Promise<StoredConnection>;
+  deleteConnection(session: string, businessId: string, kind: ConnectionKind): Promise<void>;
+  /** The connection a webhook names, with the session that owns it, or `null`. Deployment-wide. */
+  findConnection(hookId: string): Promise<{ readonly session: string; readonly connection: StoredConnection } | null>;
   /** Delete everything the session created, as "Delete my businesses" asks. */
   reset(session: string): Promise<void>;
 }
