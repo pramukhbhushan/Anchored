@@ -556,47 +556,10 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .changes-list li:first-child{border-top:0;padding-top:0}
 .changes-list time{margin-left:auto;flex:none;font-size:var(--fs-fine);color:var(--muted)}
 
-/* ---------- workflows: the work order, one ruled line per workflow that opens to change its path ---------- */
+/* ---------- workflows: the page layout lives in components/business/workflows.module.css; the loading skeleton reads `.wf-order` ---------- */
 .wf-order{min-width:0}
-.wf-group{padding:var(--s-2) var(--pad) var(--s-3)}
-.wf-group+.wf-group{padding-top:var(--s-6)}
-.wf-label{padding:var(--s-2) 0 var(--s-3);font-family:var(--body);font-stretch:100%;font-size:var(--fs-sm);font-weight:600;color:var(--muted);letter-spacing:0}
-.wf{border-top:1px dashed var(--line);scroll-margin-top:calc(var(--top-h) + var(--s-4))}
-/* Fixed columns, so the stamps line up down the order whatever each line says */
-.wf-sum{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,280px) 128px 56px;grid-template-areas:"name runs stamp toggle" "line line line .";column-gap:var(--s-4);row-gap:var(--s-1);align-items:center;padding:var(--s-3) 0;list-style:none;cursor:pointer}
-.wf-sum::-webkit-details-marker{display:none}
-.wf-name{grid-area:name;display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-1) var(--s-2);font-weight:600}
-.wf-sum:hover .wf-name{text-decoration:underline;text-underline-offset:3px}
-.wf-runs{grid-area:runs;font-size:var(--fs-sm);color:var(--ink-2);text-align:right;overflow-wrap:anywhere}
-.wf-stamp{grid-area:stamp;justify-self:center}
-.wf-toggle{grid-area:toggle;justify-self:end;font-size:var(--fs-sm);font-weight:600;color:var(--link);text-decoration:underline;text-underline-offset:3px}
-.wf-sum:hover .wf-toggle{color:var(--ink)}
-.wf-close,.wf[open] .wf-open{display:none}
-.wf[open] .wf-close{display:inline}
-.wf-line{grid-area:line;font-size:var(--fs-sm);color:var(--muted);max-width:65ch}
-.wf.is-skipped .wf-name{color:var(--ink-2)}
-.wf:target > .wf-sum .wf-name{text-decoration:underline;text-decoration-color:var(--carbon);text-decoration-thickness:3px}
-/* The open line's paths hang off a hairline, not a box inside the box */
-.wf-body{margin:0 0 var(--s-4);padding:var(--s-1) 0 var(--s-1) var(--s-4);border-left:2px solid var(--line);display:flex;flex-direction:column;gap:var(--s-3)}
-.wf-why,.wf-pick{font-size:var(--fs-sm);color:var(--ink-2);max-width:65ch}
-.wf-pick{font-weight:600;color:var(--ink)}
-.wf-paths{list-style:none;margin:0;padding:0}
-.wf-path{display:grid;grid-template-columns:96px minmax(0,1fr) auto;gap:var(--s-3);align-items:center;padding:var(--s-2) 0}
-.wf-path+.wf-path{border-top:1px dashed var(--line)}
-.wf-path .k{font-size:var(--fs-sm);font-weight:600;color:var(--muted)}
-.wf-path .v{min-width:0;overflow-wrap:anywhere}
-.wf-path .v small{display:block;font-size:var(--fs-fine);color:var(--muted)}
-.wf-chosen{display:inline-flex;align-items:center;gap:var(--s-1);min-height:34px;font-size:var(--fs-sm);font-weight:600;color:var(--good)}
-.wf-foot{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-1) var(--s-3);margin-left:-8px}
-.wf-skipped{padding:4px 8px;font-size:var(--fs-sm);color:var(--muted)}
-@container app (max-width:700px){
-  .wf-sum{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"name stamp" "line line" "runs toggle"}
-  .wf-runs{text-align:left}
-  .wf-path{grid-template-columns:minmax(0,1fr) auto}
-  .wf-path .k{grid-column:1 / -1}
-}
 
-/* ---------- tools: a ranked list on paper, one ruled row per tool ---------- */
+/* ---------- tools: the filter, explainer, trade toggle and compare tray; the rows live in components/business/tools.module.css and the loading skeleton reads `.trows` ---------- */
 .filter{display:inline-flex;align-items:center;gap:var(--s-2);font-size:var(--fs-sm);font-weight:600;color:var(--ink-2)}
 .filter select{appearance:none;-webkit-appearance:none;min-height:40px;max-width:min(320px,70vw);padding:8px 34px 8px 12px;border:1.5px solid var(--line);border-radius:var(--r);background:var(--sheet) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%235F6A7C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E") no-repeat right 10px center;font-weight:600;font-size:var(--fs-sm);color:var(--ink);text-overflow:ellipsis;cursor:pointer}
 .filter select:hover{border-color:var(--ink)}
@@ -608,45 +571,7 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .toggle{display:inline-flex;align-items:center;gap:10px;min-height:40px;margin-top:var(--s-3);padding-right:8px;border-radius:var(--r);font-size:var(--fs-sm);font-weight:600;cursor:pointer}
 .toggle:hover{color:var(--ink);background:var(--hover)}
 .toggle input{width:18px;height:18px;accent-color:var(--ink)}
-.tools-none{max-width:65ch;color:var(--muted)}
 .trows{min-width:0}
-/* Fixed columns, so scores, names and actions line up down the ranking */
-.trow-head,.trow{display:grid;grid-template-columns:48px minmax(0,1.2fr) minmax(0,1fr) 260px;column-gap:var(--s-5)}
-.trow-head{padding-bottom:var(--s-2);border-bottom:1px solid var(--line);font-size:var(--fs-fine);font-weight:600;color:var(--muted)}
-.trow-head span:first-child{text-align:right}
-.trow{align-items:start;row-gap:var(--s-3);padding:var(--s-4) 0;border-bottom:1px dashed var(--line)}
-.trow-score{text-align:right;font-family:var(--display);font-stretch:100%;font-weight:800;font-size:var(--fs-xl);line-height:1.1;font-variant-numeric:tabular-nums}
-.trow-main{min-width:0}
-.trow-main h3{font-size:var(--fs-md);font-family:var(--body);font-stretch:100%;font-weight:600;line-height:1.4;letter-spacing:0}
-.trow-price{font-size:var(--fs-sm);color:var(--ink-2)}
-.trow-note{font-size:var(--fs-fine);color:var(--warn)}
-.trow-covers{min-width:0;font-size:var(--fs-sm);color:var(--ink-2)}
-.trow-toggle{display:inline-flex;align-items:center;gap:var(--s-1);min-height:32px;margin-left:-8px;padding:4px 8px;border:0;border-radius:var(--r);background:none;color:var(--link);font-size:var(--fs-sm);font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
-.trow-toggle:hover{background:var(--hover);color:var(--ink)}
-.trow-toggle svg{flex:none}
-@media (prefers-reduced-motion:no-preference){.trow-toggle svg{transition:transform var(--ease)}}
-.trow-toggle[aria-expanded="true"] svg{transform:rotate(180deg)}
-.trow-acts{display:flex;flex-direction:column;align-items:flex-end;gap:var(--s-1)}
-.trow-status{display:inline-flex;align-items:flex-start;gap:var(--s-1);min-height:34px;padding-top:6px;font-size:var(--fs-sm);font-weight:600;color:var(--good)}
-.trow-status svg{flex:none;margin-top:2px}
-.trow-compare{color:var(--ink-2);text-decoration:none}
-.trow-compare[aria-pressed="true"]{color:var(--ink)}
-.trow-detail{grid-column:2 / -1;max-width:72ch;padding:var(--s-1) 0 0 var(--s-4);border-left:2px solid var(--line)}
-.trow-detail[hidden]{display:none}
-.trow-fit{font-size:var(--fs-sm);color:var(--ink-2)}
-.trow-detail .fine{margin-top:var(--s-3)}
-/* Phone and narrow panes: score, name and price on top, then what it covers, then the action */
-@container app (max-width:760px){
-  .trow-head{display:none}
-  .trow{grid-template-columns:40px minmax(0,1fr);column-gap:var(--s-3)}
-  .trow-covers,.trow-acts,.trow-detail{grid-column:2}
-  .trow-acts{flex-direction:row;flex-wrap:wrap;align-items:center;gap:var(--s-1) var(--s-4)}
-  .trow-score{font-size:var(--fs-lg)}
-}
-.crit{list-style:none;margin:var(--s-3) 0 0;padding:0;display:flex;flex-direction:column;gap:var(--s-2);font-size:var(--fs-fine)}
-.crit li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:start}
-.crit-name{font-weight:600}
-.crit-note{grid-column:1 / -1;color:var(--muted)}
 /* In flow after the list, so showing it never moves a row the owner is about to tap */
 .compare-tray{position:sticky;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:15;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;margin-top:var(--s-4);padding:12px 16px;background:var(--ink);color:var(--paper);border-radius:var(--r);box-shadow:var(--shadow)}
 .compare-tray .btn{background:var(--paper);border-color:var(--paper);color:var(--ink)}

@@ -1,9 +1,13 @@
 "use client";
 
 import { Check, ChevronDown, Square, SquareCheck, X } from "lucide-react";
-import { useId, useRef, useState } from "react";
-import { CheckGrid, StatusBadge } from "@/components/business/CheckGrid";
+import { useId, useRef, useState, type CSSProperties } from "react";
+import { CheckDots, CheckGrid, StatusBadge } from "@/components/business/CheckGrid";
 import { ChooseButton } from "@/components/business/ChooseButton";
+import { FitRing } from "@/components/business/FitRing";
+import { monogram, nameHue, priceChip } from "@/components/business/tool-visuals";
+import styles from "@/components/business/tools.module.css";
+import { WorkflowTile } from "@/components/business/WorkflowTile";
 import { Button, buttonClass } from "@/components/ui/Button";
 import { fitLine } from "@/components/view-helpers";
 import { CHECKS } from "@/lib/domain/rating";
@@ -13,9 +17,10 @@ import type { Rating, Tool, WorkflowId } from "@/lib/domain/types";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The tools page's ranked list, best fit first, one row per tool. The server
-// rates every tool; this component hides tools built for other kinds of
-// business until the owner asks, opens a row's checks on request, keeps which
+// The tools page's ranked list, best fit first, one row per tool: a fit ring,
+// the tool's letter tile and price chip, the workflows it covers as icon chips
+// and its seven checks as dots. The server rates every tool; this component
+// hides tools built for other kinds of business until the owner asks, opens a row's checks on request, keeps which
 // tools (up to three) the owner is comparing in a tray pinned under the list,
 // and opens the side-by-side table in a dialog so nothing above shifts.
 
@@ -106,7 +111,18 @@ const AI_TEXT: Readonly<Record<"yes" | "no" | "unstated", string>> = {
   unstated: "AI not stated.",
 };
 
-/** Render one ranked row: fit, name and price, what it covers, its checks behind a toggle, and its one status or action. */
+/** Render a tool's letter tile on a color worked out from its name, in place of a vendor logo. */
+function Monogram({ name }: { readonly name: string }) {
+  // React types `style` without custom properties; the intersection names the one this tile reads.
+  const hue: CSSProperties & { readonly "--hue": number } = { "--hue": nameHue(name) };
+  return (
+    <span className={styles.mono} style={hue} aria-hidden="true">
+      {monogram(name)}
+    </span>
+  );
+}
+
+/** Render one ranked row: fit ring, the tool and its price chip, what it covers, its check dots, and its one action. */
 function ToolRow({
   businessId,
   item,
@@ -133,32 +149,50 @@ function ToolRow({
   const CompareIcon = comparing ? SquareCheck : Square;
 
   return (
-    <article className="trow">
-      <p className="trow-score">
-        <span className="sr">Fit </span>
-        {rating.total}
-      </p>
-      <div className="trow-main">
-        <h3>{item.name}</h3>
-        <p className="trow-price">{tool.price}</p>
-        {!item.forThisBusiness && <p className="trow-note">Built for other businesses</p>}
+    <article className={styles.row}>
+      <div className={styles.fit}>
+        <FitRing total={rating.total} />
       </div>
-      <div className="trow-covers">
-        <p>{item.workflows.map((w) => WORKFLOWS[w].name).join(", ")}</p>
+      <div className={styles.tool}>
+        <Monogram name={item.name} />
+        <div className={styles.toolText}>
+          <h3>{item.name}</h3>
+          <p className={styles.toolMeta}>
+            <span className={styles.chip} title={tool.price}>
+              <span className="sr">Price: </span>
+              {priceChip(tool)}
+            </span>
+            {!item.forThisBusiness && <span className={styles.other}>Built for other businesses</span>}
+          </p>
+        </div>
+      </div>
+      <ul className={styles.covers} aria-label={`What ${item.name} covers`}>
+        {item.workflows.map((w) => (
+          <li key={w} className={styles.cover} data-active={filter === w ? "" : undefined}>
+            <WorkflowTile id={w} small />
+            {WORKFLOWS[w].name}
+          </li>
+        ))}
+      </ul>
+      <div className={styles.checksCell}>
         <button
           type="button"
-          className="trow-toggle"
+          className={styles.checksBtn}
           aria-expanded={checksOpen}
           aria-controls={checksId}
           onClick={() => setChecksOpen((value) => !value)}
         >
-          {CHECKS.length} checks, {verified} verified
+          <CheckDots rating={rating} />
+          <span>
+            <span className="sr">Checks: </span>
+            {verified} of {CHECKS.length} verified
+          </span>
           <ChevronDown aria-hidden="true" size={16} />
         </button>
       </div>
-      <div className="trow-acts">
+      <div className={styles.acts}>
         {shownStack.length > 0 ? (
-          <span className="trow-status">
+          <span className={styles.status}>
             <Check aria-hidden="true" size={16} />
             In your stack for {shownStack.map((w) => WORKFLOWS[w].name.toLowerCase()).join(" and ")}
           </span>
@@ -178,7 +212,7 @@ function ToolRow({
         <Button
           variant="quiet"
           size="sm"
-          className="trow-compare"
+          className={styles.compare}
           aria-pressed={comparing}
           aria-label={`Compare ${item.name}`}
           onClick={onCompare}
@@ -187,9 +221,9 @@ function ToolRow({
           Compare
         </Button>
       </div>
-      <div className="trow-detail" id={checksId} hidden={!checksOpen}>
-        <p className="trow-fit">
-          {fitLine(rating, CHECKS.length)} {ai}
+      <div className={styles.detail} id={checksId} hidden={!checksOpen}>
+        <p className={styles.detailLine}>
+          {fitLine(rating, CHECKS.length)} {ai} Price: {tool.price}.
         </p>
         <CheckGrid rating={rating} />
         <p className="fine">
@@ -237,18 +271,19 @@ export function CompareBoard({
   const visible = showOthers ? inFilter : inFilter.filter((item) => item.forThisBusiness);
 
   return (
-    <div className="tools-board">
+    <div className={styles.board}>
       {visible.length === 0 ? (
-        <p className="tools-none">
+        <p className={styles.none}>
           No catalog tool built for your kind of business covers this workflow yet. That&apos;s a gap an Anchored agent
           can fill on the Workflows page.
         </p>
       ) : (
-        <div className="trows">
-          <p className="trow-head" aria-hidden="true">
+        <div className={styles.rows}>
+          <p className={styles.head} aria-hidden="true">
             <span>Fit</span>
             <span>Tool</span>
             <span>Covers</span>
+            <span>Checks</span>
           </p>
           {visible.map((item) => (
             <ToolRow
