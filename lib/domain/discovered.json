@@ -1,1 +1,122 @@
-[]
+[
+  {
+    "name": "PATLive",
+    "workflow": "calls",
+    "price": "Pay as you go: $49/month + $2.99/additional min, 50 minutes: $99/month + $2.29/additional min, 100 minutes: $189/month + $2.09/additional min, 200 minutes: $34…",
+    "connects": "Not stated",
+    "data": "Not stated",
+    "contract": "No contracts, free trial for 14 days, cancel anytime",
+    "source": "patlive.com/pricing",
+    "url": "https://www.patlive.com/pricing/",
+    "foundOn": "Nov 7, 2026",
+    "foundFor": "dental office"
+  },
+  {
+    "name": "Conversational Virtual Reception",
+    "workflow": "calls",
+    "price": "Talk 100 Bundle $209/Mo, Talk 200 Bundle $399/Mo, Talk 500 Bundle $799/Mo",
+    "connects": "Not stated",
+    "data": "Not stated",
+    "contract": "30 Day Free Trial",
+    "source": "conversational.com/pricing",
+    "url": "https://conversational.com/pricing/",
+    "foundOn": "Nov 7, 2026",
+    "foundFor": "dental office"
+  },
+  {
+    "name": "SimplyBook.me",
+    "workflow": "noshows",
+    "price": "Free $0 per month, Basic $11.9 per month, Standard $24.9 per month, Premium $49.9 per month",
+    "connects": "Google Calendar, Facebook, Instagram, Zapier, QuickBooks, FreshBooks, Xero",
+    "data": "HIPAA available on Premium plan",
+    "contract": "14-day trial, no credit card required",
+    "source": "simplybook.me/en/pricing",
+    "url": "https://simplybook.me/en/pricing",
+    "foundOn": "Nov 7, 2026",
+    "foundFor": "hair salon"
+  },
+  {
+    "name": "Fresha",
+    "workflow": "noshows",
+    "price": "Not stated",
+    "connects": "Not stated",
+    "data": "Not stated",
+    "contract": "Not stated",
+    "source": "fresha.com/for-business",
+    "url": "https://www.fresha.com/for-business",
+    "foundOn": "Nov 7, 2026",
+    "foundFor": "hair salon"
+  },
+  {
+    "name": "GlossGenius",
+    "workflow": "noshows",
+    "price": "Standard $24 per month, Gold $48 per month, Platinum $148 per month",
+    "connects": "Google Calendar, Google Reviews",
+    "data": "Not stated",
+    "contract": "Free trial, no credit card required",
+    "source": "webflow.glossgenius.com/pricing",
+    "url": "https://webflow.glossgenius.com/pricing",
+    "foundOn": "Nov 7, 2026",
+    "foundFor": "hair salon"
+  },
+  {
+    "name": "Jobber",
+    "workflow": "quotes",
+    "price": "Plans from $29 to $529/mo (billed annually)",
+    "connects": "Not stated",
+    "data": "Not stated",
+    "contract": "Free trial available, no commitment or 1 year commitment options",
+    "source": "getjobber.com/pricing",
+    "url": "https://www.getjobber.com/pricing/",
+    "foundOn": "Nov 7, 2026",
+    "foundFor": "landscaping company"
+  },
+  {
+    "name": "Service Autopilot",
+    "workflow": "quotes",
+    "price": "Startup $49/mo, Pro $199/mo, Pro Plus $499/mo, Elite (contact for pricing)",
+    "connects": "QuickBooks",
+    "data": "Not stated",
+    "contract": "Free trial available, annual subscription rates",
+    "source": "serviceautopilot.com/pricing",
+    "url": "https://www.serviceautopilot.com/pricing/",
+    "foundOn": "Nov 7, 2026",
+    "foundFor": "landscaping company"
+  },
+  {
+    "name": "Workiz",
+    "workflow": "quotes",
+    "price": "Standard (request pricing), Pro (request pricing), Ultimate (request pricing)",
+    "connects": "QuickBooks",
+    "data": "Not stated",
+    "contract": "7-day free trial, no credit card required",
+    "source": "workiz.com/pricing-plans",
+    "url": "https://www.workiz.com/pricing-plans/",
+    "foundOn": "Nov 7, 2026",
+    "foundFor": "landscaping company"
+  },
+  {
+    "name": "Invoice Ninja",
+    "workflow": "quotes",
+    "price": "Free $0, Pro $14/month, Enterprise $18/month",
+    "connects": "Stripe, PayPal, Square, GoCardless",
+    "data": "Not stated",
+    "contract": "30-day money back guarantee",
+    "source": "invoiceninja.com/pricing-plans",
+    "url": "https://invoiceninja.com/pricing-plans/",
+    "foundOn": "Nov 7, 2026",
+    "foundFor": "landscaping company"
+  },
+  {
+    "name": "Grade.us",
+    "workflow": "reviews",
+    "price": "Not stated",
+    "connects": "Not stated",
+    "data": "Not stated",
+    "contract": "14-day Free Trial",
+    "source": "grade.us/home",
+    "url": "https://www.grade.us/home/",
+    "foundOn": "Nov 7, 2026",
+    "foundFor": "auto repair shop"
+  }
+]
