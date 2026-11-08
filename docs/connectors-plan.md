@@ -2,6 +2,10 @@
 
 Drafted Nov 7, 2026, after `feat/ask-agents-in-chat`. Sources are the team's research notes in `docs/research/` and a few vendor pages checked the same day. CL means `docs/research/corner-stores-and-restaurants-notes/connectors_and_limits.md`, and TI means `tools_and_ingestion.md` in the same folder.
 
+## Status
+
+Built: the foundation below, forwarded email in, email out, Twilio missed calls and texting, and Stripe invoices. The README's "Connect real services" section sets each one up. Still planned: calendar bookings, Square, Jobber, Google Business Profile and Meta.
+
 ## Goal
 
 Today an agent drafts a card, the owner approves it, and the owner sends it from their own phone or email. Connectors close both ends. Real events come in and become cards without the owner pasting anything. Approved cards go out without the owner copying them. The owner still approves every send.
