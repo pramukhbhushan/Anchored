@@ -80,10 +80,10 @@ export type SignalId =
 export type ModelTier = "quick" | "default" | "complex";
 
 /**
- * Where an approved card goes. `locked` cards never send; the owner handles them. `flag` cards never send either:
- * Anchored is asking the owner for a missing fact.
+ * Where an approved card goes. `telegram` goes to the customer's chat with the shared Anchored bot. `locked` cards
+ * never send; the owner handles them. `flag` cards never send either: Anchored is asking the owner for a missing fact.
  */
-export type Channel = "sms" | "email" | "list" | "locked" | "flag";
+export type Channel = "sms" | "email" | "telegram" | "list" | "locked" | "flag";
 
 // =============================================================================
 // Rating: the seven checks from docs/research/corner-stores-and-restaurants-notes/tools_by_job.md

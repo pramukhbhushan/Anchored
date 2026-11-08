@@ -54,6 +54,7 @@ const MOMENTS: Readonly<Record<WritableSkill, string>> = {
 const CHANNEL_GUIDE: Readonly<Record<KeyedCard["channel"], string>> = {
   sms: "a text message under 300 characters",
   email: "an email body under 90 words, with no subject line",
+  telegram: "a chat message under 300 characters",
   list: "text the owner copies, under 60 words",
   // No writable skill drafts these two; the entries keep the map complete.
   locked: "nothing; the owner replies",

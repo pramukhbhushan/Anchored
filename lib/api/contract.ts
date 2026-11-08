@@ -1,6 +1,7 @@
 import type { ConnectionKind } from "@/lib/domain/connections";
 import type { ConsentSource, Contact } from "@/lib/domain/contacts";
 import type { IntakeQuestion, KnownFact, ProfileChange } from "@/lib/domain/intake";
+import type { OutboxRule } from "@/lib/domain/rules";
 import type { BusinessProfile, CardDraft, Choice, OnboardingAnswers, PlanApproval, SkillId, WorkflowId } from "@/lib/domain/types";
 
 // =============================================================================
@@ -39,8 +40,9 @@ export type Delivery = "yours" | "queued" | "sending" | "sent" | "failed";
 export interface OutboxEntry {
   readonly id: string;
   readonly businessId: string;
-  readonly cardId: string;
-  readonly channel: "sms" | "email" | "list";
+  /** The card the owner approved; `null` for an entry a standing rule or a protocol notice authorized instead. */
+  readonly cardId: string | null;
+  readonly channel: "sms" | "email" | "telegram" | "list";
   readonly to: string;
   readonly body: string;
   /** When it went out, or, while it is queued, when it may. */
@@ -48,6 +50,8 @@ export interface OutboxEntry {
   readonly delivery: Delivery;
   /** Why Anchored didn't send it, or what went wrong, in plain words; `null` when there is nothing to say. */
   readonly note: string | null;
+  /** What authorized it when no card tap did: the owner's standing rule, or the bot's fixed answer to /start or /stop. */
+  readonly rule?: OutboxRule;
 }
 
 // =============================================================================

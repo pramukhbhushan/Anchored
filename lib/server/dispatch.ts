@@ -64,7 +64,8 @@ export async function dispatchEntry(
     store.settleOutbox(session, entry.id, { delivery, note, ...extra });
   try {
     const [card, business, connections, contacts] = await Promise.all([
-      store.getCard(session, entry.cardId),
+      // An entry a standing rule or protocol notice authorized has no card. Until Telegram delivery reads those, it fails below.
+      entry.cardId === null ? Promise.resolve(null) : store.getCard(session, entry.cardId),
       store.getBusiness(session, entry.businessId),
       store.listConnections(session, entry.businessId),
       store.listContacts(session, entry.businessId),

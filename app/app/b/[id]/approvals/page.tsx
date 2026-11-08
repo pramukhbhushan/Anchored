@@ -35,6 +35,7 @@ export const metadata: Metadata = { title: "Approvals" };
 const CHANNEL_LABEL: Readonly<Record<OutboxEntry["channel"], string>> = {
   sms: "Text",
   email: "Email",
+  telegram: "Telegram",
   list: "Logged",
 };
 
@@ -212,7 +213,7 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
                       <p className="phone-label">Held for quiet hours</p>
                       <ul className="phone-list">
                         {queued.map((entry) => (
-                          <OutboxItem key={entry.id} entry={entry} card={cardById.get(entry.cardId)} queued business={handOffBusiness} />
+                          <OutboxItem key={entry.id} entry={entry} card={entry.cardId === null ? undefined : cardById.get(entry.cardId)} queued business={handOffBusiness} />
                         ))}
                       </ul>
                     </>
@@ -222,7 +223,7 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
                       {queued.length > 0 && <p className="phone-label">Approved</p>}
                       <ul className="phone-list">
                         {sent.map((entry) => (
-                          <OutboxItem key={entry.id} entry={entry} card={cardById.get(entry.cardId)} queued={false} business={handOffBusiness} />
+                          <OutboxItem key={entry.id} entry={entry} card={entry.cardId === null ? undefined : cardById.get(entry.cardId)} queued={false} business={handOffBusiness} />
                         ))}
                       </ul>
                     </>

@@ -7,20 +7,21 @@
 // `deliveryFor` decides whether Anchored sends an approved message itself or
 // leaves it for the owner to send from their own phone or email.
 
-/** Where a customer's OK to get texts came from. */
-export type ConsentSource = "texted-first" | "web-form" | "in-person" | "paper" | "imported";
+/** Where a customer's OK to get messages came from. `messaged-first` is recorded by the Telegram bot, never picked by hand. */
+export type ConsentSource = "texted-first" | "messaged-first" | "web-form" | "in-person" | "paper" | "imported";
 
 /** Each consent source as the owner reads it. */
 export const CONSENT_LABEL: Readonly<Record<ConsentSource, string>> = {
   "texted-first": "Texted the business first",
+  "messaged-first": "Messaged the business on Telegram first",
   "web-form": "Checked the box on a web form",
   "in-person": "Said yes in person",
   paper: "Signed a paper form",
   imported: "Imported with a consent record",
 };
 
-/** Every consent source, in the order the form lists them. */
-export const CONSENT_SOURCES = Object.keys(CONSENT_LABEL) as ConsentSource[];
+/** The consent sources an owner can record by hand, in the order the form lists them. */
+export const CONSENT_SOURCES: readonly ConsentSource[] = ["texted-first", "web-form", "in-person", "paper", "imported"];
 
 /** A customer the business may contact. */
 export interface Contact {
@@ -32,8 +33,12 @@ export interface Contact {
   readonly email: string | null;
   /** Where the OK to get texts came from and when, or `null` when there is none on file. */
   readonly consent: { readonly source: ConsentSource; readonly at: string } | null;
-  /** When the customer texted STOP, or `null`. A later START clears it. */
+  /** When the customer texted STOP or sent /stop, or `null`. A later START or /start clears it. */
   readonly optedOutAt: string | null;
+  /** The customer's Telegram chat id, as a string so no digits are lost. Absent for contacts who never used the bot. */
+  readonly telegramChatId?: string;
+  /** The name the customer shows on Telegram, when they have one. */
+  readonly telegramName?: string;
 }
 
 // =============================================================================
@@ -75,6 +80,11 @@ export function optOutKeyword(text: string): "stop" | "start" | null {
 /** Return `contact` after a STOP or START reply at `at`. */
 export function applyOptOut(contact: Contact, keyword: "stop" | "start", at: string): Contact {
   return { ...contact, optedOutAt: keyword === "stop" ? at : null };
+}
+
+/** The contact whose Telegram chat id is `chatId`, or `undefined`. */
+export function contactByTelegramChat(contacts: readonly Contact[], chatId: string): Contact | undefined {
+  return contacts.find((contact) => contact.telegramChatId === chatId);
 }
 
 /** The contact whose phone number is `phone`, in E.164, or `undefined`. */

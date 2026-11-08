@@ -2,6 +2,8 @@ import type { CardRecord, CardStatus, ChatMessage, Delivery, OutboxEntry } from 
 import type { ConnectionKind } from "@/lib/domain/connections";
 import type { Contact } from "@/lib/domain/contacts";
 import type { IntakeDraft } from "@/lib/domain/intake";
+import type { StandingRuleId, StandingRuleState } from "@/lib/domain/rules";
+import type { NewThreadMessage, ThreadMessage } from "@/lib/domain/threads";
 import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
 
 // =============================================================================
@@ -64,6 +66,20 @@ export interface ChatThread {
 /** A chat message before the store assigns its id and time. A reply's card is read from the cards, never stored on it. */
 export type NewChatMessage = Omit<ChatMessage, "id" | "at" | "card">;
 
+/** Which business a Telegram chat is talking to: the one whose link the customer opened last, with the owning session. */
+export interface TelegramChat {
+  readonly chatId: string;
+  readonly session: string;
+  readonly businessId: string;
+  readonly contactId: string;
+  readonly boundAt: string;
+  /** When the customer blocked the bot, or `null`. Blocking stops every business on the shared bot. */
+  readonly blockedAt: string | null;
+}
+
+/** A Telegram chat binding before it is saved. The session comes from the caller. */
+export type NewTelegramChat = Omit<TelegramChat, "session" | "blockedAt">;
+
 /** An onboarding chat: the draft so far and, once the owner confirms, the business it built. */
 export interface IntakeRecord {
   readonly id: string;
@@ -80,8 +96,9 @@ export interface ProfileVersion {
 }
 
 /**
- * Persistence for businesses, choices, cards, the outbox, raw events, chats, contacts and connections. Every method
- * takes the session first and touches only its rows, except the three marked deployment-wide.
+ * Persistence for businesses, choices, cards, the outbox, raw events, chats, contacts, connections, customer threads,
+ * Telegram chats and standing rules. Every method takes the session first and touches only its rows, except the ones
+ * marked deployment-wide, which webhooks and the scheduled sender use and which return the owning session.
  */
 export interface Store {
   readonly kind: "supabase" | "memory";
@@ -129,6 +146,34 @@ export interface Store {
   deleteConnection(session: string, businessId: string, kind: ConnectionKind): Promise<void>;
   /** The connection a webhook names, with the session that owns it, or `null`. Deployment-wide. */
   findConnection(hookId: string): Promise<{ readonly session: string; readonly connection: StoredConnection } | null>;
+  /**
+   * Return the business's Telegram hook id, the random id in its customer link. The first call saves `candidate`;
+   * later calls return the saved one. Throws `NotFoundError` when the business isn't the session's.
+   */
+  telegramHook(session: string, businessId: string, candidate: string): Promise<string>;
+  /** The business a Telegram hook id names, with the session that owns it, or `null`. Deployment-wide. */
+  findTelegramHook(hookId: string): Promise<{ readonly session: string; readonly businessId: string } | null>;
+  /** The business a Telegram chat is bound to, with its session, or `null`. Deployment-wide: the bot knows only the chat id. */
+  findTelegramChat(chatId: string): Promise<TelegramChat | null>;
+  /** Bind a chat to one of the session's businesses, replacing any earlier binding and clearing a block. */
+  bindTelegramChat(session: string, chat: NewTelegramChat): Promise<TelegramChat>;
+  /** Record that the customer blocked the bot, or `null` once they unblock it. Deployment-wide. */
+  setTelegramChatBlocked(chatId: string, at: string | null): Promise<void>;
+  /**
+   * Claim a Telegram update so it is processed once: `true` for the caller that should process it. A failed update, or
+   * one claimed more than `retakeAfterMs` ago and never finished, can be claimed again. Deployment-wide.
+   */
+  claimTelegramUpdate(updateId: number, now: string, retakeAfterMs: number): Promise<boolean>;
+  /** Record how processing a claimed update ended. Deployment-wide. */
+  finishTelegramUpdate(updateId: number, status: "done" | "failed"): Promise<void>;
+  /** Append a message to a customer's thread and return it as stored. */
+  addThreadMessage(session: string, message: NewThreadMessage): Promise<ThreadMessage>;
+  /** Return the latest `limit` messages of a customer's thread, oldest first. */
+  listThreadMessages(session: string, businessId: string, contactId: string, limit: number): Promise<ThreadMessage[]>;
+  /** Return the business's saved standing rules. A rule with no saved state is off. */
+  getStandingRules(session: string, businessId: string): Promise<StandingRuleState[]>;
+  /** Turn a standing rule on or off at `at`, and return it as saved. */
+  setStandingRule(session: string, businessId: string, rule: StandingRuleId, enabled: boolean, at: string): Promise<StandingRuleState>;
   /** Delete everything the session created, as "Delete my businesses" asks. */
   reset(session: string): Promise<void>;
 }
