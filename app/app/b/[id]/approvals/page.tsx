@@ -126,7 +126,7 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
                 ? "New drafts land here as your agents work. Tap Watch an agent draft to see one arrive."
                 : chosenSkills(business, choices).length > 0
                   ? "New drafts land here as your agents work."
-                  : "Choose Build on a workflow and its agent starts drafting here."}
+                  : "On the Workflows page, let Anchored draft a job for your OK, and its drafts land here."}
             </EmptyState>
           )}
           {decided.length > 0 && (

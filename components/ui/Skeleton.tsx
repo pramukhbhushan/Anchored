@@ -6,7 +6,7 @@
 // real content lands where the placeholder was and nothing jumps.
 
 /** The page shapes a `loading.tsx` can ask for. */
-export type SkeletonLayout = "overview" | "order" | "feed" | "rows" | "list" | "stack" | "chat" | "profile";
+export type SkeletonLayout = "overview" | "graph" | "feed" | "rows" | "list" | "stack" | "chat" | "profile";
 
 /** Render one placeholder block of `width` by `height`. */
 function Skeleton({
@@ -67,12 +67,15 @@ function SkeletonBody({ layout }: { readonly layout: SkeletonLayout }) {
           <SkeletonCard height={380} />
         </div>
       );
-    case "order":
-      // The workflows work order: one sheet of ruled lines.
+    case "graph":
+      // The Workflows page: the plan band, then the graph's ruled rows.
       return (
-        <div className="panel wf-order">
-          <SkeletonRows count={8} />
-        </div>
+        <>
+          <SkeletonCard height={150} />
+          <div className="section">
+            <SkeletonRows count={6} />
+          </div>
+        </>
       );
     case "feed":
       // The approvals feed in the reading column, with the outbox beside it on wide screens.
@@ -97,7 +100,7 @@ function SkeletonBody({ layout }: { readonly layout: SkeletonLayout }) {
     case "list":
       return <CardGrid count={6} height={180} />;
     case "stack":
-      // The monthly bill with free help beside it, then the "How work moves" diagram.
+      // The monthly bill with free help beside it, then the line that points to the Workflows graph.
       return (
         <>
           <div className="with-rail">
@@ -108,7 +111,6 @@ function SkeletonBody({ layout }: { readonly layout: SkeletonLayout }) {
             <div className="section-head">
               <Skeleton width={180} height={22} />
             </div>
-            <SkeletonCard height={320} />
           </div>
         </>
       );

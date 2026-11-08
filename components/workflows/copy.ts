@@ -3,7 +3,7 @@ import type { SkillId, TradeKey, WorkflowId } from "@/lib/domain/types";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The owner's words for the Stack page's diagrams. `SKILL_STEPS` says what
+// The owner's words for the Workflows graph and the bill. `SKILL_STEPS` says what
 // starts each agent job, what it drafts for the owner's OK and what comes of
 // it; `TOOL_STEPS` says the same for a tool covering a workflow. No skill,
 // path or model names appear here; those stay under the hood.
@@ -26,7 +26,7 @@ export interface ToolSteps {
   readonly result: string;
 }
 
-/** Each agent job in the owner's words. `brief` and `triage` run for everyone and stay off the flow diagram. */
+/** Each agent job in the owner's words. `brief` and `triage` run for everyone and stay off the Workflows graph. */
 export const SKILL_STEPS: Readonly<Record<SkillId, WorkSteps>> = {
   callback: {
     trigger: "A customer calls and nobody picks up",

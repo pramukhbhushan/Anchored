@@ -33,6 +33,7 @@ Routes also check path parameters against data the session owns:
 - A card or business id outside the session returns 404. The code-defined example business is the one exception, open to every session.
 - `POST /api/businesses/[id]/cards`, "Watch an agent draft", runs only on the example business and returns 409 for an owner's own.
 - `PUT /api/businesses/[id]/choices` accepts only a path and a tool that `pathOptions` offers for that workflow.
+- `PUT /api/businesses/[id]/plan` saves a plan approval only on the session's own business, and returns 409 for the example, whose approval lives in code.
 - `POST /api/ingest/[source]` accepts only the sources in its `SOURCE_SKILLS` map, each with its own payload schema.
 
 ## Rate limits
