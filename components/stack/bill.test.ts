@@ -31,7 +31,7 @@ describe("monthlyBill", () => {
     expect(bill.segments.reduce((sum, s) => sum + s.share, 0)).toBeCloseTo(1);
   });
 
-  it("splits the restaurant into new tools, agents, a tool it has and skipped work", () => {
+  it("splits the restaurant into new tools, agents, tools it has and skipped work", () => {
     const bill = monthlyBill(caseStudy("restaurant"), {});
     expect(bill.total).toBe(308);
     expect(group(bill, "buy").lines.map((l) => [l.name, l.price])).toEqual([
@@ -39,7 +39,7 @@ describe("monthlyBill", () => {
       ["Orders.co Dispute assistant", "$29"],
       ["Homebase", "Free"],
     ]);
-    expect(group(bill, "turnon").lines.map((l) => l.name)).toEqual(["Google Business Profile reply box"]);
+    expect(group(bill, "turnon").lines.map((l) => l.name)).toEqual(["OpenTable", "Google Business Profile reply box"]);
     expect(group(bill, "skip").lines.map((l) => l.name)).toEqual([
       "Bookkeeping and invoicing",
       "Lead follow-up",

@@ -16,7 +16,7 @@ type PathFields = Pick<WorkflowPlan, "fit" | "rec" | "skills" | "tool">;
 // Every place the research replaces the rules' pick. Each one's reason is in that workflow's `why`.
 const OVERRIDES: Readonly<Record<string, Partial<Record<WorkflowId, Partial<PathFields>>>>> = {
   hvac: { social: { skills: ["reactivator"] }, quotes: { skills: ["closer", "debrief"] }, reviews: { rec: "build" } },
-  restaurant: { calls: { rec: "buy", tool: "certus" }, books: { rec: "skip" }, leads: { rec: "skip" }, noshows: { rec: "build" } },
+  restaurant: { calls: { rec: "buy", tool: "certus" }, books: { rec: "skip" }, leads: { rec: "skip" } },
   coach: { books: { rec: "build" }, leads: { skills: ["inquiry", "callfollow"] }, noshows: { rec: "build" } },
 };
 
@@ -65,12 +65,25 @@ describe("case studies", () => {
     expect(defaultChoice(restaurant, "calls")).toEqual({ path: "buy", toolId: "certus" });
   });
 
+  it("turns on the restaurant's own OpenTable for no-shows before building anything", () => {
+    expect(defaultChoice(caseStudy("restaurant"), "noshows")).toEqual({ path: "turnon", toolId: "opentable" });
+  });
+
   it("carries the researched text and cards", () => {
     const hvac = caseStudy("hvac");
-    expect(hvac.workflows.quotes?.stake).toBe("$14K to $30K a month in sales if 2 more of 10 quotes close, modeled");
+    expect(hvac.workflows.quotes?.stake).toBe("$14K to $30K a month in sales if 2 more of 10 quotes close, estimated");
     expect(hvac.cards?.closer?.stake).toBe(11400);
     expect(caseStudy("restaurant").lockedCards?.[0]?.skill).toBe("catering");
   });
+
+  it.each(CASE_STUDIES.map((business) => [business.id, business] as const))(
+    "%s calls its worked-out numbers estimates, as an owner would",
+    (_id, business) => {
+      for (const [workflow, plan] of Object.entries(business.workflows)) {
+        expect(`${plan.why} ${plan.stake}`, workflow).not.toMatch(/\bmodel(?:ed|ing)\b/i);
+      }
+    },
+  );
 });
 
 describe("examples", () => {
