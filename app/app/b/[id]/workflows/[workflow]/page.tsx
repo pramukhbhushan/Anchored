@@ -1,3 +1,5 @@
+import { ChatWindow } from "@/components/chat/ChatWindow";
+import { isAiConfigured } from "@/lib/server/ai";
 import type { Metadata } from "next";
 import { cache } from "react";
 import { notFound } from "next/navigation";
@@ -62,7 +64,7 @@ export default async function AgentPage({ params, searchParams }: { readonly par
     agent.id === "customer" && business.kind === "custom" ? getStore().listContacts(session, business.id) : [],
   ]);
   return (
-    <AgentWorkspace businessId={business.id} agent={agent} cards={cardsForAgent(feed.cards, agent.id)} outbox={feed.outbox}>
+    <AgentWorkspace businessId={business.id} agent={agent} cards={cardsForAgent(feed.cards, agent.id)} outbox={feed.outbox} ask={<><p className="fine">{isAiConfigured() ? "AI replies are on. Drafts still wait for your OK." : "AI replies are off. Supported draft requests still work."}</p><ChatWindow mode="business" businessId={business.id} agent={agent.id} agentName={agent.name} starters={["What can you help me with?", "What should I focus on next?"]} /></>}>
       {threads !== null && <CustomerThreads businessId={business.id} data={threads} />}
       {telegram !== null && rules !== null && (
         <details className="agent-details">

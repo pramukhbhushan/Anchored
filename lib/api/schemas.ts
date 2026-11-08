@@ -120,7 +120,10 @@ export const intakeAnswerSchema = z
   .object({ text: chatText.optional(), picks: z.array(z.string().trim().min(1).max(80)).max(20).optional() })
   .refine((answer) => (answer.text ?? "") !== "" || answer.picks !== undefined, { message: "Type an answer or tap an option." }) satisfies z.ZodType<IntakeAnswerRequest>;
 
-export const businessChatSchema = z.object({ text: chatText.min(1, "Type a message.") }) satisfies z.ZodType<BusinessChatRequest>;
+/** Agent route tokens accepted by chat; active membership is checked on the server. */
+export const agentChatIdSchema = z.union([z.enum(["customer", "books", "content", "internal"]), z.string().regex(/^niche:[a-z0-9-]{1,64}$/)]);
+
+export const businessChatSchema = z.object({ text: chatText.min(1, "Type a message."), agent: agentChatIdSchema.optional() }) satisfies z.ZodType<BusinessChatRequest>;
 
 // -----------------------------------------------------------------
 // Connections and contacts

@@ -310,6 +310,7 @@ body:has(.compare-tray) .toast{bottom:calc(88px + env(safe-area-inset-bottom,0px
 .side-scroll{flex:1;overflow-y:auto;padding:12px 10px 16px;overscroll-behavior:contain}
 .side-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
 .side-group{margin-top:18px}
+.side-agents > .side-list{margin-inline-start:var(--s-4)}
 .side-label{padding:0 10px 6px;font-size:var(--fs-fine);font-weight:600;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .side-current{color:var(--ink);font-family:var(--display);font-stretch:100%;font-weight:800;font-size:var(--fs-sm)}
 .side-link{position:relative;display:flex;align-items:center;gap:10px;min-height:38px;padding:7px 10px;border-radius:var(--r);color:var(--ink-2);font-weight:600;font-size:var(--fs-sm);text-decoration:none}
@@ -342,6 +343,7 @@ html[data-dev] .side-foot{padding-bottom:64px}
   .shell[data-collapsed="true"] .side-scroll{padding-inline:8px}
   .shell[data-collapsed="true"] .side-link,.shell[data-collapsed="true"] .side-foot-link{justify-content:center;padding-inline:0}
   .shell[data-collapsed="true"] .side-group{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+  .shell[data-collapsed="true"] .side-agents > .side-list{margin-inline-start:0}
   .shell[data-collapsed="true"] .side-count{position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;font-size:10.5px}
 }
 
