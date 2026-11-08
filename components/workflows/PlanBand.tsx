@@ -28,6 +28,13 @@ function dateText(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: OWNER_TIME_ZONE });
 }
 
+/** Say what the owner still does for the tools in a live plan; Anchored can't sign them up or switch a feature on. */
+function liveTools(counts: Readonly<Record<HandlerKind, number>>): string {
+  const fresh = counts.new === 0 ? "" : counts.new === 1 ? " A new tool starts once you sign up for it." : " New tools start once you sign up for them.";
+  const owned = counts.owned === 0 ? "" : " Tools you have do their part once the feature is on in them.";
+  return fresh + owned;
+}
+
 /** Join names as "a", "a and b", or "a, b and c". */
 function andList(names: readonly string[]): string {
   return names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
@@ -65,7 +72,7 @@ export function PlanBand({
         </h2>
         <p className={styles.planLead}>
           {status.kind === "draft" && `Anchored mapped ${jobs} ${jobs === 1 ? "job" : "jobs"} ${businessName} does day to day and picked who handles each one. Look it over, change any step, then approve it.`}
-          {status.kind === "live" && `You approved it on ${dateText(status.approvedAt)}. Anchored's drafts wait for you in Approvals, and tools run on their own.`}
+          {status.kind === "live" && `You approved it on ${dateText(status.approvedAt)}. Anchored's drafts wait for you in Approvals.${liveTools(counts)}`}
           {status.kind === "changed" &&
             (canApprove
               ? `${andList(changedNames)} changed since you approved the plan on ${dateText(status.approvedAt)}. Approve the changes to make them part of it.`
