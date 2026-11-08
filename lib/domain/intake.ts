@@ -1,6 +1,7 @@
 import {
   candidateFor,
   candidatesFromSales,
+  correctVocabulary,
   confirmAll,
   conflictLine,
   detailText,
@@ -125,6 +126,8 @@ export interface IntakeDraft {
   readonly listing?: { readonly choices: readonly ListingChoice[]; readonly settled: boolean };
   /** Gap questions asked so far, answered or skipped. */
   readonly gaps?: readonly FieldKey[];
+  /** Gap questions asked a second time because the first typed answer couldn't be read. Each gets one retry. */
+  readonly gapRetries?: readonly FieldKey[];
   /** The invoice sheet question, once asked: the sheet's ID from the link the owner pasted, or `null` when they skipped it. */
   readonly invoiceSheet?: { readonly id: string | null };
 }
@@ -749,14 +752,21 @@ function suggestionFor(draft: IntakeDraft, key: FieldKey): { readonly value: unk
   return { value, evidence };
 }
 
+/** Whether a gap question is being asked again after an answer that couldn't be read. */
+function retrying(draft: IntakeDraft, key: FieldKey): boolean {
+  return (draft.gapRetries ?? []).includes(key) && !(draft.gaps ?? []).includes(key);
+}
+
 function gapText(key: FieldKey, draft: IntakeDraft): string {
   const def = FIELDS[key];
   const suggestion = suggestionFor(draft, key);
   if (suggestion !== null) {
     const { evidence } = suggestion;
     const from = evidence.sourceType === "owner" ? `From what you told me ("${clip(evidence.quote, 60)}")` : SOURCE_NAME[evidence.sourceType];
+    if (retrying(draft, key)) return `I couldn't tell which word to change, so I kept ${detailText(key, suggestion.value)}. Tell me the one to change, like "we call a booking a service call", or tap That's right.`;
     return `${from}: ${detailText(key, suggestion.value)}. Is that right? If not, tell me the right words.`;
   }
+  if (retrying(draft, key)) return `I didn't catch that. ${def.ask.prompt} For example: ${def.ask.example}.`;
   return `${def.ask.prompt} For example: ${def.ask.example}.`;
 }
 
@@ -798,11 +808,27 @@ export function applyGapAnswer(draft: IntakeDraft, key: FieldKey, picks: readonl
     next = mergeCandidate(state, choiceValue(key, pick) as DetailCandidate);
   } else if (reading.intent === "answer" && reading.text !== "") {
     const keys = [key, ...(ALSO_READ[key] ?? [])];
-    const found = keys.flatMap((candidate) => candidateFor(candidate, reading.text, "owner", "high") ?? []);
+    const found = keys.flatMap((candidate) => typedCandidate(state, candidate, reading.text) ?? []);
     next = mergeCandidates(state, [...found, ...extra]);
   }
   const revisiting = draft.review.stage === "revisiting" && draft.review.field === gapStep(key);
+  const retries = draft.gapRetries ?? [];
+  // Words that changed nothing get one more ask, so a correction the rules couldn't place never stores fragments or vanishes.
+  const unread = reading.intent === "answer" && reading.text !== "" && pick === undefined && sameValue(next.details[key], state.details[key]) && !AFFIRM.test(reading.text);
+  if (unread && !retries.includes(key)) return { ...withDetails(draft, next), gapRetries: [...retries, key] };
   return { ...withDetails(draft, next), gaps: unique([...(draft.gaps ?? []), key]), review: revisiting ? { stage: "asking" } : draft.review };
+}
+
+/** A candidate for `key` from typed words. Vocabulary is a correction of the words already held when there are some. */
+function typedCandidate(state: DetailState, key: FieldKey, text: string): DetailCandidate | null {
+  const current = state.details.vocabulary;
+  if (key !== "vocabulary" || current === undefined) return candidateFor(key, text, "owner", "high");
+  const value = correctVocabulary(current, text);
+  return value === undefined ? null : { key, value, sourceType: "owner", quote: clip(text.replace(/\s+/g, " ").trim(), 240), confidence: "high" };
+}
+
+function sameValue(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 /** Details the rules read from an answer to a planned question, folded into the draft. */

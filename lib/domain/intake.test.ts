@@ -154,6 +154,41 @@ describe("the question plan", () => {
     expect(question(after).field).not.toBe("gap:vocabulary");
   });
 
+  const plumber = (): IntakeDraft =>
+    converse([
+      text("Brightwater Plumbing, Silver Spring, MD"),
+      picks("Home services"),
+      text("Drain cleaning and water heaters for homeowners"),
+      picks("Phone calls"),
+      picks(),
+      picks("quotes"),
+      picks("English"),
+      text("Calling people back"),
+      text("Hey Mrs. Patel, Mike from Brightwater here. I can come by Thursday."),
+    ]).draft;
+
+  it("applies a vocabulary correction to only the word it names", () => {
+    const start = plumber();
+    expect(question(start).field).toBe("gap:vocabulary");
+
+    const after = answer(start, text("Mostly, but we call a booking a service call, not a visit."));
+
+    expect(after.details?.vocabulary).toEqual({ customer: "customer", workUnit: "job", priceTerm: "estimate", bookingTerm: "service call" });
+  });
+
+  it("keeps the old words and asks once more when it can't tell which word a correction changes", () => {
+    const start = plumber();
+    const before = start.details?.vocabulary;
+
+    const once = answer(start, text("Mostly, but some of it is a bit different for us."));
+
+    expect(once.details?.vocabulary).toEqual(before);
+    expect(question(once).field).toBe("gap:vocabulary");
+    const twice = answer(once, text("Hard to say really."));
+    expect(twice.details?.vocabulary).toEqual(before);
+    expect(question(twice).field).not.toBe("gap:vocabulary");
+  });
+
   it("fills several facts from one sentence and skips the questions they answer", () => {
     let draft = answer(newDraft(), text("I run a food truck in Baltimore that does catering"));
     expect(draft.facts).toMatchObject({ kind: "Food truck", place: "Baltimore" });

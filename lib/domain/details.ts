@@ -296,11 +296,56 @@ function term(text: string): string {
   return bare.length > 3 && bare.endsWith("s") && !bare.endsWith("ss") ? bare.slice(0, -1) : bare;
 }
 
+// Words that make a part a sentence, not a term: "mostly", "but we call", "not a visit".
+const NOT_A_TERM = /\b(?:yes|no|not|mostly|but|we|i|our|is|are|it|that|this|right|wrong|actually|instead|really|some|just)\b/i;
+
+/** A clean list of terms, read by position: "homeowners / service call / estimate / visit". Anything sentence-like reads nothing. */
 function readVocabulary(text: string): Vocabulary | undefined {
-  const parts = text.split(/\s*\/\s*|,\s*(?:and\s+)?|\s+and\s+/i).map(term).filter((part) => part !== "" && part.length <= 40);
+  const raw = text.split(/\s*\/\s*|,\s*(?:and\s+)?|\s+and\s+/i).filter((part) => part.trim() !== "");
+  if (raw.some((part) => NOT_A_TERM.test(part) || part.trim().split(/\s+/).length > 3)) return undefined;
+  const parts = raw.map(term).filter((part) => part !== "" && part.length <= 40);
   const [customer, workUnit, priceTerm, bookingTerm] = parts;
   if (customer === undefined || workUnit === undefined) return undefined;
   return { customer, workUnit, priceTerm: priceTerm ?? "price", bookingTerm: bookingTerm ?? "booking" };
+}
+
+// The words an owner uses to name each term when correcting it.
+const ROLE_WORDS: Readonly<Record<keyof Vocabulary, string>> = {
+  customer: "customers?|clients?|guests?",
+  workUnit: "work|jobs?|orders?",
+  priceTerm: "prices?|costs?",
+  bookingTerm: "bookings?|appointments?|reservations?",
+};
+
+function escaped(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Apply a correction to the words already held: "we call a booking a service call" changes only the booking term.
+ * A clean list replaces them all. Returns `undefined` when no term can be mapped, so the old words stay.
+ */
+export function correctVocabulary(current: Vocabulary, text: string): Vocabulary | undefined {
+  const clean = text.replace(/\s+/g, " ").trim();
+  const list = readVocabulary(clean);
+  if (list !== undefined) return list;
+  const end = "(?=\\s*[,.;!?]|\\s+(?:not|instead|and|but|rather)\\b|$)";
+  const next: Record<keyof Vocabulary, string> = { ...current };
+  let changed = false;
+  for (const role of Object.keys(ROLE_WORDS) as (keyof Vocabulary)[]) {
+    const names = `(?:${ROLE_WORDS[role]}|${escaped(current[role])}s?)`;
+    const patterns = [
+      new RegExp(`\\bcall\\s+(?:(?:a|an|the|our)\\s+)?${names}\\s+(?:(?:a|an)\\s+)?([a-z][a-z' -]{1,30}?)${end}`, "i"),
+      new RegExp(`\\b${names}\\s+(?:is|are)\\s+(?:called\\s+)?(?:(?:a|an)\\s+)?([a-z][a-z' -]{1,30}?)${end}`, "i"),
+    ];
+    const found = patterns.map((pattern) => pattern.exec(clean)?.[1]).find((value) => value !== undefined);
+    if (found === undefined) continue;
+    const word = term(found);
+    if (word === "" || NOT_A_TERM.test(word)) continue;
+    next[role] = word;
+    changed = true;
+  }
+  return changed ? next : undefined;
 }
 
 /** Read one field's value from words, or `undefined` when the words don't give one. */
