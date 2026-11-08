@@ -45,6 +45,17 @@ describe("Overview page", () => {
     expect(screen.queryByRole("navigation", { name: "Four stops through the example" })).not.toBeInTheDocument();
   });
 
+  it("puts no dollar figure from an example draft on the brief", async () => {
+    const shop = hvacShop();
+    await stores.current!.ensureCards(SESSION, shop.id, [
+      { agent: "followup", skill: "closer", title: "Quote to the Lewis family", body: "Hi Dana, a quick reminder.", reason: "", checks: [], action: "Send email", channel: "email", to: "Dana Lewis", stake: 240, example: true, key: `${shop.id}:closer` },
+    ]);
+
+    await renderOverview(shop.id);
+
+    expect(within(brief()).queryByText(/rides on today's cards/)).not.toBeInTheDocument();
+  });
+
   it("lists each workflow with who handles it in the owner's words, never a path stamp", async () => {
     await renderOverview(SAMPLE_BUSINESS.id);
 

@@ -1,14 +1,14 @@
 import { QUIET_HOURS_RULE } from "@/lib/domain/executor";
 import { activeAgents, agentForSkill, chosenSkills } from "@/lib/domain/paths";
-import type { ActiveAgent, BusinessProfile, CardDraft, ChoiceMap, KeyedCard, SkillId } from "@/lib/domain/types";
+import type { ActiveAgent, BusinessProfile, CardDraft, ChoiceMap, KeyedCard, SkillId, TradeKey } from "@/lib/domain/types";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
 // The cards agents draft for the owner to approve. `CARD_TEMPLATES` holds one
-// generic card per skill for businesses without researched cards; `draftFeed`
-// builds a business's feed from its chosen skills, and `simulateCard` drafts
-// one more card as if a new event came in, never repeating the standing draft.
+// generic card per skill, worded for the business's trade, with customer names
+// picked from its id; `draftFeed` builds a business's feed from its chosen
+// skills, and `simulateCard` drafts one more card as if a new event came in.
 
 /** A card before Anchored stamps it with the agent and skill that drafted it. */
 export type CardBody = Omit<CardDraft, "agent" | "skill">;
@@ -21,7 +21,7 @@ export type CardSkill = Exclude<SkillId, "brief">;
  * they never repeat it. `agents` are the agents at work here; triage hands email only to one of them.
  */
 export type CardTemplate = (
-  business: Pick<BusinessProfile, "name" | "reach" | "tools" | "signals">,
+  business: Pick<BusinessProfile, "id" | "name" | "tradeKey" | "reach" | "tools" | "signals">,
   variant: number,
   agents?: readonly ActiveAgent[],
 ) => CardBody;
@@ -64,11 +64,145 @@ function usesGoogle(business: Pick<BusinessProfile, "reach" | "tools">): boolean
   return business.reach.includes("Google") || business.tools.includes("Google Business Profile");
 }
 
+// Tools that hold the owner's open times. Only a business that keeps one gets a draft offering exact times.
+const CALENDAR_TOOL = /calendly|calendar|acuity|jobber|housecall|square appointments|vagaro|booksy|mindbody|opentable|resy|setmore|simplybook/i;
+
+/** The check on a draft that offers times read from the owner's calendar. */
+export const CALENDAR_CHECK = "Times match your calendar";
+
+/** Whether the owner named a tool that holds their calendar, so a draft may offer times from it. */
+function keepsCalendar(business: Pick<BusinessProfile, "tools">): boolean {
+  return business.tools.some((tool) => CALENDAR_TOOL.test(tool));
+}
+
+// -----------------------------------------------------------------
+// Customer names
+// -----------------------------------------------------------------
+
+// Large enough that two businesses seldom share a customer. Mixed origins, as a Maryland customer list would be.
+const FIRST_NAMES = [
+  "Aisha", "Andre", "Ana", "Beatriz", "Brandon", "Carmen", "Chloe", "Darnell", "Deepa", "Diego", "Elena", "Emeka",
+  "Fatima", "Gabriel", "Grace", "Hana", "Hector", "Imani", "Jamal", "Jasmine", "Joon", "Julia", "Kayla", "Kwame",
+  "Leah", "Lucia", "Malik", "Marco", "Mei", "Nadia", "Nikhil", "Olivia", "Omar", "Paige", "Quinn", "Rafael",
+  "Renee", "Rosa", "Samir", "Sofia", "Tariq", "Tessa", "Thanh", "Valerie", "Wesley", "Yasmin", "Yusuf", "Zoe",
+] as const;
+const LAST_NAMES = [
+  "Abebe", "Alvarez", "Banks", "Bennett", "Brooks", "Castillo", "Chen", "Coleman", "Diallo", "Dominguez", "Ellis",
+  "Fischer", "Flores", "Gupta", "Hall", "Hughes", "Ibrahim", "Jackson", "Kang", "Kowalski", "Lopez", "Mbeki",
+  "Mendoza", "Murphy", "Nguyen", "Novak", "Okafor", "Ortiz", "Park", "Patel", "Price", "Ramirez", "Reyes", "Rossi",
+  "Shah", "Sullivan", "Tran", "Walker", "Washington", "Young",
+] as const;
+
+/** A 32-bit FNV-1a hash, so a seed string always lands on the same names. */
+function hash(seed: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < seed.length; i += 1) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/** A customer on one card, the same person in its title, body and recipient. */
+interface Person {
+  readonly first: string;
+  readonly last: string;
+  readonly full: string;
+}
+
+/** The person a seed string lands on, always the same one for the same seed. */
+function personFrom(seedText: string): Person {
+  const seed = hash(seedText);
+  const first = FIRST_NAMES[seed % FIRST_NAMES.length] ?? FIRST_NAMES[0];
+  // A second hash, so first and last names don't move together.
+  const last = LAST_NAMES[hash(`${seed}:last`) % LAST_NAMES.length] ?? LAST_NAMES[0];
+  return { first, last, full: `${first} ${last}` };
+}
+
+/** The customer on `skill`'s card at `variant`, picked from the business id so each business sees its own names. */
+function personFor(business: Pick<BusinessProfile, "id">, skill: CardSkill, variant: number): Person {
+  return personFrom(`${business.id}:${skill}:${variant}`);
+}
+
+/** `count` customer names for a business, each with its own first name, the same list every time for the same id. */
+export function customerNames(businessId: string, count: number): string[] {
+  const names: Person[] = [];
+  // The pool holds far more first names than any caller asks for, so the loop ends long before its cap.
+  for (let i = 0; names.length < count && i < count * 20; i += 1) {
+    const person = personFrom(`${businessId}:customer:${i}`);
+    if (!names.some((taken) => taken.first === person.first)) names.push(person);
+  }
+  return names.map((person) => person.full);
+}
+
+// -----------------------------------------------------------------
+// Trade wording
+// -----------------------------------------------------------------
+
+/** The words a trade uses for the moments its cards describe. */
+interface TradeWords {
+  /** What a booking is called, such as "service visit" or "reservation". */
+  readonly booking: string;
+  /** What a new customer asked about, for a first reply's thanks: the standing card's, then simulated ones. */
+  readonly asked: readonly [string, string, ...string[]];
+  /** The title of a review ask about `person`. */
+  readonly finished: (person: Person) => string;
+  /** The detail a 4-star review mentions, and the owner's answer to it. */
+  readonly review: { readonly topic: string; readonly reply: string };
+  /** The title of a forwarded customer email. */
+  readonly forwarded: string;
+}
+
+// The trades `detectTradeKey` knows, plus a neutral set for any other business. Nothing here names a price,
+// a season or a service the owner may not offer: a plumber and a landscaper both read the `home` words.
+const TRADE_WORDS: Readonly<Record<TradeKey, TradeWords>> = {
+  home: {
+    booking: "service visit",
+    asked: ["getting someone out to take a look", "a quote for some work at their place", "when you could fit them in"],
+    finished: (p) => `Job finished at the ${p.last} home`,
+    review: { topic: "the crew arriving late", reply: "and you're right that we ran past the arrival window. We now text when the crew is on the way." },
+    forwarded: "Forwarded email: a past customer asks about a follow-up visit",
+  },
+  restaurant: {
+    booking: "reservation",
+    asked: ["booking a table for a group", "ordering ahead for pickup", "your hours this weekend"],
+    finished: (p) => `${p.full} ordered with you for the first time`,
+    review: { topic: "a long wait", reply: "and you're right about the wait. We're adding help at our busiest hours." },
+    forwarded: "Forwarded email: a guest asks about booking a group",
+  },
+  store: {
+    booking: "pickup",
+    asked: ["whether you carry an item they need", "setting something aside for pickup", "your hours this weekend"],
+    finished: (p) => `${p.full} picked up an order today`,
+    review: { topic: "an item that was out of stock", reply: "and you're right that we ran out. We've moved up our next order for it." },
+    forwarded: "Forwarded email: a regular asks you to set an item aside",
+  },
+  coach: {
+    booking: "session",
+    asked: ["how your sessions work", "whether you have room for a new client", "what a first session looks like"],
+    finished: (p) => `${p.full} finished their sessions`,
+    review: { topic: "a session that started late", reply: "and you're right that we started late. Sessions now open on time." },
+    forwarded: "Forwarded email: a question from a past client about starting again",
+  },
+  any: {
+    booking: "appointment",
+    asked: ["what you offer", "how to get started with you", "when you could fit them in"],
+    finished: (p) => `${p.full} just worked with you`,
+    review: { topic: "a slow reply", reply: "and you're right that we were slow to answer. We now reply the same day." },
+    forwarded: "Forwarded email: a question from a past customer",
+  },
+};
+
+/** `text` with its first letter in capitals, for a booking word that starts a title. */
+function capitalized(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 // =============================================================================
 // Templates
 // =============================================================================
 
-/** One generic card per skill, used when a business has no researched card for it. */
+/** One generic card per skill, worded for the trade, used when a business has no researched card for it. */
 export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
   callback: (b, v) => {
     const caller = pick(v, "(410) 555-0137", "(443) 555-0182", "(240) 555-0164");
@@ -83,65 +217,79 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
     };
   },
   inquiry: (b, v) => {
-    const name = pick(v, "Sam", "Alex", "Morgan");
+    const person = personFor(b, "inquiry", v);
     const channel = inquiryChannel(b);
+    const [standing, ...simulated] = TRADE_WORDS[b.tradeKey].asked;
+    // `asked` always holds a simulated option; the tuple type only can't carry that through the spread.
+    const asked = pick(v, standing, ...(simulated as [string, ...string[]]));
+    // Offer times only from a calendar the owner said they keep; otherwise ask the customer for one.
+    const calendar = keepsCalendar(b);
+    const next = calendar
+      ? `Could we talk ${pick(v, "tomorrow at 10 a.m. or 3 p.m.", "tomorrow at 9 a.m. or 1 p.m.", "tomorrow at 11 a.m. or 2 p.m.")}?`
+      : "What's a good time to reach you?";
     return {
       // Name only a channel the owner said they have, so a business with no website never sees one.
-      title: channel === null ? `New inquiry from ${name}` : `New inquiry ${channel}: ${name}`,
-      body: `Hi ${name}, thanks for reaching out to ${b.name}! Could we talk ${pick(v, "tomorrow at 10 a.m. or 3 p.m.", "Thursday at 9 a.m. or Friday at 1 p.m.", "Monday at 11 a.m. or 2 p.m.")}?`,
+      title: channel === null ? `New inquiry from ${person.first}` : `New inquiry ${channel}: ${person.first}`,
+      body: `Hi ${person.first}, thanks for asking ${b.name} about ${asked}! ${next}`,
       reason: "Replies within the hour qualify far more often.",
-      checks: ["Times match your calendar", "No price in a first reply"],
+      checks: calendar ? [CALENDAR_CHECK, "No price in a first reply"] : ["No price in a first reply"],
       action: "Send email",
       channel: "email",
-      to: pick(v, "Sam Patel", "Alex Rivera", "Morgan Lee"),
+      to: person.full,
     };
   },
   showup: (b, v) => {
     const time = pick(v, "10 a.m.", "2:30 p.m.", "4 p.m.");
-    const name = pick(v, "Maria", "Devon", "Kim");
+    const person = personFor(b, "showup", v);
+    const booking = TRADE_WORDS[b.tradeKey].booking;
     return {
-      title: `Booking tomorrow at ${time} with ${name}`,
-      body: `Hi ${name}, a reminder of your visit with ${b.name} tomorrow at ${time}. Reply C to confirm or R to reschedule. Reply STOP to opt out.`,
+      title: `${capitalized(booking)} tomorrow at ${time} with ${person.first}`,
+      body: `Hi ${person.first}, a reminder of your ${booking} with ${b.name} tomorrow at ${time}. Reply C to confirm or R to reschedule. Reply STOP to opt out.`,
       reason: "A reminder the day before saves the slot.",
       checks: [QUIET_HOURS_RULE, "Booked customer with consent"],
       action: "Send text",
       channel: "sms",
-      to: pick(v, "Maria Lopez", "Devon Hall", "Kim Tran"),
+      to: person.full,
     };
   },
+  // Only a business that said it takes catering orders has this skill, so the card can name catering.
   catering: (b, v) => {
     const guests = pick(v, "30", "45", "60");
+    const person = personFor(b, "catering", v);
     return {
       title: `Party of ${guests} asked about catering`,
-      body: `Hi ${pick(v, "Marcus", "Tina", "Rosa")}, thanks for thinking of ${b.name}! For ${guests} people we have three packages. Which date are you planning for?`,
+      body: `Hi ${person.first}, thanks for thinking of ${b.name}! For ${guests} people, which date are you planning for?`,
       reason: "One catering order is worth many single orders.",
       checks: ["No allergy claims", "Sent by email, not text"],
       action: "Send email",
       channel: "email",
-      to: pick(v, "Marcus Reed", "Tina Cho", "Rosa Alvarez"),
+      to: person.full,
     };
   },
   callfollow: (b, v) => {
-    const name = pick(v, "Priya", "Lee", "Jamie");
+    const person = personFor(b, "callfollow", v);
     return {
-      title: `${name} said 'let me think' after your call`,
-      body: `Hi ${name}, good talking the other day. Any questions I can answer about getting started with ${b.name}?`,
+      title: `${person.first} said 'let me think' after your call`,
+      body: `Hi ${person.first}, good talking the other day. Any questions I can answer about getting started with ${b.name}?`,
       reason: "Check-in 2 of 3.",
       checks: ["Check-in 2 of 3", "No new offer added"],
       action: "Send email",
       channel: "email",
-      to: pick(v, "Priya Nair", "Lee Park", "Jamie Wells"),
+      to: person.full,
     };
   },
-  closer: (b, v) => ({
-    title: `Quote to the ${pick(v, "Lewis", "Moreno", "Shah")} family, 5 days quiet`,
-    body: `Hi ${pick(v, "Dana", "Luis", "Anika")}, it's ${b.name}. Checking in on the quote we sent last week. Happy to answer questions or adjust the scope. Reply STOP to opt out.`,
-    reason: "Touch 2 of 3. Quotes stall without a nudge.",
-    checks: ["Customer has a consent record", "No new offer added", "Touch 2 of 3"],
-    action: "Send text",
-    channel: "sms",
-    to: pick(v, "Dana Lewis", "Luis Moreno", "Anika Shah"),
-  }),
+  closer: (b, v) => {
+    const person = personFor(b, "closer", v);
+    return {
+      title: `Quote to the ${person.last} family, 5 days quiet`,
+      body: `Hi ${person.first}, it's ${b.name}. Checking in on the quote we sent last week. Happy to answer questions or adjust the scope. Reply STOP to opt out.`,
+      reason: "Touch 2 of 3. Quotes stall without a nudge.",
+      checks: ["Customer has a consent record", "No new offer added", "Touch 2 of 3"],
+      action: "Send text",
+      channel: "sms",
+      to: person.full,
+    };
+  },
   debrief: (_b, v) => ({
     title: `Voice note from ${pick(v, "today's visit", "this morning's visit", "the last job")}`,
     body: `The customer wants a price for the work we looked at and asked for it by ${pick(v, "Friday", "Monday", "Wednesday")}. Create a follow-up so it doesn't get lost?`,
@@ -171,39 +319,43 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
     channel: "sms",
     to: "Plan members",
   }),
-  referral: (_b, v) => {
-    const name = pick(v, "Lee", "Robin", "Taylor");
+  referral: (b, v) => {
+    const person = personFor(b, "referral", v);
     return {
-      title: `${name} finishes in two weeks`,
-      body: `Hi ${name}, it's been great working with you. Would you write two lines about your experience, and is there anyone you'd suggest we talk to?`,
+      title: `${person.first} finishes in two weeks`,
+      body: `Hi ${person.first}, it's been great working with you. Would you write two lines about your experience, and is there anyone you'd suggest we talk to?`,
       reason: "The best time to ask is near the finish.",
       checks: ["No reward tied to a rating"],
       action: "Send email",
       channel: "email",
-      to: pick(v, "Lee Park", "Robin Diaz", "Taylor Nash"),
+      to: person.full,
     };
   },
   // No business profile holds a review link yet, so the text promises it instead of leaving a blank to fill.
-  reviewer: (b, v) => ({
-    title: `Visit finished for the ${pick(v, "Nguyens", "Carters", "Garcias")}`,
-    body: `Thanks for choosing ${b.name}, ${pick(v, "Linh", "Ray", "Elena")}! If we did right by you, a Google review helps neighbors find us. I'll send the link next. Reply STOP to opt out.`,
-    reason: "Ask while the visit is fresh.",
-    checks: ["No reward offered for a rating", "Existing customer with consent"],
-    action: "Send text",
-    channel: "sms",
-    to: pick(v, "Linh Nguyen", "Ray Carter", "Elena Garcia"),
-  }),
+  reviewer: (b, v) => {
+    const person = personFor(b, "reviewer", v);
+    return {
+      title: TRADE_WORDS[b.tradeKey].finished(person),
+      body: `Thanks for choosing ${b.name}, ${person.first}! If we did right by you, a Google review helps neighbors find us. I'll send the link next. Reply STOP to opt out.`,
+      reason: "Ask while the visit is fresh.",
+      checks: ["No reward offered for a rating", "Existing customer with consent"],
+      action: "Send text",
+      channel: "sms",
+      to: person.full,
+    };
+  },
   // No business profile holds a payment link yet, so the email promises it instead of leaving a blank to fill.
   nudger: (b, v) => {
     const invoice = pick(v, "1042", "1057", "1063");
+    const person = personFor(b, "nudger", v);
     return {
       title: `Invoice ${invoice} is 9 days late`,
-      body: `Hi ${pick(v, "Jordan", "Casey", "Riley")}, a quick reminder about invoice ${invoice} from ${b.name}. If paying online is easier, I'll send the link next. Thanks!`,
+      body: `Hi ${person.first}, a quick reminder about invoice ${invoice} from ${b.name}. If paying online is easier, I'll send the link next. Thanks!`,
       reason: "A friendly reminder now beats an awkward one later.",
       checks: ["Amount read from your invoice"],
       action: "Send email",
       channel: "email",
-      to: pick(v, "Jordan Kim", "Casey Brooks", "Riley Chen"),
+      to: person.full,
       stake: pick(v, 240, 410, 180),
     };
   },
@@ -215,15 +367,16 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
     action: "Add to rep list",
     channel: "list",
   }),
-  // Google listing posts only for a business that said it uses Google. No profile holds hours, so no post states them.
+  // Google listing posts only for a business that said it uses Google. No profile holds hours, so no post states them,
+  // and no title claims how long the owner has gone without posting.
   posts: (b, v) =>
     usesGoogle(b)
       ? {
           title: pick(
             v,
-            "Your Google listing hasn't changed in 3 months",
+            "A fresh post for your Google listing",
             "Customers check your Google listing before they visit",
-            "Your Google listing has no recent photos",
+            "Your Google listing could use a recent photo",
           ),
           body: `Draft post for ${b.name}: "${postLine(b, v, true)}"`,
           reason: "Customers skip a business when basic details are missing.",
@@ -232,27 +385,30 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
           channel: "list",
         }
       : {
-          title: pick(v, "Nothing posted in 3 weeks", "A short post for this week", "Show customers what's new"),
+          title: pick(v, "A short post for this week", "Show customers what's new", "A thank-you post for your customers"),
           body: `Draft post for ${b.name}: "${postLine(b, v, false)}"`,
           reason: "A short, regular post keeps you in front of customers.",
           checks: ["You post it yourself", "No prices or offers in the post"],
           action: "Copy post",
           channel: "list",
         },
-  reviewdrafter: (_b, v) => ({
-    title: "New 4-star review mentions a long wait",
-    body: `Thanks for the kind words, ${pick(v, "Chris", "Dana", "Pat")}, and you're right about the wait. We're adding help at our busiest hours. Hope to see you again soon.`,
-    reason: "Generic replies put readers off, so the draft cites one detail.",
-    checks: ["Cites one detail from the review", "No discount offered"],
-    action: "Copy reply",
-    channel: "list",
-  }),
+  reviewdrafter: (b, v) => {
+    const review = TRADE_WORDS[b.tradeKey].review;
+    return {
+      title: `New 4-star review mentions ${review.topic}`,
+      body: `Thanks for the kind words, ${personFor(b, "reviewdrafter", v).first}, ${review.reply} Hope to see you again soon.`,
+      reason: "Generic replies put readers off, so the draft cites one detail.",
+      checks: ["Cites one detail from the review", "No discount offered"],
+      action: "Copy reply",
+      channel: "list",
+    };
+  },
   triage: (b, _v, agents = []) => {
     // A business with no suppliers forwards customer mail instead, which is the Front Desk's work.
     if (!b.signals.includes("suppliers")) {
       const frontDesk = agents.find((agent) => agent.skills.includes("inquiry"));
       return {
-        title: "Forwarded email: a question from a past customer",
+        title: TRADE_WORDS[b.tradeKey].forwarded,
         body:
           frontDesk === undefined
             ? "None of your agents answers new questions, so this one is yours to read."
@@ -277,12 +433,13 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
       channel: "list",
     };
   },
+  // No profile names a calendar, so the reminder goes on the owner's list rather than into a calendar.
   license: (_b, v) => ({
     title: pick(v, "A license renews in 30 days", "A permit renews in 45 days", "A certificate renews in 60 days"),
     body: "The photo is on file. Add a renewal reminder for Monday morning?",
     reason: "A lapse can shut down part of the business.",
     checks: ["Date read from your license photo"],
-    action: "Add to calendar",
+    action: "Add reminder",
     channel: "list",
   }),
   stockcheck: () => ({
@@ -296,34 +453,60 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
 };
 
 /** Whether `skill` drafts cards, so it has a template. */
-function hasTemplate(skill: SkillId): skill is CardSkill {
+export function hasTemplate(skill: SkillId): skill is CardSkill {
   return skill !== "brief";
+}
+
+// =============================================================================
+// Keys
+// =============================================================================
+
+/** The key of a business's standing card for `skill`: its starter, whether a template or written for it. */
+export function standingKey(businessId: string, skill: SkillId): string {
+  return `${businessId}:${skill}`;
+}
+
+/** A fresh key for a card a real outside event produced, such as a customer's text. */
+export function liveEventKey(businessId: string, eventId: string): string {
+  return `${businessId}:event:${eventId}`;
+}
+
+/** Whether `key` belongs to a card a real outside event produced, not a starter, a simulation or a chat request. */
+export function isLiveEventKey(key: string): boolean {
+  return key.includes(":event:");
 }
 
 // =============================================================================
 // Feed
 // =============================================================================
 
-/** The feed: one card per chosen skill, locked cards whose skill is chosen, then one inbox triage card. */
+/**
+ * The feed: one card per chosen skill, locked cards whose skill is chosen, then one inbox triage card. On an
+ * owner's own business every one is an example, since no real customer sent it; the example business is all example.
+ */
 export function draftFeed(business: BusinessProfile, choices: ChoiceMap): KeyedCard[] {
   const skills = chosenSkills(business, choices);
+  // The example business is labeled as an example as a whole, so its researched cards carry no tag.
+  const example = business.kind === "custom" ? ({ example: true } as const) : {};
   const feed: KeyedCard[] = skills.filter(hasTemplate).map((skill) => ({
     ...(business.cards?.[skill] ?? CARD_TEMPLATES[skill](business, STANDING_VARIANT)),
+    ...example,
     agent: agentForSkill(business, skill),
     skill,
-    key: `${business.id}:${skill}`,
+    key: standingKey(business.id, skill),
   }));
   // `i` counts every locked card, chosen or not, so a card keeps its key when other skills change.
   business.lockedCards?.forEach((card, i) => {
     if (skills.includes(card.skill)) {
-      feed.push({ ...card, agent: agentForSkill(business, card.skill), key: `${business.id}:locked:${i}` });
+      feed.push({ ...card, ...example, agent: agentForSkill(business, card.skill), key: `${business.id}:locked:${i}` });
     }
   });
   feed.push({
     ...CARD_TEMPLATES.triage(business, STANDING_VARIANT, activeAgents(business, choices)),
+    ...example,
     agent: agentForSkill(business, "triage"),
     skill: "triage",
-    key: `${business.id}:triage`,
+    key: standingKey(business.id, "triage"),
   });
   return feed;
 }

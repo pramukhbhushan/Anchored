@@ -51,7 +51,8 @@ export default async function OverviewPage({ params }: { readonly params: Promis
   const [choices, feed] = await Promise.all([getChoices(business), getFeed(business)]);
   const stats = feedStats(feed.cards);
   const waiting = feed.cards.filter((card) => card.status === "pending");
-  const atStake = waiting.reduce((sum, card) => sum + (card.stake ?? 0), 0);
+  // An example's dollar figure is made up to show the card, so only real drafts count toward what rides on today.
+  const atStake = waiting.reduce((sum, card) => sum + (card.example === true ? 0 : (card.stake ?? 0)), 0);
   const cost = stackCost(business, choices);
   const onQuote = cost.onQuote.length > 0 ? `, plus ${joinAnd(cost.onQuote.map((tool) => tool.name))} on quote` : "";
   // Same rule as the morning brief in `lib/domain/brief.ts`: new workflows the owner hasn't skipped.
@@ -131,8 +132,8 @@ export default async function OverviewPage({ params }: { readonly params: Promis
           {waiting.length > ROWS_SHOWN && <p className="brief-more">and {waiting.length - ROWS_SHOWN} more</p>}
 
           <ul className="brief-lines">
-            {/* No connector is live yet, so an owner's own cards are the agents' samples; the example's are understood as examples. */}
-            {business.kind === "custom" && waiting.length > 0 && <li>These drafts are samples until you connect your phone and email.</li>}
+            {/* An owner's starters are samples until real drafts replace them; the example business's are understood as examples. */}
+            {waiting.some((card) => card.example === true) && <li>These drafts are samples until you connect your phone and email.</li>}
             {atStake > 0 && <li>{money(atStake)} rides on today&apos;s cards.</li>}
             {fresh.length > 0 && (
               <li>

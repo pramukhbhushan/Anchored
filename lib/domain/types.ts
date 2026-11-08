@@ -223,6 +223,8 @@ export interface CardDraft {
   readonly to?: string;
   /** Dollars riding on this card, when the research gives a figure. */
   readonly stake?: number;
+  /** A starter Anchored wrote to show an agent's work, not a reply to a real customer. Absent on real cards. */
+  readonly example?: true;
   /** A stable key for the customer this card answers, such as a phone number. One pending card per contact. */
   readonly contact?: string;
   /** Profile fields the draft drew on, so an owner's edit to one of them can update the profile. */

@@ -6,6 +6,7 @@ import { useId, useState, useTransition, type ReactNode } from "react";
 import { ApiCallError, callApi, errorText } from "@/components/api";
 import { cardAnchor } from "@/components/routes";
 import { useToast, type ToastLink } from "@/components/ui/Toast";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { copyText } from "@/components/business/SendYourself";
 import { approvedDraft, copiedThing, copyTextFor, handOff, massAudience, type HandOffBusiness } from "@/components/business/handoff";
@@ -18,6 +19,7 @@ import type { CardRecord, DecideCardRequest, DecideCardResponse, RewriteResponse
 // and, when an AI provider is set up, "Rewrite in my voice"; a locked card
 // offers "I'll handle it". Approve always sends the text on screen, a send to
 // many people asks once more, and a refusal or delay from the server shows on the card.
+// A starter no real customer sent carries an Example tag.
 // After an approval the toast carries the owner's send step, such as a link
 // that opens their texting app with the message typed out.
 
@@ -160,9 +162,14 @@ export function AgentCard({
   }
 
   const disabled = busy || refreshing;
+  // A starter shows what an agent drafts; no real customer sent it, and the tag says so on the card itself.
+  const exampleTag = card.example === true && <Badge className="card-tag">Example</Badge>;
   const head = (
     <>
-      <p className="card-who">{whoLine(card, source)}</p>
+      <p className="card-who">
+        {whoLine(card, source)}
+        {exampleTag}
+      </p>
       <h3>{card.title}</h3>
     </>
   );
@@ -182,7 +189,10 @@ export function AgentCard({
     return (
       <article className="card-done">
         <h3>{card.title}</h3>
-        <p className="card-status">{decidedLabel(card)}</p>
+        <p className="card-status">
+          {decidedLabel(card)}
+          {exampleTag}
+        </p>
         {noteLine}
       </article>
     );

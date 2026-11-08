@@ -6,9 +6,12 @@ import type { CardRecord, EventCardResponse, OutboxEntry } from "@/lib/api/contr
 import { draftFeed } from "@/lib/domain/cards";
 import { isSampleBusinessId, SAMPLE_BUSINESS } from "@/lib/domain/cases";
 import { chosenSkills, resolveChoices, workflowIdsOf } from "@/lib/domain/paths";
+import { examplesHidden, startersDue } from "@/lib/domain/starters";
 import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, SkillId, WorkflowId } from "@/lib/domain/types";
+import { isAiConfigured } from "@/lib/llm";
 import { getStore } from "@/lib/store";
 import { getSessionId } from "./session";
+import { isWritingStarters, scheduleStarters } from "./starters";
 
 // =============================================================================
 // Module Overview
@@ -132,25 +135,47 @@ export async function materializeCard(id: string): Promise<CardRecord | null> {
   return (await store.listCards(session, business.id)).find((card) => card.key === key) ?? null;
 }
 
-/** Return the cards for the business's chosen skills and its simulated outbox. Reads only. */
-export async function getFeed(business: BusinessProfile): Promise<{ cards: CardRecord[]; outbox: OutboxEntry[] }> {
+/** A business's feed, and whether its example cards are still the ones to show. */
+export interface Feed {
+  readonly cards: CardRecord[];
+  readonly outbox: OutboxEntry[];
+  /** Whether the business has connected a texting number, email or Stripe. */
+  readonly connected: boolean;
+  /** Whether real cards from a connected channel have replaced the examples. */
+  readonly examplesHidden: boolean;
+  /** Whether starters are being written for this business, so the page should look again shortly. */
+  readonly writingStarters: boolean;
+}
+
+/**
+ * Return the cards for the business's chosen skills and its outbox. Writes nothing itself; when the business still
+ * shows template starters and AI is on, it schedules them to be written after the response.
+ */
+export async function getFeed(business: BusinessProfile): Promise<Feed> {
   const session = await getSessionId();
   const store = getStore();
-  // The three reads don't depend on each other, so the page waits for one database round trip, not three.
-  const [choices, stored, outbox] = await Promise.all([
+  // The reads don't depend on each other, so the page waits for one database round trip, not four.
+  const [choices, stored, outbox, connections] = await Promise.all([
     getChoices(business),
     store.listCards(session, business.id),
     store.listOutbox(session, business.id),
+    store.listConnections(session, business.id),
   ]);
+  const connected = connections.length > 0;
+  const hidden = examplesHidden(stored, connected);
   const storedKeys = new Set(stored.map((card) => card.key));
   const virtual: CardRecord[] = draftFeed(business, choices)
     .filter((draft) => !storedKeys.has(draft.key))
     .map((draft) => ({ ...draft, id: virtualCardId(draft.key), businessId: business.id, status: "pending", edited: false, createdAt: STANDING_DRAFT_TIME, decidedAt: null }));
   const live = liveSkills(business, choices);
-  // A pending card for a skill the owner switched away from is hidden until it switches back;
-  // decided cards stay, so the history and its counts don't change with the owner's paths.
-  const cards = [...stored, ...virtual].filter((card) => card.status !== "pending" || (card.skill !== null && live.has(card.skill)));
-  return { cards: cards.sort(feedOrder), outbox };
+  // A pending card for a skill the owner switched away from is hidden until it switches back, and a pending
+  // example once real cards took over; decided cards stay, so the history and its counts don't change.
+  const cards = [...stored, ...virtual].filter(
+    (card) => card.status !== "pending" || (card.skill !== null && live.has(card.skill) && !(hidden && card.example === true)),
+  );
+  const due = isAiConfigured() && startersDue(business, choices, stored, connected);
+  if (due) scheduleStarters(session, business);
+  return { cards: cards.sort(feedOrder), outbox, connected, examplesHidden: hidden, writingStarters: due || isWritingStarters(session, business.id) };
 }
 
 // Standing drafts sort below every real event: new calls, leads and invoices should lead the feed.
