@@ -22,7 +22,7 @@ export default function NotFound() {
         actions={
           <>
             <ButtonLink href={NEW_BUSINESS_HREF}>Start over</ButtonLink>
-            <ButtonLink href="/#example" variant="secondary">
+            <ButtonLink href="/app/b/restaurant" variant="secondary">
               Explore the example
             </ButtonLink>
           </>
