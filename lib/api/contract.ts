@@ -137,6 +137,16 @@ export interface ChatMessage {
   readonly at: string;
   /** What this reply changed in the business, on business chat replies that changed something. */
   readonly changes?: readonly ProfileChange[];
+  /** The card this reply drafted, on business chat replies to a request for work. */
+  readonly card?: ChatCardLink;
+}
+
+/** A card a business chat reply drafted, so the reply can link to it in Approvals. */
+export interface ChatCardLink {
+  /** The card's stable key, which names its place on the Approvals page. */
+  readonly key: string;
+  readonly title: string;
+  readonly status: CardStatus;
 }
 
 /** The state of an onboarding chat, as every intake route returns it. */
@@ -163,7 +173,7 @@ export interface IntakeAnswerRequest {
   readonly picks?: readonly string[];
 }
 
-/** POST /api/businesses/[id]/chat: tell Anchored what changed. */
+/** POST /api/businesses/[id]/chat: tell Anchored what changed, or ask an agent for a draft. */
 export interface BusinessChatRequest {
   readonly text: string;
 }

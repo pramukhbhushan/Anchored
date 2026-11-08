@@ -61,8 +61,8 @@ export interface ChatThread {
   readonly id: string;
 }
 
-/** A chat message before the store assigns its id and time. */
-export type NewChatMessage = Omit<ChatMessage, "id" | "at">;
+/** A chat message before the store assigns its id and time. A reply's card is read from the cards, never stored on it. */
+export type NewChatMessage = Omit<ChatMessage, "id" | "at" | "card">;
 
 /** An onboarding chat: the draft so far and, once the owner confirms, the business it built. */
 export interface IntakeRecord {

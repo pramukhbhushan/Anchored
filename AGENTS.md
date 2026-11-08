@@ -44,7 +44,7 @@ Each layer imports only the layers below it: `lib/domain` at the bottom with `zo
 
 Each rule protects an owner's customers or data, and breaking one can pass every other test. Before you change code a rule names, read its section in [`docs/architecture.md`](docs/architecture.md#the-invariants) or [`docs/security.md`](docs/security.md).
 
-- **The model writes text only.** Code decides every workflow, path, score and send, and validates each model reply before using it. `lib/server/ai.ts`, `intake-ai.ts` and `business-chat.ts` hold the model features.
+- **The model writes text only.** Code decides every workflow, path, score and send, and validates each model reply before using it. `lib/server/ai.ts`, `intake-ai.ts` and `business-chat.ts` hold the model features. When an owner asks for work in the business chat, `readRequest` in `lib/domain/requests.ts` picks the skill from the ones they chose, and the model writes only the draft's words.
 - **`checkSend` gates every send.** `checkSend` in `lib/domain/executor.ts` enforces quiet hours, the allergy lock, the opt-out line, unfilled `[placeholders]` and consent. `decideCard` in `lib/server/decide.ts` runs it, and is the one code path that writes to the outbox.
 - **Anchored sends only through `lib/server/dispatch.ts`.** It runs `checkSend` again at send time and sends a text only to a number with a consent record and no STOP.
 - **Card decisions and rewrites go through `Store.updatePendingCard`.** It writes only while the card is still pending, so a double tap decides and sends once.
