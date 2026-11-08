@@ -46,7 +46,9 @@ function deliveryLine(entry: OutboxEntry, held: boolean): string | null {
   if (entry.delivery === "sent") return "Sent by Anchored";
   if (entry.delivery === "failed") return entry.note === null ? "Didn't send. Send it yourself." : `Didn't send: ${entry.note}`;
   if (held) return `Ready to send at ${sendTimeText(new Date(entry.sentAt))}`;
-  if (entry.delivery === "queued" || entry.delivery === "sending") return "Sending now";
+  if (entry.delivery === "sending") return "Sending now";
+  // Due but not yet picked up: the scheduled sender takes it on its next run, so nothing has gone out yet.
+  if (entry.delivery === "queued") return "Waiting for Anchored to send it";
   return entry.note;
 }
 
