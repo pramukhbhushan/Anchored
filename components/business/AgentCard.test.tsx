@@ -70,7 +70,7 @@ const BUSINESS: HandOffBusiness = { name: "Greenfield Landscaping", reach: ["Pho
 
 /** The outbox entry the cards route writes when it approves `card`. */
 function outboxFor(card: CardRecord): OutboxEntry {
-  return { id: "out-1", businessId: card.businessId, cardId: card.id, channel: card.channel === "locked" ? "list" : card.channel, to: card.to ?? "customer", body: card.body, sentAt: "2026-11-07T15:00:00Z", delivery: "yours", note: null };
+  return { id: "out-1", businessId: card.businessId, cardId: card.id, channel: card.channel === "locked" || card.channel === "flag" ? "list" : card.channel, to: card.to ?? "customer", body: card.body, sentAt: "2026-11-07T15:00:00Z", delivery: "yours", note: null };
 }
 
 /** The cards route answering a decision on `card`. */

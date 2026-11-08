@@ -29,7 +29,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (!business) return fail(404, "Business not found. It may have been reset.");
 
     const planApproval = approvePlan(business, await store.getChoices(session, id), new Date());
-    await store.saveBusiness(session, { ...business, planApproval });
+    await store.saveBusiness(session, { ...business, planApproval }, "owner");
     return json<ApprovePlanResponse>({ planApproval });
   } catch (error) {
     return handleError(error, "PUT /api/businesses/[id]/plan");

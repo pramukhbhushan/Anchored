@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   try {
     const business = await buildProfile(parsed.data);
     if (!business) return fail(400, "That example doesn't exist. Pick one from the list.");
-    await getStore().saveBusiness(await getSessionId(), business);
+    await getStore().saveBusiness(await getSessionId(), business, "onboarding");
     return json<CreateBusinessResponse>({ id: business.id, business }, 201);
   } catch (error) {
     return handleError(error, "POST /api/businesses");
