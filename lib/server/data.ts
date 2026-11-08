@@ -17,11 +17,12 @@ import { getSessionId } from "./session";
 // session's own businesses, choices and cards come from the `Store`. `getFeed`
 // also syncs card drafts for the agents the owner has chosen.
 
+// `cache` reads the list once per server render: the shell layout and the `/app` page both ask for it.
 /** Return the example business, then the session's own businesses. */
-export async function listBusinesses(): Promise<BusinessProfile[]> {
+export const listBusinesses = cache(async (): Promise<BusinessProfile[]> => {
   const session = await getSessionId();
   return [SAMPLE_BUSINESS, ...(await getStore().listBusinesses(session))];
-}
+});
 
 // `cache` reads each id once per server render: the business layout and its page both look it up.
 /** Return the example business or one of the session's businesses, or `null`. */
@@ -37,10 +38,13 @@ export async function getBusinessOrNotFound(id: string): Promise<BusinessProfile
   return business;
 }
 
+// `cache` reads each business's choices once per server render: a page that shows
+// both the paths and the feed would otherwise read them twice.
+const savedChoices = cache(async (businessId: string) => getStore().getChoices(await getSessionId(), businessId));
+
 /** Return the chosen path for each of the business's workflows, filling in Anchored's picks. */
 export async function getChoices(business: BusinessProfile): Promise<Record<WorkflowId, Choice>> {
-  const saved = await getStore().getChoices(await getSessionId(), business.id);
-  return resolveChoices(business, saved);
+  return resolveChoices(business, await savedChoices(business.id));
 }
 
 /** Narrow `choices` so only `skill` is built, letting a simulation target one skill. */
@@ -127,8 +131,12 @@ export async function materializeCard(id: string): Promise<CardRecord | null> {
 export async function getFeed(business: BusinessProfile): Promise<{ cards: CardRecord[]; outbox: OutboxEntry[] }> {
   const session = await getSessionId();
   const store = getStore();
-  const choices = await getChoices(business);
-  const stored = await store.listCards(session, business.id);
+  // The three reads don't depend on each other, so the page waits for one database round trip, not three.
+  const [choices, stored, outbox] = await Promise.all([
+    getChoices(business),
+    store.listCards(session, business.id),
+    store.listOutbox(session, business.id),
+  ]);
   const storedKeys = new Set(stored.map((card) => card.key));
   const virtual: CardRecord[] = draftFeed(business, choices)
     .filter((draft) => !storedKeys.has(draft.key))
@@ -137,7 +145,7 @@ export async function getFeed(business: BusinessProfile): Promise<{ cards: CardR
   // A pending card for a skill the owner switched away from is hidden until it switches back;
   // decided cards stay, so the history and its counts don't change with the owner's paths.
   const cards = [...stored, ...virtual].filter((card) => card.status !== "pending" || (card.skill !== null && live.has(card.skill)));
-  return { cards: cards.sort(feedOrder), outbox: await store.listOutbox(session, business.id) };
+  return { cards: cards.sort(feedOrder), outbox };
 }
 
 // Standing drafts sort below every real event: new calls, leads and invoices should lead the feed.
