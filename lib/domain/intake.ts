@@ -1,5 +1,34 @@
-import { detectTradeKey, hintFor, planWorkflows, profileFromFacts, TRADE_HINTS } from "@/lib/domain/engine";
-import type { BusinessFacts, BusinessProfile, OnboardingAnswers, SignalId, TradeKey, WorkflowId, WorkflowPlan } from "@/lib/domain/types";
+import {
+  candidateFor,
+  candidatesFromSales,
+  confirmAll,
+  conflictLine,
+  detailText,
+  gapsFor,
+  mergeCandidate,
+  mergeCandidates,
+  NO_DETAILS,
+  SOURCE_NAME,
+  vocabularyGuess,
+  type DetailCandidate,
+  type DetailState,
+} from "@/lib/domain/details";
+import { detectTradeKey, hintFor, planWorkflows, profileFromAnswers, profileFromFacts, TRADE_HINTS } from "@/lib/domain/engine";
+import { FIELD_KEYS, FIELDS, isFilled } from "@/lib/domain/fields";
+import { activeAgents } from "@/lib/domain/paths";
+import type {
+  BusinessFacts,
+  BusinessProfile,
+  CoreAgentId,
+  FieldEvidence,
+  FieldKey,
+  OnboardingAnswers,
+  ProfileDetails,
+  SignalId,
+  TradeKey,
+  WorkflowId,
+  WorkflowPlan,
+} from "@/lib/domain/types";
 import { LANGUAGE_OPTIONS, NOT_GIVEN, PATH_OUTCOME, REACH_OPTIONS, SIGNALS, TOOL_OPTIONS, WORKFLOW_IDS, WORKFLOWS } from "@/lib/domain/workflows";
 
 // =============================================================================
@@ -9,6 +38,9 @@ import { LANGUAGE_OPTIONS, NOT_GIVEN, PATH_OUTCOME, REACH_OPTIONS, SIGNALS, TOOL
 // facts gathered so far; `nextQuestion` picks what to ask, `applyAnswer` reads an
 // answer with keyword rules, and `draftToAnswers` hands the result to the engine.
 // `readChanges` and `applyChanges` do the same for a running business's chat.
+// After the planned questions, the owner may pick their Google listing and
+// answer up to `MAX_GAPS` gap questions: the must fields their agents still
+// lack, asked plainly, with a suggestion only when a source gave one.
 
 // =============================================================================
 // Types
@@ -17,8 +49,22 @@ import { LANGUAGE_OPTIONS, NOT_GIVEN, PATH_OUTCOME, REACH_OPTIONS, SIGNALS, TOOL
 /** A planned onboarding question, in asking order. */
 export type IntakeField = "name" | "kind" | "what" | "reach" | "tools" | "signals" | "languages" | "week" | "voice";
 
-/** Where an intake stands: a planned question, the closing confirm step, or choosing what to change. */
-export type IntakeStep = IntakeField | "confirm" | "change";
+/** A gap question for one profile detail, such as `gap:prices`. */
+export type GapStep = `gap:${FieldKey}`;
+
+/**
+ * Where an intake stands: a planned question, picking a Google listing, a gap question, the closing confirm step,
+ * or choosing what to change.
+ */
+export type IntakeStep = IntakeField | "listing" | GapStep | "confirm" | "change";
+
+/** One "Is this you?" match from Google Places. */
+export interface ListingChoice {
+  readonly id: string;
+  readonly name: string;
+  readonly address: string;
+  readonly rating?: number;
+}
 
 /** A multiple-choice fact. Values come from the option lists in `workflows.ts`. */
 export type ListKey = "reach" | "tools" | "signals" | "languages";
@@ -48,7 +94,7 @@ export interface IntakeFacts extends FactLists {
 export type IntakeReview =
   | { readonly stage: "asking" }
   | { readonly stage: "choosing" }
-  | { readonly stage: "revisiting"; readonly field: IntakeField }
+  | { readonly stage: "revisiting"; readonly field: IntakeField | GapStep }
   | { readonly stage: "confirmed" };
 
 /** A follow-up question waiting for its answer. It comes before the next planned question. */
@@ -68,6 +114,15 @@ export interface IntakeDraft {
   readonly review: IntakeReview;
   /** Lists the owner answered with none, so the summary says "None" rather than "Skipped". Absent in older drafts. */
   readonly answeredNone?: readonly ListKey[];
+  /** Profile details found so far, from the owner's answers and any listing or website. */
+  readonly details?: ProfileDetails;
+  readonly evidence?: Readonly<Partial<Record<FieldKey, FieldEvidence>>>;
+  /** The Google Places id the owner picked. */
+  readonly placeId?: string;
+  /** Google's matches for the name and town, once looked up. `settled` once the owner picked one or said none. */
+  readonly listing?: { readonly choices: readonly ListingChoice[]; readonly settled: boolean };
+  /** Gap questions asked so far, answered or skipped. */
+  readonly gaps?: readonly FieldKey[];
 }
 
 /** One quick-reply chip. `suggested` marks options common for this kind of business; it never selects one. */
@@ -101,12 +156,16 @@ export interface AnswerReading {
   readonly dropped: FactLists;
 }
 
-/** One line of the "What Anchored knows" card. */
+/** One line of the "What Anchored knows" card: a planned question's answer, or a profile detail. */
 export interface KnownFact {
-  readonly field: IntakeField;
+  readonly field: IntakeField | FieldKey;
   readonly label: string;
   readonly value: string | null;
   readonly state: "known" | "skipped" | "open";
+  /** Where a detail came from, such as "From your Google listing". */
+  readonly source?: string;
+  /** A source that disagrees, as a question for the owner. */
+  readonly conflict?: string;
 }
 
 // =============================================================================
@@ -118,6 +177,9 @@ export const INTAKE_FIELDS: readonly IntakeField[] = ["name", "kind", "what", "r
 
 /** Most follow-ups one intake asks beyond its plan. */
 export const MAX_FOLLOW_UPS = 2;
+
+/** Most gap questions one intake asks. Anything still missing shows on the profile instead. */
+export const MAX_GAPS = 3;
 
 const LIST_KEYS: readonly ListKey[] = ["reach", "tools", "signals", "languages"];
 const TEXT_KEYS: readonly TextKey[] = ["name", "place", "kind", "what", "week", "voice"];
@@ -547,6 +609,8 @@ function plainOption(value: string, label: string): IntakeOption {
 function optionsFor(step: IntakeStep, draft: IntakeDraft): IntakeOption[] | undefined {
   const { facts } = draft;
   const hint = hintFor(`${facts.kind ?? ""} ${facts.what ?? ""} ${facts.name ?? ""}`);
+  if (step === "listing") return listingOptions(draft);
+  if (isGapStep(step)) return gapOptions(gapKeyOf(step), draft);
   switch (step) {
     case "kind": {
       const guess = TRADE_HINTS[detectTradeKey(`${facts.name ?? ""} ${facts.what ?? ""}`)].label;
@@ -568,7 +632,10 @@ function optionsFor(step: IntakeStep, draft: IntakeDraft): IntakeOption[] | unde
     case "confirm":
       return [plainOption("yes", "Looks right"), plainOption("change", "Change something")];
     case "change":
-      return INTAKE_FIELDS.map((field) => plainOption(field, FIELD_LABELS[field].change));
+      return [
+        ...INTAKE_FIELDS.map((field) => plainOption(field, FIELD_LABELS[field].change)),
+        ...detailFacts(draft).map((fact) => plainOption(gapStep(fact.field as FieldKey), fact.label)),
+      ];
     default:
       return undefined;
   }
@@ -576,6 +643,212 @@ function optionsFor(step: IntakeStep, draft: IntakeDraft): IntakeOption[] | unde
 
 function isListStep(step: IntakeStep): step is ListKey {
   return step === "reach" || step === "tools" || step === "signals" || step === "languages";
+}
+
+// =============================================================================
+// Details, the listing and gap questions
+// =============================================================================
+
+/** The gap step for a profile detail. */
+export function gapStep(key: FieldKey): GapStep {
+  return `gap:${key}`;
+}
+
+/** Whether `step` is a gap question. */
+export function isGapStep(step: string): step is GapStep {
+  return step.startsWith("gap:") && FIELD_KEYS.some((key) => `gap:${key}` === step);
+}
+
+/** The detail a gap step asks about. */
+export function gapKeyOf(step: GapStep): FieldKey {
+  return step.slice("gap:".length) as FieldKey;
+}
+
+function detailState(draft: IntakeDraft): DetailState {
+  return { details: draft.details ?? NO_DETAILS.details, evidence: draft.evidence ?? NO_DETAILS.evidence };
+}
+
+function withDetails(draft: IntakeDraft, state: DetailState): IntakeDraft {
+  return { ...draft, details: state.details, evidence: state.evidence };
+}
+
+/** Return `draft` with Google's matches for its name and town; with none, the listing step is skipped. */
+export function withListingChoices(draft: IntakeDraft, choices: readonly ListingChoice[]): IntakeDraft {
+  return { ...draft, listing: { choices: choices.slice(0, 3), settled: choices.length === 0 } };
+}
+
+/** Settle the listing step: the owner's pick, with the facts its listing gave, or "not listed" when `placeId` is `null`. */
+export function applyListing(draft: IntakeDraft, placeId: string | null, candidates: readonly DetailCandidate[]): IntakeDraft {
+  const known = placeId !== null && (draft.listing?.choices ?? []).some((choice) => choice.id === placeId);
+  const merged = withDetails(draft, mergeCandidates(detailState(draft), known ? candidates : []));
+  return { ...merged, ...(known ? { placeId } : {}), listing: { choices: draft.listing?.choices ?? [], settled: true } };
+}
+
+/** Return `draft` with candidates from a source such as the owner's website. */
+export function withCandidates(draft: IntakeDraft, candidates: readonly DetailCandidate[]): IntakeDraft {
+  return withDetails(draft, mergeCandidates(detailState(draft), candidates));
+}
+
+/** The listing match the owner tapped, or `null` for "Not listed" or anything else. */
+export function pickedListing(draft: IntakeDraft, picks: readonly string[] | undefined): string | null {
+  const pick = picks?.[0];
+  return (draft.listing?.choices ?? []).some((choice) => choice.id === pick) ? (pick ?? null) : null;
+}
+
+function listingOpen(draft: IntakeDraft): boolean {
+  return draft.listing !== undefined && !draft.listing.settled && draft.settled.includes("name");
+}
+
+/** The core agents this draft's plan would put to work, as the engine would build it now. */
+function plannedAgents(draft: IntakeDraft): CoreAgentId[] {
+  const profile = profileFromAnswers(draftToAnswers(draft));
+  return activeAgents(profile, {}).flatMap((agent) => (agent.id.startsWith("niche:") ? [] : [agent.id as CoreAgentId]));
+}
+
+/** The gap questions still to ask: must fields of the agents the plan turns on, once every planned question is done. */
+export function pendingGaps(draft: IntakeDraft): FieldKey[] {
+  if (INTAKE_FIELDS.some((field) => needsAsking(draft, field)) || listingOpen(draft)) return [];
+  const asked = draft.gaps ?? [];
+  if (asked.length >= MAX_GAPS) return [];
+  return gapsFor(detailState(draft), plannedAgents(draft))
+    .filter((key) => !asked.includes(key))
+    .slice(0, MAX_GAPS - asked.length);
+}
+
+// Tap answers for the details with a fixed set of values.
+const GAP_CHOICES: Readonly<Partial<Record<FieldKey, readonly (readonly [string, string])[]>>> = {
+  pricingMethod: [
+    ["menu", "A set menu"],
+    ["hourly", "By the hour"],
+    ["quote", "A quote for each request"],
+    ["packages", "Packages"],
+  ],
+  reminderFirmness: [
+    ["gentle", "Gentle"],
+    ["standard", "Standard"],
+    ["firm", "Firm"],
+  ],
+  nextStep: [
+    ["book_call", "Book a call"],
+    ["send_estimate", "Send an estimate"],
+    ["book_visit", "Book a visit"],
+  ],
+};
+
+/** A detail that only a guess fills, which the gap question offers for the owner to confirm. */
+function suggestionFor(draft: IntakeDraft, key: FieldKey): { readonly value: unknown; readonly evidence: FieldEvidence } | null {
+  const state = detailState(draft);
+  const value = state.details[key];
+  const evidence = state.evidence[key];
+  if (value === undefined || evidence === undefined || evidence.ownerConfirmed || !isFilled(state.details, key)) return null;
+  return { value, evidence };
+}
+
+function gapText(key: FieldKey, draft: IntakeDraft): string {
+  const def = FIELDS[key];
+  const suggestion = suggestionFor(draft, key);
+  if (suggestion !== null) {
+    const { evidence } = suggestion;
+    const from = evidence.sourceType === "owner" ? `From what you told me ("${clip(evidence.quote, 60)}")` : SOURCE_NAME[evidence.sourceType];
+    return `${from}: ${detailText(key, suggestion.value)}. Is that right? If not, tell me the right words.`;
+  }
+  return `${def.ask.prompt} For example: ${def.ask.example}.`;
+}
+
+function gapOptions(key: FieldKey, draft: IntakeDraft): IntakeOption[] | undefined {
+  if (suggestionFor(draft, key) !== null) return [plainOption("yes", "That's right")];
+  const choices = GAP_CHOICES[key];
+  return choices ? choices.map(([value, label]) => plainOption(value, label)) : undefined;
+}
+
+function listingOptions(draft: IntakeDraft): IntakeOption[] {
+  const choices = (draft.listing?.choices ?? []).map((choice) => plainOption(choice.id, `${choice.name}, ${choice.address}`));
+  return [...choices, plainOption("none", "Not listed")];
+}
+
+/** A tapped choice as the value it stands for. */
+function choiceValue(key: FieldKey, pick: string): DetailCandidate | null {
+  const label = GAP_CHOICES[key]?.find(([value]) => value === pick)?.[1];
+  if (label === undefined) return null;
+  const value = key === "nextStep" ? { lead: "", step: pick } : pick;
+  return { key, value, sourceType: "owner", quote: label, confidence: "high" } as DetailCandidate;
+}
+
+/** Details an answer to another question can give: more of what the business sells usually names its prices. */
+const ALSO_READ: Readonly<Partial<Record<FieldKey, readonly FieldKey[]>>> = {
+  prices: ["minimumCharge", "pricingMethod"],
+  pricingMethod: ["prices", "minimumCharge"],
+};
+
+/** Apply the owner's answer to a gap question. `extra` holds candidates the model read from the same words. */
+export function applyGapAnswer(draft: IntakeDraft, key: FieldKey, picks: readonly string[] | undefined, reading: AnswerReading, extra: readonly DetailCandidate[] = []): IntakeDraft {
+  const state = detailState(draft);
+  const pick = picks?.[0];
+  const suggestion = suggestionFor(draft, key);
+  let next = state;
+  if (suggestion !== null && (pick === "yes" || (pick === undefined && AFFIRM.test(reading.text)))) {
+    // The owner said the guess is right, which makes it theirs.
+    next = { ...state, evidence: { ...state.evidence, [key]: { ...suggestion.evidence, sourceType: "owner", confidence: "high", ownerConfirmed: true } } };
+  } else if (pick !== undefined && choiceValue(key, pick) !== null) {
+    next = mergeCandidate(state, choiceValue(key, pick) as DetailCandidate);
+  } else if (reading.intent === "answer" && reading.text !== "") {
+    const keys = [key, ...(ALSO_READ[key] ?? [])];
+    const found = keys.flatMap((candidate) => candidateFor(candidate, reading.text, "owner", "high") ?? []);
+    next = mergeCandidates(state, [...found, ...extra]);
+  }
+  const revisiting = draft.review.stage === "revisiting" && draft.review.field === gapStep(key);
+  return { ...withDetails(draft, next), gaps: unique([...(draft.gaps ?? []), key]), review: revisiting ? { stage: "asking" } : draft.review };
+}
+
+/** Details the rules read from an answer to a planned question, folded into the draft. */
+function withAnswerDetails(before: IntakeDraft, after: IntakeDraft, field: IntakeField, reading: AnswerReading): IntakeDraft {
+  const found: DetailCandidate[] = [];
+  if (reading.intent === "answer" && field === "what") found.push(...candidatesFromSales(reading.text, "owner"));
+  if (reading.intent === "answer" && field === "voice" && reading.text !== "") {
+    const example = candidateFor("examples", reading.text, "owner", "high");
+    if (example) found.push(example);
+  }
+  const kind = after.facts.kind;
+  if (kind && kind !== before.facts.kind && after.details?.vocabulary === undefined) {
+    const guess = vocabularyGuess(detectTradeKey(kind), kind);
+    if (guess) found.push(guess);
+  }
+  const quotes = SIGNALS.find((signal) => signal.id === "quotes");
+  if (after.facts.signals.includes("quotes") && !before.facts.signals.includes("quotes") && quotes && after.details?.pricingMethod === undefined) {
+    found.push({ key: "pricingMethod", value: "quote", sourceType: "owner", quote: quotes.label, confidence: "medium" });
+  }
+  return found.length === 0 ? after : withDetails(after, mergeCandidates(detailState(after), found));
+}
+
+/** One line per known detail for the summary, with its source and any conflict. */
+function detailFacts(draft: IntakeDraft): KnownFact[] {
+  const state = detailState(draft);
+  return FIELD_KEYS.flatMap((key) => {
+    const value = state.details[key];
+    if (key === "examples" || value === undefined || !isFilled(state.details, key)) return [];
+    const evidence = state.evidence[key];
+    const conflict = conflictLine(key, state);
+    return [
+      {
+        field: key,
+        label: FIELDS[key].label,
+        value: clip(detailText(key, value), 100),
+        state: "known" as const,
+        ...(evidence ? { source: SOURCE_NAME[evidence.sourceType] } : {}),
+        ...(conflict ? { conflict } : {}),
+      },
+    ];
+  });
+}
+
+/** The details, evidence and listing a confirmed draft gives its business. The owner confirmed them all. */
+export function draftDetails(draft: IntakeDraft): Pick<BusinessProfile, "details" | "evidence" | "placeId"> {
+  const state = confirmAll(detailState(draft));
+  const hasDetails = FIELD_KEYS.some((key) => state.details[key] !== undefined);
+  return {
+    ...(hasDetails ? { details: state.details, evidence: state.evidence } : {}),
+    ...(draft.placeId ? { placeId: draft.placeId } : {}),
+  };
 }
 
 // =============================================================================
@@ -614,6 +887,8 @@ function questionText(step: IntakeStep, draft: IntakeDraft): string {
   const name = draft.facts.name;
   const heard = isListStep(step) ? heardText(step, draft) : null;
   if (heard) return heard;
+  if (step === "listing") return "Is this you? I found these on Google.";
+  if (isGapStep(step)) return gapText(gapKeyOf(step), draft);
   switch (step) {
     case "name":
       return "What's your business called, and what town is it in?";
@@ -632,7 +907,7 @@ function questionText(step: IntakeStep, draft: IntakeDraft): string {
     case "week":
       return "What eats your week? Name the jobs you wish someone else did.";
     case "voice":
-      return "Last one: paste or type a reply you've sent a customer, so drafts sound like you.";
+      return "Paste or type a reply you've sent a customer, so drafts sound like you.";
     case "confirm":
       return confirmText(draft);
     case "change":
@@ -642,8 +917,10 @@ function questionText(step: IntakeStep, draft: IntakeDraft): string {
 
 /** The closing summary the owner confirms before Anchored builds the plan. */
 function confirmText(draft: IntakeDraft): string {
-  const lines = summarize(draft).flatMap((fact) => (fact.value === null ? [] : [`${fact.label}: ${clip(fact.value, 70)}`]));
-  return ["Here's the profile I'll build your plan from.", ...lines, "Does this look right?"].join("\n");
+  const known = summarize(draft);
+  const lines = known.flatMap((fact) => (fact.value === null ? [] : [`${fact.label}: ${clip(fact.value, 70)}`]));
+  const conflicts = known.flatMap((fact) => (fact.conflict ? [fact.conflict] : []));
+  return ["Here's the profile I'll build your plan from.", ...lines, ...conflicts, "Does this look right?"].join("\n");
 }
 
 function ask(step: IntakeStep, draft: IntakeDraft, text?: string): IntakeQuestion {
@@ -658,8 +935,11 @@ export function nextQuestion(draft: IntakeDraft): IntakeQuestion | null {
   if (draft.followUp) return ask(draft.followUp.field, draft, draft.followUp.text);
   if (review.stage === "revisiting") return ask(review.field, draft);
   if (review.stage === "choosing") return ask("change", draft);
+  if (listingOpen(draft)) return ask("listing", draft);
   const open = INTAKE_FIELDS.find((field) => needsAsking(draft, field));
-  return ask(open ?? "confirm", draft);
+  if (open) return ask(open, draft);
+  const gap = pendingGaps(draft)[0];
+  return ask(gap ? gapStep(gap) : "confirm", draft);
 }
 
 /** Report whether the owner has answered everything and confirmed the profile. */
@@ -680,7 +960,9 @@ export function applyAnswer(draft: IntakeDraft, step: IntakeStep, answer: Intake
 export function applyReading(draft: IntakeDraft, step: IntakeStep, picks: readonly string[] | undefined, reading: AnswerReading): IntakeDraft {
   if (step === "confirm") return applyConfirm(draft, picks, reading);
   if (step === "change") return applyChange(draft, picks, reading);
-  return applyFieldAnswer(draft, step, picks, reading);
+  if (step === "listing") return applyListing(draft, pickedListing(draft, picks), []);
+  if (isGapStep(step)) return applyGapAnswer(draft, gapKeyOf(step), picks, reading);
+  return withAnswerDetails(draft, applyFieldAnswer(draft, step, picks, reading), step, reading);
 }
 
 /** Return `draft` with a follow-up for `field`, or `null` when the follow-up budget is spent. */
@@ -802,7 +1084,9 @@ function applyConfirm(draft: IntakeDraft, picks: readonly string[] | undefined, 
 }
 
 function applyChange(draft: IntakeDraft, picks: readonly string[] | undefined, reading: AnswerReading): IntakeDraft {
-  const field = INTAKE_FIELDS.find((candidate) => candidate === picks?.[0]) ?? fieldNamed(reading.text);
+  const pick = picks?.[0];
+  if (pick !== undefined && isGapStep(pick)) return { ...draft, review: { stage: "revisiting", field: pick } };
+  const field = INTAKE_FIELDS.find((candidate) => candidate === pick) ?? fieldNamed(reading.text);
   if (field) return { ...draft, review: { stage: "revisiting", field } };
   if (hasListFacts(reading)) return correct(draft, "change", reading);
   return draft;
@@ -847,8 +1131,15 @@ export function composeReply(before: IntakeDraft, after: IntakeDraft, step: Inta
     return next.field === "confirm" ? `Updated. ${next.text}` : `Sure. ${next.text}`;
   }
   if (next.field === "confirm") return `${before.review.stage === "revisiting" ? "Updated." : "That's everything I need."} ${next.text}`;
+  // The first gap question gets a line saying why a few more come.
+  const lead = isGapStep(next.field) && !isGapStep(step) ? "A few more so your agents get the details right." : "";
+  if (step === "listing" || isGapStep(step)) {
+    const skipped = reading.intent === "skip" || reading.intent === "none" || (step === "listing" && after.placeId === undefined);
+    const ack = skipped ? "No problem, we'll leave that out." : step === "listing" ? "Got it, I'll use your Google listing." : "Got it.";
+    return [ack, lead, next.text].filter(Boolean).join(" ");
+  }
   const ack = modelAck ?? rulesAck(before, after, step, reading);
-  return [ack, next.text].filter(Boolean).join(" ");
+  return [ack, lead, next.text].filter(Boolean).join(" ");
 }
 
 /** The first two messages of a new intake. */
@@ -906,11 +1197,12 @@ function summaryValue(field: IntakeField, draft: IntakeDraft): string | null {
 
 /** One line per planned question for the "What Anchored knows" card: known, skipped, or still open. */
 export function summarize(draft: IntakeDraft): KnownFact[] {
-  return INTAKE_FIELDS.map((field) => {
+  const planned = INTAKE_FIELDS.map((field): KnownFact => {
     const value = summaryValue(field, draft);
     const state = value !== null ? "known" : draft.settled.includes(field) ? "skipped" : "open";
     return { field, label: FIELD_LABELS[field].summary, value, state };
   });
+  return [...planned, ...detailFacts(draft)];
 }
 
 /** Turn a finished draft into the onboarding answers the engine reads. Unknown facts stay blank, never guessed. */
@@ -940,10 +1232,12 @@ export interface FactChanges {
   readonly add: FactLists;
   readonly remove: FactLists;
   readonly texts: Partial<Record<"name" | "place" | "kind" | "voice", string>>;
+  /** Profile details the owner stated, such as a new minimum charge. */
+  readonly details?: readonly DetailCandidate[];
 }
 
 /** What part of a profile one change touched. */
-export type ChangeArea = "workflow" | "path" | "reach" | "tool" | "signal" | "language" | "name" | "place" | "kind" | "voice";
+export type ChangeArea = "workflow" | "path" | "reach" | "tool" | "signal" | "language" | "name" | "place" | "kind" | "voice" | "detail";
 
 /** The word each `ChangeArea` shows under a chat reply and in the profile's recent changes. */
 export const CHANGE_AREA_LABEL: Readonly<Record<ChangeArea, string>> = {
@@ -957,6 +1251,7 @@ export const CHANGE_AREA_LABEL: Readonly<Record<ChangeArea, string>> = {
   place: "Town",
   kind: "Kind",
   voice: "Voice",
+  detail: "Profile",
 };
 
 /** One visible change to a business profile, as the chat reports it. */
@@ -964,7 +1259,7 @@ export interface ProfileChange {
   readonly op: "added" | "removed" | "changed";
   readonly area: ChangeArea;
   readonly label: string;
-  /** The new value of a changed path, such as "Build". */
+  /** The new value of a changed path or detail, such as "Build" or "$89". */
   readonly to?: string;
 }
 
@@ -979,6 +1274,44 @@ const NOW_A = /\b(?:we're|we are|now we're|we became)\s+(?:now\s+)?(?:a|an)\s+/i
 const RENAME_FILLER = /(?:\s+(?:now|these days|instead|going forward|from now on|anymore|officially))+["']?$/i;
 
 /** Read the changes an owner describes, such as "we started doing catering" or "we switched from Clover to Square". */
+// Detail statements a chat message can make. Each captures the words that hold the value.
+const HOURS_SAID = /\b(?:our )?(?:hours are|hours now|we're open|we are open|open)\s+(.{3,120}?)(?=[.!?]|$)/i;
+const NAME_SAID = /\b(?:my name is|i'm|i am)\s+([A-Z][a-zA-Z'-]{1,29})\b/;
+const PRICE_SAID = /\b(?:charge|charges|price|prices|costs?|is now|are now|now)\b/i;
+const MINIMUM_SAID = /\bminimum\b[^.!?,;]*/i;
+
+/** Profile details a chat message states, read by the rules as the owner's own words. */
+export function readDetailChanges(text: string): DetailCandidate[] {
+  const clean = normalize(text);
+  const found: DetailCandidate[] = [];
+  const minimum = MINIMUM_SAID.exec(clean)?.[0];
+  if (minimum) {
+    const candidate = candidateFor("minimumCharge", minimum, "owner", "high");
+    if (candidate) found.push(candidate);
+  }
+  // A minimum's amount isn't a price list line, so read prices from the rest.
+  const rest = minimum ? clean.replace(minimum, " ") : clean;
+  if (/\$\s?\d/.test(rest) && PRICE_SAID.test(rest)) {
+    const candidate = candidateFor("prices", rest, "owner", "high");
+    if (candidate) found.push(candidate);
+  }
+  const hours = HOURS_SAID.exec(clean)?.[1];
+  if (hours && /\d/.test(hours)) {
+    const candidate = candidateFor("hours", hours, "owner", "high");
+    if (candidate) found.push(candidate);
+  }
+  if (/https?:\/\/\S*(?:g\.page|google)/i.test(clean)) {
+    const candidate = candidateFor("reviewLink", clean, "owner", "high");
+    if (candidate) found.push(candidate);
+  }
+  const name = NAME_SAID.exec(clean)?.[1];
+  if (name) {
+    const candidate = candidateFor("ownerName", name, "owner", "high");
+    if (candidate) found.push(candidate);
+  }
+  return found;
+}
+
 export function readChanges(text: string): FactChanges {
   const clean = normalize(text);
   if (clean === "") return NO_CHANGES;
@@ -995,6 +1328,7 @@ export function readChanges(text: string): FactChanges {
     add: found,
     remove: dropped,
     texts: withoutBlanks({ name: name ? clip(name, TEXT_LIMITS.name) : undefined, place, kind: kind ? capitalize(kind) : undefined }),
+    details: readDetailChanges(clean),
   };
 }
 
@@ -1063,8 +1397,31 @@ export function applyChanges(business: BusinessProfile, changes: FactChanges): {
     ...(business.cards ? { cards: business.cards } : {}),
     ...(business.lockedCards ? { lockedCards: business.lockedCards } : {}),
     ...(business.planApproval ? { planApproval: business.planApproval } : {}),
+    // The engine rebuilds only what the facts decide; what the owner told agents directly stays.
+    ...(business.crew ? { crew: business.crew } : {}),
+    ...(business.placeId ? { placeId: business.placeId } : {}),
+    ...(business.version !== undefined ? { version: business.version } : {}),
+    ...detailsAfter(business, changes.details ?? []),
   };
-  return { profile, changes: describeChanges(business, profile) };
+  return { profile, changes: [...describeChanges(business, profile), ...detailChanges(business, profile)] };
+}
+
+/** A profile's details and evidence with the owner's chat statements folded in, which they confirmed by saying them. */
+function detailsAfter(business: BusinessProfile, said: readonly DetailCandidate[]): Pick<BusinessProfile, "details" | "evidence"> {
+  const start: DetailState = { details: business.details ?? {}, evidence: business.evidence ?? {} };
+  const merged = confirmAll(mergeCandidates(start, said));
+  const any = FIELD_KEYS.some((key) => merged.details[key] !== undefined);
+  return any ? { details: merged.details, evidence: merged.evidence } : {};
+}
+
+/** One change per detail whose value the chat changed. */
+function detailChanges(before: BusinessProfile, after: BusinessProfile): ProfileChange[] {
+  return FIELD_KEYS.flatMap((key): ProfileChange[] => {
+    const now = after.details?.[key];
+    const was = before.details?.[key];
+    if (now === undefined || JSON.stringify(now) === JSON.stringify(was)) return [];
+    return [{ op: was === undefined ? "added" : "changed", area: "detail", label: FIELDS[key].label, to: clip(detailText(key, now), 80) }];
+  });
 }
 
 /** Changes to one list, in the order the new list has them. */
@@ -1120,6 +1477,7 @@ export function changeReply(changes: readonly ProfileChange[], businessName: str
   const factAreas: readonly ChangeArea[] = ["reach", "tool", "signal", "language"];
   const renamed = changes.flatMap((change) => {
     if (change.area === "voice") return ["your voice sample"];
+    if (change.area === "detail") return [`${change.label.toLowerCase()} to ${change.to ?? ""}`];
     const noun = RENAMED_NOUN[change.area];
     return noun ? [`${noun} to ${change.label}`] : [];
   });

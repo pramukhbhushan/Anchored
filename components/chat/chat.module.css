@@ -199,3 +199,5 @@
   .body{max-width:88%}
   .avatar{width:24px;height:24px}
 }
+.factSource,.factConflict{display:block;margin-top:var(--s-1);font-size:var(--fs-fine);color:var(--muted)}
+.factConflict{color:var(--ink)}

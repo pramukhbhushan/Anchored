@@ -1,6 +1,6 @@
 import type { IntakeResponse } from "@/lib/api/contract";
 import { intakeAnswerSchema } from "@/lib/api/schemas";
-import { answerText, draftToAnswers, nextQuestion, planReadyText } from "@/lib/domain/intake";
+import { answerText, draftDetails, draftToAnswers, nextQuestion, planReadyText } from "@/lib/domain/intake";
 import { buildProfileFromAnswers } from "@/lib/server/create-business";
 import { fail, handleError, json, readBody } from "@/lib/server/http";
 import { intakeState, intakeThread, takeIntakeTurn } from "@/lib/server/intake-ai";
@@ -60,7 +60,8 @@ export async function POST(request: Request, { params }: Context) {
     let businessId: string | null = null;
     let reply = turn.reply;
     if (reply === null) {
-      const business = await buildProfileFromAnswers(draftToAnswers(turn.draft));
+      // The owner confirmed the details at the review, so they arrive as theirs.
+      const business = { ...(await buildProfileFromAnswers(draftToAnswers(turn.draft))), ...draftDetails(turn.draft) };
       await store.saveBusiness(session, business, "onboarding");
       // The starters are written after this response, so the plan appears without waiting on the model.
       scheduleStarters(session, business);

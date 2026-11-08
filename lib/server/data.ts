@@ -10,6 +10,7 @@ import { examplesHidden, startersDue } from "@/lib/domain/starters";
 import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, SkillId, WorkflowId } from "@/lib/domain/types";
 import { isAiConfigured } from "@/lib/llm";
 import { getStore } from "@/lib/store";
+import type { ProfileVersion } from "@/lib/store/types";
 import { getSessionId } from "./session";
 import { isWritingStarters, scheduleStarters } from "./starters";
 
@@ -53,6 +54,12 @@ export async function getChoices(business: BusinessProfile): Promise<Record<Work
 /** Return only the picks the owner saved for the business, which `planStatus` compares with the approved ones. */
 export async function getSavedChoices(business: BusinessProfile): Promise<ChoiceMap> {
   return savedChoices(business.id);
+}
+
+/** Return the saved versions of the owner's business, newest first. The example has no history. */
+export async function getProfileVersions(business: BusinessProfile): Promise<ProfileVersion[]> {
+  if (isSampleBusinessId(business.id)) return [];
+  return getStore().listProfileVersions(await getSessionId(), business.id);
 }
 
 /** Narrow `choices` so only `skill` is built, letting a simulation target one skill. */
