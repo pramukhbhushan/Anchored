@@ -122,6 +122,15 @@ describe("vetCandidates", () => {
     expect(listings.map((l) => l.name)).toEqual(["Weave Receptionist"]);
   });
 
+  it('writes "Not stated" for a price whose "$" lost its amount, and keeps a whole price', () => {
+    const { listings } = run([
+      candidate({ price: "Plans start at $ per location per month paid annually" }),
+      candidate({ name: "Arini", maker: "", price: "From $ 300 a month" }),
+    ]);
+
+    expect(listings.map((l) => l.price)).toEqual(["Not stated", "From $ 300 a month"]);
+  });
+
   it("skips a name that is really a web address", () => {
     const { skipped } = run([candidate({ name: "https://getweave.com", maker: "" })]);
 

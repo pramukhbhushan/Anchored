@@ -118,5 +118,29 @@
     "url": "https://www.grade.us/home/",
     "foundOn": "Nov 7, 2026",
     "foundFor": "auto repair shop"
+  },
+  {
+    "name": "ReviewPush",
+    "workflow": "reviews",
+    "price": "Lite $49 per month per location, Plus $99 per month per location, Pro $199 per month per location",
+    "connects": "Not stated",
+    "data": "Not stated",
+    "contract": "30-day free trial, cancel anytime",
+    "source": "reviewpush.com/pricing",
+    "url": "https://reviewpush.com/pricing",
+    "foundOn": "Nov 7, 2026",
+    "foundFor": "hair salon"
+  },
+  {
+    "name": "Birdeye",
+    "workflow": "reviews",
+    "price": "Custom pricing plans",
+    "connects": "Not stated",
+    "data": "Not stated",
+    "contract": "Not stated",
+    "source": "birdeye.com/pricing",
+    "url": "https://birdeye.com/pricing/",
+    "foundOn": "Nov 7, 2026",
+    "foundFor": "hair salon"
   }
 ]
