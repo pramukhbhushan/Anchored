@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkSend, ensureOptOut, findPlaceholder, mentionsAllergen } from "@/lib/domain/executor";
+import { checkProtocolNotice, checkSend, ensureOptOut, findPlaceholder, mentionsAllergen } from "@/lib/domain/executor";
 import type { CardDraft } from "@/lib/domain/types";
 
 // =============================================================================
@@ -168,5 +168,32 @@ describe("findPlaceholder", () => {
 
   it("finds nothing in a finished draft", () => {
     expect(findPlaceholder("If paying online is easier, I'll send the link next. Thanks!")).toBeNull();
+  });
+});
+
+describe("checkSend for Telegram", () => {
+  const MESSAGE: CardDraft = { ...TEXT, channel: "telegram", action: "Send on Telegram", body: "Hi Dana, thanks for messaging us! What's a good time to reach you?" };
+
+  it("sends in the daytime with no opt-out line, since /stop does that job", () => {
+    expect(checkSend(MESSAGE, DAYTIME)).toEqual({ ok: true });
+  });
+
+  it("waits for morning in quiet hours", () => {
+    expect(checkSend(MESSAGE, { ...DAYTIME, now: NINE_PM_NEW_YORK })).toEqual({ ok: false, reason: "Quiet hours: messages wait until 8 a.m." });
+  });
+
+  it("refuses allergy talk, a blank and a customer with no OK on file", () => {
+    expect(checkSend({ ...MESSAGE, body: PEANUT_FREE_CLAIM }, DAYTIME).ok).toBe(false);
+    expect(checkSend({ ...MESSAGE, body: "See you at [time]" }, DAYTIME)).toEqual({ ok: false, reason: "Fill in [time] before sending." });
+    expect(checkSend(MESSAGE, { ...DAYTIME, hasConsent: false }).ok).toBe(false);
+  });
+});
+
+describe("checkProtocolNotice", () => {
+  it("allows the fixed notice at any hour and refuses one with an allergen or a blank", () => {
+    expect(checkProtocolNotice("You're now messaging Bowie HVAC.")).toEqual({ ok: true });
+    expect(checkProtocolNotice("Ask us about peanut-free options").ok).toBe(false);
+    expect(checkProtocolNotice("Messaging [business]").ok).toBe(false);
+    expect(checkProtocolNotice("  ").ok).toBe(false);
   });
 });

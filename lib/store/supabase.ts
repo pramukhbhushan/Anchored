@@ -57,6 +57,7 @@ interface OutboxRow {
   delivery: OutboxEntry["delivery"];
   delivery_note: string | null;
   rule: OutboxRule | null;
+  contact_id: string | null;
 }
 
 interface ContactRow {
@@ -127,7 +128,7 @@ interface IntakeRow {
 }
 
 const CARD_COLUMNS = "id, business_id, key, draft, status, edited, created_at, decided_at";
-const OUTBOX_COLUMNS = "id, business_id, card_id, channel, recipient, body, sent_at, delivery, delivery_note, rule";
+const OUTBOX_COLUMNS = "id, business_id, card_id, channel, recipient, body, sent_at, delivery, delivery_note, rule, contact_id";
 const CONTACT_COLUMNS = "id, business_id, name, phone, email, consent_source, consent_at, opted_out_at, telegram_chat_id, telegram_name";
 const THREAD_COLUMNS = "id, business_id, contact_id, direction, body, skill, card_key, outbox_id, provider_id, created_at";
 const CHAT_COLUMNS = "chat_id, session_id, business_id, contact_id, bound_at, blocked_at";
@@ -151,6 +152,7 @@ function toOutbox(row: OutboxRow): OutboxEntry {
     delivery: row.delivery,
     note: row.delivery_note,
     ...(row.rule === null ? {} : { rule: row.rule }),
+    ...(row.contact_id === null ? {} : { contactId: row.contact_id }),
   };
 }
 
@@ -369,6 +371,7 @@ export class SupabaseStore implements Store {
       delivery: entry.delivery ?? "yours",
       delivery_note: entry.note ?? null,
       rule: entry.rule ?? null,
+      contact_id: entry.contactId ?? null,
       ...(entry.sentAt ? { sent_at: entry.sentAt } : {}),
     };
     const { data, error } = await this.db.from("outbox").insert(row).select(OUTBOX_COLUMNS).single();

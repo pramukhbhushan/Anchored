@@ -30,6 +30,8 @@ alter table outbox drop constraint if exists outbox_channel_check;
 alter table outbox add constraint outbox_channel_check check (channel in ('sms', 'email', 'telegram', 'list'));
 alter table outbox alter column card_id drop not null;
 alter table outbox add column if not exists rule text check (rule in ('acknowledge', 'protocol'));
+-- The contact a Telegram entry goes to, since `recipient` holds the name the owner reads, not the chat.
+alter table outbox add column if not exists contact_id uuid;
 -- One acknowledgment per customer per window: a retry or a burst of messages can't queue a second.
 alter table outbox add column if not exists rule_key text;
 create unique index if not exists outbox_rule_key_unique on outbox (session_id, rule_key) where rule_key is not null;

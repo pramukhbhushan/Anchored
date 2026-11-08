@@ -52,11 +52,22 @@ export interface OutboxEntry {
   readonly note: string | null;
   /** What authorized it when no card tap did: the owner's standing rule, or the bot's fixed answer to /start or /stop. */
   readonly rule?: OutboxRule;
+  /** The contact a Telegram entry goes to. `to` holds their name for the owner to read; the chat id stays server side. */
+  readonly contactId?: string;
 }
 
 // =============================================================================
 // Routes
 // =============================================================================
+
+/**
+ * GET /api/businesses/[id]/telegram: the link customers open to message this business through the shared bot, or
+ * the reason there is none. Exactly one of the two is set. The bot's token never appears here.
+ */
+export interface TelegramSetupResponse {
+  readonly url: string | null;
+  readonly unavailableReason: string | null;
+}
 
 /** POST /api/businesses: build a profile from onboarding answers, an example, or one sentence. */
 export type CreateBusinessRequest =

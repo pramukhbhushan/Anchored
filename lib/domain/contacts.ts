@@ -102,6 +102,18 @@ export interface SendingSetup {
   readonly texting: boolean;
   /** Anchored can send email for the business. */
   readonly email: boolean;
+  /** The server has the shared Telegram bot set up. */
+  readonly telegram?: boolean;
+}
+
+/** An approved message as `deliveryFor` reads it. */
+export interface PlannedMessage {
+  readonly channel: string;
+  readonly to: string;
+  /** The contact a Telegram message goes to. */
+  readonly contactId?: string;
+  /** Set for the bot's fixed answer to /start or /stop, which goes even to a customer who just sent /stop. */
+  readonly rule?: string;
 }
 
 /** Who sends an approved message: Anchored now, or the owner, with the reason Anchored can't. */
@@ -109,9 +121,19 @@ export type Delivery = { readonly by: "anchored"; readonly to: string } | { read
 
 /**
  * Decide whether Anchored sends an approved message itself. A text goes out only to a number with a consent
- * record and no STOP; an email only to a real address. Anything else stays the owner's to send, with the reason.
+ * record and no STOP; a Telegram message only to a contact with a chat, a consent record and no /stop; an email
+ * only to a real address. Anything else stays the owner's to send, with the reason.
  */
-export function deliveryFor(message: { readonly channel: string; readonly to: string }, setup: SendingSetup, contacts: readonly Contact[]): Delivery {
+export function deliveryFor(message: PlannedMessage, setup: SendingSetup, contacts: readonly Contact[]): Delivery {
+  if (message.channel === "telegram") {
+    // The owner can't send into the customer's chat with the shared bot, so every refusal says why, with no fallback.
+    if (!setup.telegram) return { by: "owner", reason: "Telegram isn't set up on this server, so Anchored can't send this message." };
+    const contact = contacts.find((candidate) => candidate.id === message.contactId);
+    if (contact?.telegramChatId === undefined) return { by: "owner", reason: "This customer has no Telegram chat with the business, so Anchored can't send it." };
+    if (contact.optedOutAt !== null && message.rule !== "protocol") return { by: "owner", reason: "This customer sent /stop. Anchored won't message them." };
+    if (contact.consent === null) return { by: "owner", reason: "This customer hasn't messaged the business on Telegram, so Anchored won't message them." };
+    return { by: "anchored", to: contact.telegramChatId };
+  }
   if (message.channel === "sms") {
     if (!setup.texting) return { by: "owner", reason: null };
     const phone = normalizePhone(message.to);

@@ -1,6 +1,7 @@
 import "server-only";
 import type { CardRecord, DecideCardRequest, DecideCardResponse, OutboxEntry } from "@/lib/api/contract";
-import { checkSend, OWNER_TIME_ZONE, ensureOptOut, sendTimeText } from "@/lib/domain/executor";
+import type { Contact } from "@/lib/domain/contacts";
+import { checkProtocolNotice, checkSend, OWNER_TIME_ZONE, ensureOptOut, sendTimeText } from "@/lib/domain/executor";
 import type { CardDraft } from "@/lib/domain/types";
 import type { Store } from "@/lib/store";
 import { planDelivery } from "@/lib/server/dispatch";
@@ -13,6 +14,8 @@ import { planDelivery } from "@/lib/server/dispatch";
 // hours is queued for the first allowed hour instead of sent now. The outbox
 // entry says who sends it: Anchored through a connected service, which
 // `lib/server/dispatch.ts` does, or the owner from their own phone or email.
+// `queueProtocolNotice` is the one entry no card authorizes: the bot's fixed
+// answer to a customer's own /start or /stop, which the customer asked for.
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -38,7 +41,9 @@ async function send(store: Store, session: string, card: CardRecord, body: strin
   // A list card's body is what the owner keeps, such as a post to copy, so the outbox logs it with any edits.
   const text = card.channel === "list" ? `${card.action}: ${body}` : body;
   const to = card.to ?? "customer";
-  const plan = await planDelivery(store, session, card.businessId, { channel: card.channel, to });
+  // A Telegram card names its customer by contact id, since the chat id never leaves the server.
+  const contactId = card.channel === "telegram" ? card.contact : undefined;
+  const plan = await planDelivery(store, session, card.businessId, { channel: card.channel, to, contactId });
   return store.addOutbox(session, {
     businessId: card.businessId,
     cardId: card.id,
@@ -48,6 +53,31 @@ async function send(store: Store, session: string, card: CardRecord, body: strin
     sentAt: sentAt.toISOString(),
     delivery: plan.by === "anchored" ? "queued" : "yours",
     note: plan.by === "owner" ? plan.reason : null,
+    ...(contactId === undefined ? {} : { contactId }),
+  });
+}
+
+/**
+ * Queue the bot's fixed answer to a customer's own /start or /stop, due at once, for `dispatchEntry` to send. Fixed text
+ * the customer asked for, so no card stands behind it. Returns `null` when the text fails the content rules.
+ */
+export async function queueProtocolNotice(
+  store: Store,
+  session: string,
+  notice: { readonly businessId: string; readonly contact: Contact; readonly body: string; readonly at: Date },
+): Promise<OutboxEntry | null> {
+  if (!checkProtocolNotice(notice.body).ok) return null;
+  return store.addOutbox(session, {
+    businessId: notice.businessId,
+    cardId: null,
+    channel: "telegram",
+    to: notice.contact.name,
+    contactId: notice.contact.id,
+    body: notice.body,
+    sentAt: notice.at.toISOString(),
+    delivery: "queued",
+    note: null,
+    rule: "protocol",
   });
 }
 

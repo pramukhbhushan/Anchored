@@ -118,7 +118,9 @@ export function newFacts(original: string, rewritten: string): string[] {
   const added = new Set<string>();
   for (const pattern of FACT_PATTERNS) {
     for (const match of rewritten.match(pattern) ?? []) {
-      if (!known.includes(squash(match))) added.add(match.trim());
+      // Punctuation after an amount ends the sentence; "$89," states the same fact as "$89".
+      const fact = match.trim().replace(/[.,]+$/, "");
+      if (fact !== "" && !known.includes(squash(fact))) added.add(fact);
     }
   }
   return [...added];
