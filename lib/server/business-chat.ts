@@ -5,7 +5,7 @@ import { SKILLS } from "@/lib/domain/agents";
 import { money } from "@/lib/domain/details";
 import { findPlaceholder, mentionsAllergen } from "@/lib/domain/executor";
 import { POST_PLATFORMS } from "@/lib/domain/playbook";
-import { MAX_POSTS_PER_DAY, postTitle, postsInLastDay, type PostDraft } from "@/lib/domain/posts";
+import { MAX_POSTS_PER_DAY, POST_BRIEF_QUESTION, askedForBrief, asksForPostHelp, briefIsUsable, postTitle, postsInLastDay, readBrief, wantsPhotoPost, type PostDraft } from "@/lib/domain/posts";
 import { asksToCheckSheet, sheetIdFromText, sheetSyncReply } from "@/lib/domain/invoice-sheet";
 import { followUpQuestion, readInvoiceMessage, talksAboutInvoice, type InvoiceMessage } from "@/lib/domain/invoices";
 import { allowedLists, applyChanges, changeReply, readChanges, readDetailChanges, type FactChanges } from "@/lib/domain/intake";
@@ -93,6 +93,13 @@ export async function listBusinessChat(session: string, business: BusinessProfil
   return { messages: stored.length > 0 ? linkCards(business, stored, cards) : [unsaved("welcome", "anchored", welcomeText(business, chosen))], changes: [] };
 }
 
+/** Put Anchored's `text` in the business chat on its own, such as the first question for an automation the owner just turned on. */
+export async function askInChat(session: string, business: BusinessProfile, text: string): Promise<void> {
+  const { stored, chosen } = await readThread(session, business);
+  const opening: NewChatMessage[] = stored.length === 0 ? [{ role: "anchored", text: welcomeText(business, chosen) }] : [];
+  await getStore().addMessages(session, threadOf(business), [...opening, { role: "anchored", text }]);
+}
+
 /** Draft the work the owner asks for, or apply what they say changed, and return the chat with Anchored's reply. `photos` makes it a photo post. */
 export async function sendBusinessChat(session: string, business: BusinessProfile, text: string, photos: readonly string[] = []): Promise<BusinessChatResponse> {
   if (business.kind === "case") {
@@ -103,7 +110,6 @@ export async function sendBusinessChat(session: string, business: BusinessProfil
   }
 
   const store = getStore();
-  const thread = threadOf(business);
   const { stored, cards, chosen } = await readThread(session, business);
   // The welcome line is stored with the first exchange so the thread reads the same after a reload.
   const opening: NewChatMessage[] = stored.length === 0 ? [{ role: "anchored", text: welcomeText(business, chosen) }] : [];
@@ -117,10 +123,18 @@ export async function sendBusinessChat(session: string, business: BusinessProfil
     const invoice = readInvoiceMessage(text);
     if (invoice.kind !== "none" && talksAboutInvoice(invoice, text)) return answerInvoice(session, business, text, invoice, { stored, cards, opening });
   }
+  const thread = { stored, cards, opening };
+  // Asking for posts from photos, or for help with marketing, gets the post question, never a profile change.
+  if (wantsPhotoPost(text)) return answerPostHelp(session, business, text, chosen, thread);
   const request = readRequest(text, business, chosen);
-  if (request.kind === "draft") return draftRequested(session, business, text, request, { stored, cards, opening });
+  if (request.kind === "draft") return draftRequested(session, business, text, request, thread);
+  if ((request.kind === "none" && asksForPostHelp(text)) || (request.kind === "unstaffed" && request.skill === "posts")) return answerPostHelp(session, business, text, chosen, thread);
+  // The owner answered the post question without photos: keep their intro in the text box and ask for the photos.
+  if (request.kind === "none" && chosen.includes("posts") && askedForBrief(lastAnchored(stored))) {
+    return keepAndSay(session, business, text, thread, "Thanks. Now add the photos for this post with the photo button next to the text box, then send your intro again. I put it back in the text box for you.");
+  }
   if (request.kind !== "none") {
-    const saved = await store.addMessages(session, thread, [...opening, { role: "owner", text }, { role: "anchored", text: declineReply(request) }]);
+    const saved = await store.addMessages(session, threadOf(business), [...opening, { role: "owner", text }, { role: "anchored", text: declineReply(request) }]);
     return { messages: linkCards(business, [...stored, ...saved], cards), changes: [] };
   }
 
@@ -128,7 +142,7 @@ export async function sendBusinessChat(session: string, business: BusinessProfil
   if (changes.length > 0) await store.saveBusiness(session, profile, "chat");
   // A message that changed nothing may have been a request the rules didn't catch, so the reply says how to ask.
   const hint = changes.length === 0 && takesRequests(chosen) ? ` You can also ask your agents for work, like "${askExample(chosen)}".` : "";
-  const saved = await store.addMessages(session, thread, [
+  const saved = await store.addMessages(session, threadOf(business), [
     ...opening,
     { role: "owner", text },
     { role: "anchored", text: changeReply(changes, profile.name) + hint, ...(changes.length > 0 ? { changes } : {}) },
@@ -193,17 +207,17 @@ async function answerPhotoPost(session: string, business: BusinessProfile, text:
     const saved = await store.addMessages(session, threadOf(business), [...thread.opening, { role: "owner", text }, { role: "anchored", text: reply }]);
     return { saved, messages: linkCards(business, [...thread.stored, ...saved], cards) };
   };
-  if (!chosen.includes("posts")) {
-    return { messages: (await say("Post drafts aren't turned on for your business yet. Choose Anchored for social posts in Workflows, then send the photos again.")).messages, changes: [] };
-  }
+  // Each refusal keeps the owner's words and photos in the text box, so they can send them again.
+  const refuse = (reply: string) => keepAndSay(session, business, text, thread, reply);
+  if (!chosen.includes("posts")) return refuse(postsOffReply(business));
   const all = await store.listCards(session, business.id);
   if (postsInLastDay(all, new Date()) >= MAX_POSTS_PER_DAY) {
-    return { messages: (await say(`You've made ${MAX_POSTS_PER_DAY} photo posts in the last day, the most Anchored drafts in a day. Try again tomorrow, or edit one of the drafts waiting in Approvals.`)).messages, changes: [] };
+    return refuse(`You've made ${MAX_POSTS_PER_DAY} photo posts in the last day, the most Anchored drafts in a day. Try again tomorrow, or edit one of the drafts waiting in Approvals.`);
   }
   const owned = await Promise.all(photoIds.map((id) => store.photoExists(session, business.id, id)));
-  if (owned.some((ok) => !ok)) {
-    return { messages: (await say("I couldn't find one of those photos. Add the photos again and resend.")).messages, changes: [] };
-  }
+  if (owned.some((ok) => !ok)) return refuse("I couldn't find one of those photos. Take it out of the tray, add it again, and resend.");
+  // Instructions alone, like "Draft only", say nothing a caption could be about.
+  if (!briefIsUsable(readBrief(text))) return refuse(`Your photos are ready. ${POST_BRIEF_QUESTION} For example, "Our weekend workshop, where students built solar heaters."`);
 
   const photos = photoIds.map((id) => ({ id, url: `/api/businesses/${business.id}/photos/${id}` }));
   const post = await draftPhotoPost(business, text, photos);
@@ -216,6 +230,31 @@ async function answerPhotoPost(session: string, business: BusinessProfile, text:
   const card: KeyedCard = { ...postCard(business, post, text), agent, skill: "posts", key: chatCardKey(business.id, reply.id) };
   await store.ensureCards(session, business.id, [card]);
   return { messages: linkCards(business, [...thread.stored, ...saved], [...thread.cards, { key: card.key, title: card.title, status: "pending" }]), changes: [] };
+}
+
+/** Store the owner's message and Anchored's reply, and tell the chat to put the message back in the text box. */
+async function keepAndSay(session: string, business: BusinessProfile, text: string, thread: ThreadSoFar, reply: string): Promise<BusinessChatResponse> {
+  const saved = await getStore().addMessages(session, threadOf(business), [...thread.opening, { role: "owner", text }, { role: "anchored", text: reply }]);
+  return { messages: linkCards(business, [...thread.stored, ...saved], thread.cards), changes: [], keepComposer: true };
+}
+
+/** What Anchored says when photos or a post request arrive while post drafts are off. */
+function postsOffReply(business: BusinessProfile): string {
+  return `I can draft posts from your photos, but post drafts are off for ${business.name}. Turn on "Social posts and marketing" on the Automations page, and I'll ask you about your first post here.`;
+}
+
+/** Answer a request for posts or marketing help: the post question when post drafts are on, the way to turn them on otherwise. */
+async function answerPostHelp(session: string, business: BusinessProfile, text: string, chosen: readonly SkillId[], thread: ThreadSoFar): Promise<BusinessChatResponse> {
+  const reply = chosen.includes("posts")
+    ? `Happy to help with that. ${POST_BRIEF_QUESTION} Add your photos with the photo button next to the text box and send them with your intro. I'll draft captions for Instagram, Facebook and LinkedIn for you to approve.`
+    : postsOffReply(business);
+  const saved = await getStore().addMessages(session, threadOf(business), [...thread.opening, { role: "owner", text }, { role: "anchored", text: reply }]);
+  return { messages: linkCards(business, [...thread.stored, ...saved], thread.cards), changes: [] };
+}
+
+/** The text of Anchored's last message in the thread, or "" when it has none. */
+function lastAnchored(stored: readonly ChatMessage[]): string {
+  return stored.findLast((m) => m.role === "anchored")?.text ?? "";
 }
 
 // =============================================================================

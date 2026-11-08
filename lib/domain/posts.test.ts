@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { profileFromFacts } from "./engine";
 import { POST_PLATFORMS, checkHashtags } from "./playbook";
 import { PLAYBOOK_SEED } from "./playbook-seed";
-import { aiTells, hasBlanks, planPost, postTitle, postsInLastDay, ruleCaption, unbackedClaims } from "./posts";
+import { POST_BRIEF_QUESTION, aiTells, askedForBrief, asksForPostHelp, briefIsUsable, hasBlanks, planPost, postTitle, postsInLastDay, readBrief, ruleCaption, unbackedClaims, wantsPhotoPost } from "./posts";
 
 const hvac = profileFromFacts({ name: "College Park Heating & Air", trade: "HVAC", tradeKey: "home", place: "College Park, MD", reach: ["Phone calls"], tools: [], signals: [] });
 const bakery = profileFromFacts({ name: "Rise Bakery", trade: "bakery", tradeKey: "restaurant", place: "Hyattsville, MD", reach: ["Walk-ins"], tools: [], signals: [] });
@@ -92,5 +92,58 @@ describe("postsInLastDay and postTitle", () => {
     const long = postTitle("Before and after of a furnace replacement in a 1950s house in College Park, the old unit was rusted");
     expect(long.length).toBeLessThanOrEqual(70);
     expect(long).toMatch(/^Post: Before and after .*\.\.\.$/);
+  });
+});
+
+describe("readBrief", () => {
+  it("splits the Nov 8 tester's brief into what the post is about and how to write it", () => {
+    const brief = readBrief(
+      "Marketing test: make a carousel caption about a classroom event. These three photos show a projected presentation, attendees seated with laptops, and a wide view of the room. The goal is to share an event recap. Use a warm, factual tone. Do not identify attendees or invent the event name, date, organizer, or a connection to Maple Street Café. Draft only.",
+    );
+    expect(brief.about).toBe("A classroom event. A projected presentation, attendees seated with laptops, and a wide view of the room.");
+    expect(brief.asks).toEqual([
+      "make a carousel caption about a classroom event.",
+      "The goal is to share an event recap.",
+      "Use a warm, factual tone.",
+      "Do not identify attendees or invent the event name, date, organizer, or a connection to Maple Street Café.",
+      "Draft only.",
+    ]);
+  });
+
+  it("keeps a plain description whole", () => {
+    expect(readBrief("Before and after of a furnace replacement in a 1950s house. The old unit was rusted out.")).toEqual({
+      about: "Before and after of a furnace replacement in a 1950s house. The old unit was rusted out.",
+      asks: [],
+    });
+  });
+
+  it("finds nothing to write about in instructions alone", () => {
+    expect(briefIsUsable(readBrief("Draft only. Use a warm tone."))).toBe(false);
+    expect(briefIsUsable(readBrief("New patio"))).toBe(true);
+  });
+});
+
+describe("asking for posts", () => {
+  it.each([
+    "Marketing is our top priority. Can you help turn our classroom event photos into social posts?",
+    "please help us make a carousel",
+    "We have a marketing problem",
+    "Can you make an Instagram post from these pictures?",
+  ])("hears %j as asking for post help", (text) => {
+    expect(asksForPostHelp(text)).toBe(true);
+  });
+
+  it.each(["We started posting on Instagram", "Write a post about this week's special", "We now take EBT", "Text Dana we're running late"])("leaves %j to the other readers", (text) => {
+    expect(asksForPostHelp(text)).toBe(false);
+  });
+
+  it("sends only photo and carousel asks straight to photo posts", () => {
+    expect(wantsPhotoPost("please help us make a carousel")).toBe(true);
+    expect(wantsPhotoPost("Help me write an Instagram post about our sale")).toBe(false);
+  });
+
+  it("knows when Anchored's message asked the post question", () => {
+    expect(askedForBrief(`Happy to help with that. ${POST_BRIEF_QUESTION} Add your photos.`)).toBe(true);
+    expect(askedForBrief("Updated your profile.")).toBe(false);
   });
 });

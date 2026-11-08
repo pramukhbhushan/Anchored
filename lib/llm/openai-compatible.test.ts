@@ -237,6 +237,19 @@ describe("OpenAICompatibleProvider replies", () => {
     expect(await rejectionOf(providerFor(OPENAI, fetchImpl).generateText(TEXT_REQUEST))).toBeInstanceOf(LlmResponseError);
   });
 
+  it("says a JSON reply was cut off at the token limit, as a thinking model's can be", async () => {
+    // Captured shape from the Nov 8 photo-post test: the model spent most of its budget thinking and stopped mid-object.
+    const { fetchImpl } = recordingFetch(() => completion({ content: '{"instagram":"Quick recap from a classroom event.\\n\\nA presentation was up on the' }, "length"));
+    const error = await rejectionOf(providerFor(OPENROUTER, fetchImpl).generateObject(OBJECT_REQUEST));
+    expect(error).toBeInstanceOf(LlmResponseError);
+    expect((error as Error).message).toContain("ran out of room");
+  });
+
+  it("still returns text cut off at the token limit, where a partial answer is usable", async () => {
+    const { fetchImpl } = recordingFetch(() => completion({ content: "Welcome to Rosa's, where" }, "length"));
+    expect(await providerFor(OPENROUTER, fetchImpl).generateText(TEXT_REQUEST)).toBe("Welcome to Rosa's, where");
+  });
+
   it("raises `LlmRefusalError` when the model sends a `refusal`", async () => {
     const { fetchImpl } = recordingFetch(() => completion({ content: null, refusal: "I can't help with that." }));
     expect(await rejectionOf(providerFor(OPENAI, fetchImpl).generateObject(OBJECT_REQUEST))).toBeInstanceOf(LlmRefusalError);

@@ -14,6 +14,7 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { GENERIC_STARTERS } from "@/components/chat/starters";
 import type { BusinessChatResponse, CardStatus, ChatCardLink, ChatMessage, IntakeAnswerRequest, IntakeResponse, StartIntakeResponse } from "@/lib/api/contract";
 import { answerText, CHANGE_AREA_LABEL, type IntakeQuestion, type KnownFact, type ProfileChange } from "@/lib/domain/intake";
+import { POST_BRIEF_QUESTION } from "@/lib/domain/posts";
 import styles from "./chat.module.css";
 
 // =============================================================================
@@ -25,17 +26,20 @@ import styles from "./chat.module.css";
 // the owner says what changed and the page refreshes to show the new plan, or
 // asks an agent for work and follows the reply's link to the draft in Approvals.
 
-/** Onboard a new business, or talk to one that exists. The example business passes `readOnly`; `starters` are the first messages offered. */
+/**
+ * Onboard a new business, or talk to one that exists. The example business passes `readOnly`; `starters` are the first
+ * messages offered; `ask` is words to start the text box with, carried from an automation page.
+ */
 export type ChatWindowProps =
   | { readonly mode: "intake" }
-  | { readonly mode: "business"; readonly businessId: string; readonly readOnly?: boolean; readonly starters?: readonly string[] };
+  | { readonly mode: "business"; readonly businessId: string; readonly readOnly?: boolean; readonly starters?: readonly string[]; readonly ask?: string };
 
 /** Render the chat for `props.mode`. */
 export function ChatWindow(props: ChatWindowProps) {
   return props.mode === "intake" ? (
     <IntakeChat />
   ) : (
-    <BusinessChat businessId={props.businessId} readOnly={props.readOnly ?? false} starters={props.starters ?? GENERIC_STARTERS} />
+    <BusinessChat businessId={props.businessId} readOnly={props.readOnly ?? false} starters={props.starters ?? GENERIC_STARTERS} ask={props.ask} />
   );
 }
 
@@ -302,14 +306,22 @@ function IntakeChat() {
 // Business chat
 // =============================================================================
 
+/** Words for the text box. `n` changes each time, so the same words can come back twice. */
+interface Refill {
+  readonly text: string;
+  readonly n: number;
+}
+
 function BusinessChat({
   businessId,
   readOnly,
   starters,
+  ask,
 }: {
   readonly businessId: string;
   readonly readOnly: boolean;
   readonly starters: readonly string[];
+  readonly ask?: string;
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<readonly ChatMessage[] | null>(null);
@@ -317,6 +329,13 @@ function BusinessChat({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const picker = usePhotoPicker(businessId);
   const url = `/api/businesses/${encodeURIComponent(businessId)}/chat`;
+  // Words to put back in the text box: an automation page's question to start, or a message Anchored didn't act on.
+  const [refill, setRefill] = useState<Refill | null>(ask !== undefined && ask.trim() !== "" ? { text: ask, n: 0 } : null);
+
+  useEffect(() => {
+    // The words now sit in the text box, so a reload shouldn't bring them back.
+    if (ask !== undefined) window.history.replaceState(null, "", window.location.pathname);
+  }, [ask]);
 
   useEffect(() => {
     let live = true;
@@ -337,7 +356,9 @@ function BusinessChat({
     const shown = photos.length === 0 ? text : `${text}\n(${photos.length} photo${photos.length === 1 ? "" : "s"} attached)`;
     await run(shown, async () => {
       const chat = await callApi<BusinessChatResponse>(url, "POST", photos.length === 0 ? { text } : { text, photos });
-      if (photos.length > 0) picker.clear();
+      // Anchored didn't act on it, such as photos sent before post drafts are on: the words and photos stay to resend.
+      if (chat.keepComposer) setRefill((last) => ({ text, n: (last?.n ?? 0) + 1 }));
+      else if (photos.length > 0) picker.clear();
       setMessages(chat.messages);
       // Changed facts can add or drop workflows, and a new draft raises the approvals count in the sidebar,
       // so the page around the chat re-renders from the server.
@@ -380,11 +401,12 @@ function BusinessChat({
               <PhotoTray picker={picker} disabled={busy} />
               <Composer
                 inputRef={inputRef}
-                placeholder={picker.photos.length > 0 ? "Say what the photos show, like \"Before and after of a furnace swap\"" : "Tell Anchored what changed, or ask your agents for a draft"}
+                placeholder={picker.photos.length > 0 ? POST_BRIEF_QUESTION : "Tell Anchored what changed, or ask your agents for a draft"}
                 disabled={messages === null || outgoing?.status === "failed"}
                 busy={busy}
                 onSend={(text) => void send(text)}
                 photos={picker}
+                refill={refill}
               />
             </>
           )}
@@ -599,6 +621,7 @@ function Composer({
   busy,
   onSend,
   photos,
+  refill,
 }: {
   readonly inputRef: RefObject<HTMLTextAreaElement | null>;
   readonly placeholder: string;
@@ -607,8 +630,14 @@ function Composer({
   readonly onSend: (text: string) => void;
   /** Set in a business chat, where the owner may add photos for a post. */
   readonly photos?: PhotoPicker;
+  /** Words to put in the text box; a new `n` puts them there again. */
+  readonly refill?: Refill | null;
 }) {
-  const [text, setText] = useState("");
+  const [text, setText] = useState(refill?.text ?? "");
+
+  useEffect(() => {
+    if (refill) setText(refill.text);
+  }, [refill]);
   const [dragging, setDragging] = useState(false);
   const id = useId();
   const fileRef = useRef<HTMLInputElement>(null);

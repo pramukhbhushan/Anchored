@@ -9,7 +9,9 @@ import type { BusinessProfile } from "@/lib/domain/types";
 // platform uses, which hooks the writer may open with and which hashtags it may
 // use. `ruleCaption` writes a caption from the plan alone, for when no model is
 // set up or the model's caption fails a check. `unbackedClaims` refuses praise
-// the owner never stated, such as "award-winning" or "guaranteed".
+// the owner never stated, such as "award-winning" or "guaranteed". `readBrief`
+// splits the owner's intro into what the post is about and how they want it
+// written, so an instruction like "Draft only" never lands in a caption.
 
 /** One photo in a post, in the order the owner wants it shown. */
 export interface PostPhoto {
@@ -33,6 +35,82 @@ export function postTitle(text: string): string {
   if (words.length <= 60) return `Post: ${words}`;
   const cut = words.slice(0, 60);
   return `Post: ${cut.slice(0, cut.lastIndexOf(" ") > 20 ? cut.lastIndexOf(" ") : 60).replace(/[,.;:]$/, "")}...`;
+}
+
+// =============================================================================
+// The owner's brief
+// =============================================================================
+
+/** The one question Anchored asks before a post: the owner's answer, with their photos, is the post's brief. */
+export const POST_BRIEF_QUESTION = "Can you give a brief intro about what your post is going to be about?";
+
+/** The owner's intro, split into what the post is about and how they want it written. */
+export interface PostBrief {
+  /** What happened or what the photos show, in the owner's words. Captions draw facts only from here. */
+  readonly about: string;
+  /** How the owner wants it written, such as "Use a warm, factual tone". Never copied into a caption. */
+  readonly asks: readonly string[];
+}
+
+// A short label before the brief, such as "Marketing test:" or "Post idea:".
+const LABEL = /^(?:[A-Za-z]+\s){0,2}[A-Za-z]+:\s+/;
+
+// A sentence that tells the writer how to write instead of saying what happened.
+const ASK_OPENER =
+  /^(?:please\s+|pls\s+|can you\s+|could you\s+)?(?:use|make|write|keep|draft|do not|don't|dont|avoid|never|include|mention|add|focus|sound|be|try|put|give|create|turn|help|post|share|tag|end|start|open)\b/i;
+const ASK_ANYWHERE = /\btone\b|\bdraft only\b|\bthe goal is\b|\bhashtags?\b|\bcaptions?\b|\bcarousel\b|\bemojis?\b|\bdo not\b|\bdon't\b/i;
+
+// "These three photos show ..." becomes what they show.
+const PHOTOS_SHOW = /^(?:these|the|our|this|my|here are|here's)\s+(?:\w+\s+)?(?:photos?|pictures?|pics|images?|shots?)\s+(?:show|shows|are of|is of|of|from)\s+/i;
+
+// The topic inside an ask, such as "about a classroom event" in "Make a carousel caption about a classroom event".
+const ABOUT_TOPIC = /\b(?:about|of|for|from)\s+((?:a|an|the|our|my)\s+[^,.;]{3,80})$/i;
+
+/** Split the owner's intro into what the post is about and how they want it written. */
+export function readBrief(text: string): PostBrief {
+  const sentences = text.replace(/\s+/g, " ").trim().replace(LABEL, "").split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter((s) => s !== "");
+  const about: string[] = [];
+  const asks: string[] = [];
+  for (const raw of sentences) {
+    const s = raw.replace(LABEL, "");
+    if (ASK_OPENER.test(s) || ASK_ANYWHERE.test(s)) {
+      asks.push(s);
+      const topic = ABOUT_TOPIC.exec(s.replace(/[.!?]+$/, ""))?.[1];
+      if (topic !== undefined && !/\b(?:caption|post|hashtag|tone)s?\b/i.test(topic)) about.push(sentence(topic));
+    } else {
+      about.push(sentence(s.replace(PHOTOS_SHOW, "")));
+    }
+  }
+  return { about: about.join(" "), asks };
+}
+
+/** Report whether `brief` says enough about the post to write from: a few words of what happened. */
+export function briefIsUsable(brief: PostBrief): boolean {
+  return brief.about.split(/\s+/).filter((w) => /[A-Za-z]/.test(w)).length >= 2;
+}
+
+// Asking for help with posts or marketing, in words the request reader doesn't treat as one draft.
+const POST_TOPIC = /\b(?:carousel|social (?:media )?posts?|instagram|facebook|linkedin|tiktok)\b/i;
+const PHOTO_WORDS = /\b(?:photos?|pictures?|pics|images?)\b/i;
+const POST_WORDS = /\b(?:posts?|captions?)\b/i;
+const MARKETING_HELP = /\bmarketing\b.*\b(?:help|problem|priority|struggl\w*|need)\b|\b(?:help|problem|priority|struggl\w*|need)\b.*\bmarketing\b/i;
+const WANTS_WORK = /\b(?:help|make|create|write|draft|turn|need|want|can you|could you|how do i|let's)\b/i;
+
+/** Report whether `text` asks for help making posts or with marketing, such as "please help us make a carousel". */
+export function asksForPostHelp(text: string): boolean {
+  if (MARKETING_HELP.test(text)) return true;
+  if (!WANTS_WORK.test(text)) return false;
+  return POST_TOPIC.test(text) || (POST_WORDS.test(text) && PHOTO_WORDS.test(text));
+}
+
+/** Report whether `text` asks for a post made from photos, such as "turn our event photos into a carousel". */
+export function wantsPhotoPost(text: string): boolean {
+  return asksForPostHelp(text) && (/\bcarousel\b/i.test(text) || PHOTO_WORDS.test(text));
+}
+
+/** Report whether `text`, one of Anchored's chat messages, asked the post question, so the owner's next message is a brief. */
+export function askedForBrief(text: string): boolean {
+  return text.includes(POST_BRIEF_QUESTION);
 }
 
 /** Who wrote a caption: the model, or the rules after the model was off or failed a check. */
@@ -124,14 +202,17 @@ export function hasBlanks(text: string): boolean {
   return /[{}]/.test(text);
 }
 
-/** Write one platform's caption from the plan and the owner's words alone. It always passes the hashtag check. */
+/**
+ * Write one platform's caption from the plan and the owner's words alone. Only what the post is about goes in,
+ * never how the owner asked for it to be written. It always passes the hashtag check.
+ */
 export function ruleCaption(business: Pick<BusinessProfile, "name">, plan: PlatformPlan, description: string): string {
   const hook = plan.hooks.find((h) => !hasBlanks(h.text))?.text ?? "Proud of this one.";
   const rule = PLATFORM_RULES[plan.platform];
   const count = Math.min(Math.max(TEMPLATE_TAGS[plan.platform], rule.minHashtags), rule.maxHashtags, plan.hashtags.length);
   const tags = plan.hashtags.slice(0, count).join(" ");
-  const about = description.trim() === "" ? `A look at recent work from ${business.name}.` : sentence(description);
-  const middle = plan.platform === "linkedin" ? `${about}\n\nEvery job is a chance to do the work right, and this one was no different.` : about;
+  const { about } = readBrief(description);
+  const middle = about === "" ? `A look at recent work from ${business.name}.` : about;
   return `${hook}\n\n${middle}\n\n${CLOSING[plan.platform]}\n\n${tags}`;
 }
 

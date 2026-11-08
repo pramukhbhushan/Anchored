@@ -44,6 +44,8 @@ const LIMITS = {
   // Twilio, Stripe and Postmark post from shared addresses with no session, so only the per-IP limit holds them.
   // Each photo is its own request, and a post holds up to 10.
   photo: { bucket: "photo", windowMs: WINDOW_MS, perSession: 100, perIp: 500 },
+  // Turning a job on can add a question to the chat, so the switch gets its own bucket.
+  automation: { bucket: "automation", windowMs: WINDOW_MS, perSession: 60, perIp: 300 },
   hook: { bucket: "hook", windowMs: WINDOW_MS, perSession: 600, perIp: 3000 },
   mutation: { bucket: "mutation", windowMs: WINDOW_MS, perSession: 120, perIp: 600 },
 } as const satisfies Record<string, ApiLimit>;
@@ -110,6 +112,7 @@ export function clientKey(ip: string): string {
 export function limitFor(method: string, pathname: string): ApiLimit {
   if (pathname.startsWith("/api/hooks/")) return LIMITS.hook;
   if (/^\/api\/businesses\/[^/]+\/(?:connections|contacts)(?:\/[^/]+)?\/?$/.test(pathname)) return LIMITS.connect;
+  if (/^\/api\/businesses\/[^/]+\/automations\/?$/.test(pathname)) return LIMITS.automation;
   if (method !== "POST") return LIMITS.mutation;
   if (isPhotoUpload(pathname)) return LIMITS.photo;
   if (/^\/api\/businesses\/?$/.test(pathname)) return LIMITS.createBusiness;

@@ -4,9 +4,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { businessHref, cardAnchor, toolsHref } from "@/components/routes";
 import { automationSummary, automationsOf, type Automation } from "@/components/workflows/automations";
+import { AskInChat } from "@/components/workflows/AskInChat";
 import { CheckSheetButton } from "@/components/workflows/CheckSheetButton";
 import { workflowFlow } from "@/components/workflows/flow";
 import { SKILLS } from "@/lib/domain/agents";
+import { POST_BRIEF_QUESTION } from "@/lib/domain/posts";
 import { askExampleFor } from "@/lib/domain/requests";
 import { workflowIdsOf } from "@/lib/domain/paths";
 import { stageOf } from "@/lib/domain/stages";
@@ -22,6 +24,8 @@ import { getBusinessOrNotFound, getChoices, getFeed } from "@/lib/server/data";
 // recent decisions, and how it works, including what it never does. "Run it
 // now" starts real work only: payment reminders read the connected invoice
 // sheet, and other drafting automations link to Chat with a request to ask.
+// Every automation page has a chat box whose words carry over to the business
+// chat; for post drafts it asks the one question a post starts from.
 
 type Params = Promise<{ id: string; workflow: string; automation: string }>;
 
@@ -86,6 +90,15 @@ export default async function AutomationPage({ params }: { readonly params: Para
         </div>
         {waiting.length > 0 && <span className="auto-wait">{waiting.length === 1 ? "1 needs your OK" : `${waiting.length} need your OK`}</span>}
       </header>
+
+      <section className="auto-card" aria-labelledby="auto-chat">
+        <h2 id="auto-chat">Chat about this</h2>
+        <AskInChat
+          chatHref={businessHref(business.id, "chat")}
+          prompt={a.key === "posts" && a.kind === "agent" ? POST_BRIEF_QUESTION : `Ask Anchored about ${a.name.charAt(0).toLowerCase() + a.name.slice(1)}, or tell it what you need.`}
+          placeholder={a.key === "posts" ? "Our weekend workshop, where students built solar heaters" : (askExampleFor(a.key) ?? "Type a question or a note for Anchored")}
+        />
+      </section>
 
       {business.kind !== "case" && a.kind === "agent" && (a.key === "nudger" || askExampleFor(a.key) !== null) && (
         <section className="auto-card" aria-labelledby="auto-run">

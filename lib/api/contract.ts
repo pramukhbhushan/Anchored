@@ -75,6 +75,17 @@ export interface SetChoiceResponse {
   readonly choice: Choice;
 }
 
+/** PUT /api/businesses/[id]/automations: turn one job's automation on or off from the Automations page. */
+export interface SetAutomationRequest {
+  readonly workflow: WorkflowId;
+  readonly on: boolean;
+}
+export interface SetAutomationResponse {
+  readonly choice: Choice;
+  /** True when turning it on put Anchored's first question for it in the business chat. */
+  readonly asked: boolean;
+}
+
 /** PUT /api/businesses/[id]/plan: the owner says yes to the plan as it stands. */
 export interface ApprovePlanRequest {
   readonly approved: true;
@@ -198,6 +209,8 @@ export interface BusinessChatRequest {
 export interface BusinessChatResponse {
   readonly messages: readonly ChatMessage[];
   readonly changes: readonly ProfileChange[];
+  /** Set when Anchored didn't act on the message, such as photos sent before post drafts are on: the chat puts the words and photos back in the text box. */
+  readonly keepComposer?: true;
 }
 
 // =============================================================================

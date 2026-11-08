@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import type { BusinessChatResponse, ChatMessage } from "@/lib/api/contract";
+import { POST_BRIEF_QUESTION } from "@/lib/domain/posts";
 import { deferred, json, sentJson, stubFetch } from "@/test/http";
 
 // =============================================================================
@@ -35,13 +36,13 @@ function jpegs(count: number): File[] {
   return Array.from({ length: count }, (_, i) => new File([new Uint8Array([0xff, 0xd8, 0xff, i])], `job-${i + 1}.jpg`, { type: "image/jpeg" }));
 }
 
-/** Play the chat and photo routes. `upload` answers each photo; the chat POST answers `DRAFTED`. */
-function routes(upload: (n: number) => Response | Promise<Response> = (n) => json({ photo: { id: photoId(n), url: `${PHOTOS_URL}/${photoId(n)}` } }, 201)) {
+/** Play the chat and photo routes. `upload` answers each photo; the chat POST answers `sent`, `DRAFTED` by default. */
+function routes(upload: (n: number) => Response | Promise<Response> = (n) => json({ photo: { id: photoId(n), url: `${PHOTOS_URL}/${photoId(n)}` } }, 201), sent: BusinessChatResponse = DRAFTED) {
   let uploads = 0;
   return stubFetch((url, init) => {
     if (url === PHOTOS_URL) return upload(++uploads);
     if (url !== CHAT_URL) throw new Error(`Unexpected request to ${url}`);
-    return (init?.method ?? "GET") === "GET" ? json(LOADED) : json(DRAFTED);
+    return (init?.method ?? "GET") === "GET" ? json(LOADED) : json(sent);
   });
 }
 
@@ -76,7 +77,7 @@ describe("photos in the business chat", () => {
     expect(uploads).toHaveLength(2);
     expect(uploads[0]?.[1]).toMatchObject({ method: "POST", headers: { "content-type": "image/jpeg" } });
 
-    expect(textBox()).toHaveAttribute("placeholder", expect.stringContaining("Say what the photos show"));
+    expect(textBox()).toHaveAttribute("placeholder", POST_BRIEF_QUESTION);
     expect(sendButton()).toBeDisabled();
     await user.type(textBox(), "Before and after of a patio");
     await user.click(sendButton());
@@ -162,5 +163,33 @@ describe("photos in the business chat", () => {
     render(<ChatWindow mode="business" businessId="greenfield" readOnly />);
     await waitFor(() => expect(screen.getByRole("log")).toHaveTextContent(GREETING.text));
     expect(screen.queryByRole("button", { name: "Add photos for a post" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the photos and puts the words back when Anchored didn't draft a post, so the owner can resend", async () => {
+    const user = userEvent.setup();
+    const refused: BusinessChatResponse = {
+      messages: [GREETING, { id: "m2", role: "owner", text: "New patio", at: "2026-11-06T14:01:00Z" }, { id: "m3", role: "anchored", text: "I can draft posts from your photos, but post drafts are off.", at: "2026-11-06T14:01:01Z" }],
+      changes: [],
+      keepComposer: true,
+    };
+    routes(undefined, refused);
+    await renderChat();
+
+    await user.upload(photoInput(), jpegs(2));
+    await user.type(textBox(), "New patio");
+    await waitFor(() => expect(sendButton()).toBeEnabled());
+    await user.click(sendButton());
+
+    await waitFor(() => expect(screen.getByRole("log")).toHaveTextContent("post drafts are off"));
+    expect(textBox()).toHaveValue("New patio");
+    expect(screen.getByRole("list", { name: "Photos for your post, 2 added" })).toBeInTheDocument();
+    expect(sendButton()).toBeEnabled();
+  });
+
+  it("starts the text box with words carried from an automation page", async () => {
+    routes();
+    render(<ChatWindow mode="business" businessId="greenfield" ask="Our open house" />);
+    await waitFor(() => expect(screen.getByRole("log")).toHaveTextContent(GREETING.text));
+    expect(textBox()).toHaveValue("Our open house");
   });
 });

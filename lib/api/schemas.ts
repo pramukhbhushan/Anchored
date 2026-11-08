@@ -9,6 +9,7 @@ import type {
   IntakeAnswerRequest,
   SaveContactRequest,
   SetChoiceRequest,
+  SetAutomationRequest,
   InvoiceSheetCheckRequest,
   SimulateRequest,
 } from "@/lib/api/contract";
@@ -68,6 +69,8 @@ export const setChoiceSchema = z.union([
   z.object({ workflow: workflowId, path: z.enum(["turnon", "buy"]), toolId: z.string().min(1).max(60) }),
   z.object({ workflow: workflowId, path: z.enum(["build", "skip"]) }),
 ]) satisfies z.ZodType<SetChoiceRequest>;
+
+export const setAutomationSchema = z.object({ workflow: workflowId, on: z.boolean() }) satisfies z.ZodType<SetAutomationRequest>;
 
 export const approvePlanSchema = z.object({ approved: z.literal(true) }) satisfies z.ZodType<ApprovePlanRequest>;
 

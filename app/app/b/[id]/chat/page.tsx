@@ -15,12 +15,13 @@ import { getBusinessOrNotFound, getChoices, getSetupChat } from "@/lib/server/da
 // Approvals, with the profile it reads in the right rail. The onboarding chat
 // that set the business up stays above it, closed, to read again.
 // The example's chat is read-only; Anchored's first message says so, once.
+// `?ask=` carries words from an automation page's chat box into the text box.
 
 export const metadata: Metadata = { title: "Chat" };
 
 /** Render the chat for the business in the URL. */
-export default async function ChatPage({ params }: { readonly params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function ChatPage({ params, searchParams }: { readonly params: Promise<{ id: string }>; readonly searchParams: Promise<{ ask?: string | string[] }> }) {
+  const [{ id }, { ask }] = await Promise.all([params, searchParams]);
   const business = await getBusinessOrNotFound(id);
   const [choices, setup] = await Promise.all([getChoices(business), getSetupChat(business)]);
   const chosen = chosenSkills(business, choices);
@@ -36,6 +37,7 @@ export default async function ChatPage({ params }: { readonly params: Promise<{ 
             businessId={business.id}
             readOnly={business.kind === "case"}
             starters={chatStarters(business, chosen)}
+            ask={typeof ask === "string" ? ask.slice(0, 2000) : undefined}
           />
         </div>
         <aside className="rail" aria-label="What Anchored knows about this business">
