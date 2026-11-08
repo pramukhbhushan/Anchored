@@ -158,7 +158,7 @@ function WhatHappens({
     return (
       <p className={styles.happens}>
         <Power aria-hidden="true" size={16} />
-        {toolName(owned)} does this inside {owned.platform ?? "software you have"}, which you already pay for. No new bill.
+        It runs inside {owned.platform ?? "software you have"}, which you already pay for. No new bill.
       </p>
     );
   }

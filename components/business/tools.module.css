@@ -32,7 +32,7 @@
 
 /* Wide: each part gets a column, headed once at the top */
 @container app (min-width:1100px){
-  .head,.row{grid-template-columns:48px minmax(0,1.1fr) minmax(0,1.5fr) 220px 210px;column-gap:var(--s-5)}
+  .head,.row{grid-template-columns:48px minmax(0,1.1fr) minmax(0,1.5fr) 250px 220px;column-gap:var(--s-5)}
   .row{grid-template-areas:"fit tool covers checks acts" ". detail detail detail detail";align-items:center}
   .head{display:grid;padding-bottom:var(--s-2);border-bottom:1px solid var(--line);font-size:var(--fs-fine);font-weight:600;color:var(--muted)}
   .head span:first-child{text-align:center}
@@ -63,7 +63,7 @@
 .cover[data-active]{border-color:var(--ink);color:var(--ink)}
 
 /* ---------- the checks: seven dots, and the count beside them, opening the detail ---------- */
-.checksBtn{display:inline-flex;align-items:center;gap:var(--s-2);min-height:36px;margin-left:-8px;padding:4px 8px;border:0;border-radius:var(--r);background:none;color:var(--ink-2);font-size:var(--fs-sm);font-weight:600;cursor:pointer;text-align:left}
+.checksBtn{display:inline-flex;align-items:center;gap:var(--s-2);min-height:36px;margin-left:-8px;padding:4px 8px;border:0;border-radius:var(--r);background:none;color:var(--ink-2);font-size:var(--fs-sm);font-weight:600;white-space:nowrap;cursor:pointer;text-align:left}
 .checksBtn:hover{background:var(--hover);color:var(--ink)}
 .checksBtn > span:not(:first-child){text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
 .checksBtn svg{flex:none;color:var(--muted)}
