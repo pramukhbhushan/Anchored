@@ -17,8 +17,8 @@ import type { BusinessProfile } from "@/lib/domain/types";
 // tabs and the live work order. Mapping runs in the browser with the domain
 // rules; "Open the full plan" saves the business through `/api/businesses`.
 
-// The hero opens on the dental office, a trade the example business doesn't cover.
-const FIRST_EXAMPLE = "dental";
+// The hero opens on the HVAC shop from the team's research, a trade the example restaurant doesn't cover.
+const FIRST_EXAMPLE = "hvac";
 
 /** What the work order shows: a picked example, or a sentence already mapped. */
 type Shown =

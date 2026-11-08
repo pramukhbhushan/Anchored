@@ -112,7 +112,7 @@ const RESEARCH: readonly (readonly [study: string, by: string, finding: string])
   [
     "Coaching",
     "Pramukh Bhushan",
-    "First contact happens in Instagram and LinkedIn DMs that no tool captures, so onboarding accepts pasted DMs.",
+    "68% of coaching clients think it over for weeks after a discovery call, so the Follow-up agent drafts the check-ins after 'let me think about it'.",
   ],
 ];
 
@@ -288,7 +288,7 @@ export default function BuiltPage() {
         <SectionHeader
           id="research"
           title="The research behind it"
-          description="Each team member researched one or two trades and wrote a sourced report: how the business runs, how it sells, what it uses, where money leaks, and what Anchored should and shouldn't do. The restaurant report became the example business."
+          description="Each team member researched one or two trades and wrote a sourced report: how the business runs, how it sells, what it uses, where money leaks, and what Anchored should and shouldn't do. The restaurant report became the example business, and the HVAC shop and the career coach open the landing page's mapper."
         />
         <p className="prose">
           Three findings shaped the product. First, the right first workflow differs by business, so Anchored maps

@@ -14,8 +14,9 @@ import { WORKFLOW_IDS } from "@/lib/domain/workflows";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The example business, Linden Street Kitchen, and eight example fact sets
-// for the landing page's mapper. The example runs its facts through
+// The example business, Linden Street Kitchen, and ten example fact sets
+// for the landing page's mapper, led by the HVAC shop and the career coach
+// from the team's other two research reports. The example runs its facts through
 // `profileFromFacts`, then lays the restaurant research on top: reasons, stakes
 // and cards, plus a path `override` only where the research's `why` gives a reason.
 
@@ -225,6 +226,40 @@ function fromResearch(research: CaseResearch): BusinessProfile {
 
 /** Example businesses for the landing page; each is bare facts the rules engine maps. */
 export const EXAMPLES: readonly [Example, ...Example[]] = [
+  // From Eric's HVAC research: customers call rather than fill out forms, replacement quotes stall
+  // after the visit, and most small shops run Jobber and QuickBooks and sell maintenance agreements.
+  {
+    id: "hvac",
+    label: "HVAC contractor",
+    name: "College Park Heating & Air",
+    place: "College Park, MD",
+    trade: "HVAC contractor",
+    tradeKey: "home",
+    size: "6 people, 4 trucks",
+    seats: 6,
+    customers: "Homeowners within 20 miles",
+    reach: ["Phone calls", "Google", "Referrals"],
+    tools: ["Jobber", "QuickBooks Online", "Google Business Profile"],
+    signals: ["quotes", "memberships"],
+    languages: ["English", "Spanish"],
+  },
+  // From Pramukh Bhushan's coaching research: a solo coach sells packages through a discovery call,
+  // leads start in DMs and referrals, and Calendly, Stripe and a spreadsheet make up the stack.
+  {
+    id: "coach",
+    label: "Career coach",
+    name: "Northpoint Career Coaching",
+    place: "Rockville, MD",
+    trade: "Career coach",
+    tradeKey: "coach",
+    size: "Solo",
+    seats: 1,
+    customers: "Mid-career professionals changing fields",
+    reach: ["Instagram or Facebook", "Referrals", "Website form"],
+    tools: ["Calendly", "Stripe", "Google Sheets", "Gmail"],
+    signals: ["appointments"],
+    languages: ["English"],
+  },
   {
     id: "dental",
     label: "Dental office",
