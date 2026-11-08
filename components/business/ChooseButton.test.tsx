@@ -37,13 +37,24 @@ describe("ChooseButton", () => {
     expect(router.refresh).toHaveBeenCalledTimes(1);
   });
 
-  it("says a skipped workflow is skipped", async () => {
+  it("says a workflow left for now is the owner's to do, with no path words", async () => {
     stubFetch(() => json({ choice: { path: "skip" } }));
     renderButton({ workflow: "calls", path: "skip" });
 
     await userEvent.click(screen.getByRole("button", { name: "Choose" }));
 
-    expect(await screen.findByText(/Answer and return calls/)).toHaveTextContent(/skipped/i);
+    const toast = await screen.findByText(/Answer and return calls/);
+    expect(toast).toHaveTextContent(/you handle it yourself for now/i);
+    expect(toast).not.toHaveTextContent(/skip/i);
+  });
+
+  it("says Anchored drafts the work for the owner's OK", async () => {
+    stubFetch(() => json({ choice: { path: "build", skills: ["catering"] } }));
+    renderButton({ workflow: "catering", path: "build" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Choose" }));
+
+    expect(await screen.findByText(/Catering and events/)).toHaveTextContent("Catering and events: Anchored drafts it, you approve it");
   });
 
   it("can't be pressed again while it saves", async () => {

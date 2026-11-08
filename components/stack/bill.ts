@@ -11,7 +11,7 @@ import { WORKFLOWS } from "@/lib/domain/workflows";
 // =============================================================================
 // The monthly bill behind the Stack page's cost picture. `monthlyBill` sorts
 // the owner's picks into four groups (Anchored's agents, new subscriptions,
-// tools they already have, and what is skipped) and lists the paid pieces as
+// tools they already have, and work nothing handles yet) and lists the paid pieces as
 // `BillSegment`s for the stacked bar. Totals come from `stackCost`.
 
 /** The four ways a piece of the stack shows up on the bill. */

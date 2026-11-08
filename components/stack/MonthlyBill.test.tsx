@@ -72,16 +72,16 @@ describe("MonthlyBill", () => {
     expect(bar).toHaveAccessibleName(/Jobber \$100/);
   });
 
-  it("shows one group per kind of cost, each with its amount", () => {
+  it("shows one group per kind of cost, each named for who handles the work, with its amount", () => {
     render(<MonthlyBill bill={BILL} />);
 
     const groups = screen.getAllByRole("heading", { level: 3 });
     expect(groups).toHaveLength(4);
     expect(groups.map((heading) => heading.textContent)).toEqual([
-      expect.stringMatching(/^Anchored's agents\s*\$29$/),
-      expect.stringMatching(/^New subscriptions\s*\$100$/),
-      expect.stringMatching(/^Already yours\s*\$0$/),
-      expect.stringMatching(/^Skipped for now\s*\$0$/),
+      expect.stringMatching(/^Anchored drafts, you approve\s*\$29$/),
+      expect.stringMatching(/^New tools\s*\$100$/),
+      expect.stringMatching(/^Tools you already have\s*\$0$/),
+      expect.stringMatching(/^Not handled yet\s*\$0$/),
     ]);
   });
 

@@ -45,6 +45,20 @@ describe("Overview page", () => {
     expect(screen.queryByRole("navigation", { name: "Four stops through the example" })).not.toBeInTheDocument();
   });
 
+  it("lists each workflow with who handles it in the owner's words, never a path stamp", async () => {
+    await renderOverview(SAMPLE_BUSINESS.id);
+
+    const ledger = screen.getByRole("region", { name: "Your workflows" });
+    expect(within(ledger).getByRole("link", { name: /Answer and return calls.*Certus, \$250 a month/ })).toHaveAttribute(
+      "href",
+      "/app/b/restaurant/workflows#wf-calls",
+    );
+    expect(within(ledger).getByRole("link", { name: /No-shows and reminders.*Your OpenTable/ })).toBeInTheDocument();
+    expect(within(ledger).getByRole("link", { name: /Catering and events.*Anchored drafts, you approve/ })).toBeInTheDocument();
+    expect(within(ledger).getByRole("link", { name: /Bookkeeping and invoicing.*Not handled yet/ })).toBeInTheDocument();
+    expect(ledger).not.toHaveTextContent(/turn on|\bbuy\b|\bbuild\b|skip/i);
+  });
+
   it("opens the example with its four stops and no sample line", async () => {
     await renderOverview(SAMPLE_BUSINESS.id);
 
