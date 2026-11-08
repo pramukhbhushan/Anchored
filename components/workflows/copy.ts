@@ -211,3 +211,26 @@ export const TOOL_STEPS: Readonly<Record<WorkflowId, ToolSteps>> = {
     result: "A new referral",
   },
 };
+
+/** Each agent job's name on the Workflows map, the sidebar and its own page, in the owner's words. */
+export const AUTOMATION_NAMES: Readonly<Record<SkillId, string>> = {
+  callback: "Text back missed calls",
+  inquiry: "Reply to new leads",
+  showup: "Send booking reminders",
+  catering: "Answer catering requests",
+  callfollow: "Check in after calls",
+  closer: "Chase quiet quotes",
+  debrief: "Turn visit notes into follow-ups",
+  reactivator: "Win back past customers",
+  keeper: "Renew maintenance plans",
+  referral: "Ask for testimonials and referrals",
+  reviewer: "Ask for Google reviews",
+  nudger: "Remind late payers",
+  pricewatch: "Catch supplier price rises",
+  posts: "Draft your posts",
+  reviewdrafter: "Reply to reviews",
+  brief: "Morning brief",
+  triage: "Sort forwarded email",
+  license: "Warn before license renewals",
+  stockcheck: "Check SNAP stock",
+};

@@ -19,7 +19,7 @@ Open [`workflow-map.html`](workflow-map.html) in a browser to click through ever
 | 3 | Automation overview | Tapping an automation opens a short pop-up: what it does, who does it, the result, and a link to its page | Inside `WorkflowMap.tsx` on `feat/workflow-map` |
 | 4 | Automation pages | Each automation gets its own page, like a thread in a project: drafts waiting for the owner's OK, recent runs, how it works, what it never does | `feat/workflow-map`: `app/app/b/[id]/workflows/[workflow]/[automation]/page.tsx` |
 | 5 | Sidebar automations | The open business's automations listed under Workflows, grouped by part of the day, with a count of drafts waiting | `feat/workflow-map`: `components/shell/Sidebar.tsx`, `shell-data.ts` |
-| 6 | Harbor Chart app theme | The landing page's colors, fonts and 4px corners across the app | `feat/workflow-map`: `app/globals.css`. Known issue: it also restyles the home page, so scope it to `/app` before it ships |
+| 6 | Harbor Chart app theme | The landing page's colors, fonts and 4px corners across the app | `app/globals.css`, scoped to `.theme-harbor` so only the app and sign-in wear it and the home page keeps its own palette |
 
 ## Taking an item off the backlog
 

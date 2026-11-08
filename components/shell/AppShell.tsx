@@ -153,7 +153,7 @@ export function AppShell({
 
   return (
     <div
-      className="shell"
+      className="shell theme-harbor"
       data-drawer={open ? "open" : "closed"}
       data-collapsed={collapsed ? "true" : undefined}
       style={widthVar("--side-w", collapsed ? COLLAPSED_SIDE_W : sidebar.width)}
