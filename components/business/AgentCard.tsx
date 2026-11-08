@@ -216,11 +216,11 @@ export function AgentCard({
     actions = (
       <div className="confirm" role="group" aria-label="Confirm send">
         <p>
-          This sends to <b>{audience}</b> at once. Send it?
+          This goes to <b>{audience}</b> at once. Approve it?
         </p>
         <div className="card-acts">
           <Button size="sm" onClick={() => approve(confirming)} disabled={disabled} autoFocus>
-            Yes, send to {audience}
+            Yes, approve for {audience}
           </Button>
           <Button variant="secondary" size="sm" onClick={() => setConfirming(null)} disabled={disabled}>
             Cancel

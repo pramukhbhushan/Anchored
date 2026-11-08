@@ -129,7 +129,7 @@ export default function HomePage() {
             </p>
           </>
         }
-        note={`${TOOLS.length} tools rated from vendor pages read Nov 6 and 7, 2026. A discovery agent keeps finding new listings, and a person checks each one before it gets a score.`}
+        note={`${TOOLS.length} tools rated from vendor pages read Nov 6 and 7, 2026. New listings wait until a person checks them, and only then get a score.`}
       >
         <ToolCompare business={example} workflow="calls" />
       </Step>
