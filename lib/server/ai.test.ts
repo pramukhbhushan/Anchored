@@ -1,0 +1,36 @@
+import { describe, expect, it, vi } from "vitest";
+import { profileFromFacts } from "@/lib/domain/engine";
+import type { LlmProvider } from "@/lib/llm";
+
+// =============================================================================
+// Module Overview
+// =============================================================================
+// "Rewrite in my voice" with the model mocked at the `LlmProvider` boundary:
+// the model's words come back in plain punctuation, and the prompt carries the
+// owner's own sample rather than a summary of it.
+
+const models = vi.hoisted(() => ({ current: null as LlmProvider | null, prompts: [] as string[] }));
+vi.mock("@/lib/server/ai-budget", () => ({ getBudgetedLlm: () => models.current }));
+
+const { rewriteInVoice } = await import("./ai");
+
+const business = {
+  ...profileFromFacts({ id: "b_bw", name: "Brightwater Plumbing", trade: "Plumber", tradeKey: "home", place: "Silver Spring, MD", customers: "Homeowners", reach: ["Phone calls"], tools: [], signals: [], tasks: [], voice: "Friendly and direct." }),
+  details: { examples: [{ kind: "message" as const, text: "Hey Mrs. Patel, Mike from Brightwater here." }] },
+};
+
+describe("rewriteInVoice", () => {
+  it("returns straight quotes and no long dashes, and reads the owner's own sample", async () => {
+    models.current = {
+      generateText: async ({ prompt }: { prompt: string }) => {
+        models.prompts.push(prompt);
+        return "Hey Ana — Mike here. “No rush,” we’ll sort it out.";
+      },
+    } as unknown as LlmProvider;
+
+    const text = await rewriteInVoice(business, "Hi Ana, sorry we missed you. We will sort it out.");
+
+    expect(text).toBe(`Hey Ana, Mike here. "No rush," we'll sort it out.`);
+    expect(models.prompts[0]).toContain("Hey Mrs. Patel, Mike from Brightwater here.");
+  });
+});

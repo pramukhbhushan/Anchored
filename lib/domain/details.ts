@@ -1,5 +1,5 @@
 import { FIELD_KEYS, FIELDS, fieldsFor, isFilled } from "@/lib/domain/fields";
-import type { CoreAgentId, FieldEvidence, FieldKey, NextStep, PriceItem, ProfileDetails, SourceType, TradeKey, Vocabulary } from "@/lib/domain/types";
+import type { BusinessProfile, CoreAgentId, FieldEvidence, FieldKey, NextStep, PriceItem, ProfileDetails, SourceType, TradeKey, Vocabulary } from "@/lib/domain/types";
 
 // =============================================================================
 // Module Overview
@@ -412,6 +412,16 @@ export function nameFromSample(text: string): string | undefined {
     /(?:my name is|i'm|i am|this is) ([A-Z][a-z'-]{1,29})\b/.exec(clean)?.[1],
   ].find((name) => name !== undefined && !NOT_A_NAME.test(name));
   return found;
+}
+
+/** The owner's own words for drafts to sound like: the reply they pasted, else the voice line on their profile. */
+export function voiceSample(business: Pick<BusinessProfile, "voice" | "details">): string {
+  return business.details?.examples?.find((example) => example.text.trim() !== "")?.text ?? business.voice;
+}
+
+/** The owner's first name: the one they gave, else the one their sample signs, else `undefined`. */
+export function ownerFirstName(business: Pick<BusinessProfile, "voice" | "details">): string | undefined {
+  return business.details?.ownerName ?? nameFromSample(voiceSample(business));
 }
 
 /** A candidate for `key` read from `text`, or `null`. The quote is the whole text, cut to a readable length. */
