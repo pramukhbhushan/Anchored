@@ -193,3 +193,46 @@ describe("ChatWindow, business mode", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("ChatWindow, text box size", () => {
+  function grip(): HTMLElement {
+    return screen.getByRole("separator", { name: "Resize the text box" });
+  }
+
+  it("lets the owner make the text box taller or shorter from the keyboard, then fit it to their words again", async () => {
+    chatRoute();
+    await renderLoadedChat();
+    expect(grip()).toHaveAttribute("aria-valuetext", "Fits your words");
+    const tallest = Number(grip().getAttribute("aria-valuemax"));
+
+    grip().focus();
+    await userEvent.keyboard("{End}");
+    expect(textBox()).toHaveStyle({ height: `${tallest}px` });
+
+    await userEvent.keyboard("{ArrowDown}");
+    expect(textBox()).toHaveStyle({ height: `${tallest - 16}px` });
+    expect(grip()).toHaveAttribute("aria-valuetext", `${tallest - 16} pixels tall`);
+
+    await userEvent.keyboard("{Home}");
+    expect(textBox()).toHaveStyle({ height: "46px" });
+
+    await userEvent.keyboard("{Enter}");
+    expect(grip()).toHaveAttribute("aria-valuetext", "Fits your words");
+    expect(textBox().style.height).toBe("");
+  });
+
+  it("keeps the size the owner picked on their next visit", async () => {
+    chatRoute();
+    const first = render(<ChatWindow mode="business" businessId="greenfield" />);
+    await waitFor(() => expect(thread()).toHaveTextContent(GREETING.text));
+    grip().focus();
+    await userEvent.keyboard("{Home}{ArrowUp}{ArrowUp}");
+    expect(textBox()).toHaveStyle({ height: "78px" });
+    first.unmount();
+
+    chatRoute();
+    await renderLoadedChat();
+
+    expect(textBox()).toHaveStyle({ height: "78px" });
+  });
+});
