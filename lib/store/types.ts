@@ -2,6 +2,7 @@ import type { CardRecord, CardStatus, ChatMessage, Delivery, OutboxEntry } from 
 import type { ConnectionKind } from "@/lib/domain/connections";
 import type { Contact } from "@/lib/domain/contacts";
 import type { IntakeDraft } from "@/lib/domain/intake";
+import type { BriefSnapshot } from "@/lib/domain/brief";
 import type { OutboxRule, StandingRuleId, StandingRuleState } from "@/lib/domain/rules";
 import type { NewThreadMessage, ThreadMessage } from "@/lib/domain/threads";
 import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
@@ -79,6 +80,17 @@ export interface TelegramChat {
 
 /** A Telegram chat binding before it is saved. The session comes from the caller. */
 export type NewTelegramChat = Omit<TelegramChat, "session" | "blockedAt">;
+
+/** A business's daily brief: whether one is being written, and the last one that finished. */
+export interface BriefState {
+  readonly runningSince: string | null;
+  readonly lastSuccessAt: string | null;
+  readonly lastCardKey: string | null;
+  readonly lastSnapshot: BriefSnapshot | null;
+}
+
+/** How a brief run ended: with its card and snapshot, or failed, which keeps the last good brief. */
+export type BriefRunResult = { readonly ok: true; readonly at: string; readonly cardKey: string; readonly snapshot: BriefSnapshot } | { readonly ok: false };
 
 /** An onboarding chat: the draft so far and, once the owner confirms, the business it built. */
 export interface IntakeRecord {
@@ -179,6 +191,17 @@ export interface Store {
   getStandingRules(session: string, businessId: string): Promise<StandingRuleState[]>;
   /** Turn a standing rule on or off at `at`, and return it as saved. */
   setStandingRule(session: string, businessId: string, rule: StandingRuleId, enabled: boolean, at: string): Promise<StandingRuleState>;
+  /** Return the business's brief state, or `null` before its first brief. */
+  getBriefState(session: string, businessId: string): Promise<BriefState | null>;
+  /**
+   * Start a brief run: `true` for the caller that should write it. A run still going is refused, unless it started more
+   * than `retakeAfterMs` ago and stalled.
+   */
+  claimBriefRun(session: string, businessId: string, now: string, retakeAfterMs: number): Promise<boolean>;
+  /** End a brief run; a success becomes the brief the owner reads, a failure leaves the last good one. */
+  finishBriefRun(session: string, businessId: string, result: BriefRunResult): Promise<void>;
+  /** Up to `limit` stored businesses with their sessions, for the scheduled brief. Deployment-wide. */
+  listBriefTargets(limit: number): Promise<{ readonly session: string; readonly businessId: string }[]>;
   /** Delete everything the session created, as "Delete my businesses" asks. */
   reset(session: string): Promise<void>;
 }

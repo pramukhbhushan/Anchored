@@ -1,6 +1,7 @@
 import type { ConnectionKind } from "@/lib/domain/connections";
 import type { ConsentSource, Contact } from "@/lib/domain/contacts";
 import type { IntakeQuestion, KnownFact, ProfileChange } from "@/lib/domain/intake";
+import type { BriefSnapshot } from "@/lib/domain/brief";
 import type { OutboxRule } from "@/lib/domain/rules";
 import type { BusinessProfile, CardDraft, Choice, OnboardingAnswers, PlanApproval, SkillId, WorkflowId } from "@/lib/domain/types";
 
@@ -59,6 +60,21 @@ export interface OutboxEntry {
 // =============================================================================
 // Routes
 // =============================================================================
+
+/**
+ * GET and POST /api/businesses/[id]/brief: the last finished daily brief, as plain lines and the counts behind them.
+ * POST runs a new one now ("Run now"). Every number comes from code; `lastRunAt` is `null` before the first brief.
+ */
+export interface BriefResponse {
+  readonly lines: readonly string[];
+  readonly snapshot: BriefSnapshot | null;
+  readonly lastRunAt: string | null;
+  /** The brief's card in Approvals, for a link. */
+  readonly cardKey: string | null;
+  /** Another run is under way, so this one didn't start; the lines are the last finished brief. */
+  readonly running: boolean;
+  readonly unavailableReason: string | null;
+}
 
 /** The acknowledgment rule as the owner sees it: on or off, and when they last approved it. */
 export interface AcknowledgmentState {

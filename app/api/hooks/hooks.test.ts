@@ -153,18 +153,48 @@ describe("Stripe", () => {
 });
 
 describe("forwarded email", () => {
-  function forward(key: string, mailbox = MAIL_HOOK) {
+  function forward(key: string, mailbox = MAIL_HOOK, fields: Record<string, string> = {}) {
     const request = new Request(`http://localhost/api/hooks/email?key=${key}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ From: "pat@example.com", FromName: "Pat", Subject: "Quote for a new AC", TextBody: "Can you send a quote?", MailboxHash: mailbox }),
+      body: JSON.stringify({ From: "pat@example.com", FromName: "Pat", Subject: "Quote for a new AC", TextBody: "Can you send a quote?", MailboxHash: mailbox, ...fields }),
     });
     return email.POST(request);
   }
 
-  it("hands a forwarded email to Inbox Triage", async () => {
+  it("files a customer's email under the agent that answers customers", async () => {
     expect(await (await forward("inbound-key")).json()).toEqual({ received: true, drafted: true });
-    expect(await cardTitles()).toEqual(["Forwarded email from Pat <pat@example.com>: Quote for a new AC"]);
+    const [card] = await store().listCards(SESSION, SHOP.id);
+    expect(card).toMatchObject({ title: "Customer email from Pat <pat@example.com>: Quote for a new AC", skill: "inquiry", channel: "list" });
+  });
+
+  it("files a billing email under Payment Nudger and states no amount", async () => {
+    await forward("inbound-key", MAIL_HOOK, { Subject: "Invoice 1042 is past due", TextBody: "Your balance is $240.50" });
+    const [card] = await store().listCards(SESSION, SHOP.id);
+    expect(card).toMatchObject({ skill: "nudger", title: expect.stringContaining("Billing email") });
+    expect(card?.reason).toContain("no amount");
+  });
+
+  it("gives the owner an email no agent of theirs handles", async () => {
+    await forward("inbound-key", MAIL_HOOK, { Subject: "New price list from Ferguson", TextBody: "Prices change next month." });
+    await forward("inbound-key", MAIL_HOOK, { Subject: "Hello", TextBody: "Lunch next week?" });
+    const cards = await store().listCards(SESSION, SHOP.id);
+    expect(cards.map((card) => [card.skill, card.title.split(" from ")[0]])).toEqual([
+      ["triage", "Supplier email"],
+      ["triage", "Forwarded email"],
+    ]);
+    expect(cards[0]?.reason).toContain("None of your agents handles this kind of email");
+  });
+
+  it("makes one card for an email Postmark delivers twice", async () => {
+    await forward("inbound-key", MAIL_HOOK, { MessageID: "abc-123" });
+    await forward("inbound-key", MAIL_HOOK, { MessageID: "abc-123" });
+    expect(await cardTitles()).toHaveLength(1);
+  });
+
+  it("sends nothing to anyone", async () => {
+    await forward("inbound-key");
+    expect(await store().listOutbox(SESSION, SHOP.id)).toEqual([]);
   });
 
   it("shows the email's own words and promises no draft that nothing will write", async () => {

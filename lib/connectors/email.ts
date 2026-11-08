@@ -74,6 +74,7 @@ const inboundSchema = z.object({
   TextBody: z.string().optional(),
   StrippedTextReply: z.string().optional(),
   MailboxHash: z.string().optional(),
+  MessageID: z.string().optional(),
 });
 
 /** An email that arrived at a forwarding address. `mailbox` is the hook id after the "+" in the address. */
@@ -83,6 +84,8 @@ export interface InboundEmail {
   readonly fromName: string | null;
   readonly subject: string;
   readonly text: string;
+  /** Postmark's id for the email, so a delivery Postmark retries is handled once; `null` when it sent none. */
+  readonly messageId: string | null;
 }
 
 /** Read Postmark's inbound JSON, or `null` when it isn't one or has no mailbox hash. */
@@ -96,5 +99,6 @@ export function readInboundEmail(json: unknown): InboundEmail | null {
     fromName: mail.FromName?.trim().slice(0, 80) || null,
     subject: (mail.Subject ?? "").trim().slice(0, 200) || "(no subject)",
     text: (mail.StrippedTextReply || mail.TextBody || "").trim().slice(0, 2000),
+    messageId: /^[\w.@<>-]{1,120}$/.test(mail.MessageID ?? "") ? (mail.MessageID ?? null) : null,
   };
 }

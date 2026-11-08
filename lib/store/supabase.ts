@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { CardRecord, CardStatus, ChatMessage, OutboxEntry } from "@/lib/api/contract";
 import type { ConnectionKind } from "@/lib/domain/connections";
 import type { ConsentSource, Contact } from "@/lib/domain/contacts";
+import type { BriefSnapshot } from "@/lib/domain/brief";
 import type { IntakeDraft, ProfileChange } from "@/lib/domain/intake";
 import type { OutboxRule, StandingRuleId, StandingRuleState } from "@/lib/domain/rules";
 import type { NewThreadMessage, ThreadDirection, ThreadMessage } from "@/lib/domain/threads";
@@ -22,6 +23,8 @@ import {
   type Store,
   type StoredConnection,
   type TelegramChat,
+  type BriefRunResult,
+  type BriefState,
 } from "./types";
 
 // =============================================================================
@@ -623,6 +626,34 @@ export class SupabaseStore implements Store {
     return toRule(data as StandingRuleRow);
   }
 
+  async getBriefState(session: string, businessId: string): Promise<BriefState | null> {
+    const { data, error } = await this.db.from("brief_runs").select("running_since, last_success_at, last_card_key, last_snapshot").eq("session_id", session).eq("business_id", businessId).maybeSingle();
+    if (error) fail("getBriefState", error);
+    // `last_snapshot` is written only by `finishBriefRun` from a typed `BriefSnapshot`.
+    const row = data as { running_since: string | null; last_success_at: string | null; last_card_key: string | null; last_snapshot: BriefSnapshot | null } | null;
+    return row === null ? null : { runningSince: row.running_since, lastSuccessAt: row.last_success_at, lastCardKey: row.last_card_key, lastSnapshot: row.last_snapshot };
+  }
+
+  async claimBriefRun(session: string, businessId: string, now: string, retakeAfterMs: number): Promise<boolean> {
+    // `claim_brief_run` claims in one statement, so a manual run and the scheduled one can't both write a brief.
+    const retakeBefore = new Date(Date.parse(now) - retakeAfterMs).toISOString();
+    const { data, error } = await this.db.rpc("claim_brief_run", { p_session: session, p_business: businessId, p_now: now, p_retake_before: retakeBefore });
+    if (error) fail("claimBriefRun", error);
+    return data === true;
+  }
+
+  async finishBriefRun(session: string, businessId: string, result: BriefRunResult): Promise<void> {
+    const update = result.ok ? { running_since: null, last_success_at: result.at, last_card_key: result.cardKey, last_snapshot: result.snapshot } : { running_since: null };
+    const { error } = await this.db.from("brief_runs").update(update).eq("session_id", session).eq("business_id", businessId);
+    if (error) fail("finishBriefRun", error);
+  }
+
+  async listBriefTargets(limit: number): Promise<{ readonly session: string; readonly businessId: string }[]> {
+    const { data, error } = await this.db.from("businesses").select("id, session_id").order("created_at").limit(limit);
+    if (error) fail("listBriefTargets", error);
+    return (data ?? []).map((row) => ({ session: (row as { session_id: string }).session_id, businessId: (row as { id: string }).id }));
+  }
+
   async reset(session: string): Promise<void> {
     // Rule-sent outbox rows have no card to cascade from, so the outbox is cleared first; the rest go one by one.
     for (const table of [
@@ -635,6 +666,7 @@ export class SupabaseStore implements Store {
       "thread_messages",
       "telegram_chats",
       "standing_rules",
+      "brief_runs",
       "contacts",
       "connections",
       "profile_versions",

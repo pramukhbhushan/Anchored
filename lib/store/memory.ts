@@ -20,6 +20,8 @@ import {
   type Store,
   type StoredConnection,
   type TelegramChat,
+  type BriefRunResult,
+  type BriefState,
 } from "./types";
 
 // =============================================================================
@@ -50,6 +52,8 @@ interface SessionData {
   readonly telegramHooks: Map<string, string>;
   /** The keys of outbox entries a rule authorized, so each key queues once. */
   readonly ruleKeys: Set<string>;
+  /** Each business's brief state, by business id. */
+  readonly briefs: Map<string, BriefState>;
 }
 
 /** A Telegram update's processing state. */
@@ -98,6 +102,7 @@ export class MemoryStore implements Store {
         rules: new Map(),
         telegramHooks: new Map(),
         ruleKeys: new Set(),
+        briefs: new Map(),
       };
       this.sessions.set(session, found);
     }
@@ -390,6 +395,29 @@ export class MemoryStore implements Store {
     const saved: StandingRuleState = { rule, enabled, approvedAt: enabled ? at : before.approvedAt, changedAt: at };
     rules.set(`${businessId}:${rule}`, saved);
     return saved;
+  }
+
+  async getBriefState(session: string, businessId: string): Promise<BriefState | null> {
+    return this.peek(session)?.briefs.get(businessId) ?? null;
+  }
+
+  async claimBriefRun(session: string, businessId: string, now: string, retakeAfterMs: number): Promise<boolean> {
+    // Check and write happen with no await between them, so two runs can't both start.
+    const briefs = this.data(session).briefs;
+    const state = briefs.get(businessId) ?? { runningSince: null, lastSuccessAt: null, lastCardKey: null, lastSnapshot: null };
+    if (state.runningSince !== null && Date.parse(state.runningSince) > Date.parse(now) - retakeAfterMs) return false;
+    briefs.set(businessId, { ...state, runningSince: now });
+    return true;
+  }
+
+  async finishBriefRun(session: string, businessId: string, result: BriefRunResult): Promise<void> {
+    const briefs = this.data(session).briefs;
+    const state = briefs.get(businessId) ?? { runningSince: null, lastSuccessAt: null, lastCardKey: null, lastSnapshot: null };
+    briefs.set(businessId, result.ok ? { runningSince: null, lastSuccessAt: result.at, lastCardKey: result.cardKey, lastSnapshot: result.snapshot } : { ...state, runningSince: null });
+  }
+
+  async listBriefTargets(limit: number): Promise<{ readonly session: string; readonly businessId: string }[]> {
+    return [...this.sessions].flatMap(([session, data]) => [...data.businesses.keys()].map((businessId) => ({ session, businessId }))).slice(0, limit);
   }
 
   async reset(session: string): Promise<void> {

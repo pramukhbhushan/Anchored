@@ -95,7 +95,13 @@ describe("readInboundEmail", () => {
       fromName: "Dana Lee",
       subject: "Re: your estimate",
       text: "Sounds good.",
+      messageId: null,
     });
+  });
+
+  it("keeps Postmark's message id, so a repeated delivery is handled once, and drops a malformed one", () => {
+    expect(readInboundEmail({ ...postmark, MessageID: "73e6d360-66eb-11e1-8e72-a8904824019b" })?.messageId).toBe("73e6d360-66eb-11e1-8e72-a8904824019b");
+    expect(readInboundEmail({ ...postmark, MessageID: "not an id; drop table" })?.messageId).toBeNull();
   });
 
   it("falls back to the full body and a placeholder subject", () => {

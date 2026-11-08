@@ -155,6 +155,11 @@ describe("limitFor", () => {
     expect(ingest.bucket).toBe(simulate.bucket);
   });
 
+  it("gives Run now on the daily brief its own bucket, apart from other changes", () => {
+    expect(limitFor("POST", "/api/businesses/b_1/brief")).toMatchObject({ bucket: "brief", perSession: 30 });
+    expect(limitFor("PUT", "/api/businesses/b_1/standing-rules").bucket).toBe("mutation");
+  });
+
   it("gives connecting a service and saving a contact their own bucket", () => {
     for (const [method, path] of [
       ["PUT", "/api/businesses/b_1/connections"],

@@ -43,6 +43,8 @@ const LIMITS = {
   connect: { bucket: "connect", windowMs: WINDOW_MS, perSession: 60, perIp: 300 },
   // Twilio, Stripe and Postmark post from shared addresses with no session, so only the per-IP limit holds them.
   hook: { bucket: "hook", windowMs: WINDOW_MS, perSession: 600, perIp: 3000 },
+  // Run now writes a brief card; a few a minute is plenty for an owner checking it.
+  brief: { bucket: "brief", windowMs: WINDOW_MS, perSession: 30, perIp: 150 },
   mutation: { bucket: "mutation", windowMs: WINDOW_MS, perSession: 120, perIp: 600 },
 } as const satisfies Record<string, ApiLimit>;
 
@@ -105,6 +107,7 @@ export function limitFor(method: string, pathname: string): ApiLimit {
   if (/^\/api\/cards\/[^/]+\/rewrite\/?$/.test(pathname)) return LIMITS.rewrite;
   if (/^\/api\/intake(\/[^/]+)?\/?$/.test(pathname) || /^\/api\/businesses\/[^/]+\/chat\/?$/.test(pathname)) return LIMITS.chat;
   if (/^\/api\/businesses\/[^/]+\/cards\/?$/.test(pathname) || /^\/api\/ingest\/[^/]+\/?$/.test(pathname)) return LIMITS.newEvent;
+  if (/^\/api\/businesses\/[^/]+\/brief\/?$/.test(pathname)) return LIMITS.brief;
   return LIMITS.mutation;
 }
 
