@@ -14,9 +14,9 @@ Either way, a visitor sees only the businesses, choices, cards, outbox entries, 
 
 ## Database access
 
-Every table has row-level security on: `businesses`, `workflow_choices`, `cards`, `outbox`, `events`, `intake_drafts`, `chat_messages` and `ai_usage`. The anon key alone reaches no row.
+Every table has row-level security on: `businesses`, `workflow_choices`, `cards`, `outbox`, `events`, `intake_drafts`, `chat_messages`, `ai_usage`, `contacts` and `connections`. The anon key alone reaches no row.
 
-`SupabaseStore` in `lib/store/supabase.ts` connects from the server with `SUPABASE_SERVICE_ROLE_KEY`, which bypasses row-level security. The `session_id` filter in each query is what keeps one session's rows from another. As a second layer, `20261107000200_auth_policies.sql` and `20261107000500_ai_budget_and_chat_policies.sql` let a signed-in user's own token reach only rows whose `session_id` is that user's id. `ai_usage` has no policy, so only the service role reads it.
+`SupabaseStore` in `lib/store/supabase.ts` connects from the server with `SUPABASE_SERVICE_ROLE_KEY`, which bypasses row-level security. The `session_id` filter in each query is what keeps one session's rows from another. As a second layer, `20261107000200_auth_policies.sql`, `20261107000500_ai_budget_and_chat_policies.sql` and `20261108000000_connectors.sql` let a signed-in user's own token reach only rows whose `session_id` is that user's id. `ai_usage` has no policy, so only the service role reads it.
 
 With no store variables, `getStore` in `lib/store/index.ts` uses `MemoryStore`, which keeps data in process memory and holds at most 2,000 sessions, dropping the oldest. A production build throws on its first data read instead, unless `ANCHORED_ALLOW_MEMORY_STORE=1`, so a public deploy can't lose visitors' work in memory unnoticed.
 
@@ -103,8 +103,9 @@ Secrets come only from environment variables:
 
 - `SUPABASE_SERVICE_ROLE_KEY`, read in `lib/store/index.ts`.
 - `AI_API_KEY`, the key for the configured `AI_PROVIDER`, read in `lib/llm/config.ts`.
+- `CONNECTOR_SECRET_KEY`, `RESEND_API_KEY`, `INBOUND_EMAIL_SECRET` and `CRON_SECRET`, which [Connected services](#connected-services) covers.
 
-Neither name has the `NEXT_PUBLIC_` prefix, so Next.js never puts them in the browser bundle. `NEXT_PUBLIC_SUPABASE_ANON_KEY` is public by design, and row-level security limits what it reaches. `.gitignore` excludes `.env` and `.env*.local`, and `.env.example` lists the names with empty values. Each module in `lib/server/` and `lib/llm/` that reads a secret or calls the store or a model provider imports `server-only`, so a client component that imports one fails the build. The helpers that the edge middleware shares with the server and the browser import nothing, `server-only` included: `lib/server/origin.ts`, `lib/server/rate-limit.ts`, `lib/session-cookie.ts`, and `config.ts`, `paths.ts`, `session-id.ts` and `viewer.ts` in `lib/auth/`. `lib/architecture.test.ts` enforces that list, and also fails any `"use client"` file that imports `lib/server`, `lib/store`, `lib/llm` or `server-only`.
+None of these names has the `NEXT_PUBLIC_` prefix, so Next.js never puts them in the browser bundle. `NEXT_PUBLIC_SUPABASE_ANON_KEY` is public by design, and row-level security limits what it reaches. `.gitignore` excludes `.env` and `.env*.local`, and `.env.example` lists the names with empty values. Each module in `lib/server/`, `lib/llm/` and `lib/connectors/` that reads a secret or calls the store or a provider imports `server-only`, so a client component that imports one fails the build. The helpers that the edge middleware shares with the server and the browser import nothing, `server-only` included: `lib/server/origin.ts`, `lib/server/rate-limit.ts`, `lib/session-cookie.ts`, and `config.ts`, `paths.ts`, `session-id.ts` and `viewer.ts` in `lib/auth/`. `lib/architecture.test.ts` enforces that list, and also fails any `"use client"` file that imports `lib/server`, `lib/store`, `lib/llm`, `lib/connectors` or `server-only`.
 
 ## Model calls
 
@@ -137,16 +138,28 @@ The model writes text only. Code sets every workflow, path, score and send decis
 
 When `checkSend` refuses a card, `decideCard` looks for the first whole hour in the next 24 when the card would pass. A text held back only by quiet hours is approved and queued for that hour. A card that no hour fixes, such as an allergy answer, stays pending, and the response carries the reason for the owner. `decideCard` still saves any edit the owner made to it.
 
-Two values are fixed in this build. Every business uses `OWNER_TIME_ZONE`, `America/New_York`, and `decideCard` passes `hasConsent: true` because drafted contacts come with consent. The consent rule exists in `checkSend` but never refuses a card in this build.
+Every business uses `OWNER_TIME_ZONE`, `America/New_York`. Consent depends on who sends. When Anchored sends a text through the owner's connected Twilio number, `deliveryFor` in `lib/domain/contacts.ts` requires a contact with a consent record and no STOP reply, and the dispatcher checks again at send time. When the owner sends it from their own phone, `decideCard` still passes `hasConsent: true`, so the consent rule in `checkSend` never refuses that hand-off.
 
-An approved card writes a row to the `outbox` table, or to memory under `MemoryStore`. No SMS or email provider is connected, and no route sends a message to a real recipient. Each outbox row instead offers the owner an `sms:` or `mailto:` link, built in `components/business/handoff.ts`, that opens the owner's own texting or email app with the approved text typed out; the owner presses send there. The text goes into the link through `encodeURIComponent`, so it can't add a recipient or a header. A text held for quiet hours gets no link until its send time passes, so the link can't skip the hold.
+An approved card writes a row to the `outbox` table, or to memory under `MemoryStore`. When the business has connected the service and `deliveryFor` allows it, the row is queued and Anchored sends it, as [Connected services](#connected-services) describes. Otherwise the row is the owner's to send. It offers the owner an `sms:` or `mailto:` link, built in `components/business/handoff.ts`, that opens the owner's own texting or email app with the approved text typed out; the owner presses send there. The text goes into the link through `encodeURIComponent`, so it can't add a recipient or a header. A text held for quiet hours gets no link until its send time passes, so the link can't skip the hold.
+
+## Connected services
+
+An owner can connect a Twilio number for texts and missed calls, email in and out, and Stripe invoices. `lib/connectors/` holds one adapter per service, and `lib/server/dispatch.ts` is the one code path that sends through them.
+
+- **Credentials are encrypted.** `encryptSecret` in `lib/server/secrets.ts` seals each connected secret, such as a Twilio auth token or a Stripe signing secret, with AES-256-GCM under `CONNECTOR_SECRET_KEY`, 32 random bytes in base64. The database holds only ciphertext, and no page or API response shows a secret back. With no key set, a service that needs a secret can't be connected.
+- **Only signed-in email or Google accounts can connect.** A guest's only credential is a cookie, and the retention job deletes guest rows after 30 days. `ANCHORED_ALLOW_GUEST_CONNECTIONS=1` lifts this for local runs only.
+- **Each webhook proves who sent it.** Twilio requests must carry an `X-Twilio-Signature` that matches HMAC-SHA1 under the owner's auth token, checked by `verifyTwilioRequest` in `lib/connectors/twilio.ts`. Stripe events must carry a `Stripe-Signature` that matches HMAC-SHA256 under the endpoint's signing secret, signed within the last 5 minutes so a captured event can't be replayed. Postmark's inbound email has no signature, so its URL carries `INBOUND_EMAIL_SECRET`, which the route compares in constant time with `sameSecret`. The signature checks compare in constant time too.
+- **A webhook finds its business only by hook id.** `newHookId` in `lib/server/secrets.ts` gives each connection 24 random lower-case letters and digits, which its webhook URL or forwarding address carries. The route finds the business with `Store.findConnection`, never through a session.
+- **STOP and START replies update the contact.** A STOP reply marks the contact opted out and a START reply clears it. `deliveryFor` and the dispatcher never text an opted-out number.
+- **Calls are never recorded.** Maryland requires every party's consent to record a call, so the voice webhook answers with `twimlSayAndHangUp`, which at most says a short message before it hangs up, and nothing records or transcribes the call.
+- **The scheduled sender needs a secret.** `GET /api/cron/dispatch` sends due rows only for a request with `Authorization: Bearer <CRON_SECRET>`.
 
 ## Known limits
 
 - Rate limits apply per server instance, not across the deployment. The AI call budget is the one deployment-wide limit.
 - With accounts off, the session cookie is the only credential.
-- `POST /api/ingest/[source]` trusts the session. A real Twilio or form webhook must verify its signature, check a suppression list and run sends from a scheduler instead.
-- Consent is fixed to `true`, so a real deployment needs consent records per contact before it sends texts.
+- `POST /api/ingest/[source]`, the event simulator, still trusts the session. Real events arrive only through the signed webhooks under `/api/hooks/`.
+- Anchored sends a text only with a consent record, but the owner's own-phone hand-off still passes `hasConsent: true`, so the owner is trusted to have consent for what they send themselves.
 - The CSP allows inline scripts, so it does not block an injected inline script. React escapes rendered text, and no component sets raw HTML.
 - Retention runs only after someone schedules `purge_expired_demo_data()` with `pg_cron`.
 - Requests with neither `x-real-ip` nor `x-forwarded-for` share the `unknown` rate-limit bucket.

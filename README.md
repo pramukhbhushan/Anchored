@@ -30,7 +30,7 @@ New tools come from a discovery agent. It finds tools that do one job, and code 
 
 ### 4. Approve before anything goes out
 
-Agents write each text or email as a card. You approve, edit or skip it. Anchored also holds texts during quiet hours and texts only customers who agreed to get them. Anchored isn't connected to texting or email yet, so each approved message lands in the outbox with a button that opens the owner's own texting or email app with the words typed out. The owner presses send there. A post or review reply comes with Copy and links to where it gets pasted.
+Agents write each text or email as a card. You approve, edit or skip it. Anchored also holds texts during quiet hours and texts only customers who agreed to get them. Connect your Twilio number or email on the Connections page and Anchored sends each approved message itself. Without a connection, each approved message lands in the outbox with a button that opens your own texting or email app with the words typed out, and you press send there. A post or review reply comes with Copy and links to where it gets pasted.
 
 ![Approvals page with draft cards and the outbox](docs/screenshots/4-approve.png)
 
@@ -130,6 +130,21 @@ On `featherless`, set `AI_MODEL=Qwen/Qwen3.6-35B-A3B`. In tests on Nov 7, 2026, 
 
 Past `AI_DAILY_CALL_CAP`, chats and onboarding fall back to the rules and rewrites return 429. Before a public deploy, also set a hard spend cap in your AI provider's billing settings, as the backstop.
 
+### Connected services
+
+Each service stays off until its variables are set. [Connect real services](#connect-real-services) walks through the setup.
+
+| Variable | What it does |
+| --- | --- |
+| `CONNECTOR_SECRET_KEY` | 32 random bytes in base64 that encrypt every credential an owner connects. Make one with `openssl rand -base64 32`. Without it, no service that needs a secret can be connected. Changing it makes stored credentials unreadable, so owners would reconnect |
+| `RESEND_API_KEY` | The Resend API key that sends approved emails |
+| `EMAIL_FROM_ADDRESS` | The address approved emails come from, on a domain verified in Resend. Each email shows the business's name and sets the owner as reply-to |
+| `INBOUND_EMAIL_ADDRESS` | The Postmark inbound address. Each business forwards to it with its own hook id after a `+` |
+| `INBOUND_EMAIL_SECRET` | A random string that Postmark's webhook URL carries as `?key=`, so only Postmark can post inbound email |
+| `CRON_SECRET` | The bearer token `GET /api/cron/dispatch` requires before it sends queued messages |
+| `PUBLIC_APP_URL` | This deployment's public https address. The webhook URLs on the Connections page start with it |
+| `ANCHORED_ALLOW_GUEST_CONNECTIONS` | Set to `1` to let a guest connect services in a local run. Leave it unset in production, where only email and Google accounts can connect |
+
 ## Set up Supabase
 
 Accounts and saved data both need a Supabase project. Do these steps in the Supabase dashboard unless a step says otherwise.
@@ -191,7 +206,24 @@ Production runs on Vercel with Supabase for both data and sign-in. `next build` 
 4. Deploy. Vercel builds with the `NEXT_PUBLIC_` values, so redeploy after you change either one.
 5. Open the domain, sign in, map a business, sign out, and sign back in to check that the business is still there.
 
+To send and receive through real services, follow [Connect real services](#connect-real-services) after the first deploy.
+
 Visitors can try Anchored without an account through **Continue as guest**, and each one sees only their own businesses and cards. **Delete my businesses** in the account menu clears everything a visitor saved.
+
+## Connect real services
+
+An owner connects each service on a business's Connections page, signed in with email or Google. Before that, the deployment needs the variables in [Connected services](#connected-services) and these steps.
+
+1. Run `supabase/migrations/20261108000000_connectors.sql`, or `supabase db push`. Set `CONNECTOR_SECRET_KEY` and `PUBLIC_APP_URL`.
+2. **Texting and missed calls.** Each business uses its own Twilio account.
+   1. Buy a Twilio number and register it for A2P 10DLC texting. Twilio delivers no texts to US numbers until the registration clears, which can take days. Calls work before that.
+   2. On the Connections page, enter the Account SID, the auth token and the number.
+   3. In Twilio, paste the two webhook URLs the Connections page shows into the number's **Messaging** and **Voice** settings.
+   4. Forward the shop's own line to the Twilio number when no one answers. On Verizon dial `*71` and the number; many GSM carriers use `**61*<number>#`.
+3. **Email out.** Verify a sending domain in Resend, then set `RESEND_API_KEY` and `EMAIL_FROM_ADDRESS`.
+4. **Email in.** Create a Postmark inbound server. Set `INBOUND_EMAIL_ADDRESS` to its inbound address and `INBOUND_EMAIL_SECRET` to a random string, then set the server's inbound webhook to `<PUBLIC_APP_URL>/api/hooks/email?key=<INBOUND_EMAIL_SECRET>`.
+5. **Stripe invoices.** In Stripe, add the webhook endpoint the Connections page shows, for the `invoice.overdue` and `invoice.payment_failed` events. Paste its signing secret on the Connections page.
+6. **Scheduled sends.** Call `GET /api/cron/dispatch` every few minutes with `Authorization: Bearer <CRON_SECRET>`. Vercel Cron sends that header itself when `CRON_SECRET` is set, on a plan that allows a schedule that often; any outside scheduler works too. Texts held for quiet hours wait for that call, so without it they never go out.
 
 ## Project layout
 
@@ -202,6 +234,7 @@ Visitors can try Anchored without an account through **Continue as guest**, and 
 | `lib/domain/` | Workflows, agents and skills, the catalog, ratings, the rules engine, the example business, card templates and the executor. Pure TypeScript with tests |
 | `lib/api/` | The request and response types of every API route, and the Zod schema for every request body |
 | `lib/llm/` | The model layer: the `LlmProvider` interface and one adapter per provider |
+| `lib/connectors/` | One adapter per connected service: Twilio, Resend, Postmark and Stripe |
 | `lib/auth/` | Supabase Auth clients, the sign-in paths and the `Viewer` type |
 | `lib/server/` | Session, data access, model calls under the daily budget, and card decisions |
 | `lib/store/` | The `Store` interface with Supabase and in-memory versions |
