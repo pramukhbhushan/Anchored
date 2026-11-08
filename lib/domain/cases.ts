@@ -1,5 +1,6 @@
 import { profileFromFacts } from "@/lib/domain/engine";
 import { QUIET_HOURS_RULE } from "@/lib/domain/executor";
+import { approvePlan } from "@/lib/domain/plan";
 import type {
   BusinessFacts,
   BusinessProfile,
@@ -188,8 +189,15 @@ const RESTAURANT_RESEARCH: CaseResearch = {
   ],
 };
 
-/** The example business every visitor can explore: Linden Street Kitchen, id `restaurant`. */
-export const SAMPLE_BUSINESS: BusinessProfile = fromResearch(RESTAURANT_RESEARCH);
+/** When the example's owner approved Anchored's plan, so visitors see a live plan. */
+const SAMPLE_APPROVED_AT = new Date("2026-11-06T15:00:00.000Z");
+
+/** The example business every visitor can explore: Linden Street Kitchen, id `restaurant`, its plan approved as Anchored picked it. */
+export const SAMPLE_BUSINESS: BusinessProfile = withApprovedPlan(fromResearch(RESTAURANT_RESEARCH), SAMPLE_APPROVED_AT);
+
+function withApprovedPlan(business: BusinessProfile, at: Date): BusinessProfile {
+  return { ...business, planApproval: approvePlan(business, {}, at) };
+}
 
 /** Run the researched facts through the rules, then lay the research over the result. */
 function fromResearch(research: CaseResearch): BusinessProfile {

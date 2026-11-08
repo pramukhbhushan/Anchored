@@ -327,6 +327,12 @@ describe("business chat changes", () => {
     expect(profile.workflows.invoices?.why).toBe("Sysco raised dairy twice this spring.");
   });
 
+  it("keeps the owner's plan approval, so a workflow the change adds shows as a change to approve", () => {
+    const approval = { approvedAt: "2026-11-07T15:30:00.000Z", choices: {} };
+    const { profile } = applyChanges({ ...cafe, planApproval: approval }, readChanges("we started doing catering"));
+    expect(profile.planApproval).toEqual(approval);
+  });
+
   it("groups new paths in the reply", () => {
     const reply = changeReply(
       [

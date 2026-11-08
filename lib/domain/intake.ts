@@ -1043,8 +1043,8 @@ function samePlan(a: WorkflowPlan | undefined, b: WorkflowPlan | undefined): boo
 }
 
 /**
- * Rebuild `business` from its facts with `changes` applied. The id, `builtBy` and researched cards carry
- * over, and a workflow whose rules reasoning didn't change keeps its written text, which may be the model's.
+ * Rebuild `business` from its facts with `changes` applied. The id, `builtBy`, researched cards and the
+ * owner's plan approval carry over, and a workflow whose rules reasoning didn't change keeps its written text, which may be the model's.
  */
 export function applyChanges(business: BusinessProfile, changes: FactChanges): { profile: BusinessProfile; changes: ProfileChange[] } {
   const before = factsFromProfile(business);
@@ -1062,6 +1062,7 @@ export function applyChanges(business: BusinessProfile, changes: FactChanges): {
     workflows,
     ...(business.cards ? { cards: business.cards } : {}),
     ...(business.lockedCards ? { lockedCards: business.lockedCards } : {}),
+    ...(business.planApproval ? { planApproval: business.planApproval } : {}),
   };
   return { profile, changes: describeChanges(business, profile) };
 }
