@@ -97,7 +97,7 @@ function SkeletonBody({ layout }: { readonly layout: SkeletonLayout }) {
     case "list":
       return <CardGrid count={6} height={180} />;
     case "stack":
-      // The monthly bill with free help beside it, then the "How work moves" diagram.
+      // The monthly bill with free help beside it, then the line that points to the Workflows graph.
       return (
         <>
           <div className="with-rail">
@@ -108,7 +108,6 @@ function SkeletonBody({ layout }: { readonly layout: SkeletonLayout }) {
             <div className="section-head">
               <Skeleton width={180} height={22} />
             </div>
-            <SkeletonCard height={320} />
           </div>
         </>
       );

@@ -1,4 +1,4 @@
-import { TOOL_STEPS } from "@/components/stack/copy";
+import { TOOL_STEPS } from "@/components/workflows/copy";
 import { money } from "@/components/view-helpers";
 import { SKILLS } from "@/lib/domain/agents";
 import { toolName } from "@/lib/domain/catalog";

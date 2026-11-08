@@ -39,7 +39,7 @@ export interface ChosenTool {
 }
 
 /** Anchored's monthly plan, charged once any build skill is chosen. */
-const AGENT_PLAN_MONTHLY = 29;
+export const AGENT_PLAN_MONTHLY = 29;
 
 const SKIP: Choice = { path: "skip" };
 

@@ -2,19 +2,18 @@
    Module Overview
    =============================================================================
    Styles for the Stack page: the monthly bill (a stacked bar over four
-   groups), the flow diagram, the free-help rail and the "Under the hood"
-   disclosure. Carbon yellow means Anchored and the owner's OK, blue a new
-   subscription, green a tool the owner already has, grey skipped work, the
-   same colors the path stamps use elsewhere. Only `app/globals.css` tokens are
-   used, so dark mode follows. Each diagram sizes by its own container width. */
+   groups), the free-help rail and the "Under the hood" disclosure. Carbon
+   yellow means Anchored and the owner's OK, blue a new subscription, green a
+   tool the owner already has, grey work nothing handles yet. Only
+   `app/globals.css` tokens are used, so dark mode follows. */
 
 /* =============================================================================
    Shared tones
    ============================================================================= */
 
-.seg,.group,.node{--tone:var(--buy);--on-tone:var(--paper)}
-.seg[data-group="build"],.group[data-group="build"],.node[data-kind="agent"]{--tone:var(--carbon);--on-tone:var(--on-carbon)}
-.group[data-group="turnon"],.node[data-kind="turnon"]{--tone:var(--good)}
+.seg,.group{--tone:var(--buy);--on-tone:var(--paper)}
+.seg[data-group="build"],.group[data-group="build"]{--tone:var(--carbon);--on-tone:var(--on-carbon)}
+.group[data-group="turnon"]{--tone:var(--good)}
 .group[data-group="skip"]{--tone:var(--skip)}
 
 .srOnly{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -84,90 +83,6 @@
 .helpLinks li+li{border-top:1px dashed var(--line)}
 .helpLinks a{display:flex;align-items:center;justify-content:space-between;gap:var(--s-2);min-height:40px;padding:var(--s-2) 0;font-weight:600}
 .helpLinks svg{flex:none;color:var(--muted)}
-
-/* =============================================================================
-   Flow diagram
-   =============================================================================
-   Narrow: one card per agent or tool, each route reading top to bottom.
-   Wide (760px and up): a seven-column grid. Lanes and their lists turn into
-   `display: contents`, each route becomes a subgrid row, an agent's box spans
-   its routes' rows, and the carbon approvals band runs down column 5. */
-
-.frame{container-type:inline-size}
-.flow{display:flex;flex-direction:column;gap:14px}
-.colHead,.band{display:none}
-
-.lanes,.routes{list-style:none;margin:0;padding:0}
-/* Cards sit side by side as soon as two fit, so mid-size screens still use their width */
-.lanes{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));align-items:start}
-.lane{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px 16px}
-
-.node{display:flex;gap:10px;align-items:flex-start;padding:2px 0 2px 10px;border-left:4px solid var(--tone)}
-.nodeIcon{flex:none;margin-top:2px;color:var(--ink-2)}
-.nodeText{display:flex;flex-direction:column;min-width:0}
-.nodeName{font-family:var(--display);font-stretch:106%;font-weight:800;font-size:var(--fs-md);line-height:1.2}
-.nodeNote{font-size:var(--fs-fine);color:var(--muted);margin-top:2px}
-
-.routes{display:flex;flex-direction:column;gap:14px;margin-top:14px}
-.route{display:flex;flex-direction:column;align-items:stretch;min-width:0}
-.route+.route{border-top:1px dashed var(--line);padding-top:14px}
-
-.trigger{padding:9px 12px;background:var(--paper);border-radius:var(--r);font-size:var(--fs-sm);line-height:1.4}
-
-.wire{position:relative;align-self:flex-start;width:2px;height:20px;margin-left:20px;background:var(--muted)}
-.wire::after{content:"";position:absolute;left:50%;bottom:-2px;transform:translateX(-50%);border-style:solid;border-width:7px 5px 0;border-color:var(--muted) transparent transparent}
-/* Narrow cards name the agent in their header, so the wire into it is dropped */
-.wireIn{display:none}
-
-.ok{padding:9px 12px;border-radius:var(--r);background:var(--carbon-soft);font-size:var(--fs-sm);line-height:1.4}
-.okTag{display:block;font-size:var(--fs-fine);font-weight:600;color:var(--ink-2)}
-.ok[data-kind="tool"]{background:transparent;border:1.5px dashed var(--line);color:var(--ink-2)}
-
-.result{display:flex;gap:8px;align-items:flex-start;font-size:var(--fs-sm);line-height:1.4;font-weight:600}
-.resultIcon{flex:none;margin-top:2px;color:var(--good)}
-.stake{display:block;margin-top:2px;font-size:var(--fs-fine);font-weight:400;color:var(--muted)}
-
-.foot{font-size:var(--fs-sm);color:var(--ink-2)}
-.divider{margin:6px 0 0;font-size:var(--fs-sm);font-weight:600;color:var(--ink-2)}
-
-@container (min-width:760px){
-  .flow{
-    display:grid;align-items:center;gap:10px 0;
-    grid-template-columns:minmax(0,1fr) 40px minmax(150px,.72fr) 40px minmax(0,1.1fr) 40px minmax(0,1fr);
-    padding:20px 22px 22px;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r)
-  }
-  .colHead{display:block;grid-row:1;align-self:end;padding-bottom:4px;font-size:var(--fs-fine);font-weight:600;color:var(--muted)}
-  .colHead[data-col="trigger"]{grid-column:1}
-  .colHead[data-col="node"]{grid-column:3}
-  .colHead[data-col="ok"]{grid-column:5;position:relative;z-index:1;padding-inline:14px;color:var(--ink)}
-  .colHead[data-col="result"]{grid-column:7;padding-left:30px}
-
-  /* The band reaches a little past its first and last rows, so it frames the heading and the closing note */
-  .band{display:block;grid-column:5;align-self:stretch;margin:-10px 0;background:var(--carbon-soft);border-radius:var(--r);box-shadow:inset 0 3px 0 var(--carbon)}
-
-  .lanes,.lane,.routes{display:contents}
-  .node{
-    grid-column:3;align-self:stretch;flex-direction:column;justify-content:center;gap:4px;
-    padding:10px 12px;background:var(--sheet);border:1.5px solid var(--ink-2);border-left:5px solid var(--tone);border-radius:var(--r)
-  }
-  .route{display:grid;grid-column:1 / -1;grid-template-columns:subgrid;align-items:center}
-  .route+.route{border-top:0;padding-top:0}
-
-  .trigger{grid-column:1}
-  .wire{align-self:center;width:auto;height:2px;margin:0}
-  .wire::after{left:auto;right:-1px;top:50%;bottom:auto;transform:translateY(-50%);border-width:5px 0 5px 8px;border-color:transparent transparent transparent var(--muted)}
-  .wireIn{display:block;grid-column:2}
-  /* Column 5's chips sit 14px inside the band; the wires reach across that inset */
-  .wireMid{grid-column:4;margin-right:-14px}
-  .wireOut{grid-column:6;margin-left:-14px}
-
-  .ok{grid-column:5;position:relative;z-index:1;margin-inline:14px;background:var(--sheet);border:1px solid var(--line)}
-  .ok[data-kind="agent"] .okTag{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-  .result{grid-column:7;padding-left:8px}
-
-  .foot{grid-column:5;position:relative;z-index:1;padding:4px 14px 0;font-size:var(--fs-fine)}
-  .divider{grid-column:1 / -1;margin:14px 0 0;padding-top:14px;border-top:1px solid var(--line)}
-}
 
 /* =============================================================================
    Under the hood
