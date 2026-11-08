@@ -29,7 +29,7 @@ const ANSWERED: BusinessChatResponse = { messages: [GREETING, OWNER_SAID, REPLY]
 /** Play the chat route: GET returns `LOADED`, and each POST answers with the next of `posts`. */
 function chatRoute(...posts: (Response | Promise<Response>)[]) {
   return stubFetch((url, init) => {
-    if (url !== CHAT_URL) throw new Error(`Unexpected request to ${url}`);
+    if (url.split("?")[0] !== CHAT_URL) throw new Error(`Unexpected request to ${url}`);
     if ((init?.method ?? "GET") === "GET") return json(LOADED);
     const next = posts.shift();
     if (next === undefined) throw new Error("More POSTs than the test planned");
@@ -229,7 +229,7 @@ describe("ChatWindow, business mode", () => {
 });
 
 describe("ChatWindow, agent context", () => {
-  it("scopes the request to the agent while loading the shared business history", async () => {
+  it("loads the selected agent history and scopes its draft requests", async () => {
     const fetchSpy = chatRoute(json(ANSWERED));
     render(<ChatWindow mode="business" businessId="greenfield" agent="customer" agentName="Customer" />);
     await waitFor(() => expect(thread()).toHaveTextContent(GREETING.text));
@@ -240,7 +240,7 @@ describe("ChatWindow, agent context", () => {
     await userEvent.type(input, "Reply to Dana{Enter}");
 
     await waitFor(() => expect(thread()).toHaveTextContent(REPLY.text));
-    expect(sentJson(fetchSpy, 0)).toMatchObject({ method: "GET", url: CHAT_URL });
+    expect(sentJson(fetchSpy, 0)).toMatchObject({ method: "GET", url: `${CHAT_URL}?agent=customer` });
     expect(sentJson(fetchSpy, 1)).toEqual({ method: "POST", url: CHAT_URL, body: { text: "Reply to Dana", agent: "customer" } });
   });
 
@@ -283,7 +283,7 @@ describe("ChatWindow, agent context", () => {
     });
     expect(input).toHaveValue("");
     expect(sentJson(fetchSpy, 1).body).toEqual({ text: "Reply to Dana", agent: "customer" });
-    expect(sentJson(fetchSpy, 2)).toMatchObject({ method: "GET", url: CHAT_URL });
+    expect(sentJson(fetchSpy, 2)).toMatchObject({ method: "GET", url: `${CHAT_URL}?agent=content` });
   });
 
   it("drops the old context's unsent composer text when switching agents", async () => {

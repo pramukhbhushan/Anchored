@@ -1,3 +1,4 @@
+import { json, stubFetch } from "@/test/http";
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WORKFLOW_IDS } from "@/lib/domain/workflows";
@@ -29,6 +30,7 @@ function params(agent: string, id = SHOP.id, contact?: string) {
 }
 
 beforeEach(async () => {
+  stubFetch(() => json({ messages: [], changes: [] }));
   stores.current = new MemoryStore();
   await stores.current.saveBusiness(SESSION, SHOP);
   for (const workflow of WORKFLOW_IDS) {

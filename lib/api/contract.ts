@@ -320,6 +320,7 @@ export interface BusinessChatRequest {
   readonly text: string;
   /** Ids of photos the owner uploaded for a post, in the order they picked them. */
   readonly photos?: readonly string[];
+  readonly agent?: string;
 }
 
 /** GET and POST /api/businesses/[id]/chat. `changes` is what the latest message changed; empty on GET. */

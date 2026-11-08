@@ -1,25 +1,33 @@
 "use client";
 
-import { BookOpen, LayoutGrid, PanelLeftClose, PanelLeftOpen, Plus, X, type LucideIcon } from "lucide-react";
+import { BookOpen, ClipboardList, LayoutGrid, Megaphone, ReceiptText, Users, Wrench, PanelLeftClose, PanelLeftOpen, Plus, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, type ReactNode, type Ref } from "react";
 import { AnchorMark } from "@/components/ui/AnchorMark";
 import { APP_HREF, NEW_BUSINESS_HREF, SECTIONS, businessHref, agentHref } from "@/components/routes";
 import type { ShellLocation } from "@/components/shell/location";
 import { SECTION_ICON } from "@/components/shell/nav";
-import type { BusinessSummary, SideAutomation } from "@/components/shell/shell-data";
+import type { BusinessSummary } from "@/components/shell/shell-data";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
 // The app sidebar: inside a business, that business's pages with the
-// approvals count; elsewhere, the viewer's businesses and the example. Then
+// approvals count and direct agent links. Business-area groups stay on
+// the Workflows map; elsewhere, the viewer's businesses and the example. Then
 // "How it's built" and the collapse toggle, with a drag handle on its
 // right edge. Collapsed, it is a 64px icon rail whose names move into
 // tooltips. At phone width `AppShell` slides it in as a drawer instead.
 
 // Breathing room left above or below the active link after it is scrolled into view.
 const REVEAL_MARGIN = 12;
+
+const AGENT_ICON: Readonly<Record<string, LucideIcon>> = {
+  customer: Users,
+  books: ReceiptText,
+  content: Megaphone,
+  internal: ClipboardList,
+};
 
 /** Render the count beside a nav item, read as ", 3 waiting" by screen readers. */
 function Count({ value }: { readonly value: number | null }) {
@@ -55,38 +63,6 @@ function SideLink({
       <span className="side-text">{label}</span>
       <Count value={count} />
     </Link>
-  );
-}
-
-/** Render a business's automations under Workflows, grouped by stage, like threads under a project. */
-function AutomationList({ automations, openKey }: { readonly automations: readonly SideAutomation[]; readonly openKey: string | null }) {
-  const stages = [...new Set(automations.map((a) => a.stage))];
-  return (
-    <ul className="side-sub" aria-label="Automations">
-      {stages.map((stage) => (
-        <li key={stage}>
-          <p className="side-sub-stage">{stage}</p>
-          <ul>
-            {automations
-              .filter((a) => a.stage === stage)
-              .map((a) => (
-                <li key={a.href}>
-                  <Link href={a.href} className="side-sub-link" aria-current={a.key === openKey ? "page" : undefined}>
-                    <span className="side-text">{a.name}</span>
-                    {a.waiting > 0 && (
-                      <span className="side-sub-wait">
-                        <span className="sr">, </span>
-                        {a.waiting}
-                        <span className="sr"> waiting for your OK</span>
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              ))}
-          </ul>
-        </li>
-      ))}
-    </ul>
   );
 }
 
@@ -163,7 +139,6 @@ export function Sidebar({
   const samples = businesses.filter((b) => b.kind === "case");
   const section = location.page === "business" ? location.section : null;
   const openAgent = location.page === "business" ? location.agent : undefined;
-  const openKey = location.page === "business" ? (location.automation ?? null) : null;
   const CollapseIcon = collapsed ? PanelLeftOpen : PanelLeftClose;
   const collapseLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
 
@@ -171,7 +146,7 @@ export function Sidebar({
     const container = scroller.current;
     const active = container?.querySelector<HTMLElement>('[aria-current="page"]');
     if (container && active) reveal(container, active);
-  }, [openId, section, open]);
+  }, [openId, section, openAgent, open]);
 
   return (
     <aside id="app-nav" className="side" aria-label="App">
@@ -208,15 +183,27 @@ export function Sidebar({
                     href={businessHref(current.id, item.section)}
                     icon={SECTION_ICON[item.section ?? "overview"]}
                     label={item.label}
-                    current={section === item.section && (item.section !== "workflows" || (collapsed || (openKey === null && openAgent === undefined)))}
+                    current={section === item.section && (item.section !== "workflows" || !current.agents?.some((agent) => agent.id === openAgent))}
                     tip={collapsed}
                     count={item.section === "approvals" ? current.pending : null}
                   />
-                  {item.section === "workflows" && !collapsed && current.agents !== undefined && (
-                    <ul className="side-sub" aria-label="Agents"><li><p className="side-sub-stage">Agents</p><ul>{current.agents.map((agent) => <li key={agent.id}><Link href={agentHref(current.id, agent.id)} className="side-sub-link" aria-current={openAgent === agent.id ? "page" : undefined}><span className="side-text">{agent.name}</span></Link></li>)}</ul></li></ul>
-                  )}
-                  {item.section === "workflows" && !collapsed && current.automations !== undefined && current.automations.length > 0 && (
-                    <AutomationList automations={current.automations} openKey={openKey} />
+                  {item.section === "workflows" && current.agents !== undefined && current.agents.length > 0 && (
+                    <div className="side-group side-agents">
+                      <p className="side-label">Agents</p>
+                      <ul className="side-list" aria-label="Agents">
+                        {current.agents.map((agent) => (
+                          <li key={agent.id}>
+                            <SideLink
+                              href={agentHref(current.id, agent.id)}
+                              icon={AGENT_ICON[agent.id] ?? Wrench}
+                              label={agent.name}
+                              current={openAgent === agent.id}
+                              tip={collapsed}
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                 </li>
               ))}

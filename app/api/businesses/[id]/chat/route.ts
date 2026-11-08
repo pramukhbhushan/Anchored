@@ -1,5 +1,5 @@
 import type { BusinessChatResponse } from "@/lib/api/contract";
-import { businessChatSchema } from "@/lib/api/schemas";
+import { agentChatIdSchema, businessChatSchema } from "@/lib/api/schemas";
 import { listBusinessChat, sendBusinessChat } from "@/lib/server/business-chat";
 import { findBusiness } from "@/lib/server/data";
 import { fail, handleError, json, readBody } from "@/lib/server/http";
@@ -18,12 +18,15 @@ type Context = { params: Promise<{ id: string }> };
 const NOT_FOUND = "Business not found. It may have been reset.";
 
 /** Return the business's chat. */
-export async function GET(_request: Request, { params }: Context) {
+export async function GET(request: Request, { params }: Context) {
   try {
     const { id } = await params;
     const business = await findBusiness(id);
     if (!business) return fail(404, NOT_FOUND);
-    return json<BusinessChatResponse>(await listBusinessChat(await getSessionId(), business));
+    const requestedAgent = new URL(request.url).searchParams.get("agent");
+    const agent = agentChatIdSchema.optional().safeParse(requestedAgent ?? undefined);
+    if (!agent.success) return fail(400, "Choose an agent from your business's sidebar.");
+    return json<BusinessChatResponse>(await listBusinessChat(await getSessionId(), business, agent.data));
   } catch (error) {
     return handleError(error, "GET /api/businesses/[id]/chat");
   }
@@ -37,7 +40,7 @@ export async function POST(request: Request, { params }: Context) {
     const { id } = await params;
     const business = await findBusiness(id);
     if (!business) return fail(404, NOT_FOUND);
-    return json<BusinessChatResponse>(await sendBusinessChat(await getSessionId(), business, parsed.data.text, parsed.data.photos ?? []));
+    return json<BusinessChatResponse>(await sendBusinessChat(await getSessionId(), business, parsed.data.text, parsed.data.agent, parsed.data.photos ?? []));
   } catch (error) {
     return handleError(error, "POST /api/businesses/[id]/chat");
   }

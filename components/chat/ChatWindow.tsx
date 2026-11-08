@@ -357,20 +357,24 @@ function BusinessChat({
 
   useEffect(() => {
     // The words now sit in the text box, so a reload shouldn't bring them back.
-    if (ask !== undefined) window.history.replaceState(null, "", window.location.pathname);
+    if (ask === undefined) return;
+    const next = new URL(window.location.href);
+    next.searchParams.delete("ask");
+    window.history.replaceState(null, "", `${next.pathname}${next.search}`);
   }, [ask]);
+  const historyUrl = agent === undefined ? url : `${url}?agent=${encodeURIComponent(agent)}`;
 
   useEffect(() => {
     mounted.current = true;
     void run(null, async () => {
-      const chat = await getApi<BusinessChatResponse>(url, LOAD_FAILED);
+      const chat = await getApi<BusinessChatResponse>(historyUrl, LOAD_FAILED);
       if (mounted.current) setMessages(chat.messages);
     });
     return () => {
       mounted.current = false;
     };
     // A keyed BusinessChat remounts when the business or selected agent changes.
-  }, [url]);
+  }, [historyUrl]);
 
   async function send(text: string): Promise<void> {
     if (busy || readOnly) return;

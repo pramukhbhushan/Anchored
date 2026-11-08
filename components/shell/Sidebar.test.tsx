@@ -131,7 +131,7 @@ function renderAgentSidebar(location: ShellLocation, collapsed = false) {
 }
 
 describe("agent navigation in Sidebar", () => {
-  it("lists active agents and niche agents under Workflows", () => {
+  it("lists active agents and niche agents as direct destinations", () => {
     renderAgentSidebar({ page: "business", businessId: "rosa", section: "workflows" });
     const agents = within(nav()).getByRole("list", { name: "Agents" });
     expect(within(agents).getByRole("link", { name: "Customer" })).toHaveAttribute("href", "/app/b/rosa/workflows/customer");
@@ -147,22 +147,26 @@ describe("agent navigation in Sidebar", () => {
     expect(nav().querySelectorAll('[aria-current="page"]')).toHaveLength(1);
   });
 
-  it("keeps the Workflows icon current when the open agent is hidden in the collapsed rail", () => {
+  it("keeps agent destinations available in the collapsed rail", () => {
     renderAgentSidebar({ page: "business", businessId: "rosa", section: "workflows", agent: "customer" }, true);
-    expect(screen.queryByRole("list", { name: "Agents" })).not.toBeInTheDocument();
-    expect(within(nav()).getByRole("link", { name: "Workflows" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("list", { name: "Agents" })).toBeInTheDocument();
+    expect(within(nav()).getByRole("link", { name: "Customer" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav()).getByRole("link", { name: "Customer" })).toHaveAttribute("title", "Customer");
+    expect(within(nav()).getByRole("link", { name: "Workflows" })).not.toHaveAttribute("aria-current");
     expect(nav().querySelectorAll('[aria-current="page"]')).toHaveLength(1);
   });
 });
 
 
 describe("main frontend and agent integration", () => {
-  it("keeps main's automation links alongside agent workspaces", () => {
+  it("keeps business-area groups on Workflows instead of repeating them in navigation", () => {
     const business = { ...AGENT_BUSINESS, automations: [{ key: "nudger", name: "Remind about invoices", stage: "Getting paid", href: "/app/b/rosa/workflows/books/nudger", waiting: 1 }] };
     render(<Sidebar businesses={[business]} location={{ page: "business", businessId: "rosa", section: "workflows", automation: "nudger" }} open={false} collapsed={false} closeRef={createRef<HTMLButtonElement>()} onClose={vi.fn()} onToggleCollapsed={vi.fn()} handle={null} />);
     expect(screen.getByRole("list", { name: "Agents" })).toBeInTheDocument();
-    expect(screen.getByRole("list", { name: "Automations" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Remind about invoices/ })).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByRole("list", { name: "Automations" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Getting paid")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Remind about invoices/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Workflows" })).toHaveAttribute("aria-current", "page");
     expect(nav().querySelectorAll('[aria-current="page"]')).toHaveLength(1);
   });
 });

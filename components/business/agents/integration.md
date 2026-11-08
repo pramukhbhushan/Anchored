@@ -4,6 +4,8 @@ The workspace and navigation use session-scoped `getChoices`, `activeAgents` and
 
 ## Connected behavior
 
+Each workspace embeds its own ChatWindow. GET uses the validated `agent` query and POST uses the validated `agent` body field. Server membership checks restrict the context to active agents and selected skills. Histories are namespaced under the existing session-filtered business threads. Conversational answers use getBudgetedLlm with business facts and recent scoped history, without tools. Drafts still use readRequest and the existing approval path. Missing or failed AI is labeled explicitly.
+
 | UI surface | Current implementation | Limits |
 | --- | --- | --- |
 | Customer history | `CustomerThreads` receives `CustomersResponse` from `customerThreads` and `GET /api/businesses/[id]/customers?contact=<id>`. Contact selection stays in the URL. Messages include card links, delivery results and rule provenance | Reads are scoped to the current session and business. Another business's contact is never selected. A failed read is an error, not an empty successful conversation |
@@ -35,7 +37,7 @@ The safety audit also tightened uncertain-send handling and webhook claims. A Te
 
 | Capability | Required contract | Behavior before it arrives |
 | --- | --- | --- |
-| Agent-scoped Ask | A validated optional `agent` field in the business-chat schema and handler | Workspaces open the general business Chat, which sends only `text`. Prepared `ChatWindow` props are not authorization |
+
 | Canonical identities and character | `CoreAgentId`, `canonicalAgent`, `ConversationOwner` and character metadata | The view groups `frontdesk` and `followup` as Customer. Existing skill/job/limit metadata remains visible |
 | Billing handoff | `createHandoffCard(session, business, { toSkill, parentKey, contactId, facts })` | Customer billing questions and forwarded billing become owner notes |
 | Supplier invoices | `receiveSupplierInvoice` with authoritative source and business linkage | Forwarded supplier mail becomes an owner note |
