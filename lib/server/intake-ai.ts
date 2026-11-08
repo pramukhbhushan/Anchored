@@ -123,7 +123,9 @@ interface ModelReading {
 }
 
 // The owner can be asked to say more about these; the voice sample and the review are never followed up.
-const FOLLOW_UP_FIELDS: readonly IntakeField[] = ["name", "kind", "what", "reach", "tools", "signals", "languages", "week"];
+// Only questions answered in the owner's own words: a question with chips shows the field's chips under the
+// model's words, so a follow-up there would ask one thing and offer answers to another.
+const FOLLOW_UP_FIELDS: readonly IntakeField[] = ["name", "what", "week"];
 
 /** Owner text made safe to place inside a prompt tag: angle brackets go, so it can't close the tag it sits in. */
 export function quoted(text: string, max: number): string {
