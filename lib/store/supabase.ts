@@ -4,7 +4,8 @@ import type { CardRecord, CardStatus, ChatMessage, OutboxEntry } from "@/lib/api
 import type { ConnectionKind } from "@/lib/domain/connections";
 import type { ConsentSource, Contact } from "@/lib/domain/contacts";
 import type { IntakeDraft, ProfileChange } from "@/lib/domain/intake";
-import type { BusinessProfile, CardDraft, Choice, ChoiceMap, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
+import type { PlaybookNiche, PostFormat, PostMedia, PostPlatform, PostPlaybook } from "@/lib/domain/playbook";
+import type { BusinessProfile, CardDraft, Choice, ChoiceMap, KeyedCard, ProfileChangeSource, TradeKey, WorkflowId } from "@/lib/domain/types";
 import {
   NotFoundError,
   type CardPatch,
@@ -135,6 +136,38 @@ function toConnection(row: ConnectionRow): StoredConnection {
 
 function toMessage(row: ChatMessageRow): ChatMessage {
   return { id: String(row.id), role: row.role, text: row.body, at: row.created_at, ...(row.changes ? { changes: row.changes } : {}) };
+}
+
+/** A `post_formats` row as Postgres returns it. The table's checks keep `media` to the three values. */
+interface PostFormatRow {
+  id: string;
+  name: string;
+  niches: PlaybookNiche[];
+  platforms: PostPlatform[];
+  media: PostMedia;
+  min_photos: number;
+  max_photos: number;
+  why: string;
+  structure: string[];
+  photo_ideas: string[];
+  cues: string[];
+}
+
+/** Turn a `post_formats` row into a `PostFormat`. */
+function toFormat(row: PostFormatRow): PostFormat {
+  return {
+    id: row.id,
+    name: row.name,
+    niches: row.niches,
+    platforms: row.platforms,
+    media: row.media,
+    minPhotos: row.min_photos,
+    maxPhotos: row.max_photos,
+    why: row.why,
+    structure: row.structure,
+    photoIdeas: row.photo_ideas,
+    cues: row.cues,
+  };
 }
 
 /** Throw a store error that names the operation and keeps Supabase's error as the cause. */
@@ -472,6 +505,24 @@ export class SupabaseStore implements Store {
     // `draft` is written only by `saveIntake` from a typed `IntakeDraft`.
     const row = data as IntakeRow | null;
     return row ? { id: row.id, draft: row.draft, businessId: row.business_id } : null;
+  }
+
+  async listPostPlaybook(niche: TradeKey): Promise<PostPlaybook> {
+    const niches = [niche, "any"];
+    const [formats, hooks, hashtags] = await Promise.all([
+      this.db.from("post_formats").select("id, name, niches, platforms, media, min_photos, max_photos, why, structure, photo_ideas, cues").overlaps("niches", niches).order("id"),
+      this.db.from("post_hooks").select("id, text, niches, platforms, formats").overlaps("niches", niches).order("id"),
+      this.db.from("post_hashtags").select("tag, niches, platforms, trade").overlaps("niches", niches).order("id"),
+    ]);
+    if (formats.error) fail("listPostPlaybook formats", formats.error);
+    if (hooks.error) fail("listPostPlaybook hooks", hooks.error);
+    if (hashtags.error) fail("listPostPlaybook hashtags", hashtags.error);
+    return {
+      formats: (formats.data ?? []).map((row) => toFormat(row as PostFormatRow)),
+      // The hook and hashtag columns already match the domain field names.
+      hooks: (hooks.data ?? []) as PostPlaybook["hooks"],
+      hashtags: (hashtags.data ?? []) as PostPlaybook["hashtags"],
+    };
   }
 
   async reset(session: string): Promise<void> {

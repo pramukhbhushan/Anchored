@@ -2,7 +2,8 @@ import type { CardRecord, CardStatus, ChatMessage, Delivery, OutboxEntry } from 
 import type { ConnectionKind } from "@/lib/domain/connections";
 import type { Contact } from "@/lib/domain/contacts";
 import type { IntakeDraft } from "@/lib/domain/intake";
-import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
+import type { PostPlaybook } from "@/lib/domain/playbook";
+import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, ProfileChangeSource, TradeKey, WorkflowId } from "@/lib/domain/types";
 
 // =============================================================================
 // Module Overview
@@ -81,7 +82,7 @@ export interface ProfileVersion {
 
 /**
  * Persistence for businesses, choices, cards, the outbox, raw events, chats, contacts and connections. Every method
- * takes the session first and touches only its rows, except the three marked deployment-wide.
+ * takes the session first and touches only its rows, except the four marked deployment-wide.
  */
 export interface Store {
   readonly kind: "supabase" | "memory";
@@ -136,6 +137,8 @@ export interface Store {
   deleteConnection(session: string, businessId: string, kind: ConnectionKind): Promise<void>;
   /** The connection a webhook names, with the session that owns it, or `null`. Deployment-wide. */
   findConnection(hookId: string): Promise<{ readonly session: string; readonly connection: StoredConnection } | null>;
+  /** The post formats, hooks and hashtags that apply to `niche`. Shared reference rows, read-only. Deployment-wide. */
+  listPostPlaybook(niche: TradeKey): Promise<PostPlaybook>;
   /** Delete everything the session created, as "Delete my businesses" asks. */
   reset(session: string): Promise<void>;
 }

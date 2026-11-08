@@ -10,7 +10,8 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "check": "npm run typecheck && npm test && npm run build",
-    "discover": "node --conditions=react-server --env-file-if-exists=.env.local --import tsx scripts/discover.ts"
+    "discover": "node --conditions=react-server --env-file-if-exists=.env.local --import tsx scripts/discover.ts",
+    "playbook:sql": "node --import tsx scripts/playbook-sql.ts"
   },
   "engines": {
     "node": ">=20"

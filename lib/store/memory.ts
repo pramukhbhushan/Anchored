@@ -2,7 +2,9 @@ import { randomUUID } from "node:crypto";
 import type { CardRecord, ChatMessage, OutboxEntry } from "@/lib/api/contract";
 import type { ConnectionKind } from "@/lib/domain/connections";
 import type { Contact } from "@/lib/domain/contacts";
-import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
+import { playbookForNiche, type PostPlaybook } from "@/lib/domain/playbook";
+import { PLAYBOOK_SEED } from "@/lib/domain/playbook-seed";
+import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, ProfileChangeSource, TradeKey, WorkflowId } from "@/lib/domain/types";
 import {
   NotFoundError,
   type CardPatch,
@@ -293,6 +295,10 @@ export class MemoryStore implements Store {
 
   async findIntakeByBusiness(session: string, businessId: string): Promise<IntakeRecord | null> {
     return [...(this.peek(session)?.intakes.values() ?? [])].find((intake) => intake.businessId === businessId) ?? null;
+  }
+
+  async listPostPlaybook(niche: TradeKey): Promise<PostPlaybook> {
+    return playbookForNiche(PLAYBOOK_SEED, niche);
   }
 
   async reset(session: string): Promise<void> {

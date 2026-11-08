@@ -222,3 +222,14 @@ describe("findIntakeByBusiness", () => {
     expect(await store.findIntakeByBusiness("s2", BUSINESS)).toBeNull();
   });
 });
+
+describe("listPostPlaybook", () => {
+  it("returns the niche's rows plus the ones for every business, and nothing for another niche", async () => {
+    const playbook = await new MemoryStore().listPostPlaybook("restaurant");
+    const ids = playbook.formats.map((f) => f.id);
+    expect(ids).toContain("dish-spotlight");
+    expect(ids).toContain("behind-the-scenes");
+    expect(ids).not.toContain("signs-you-need");
+    expect(playbook.hashtags.every((h) => h.niches.includes("restaurant") || h.niches.includes("any"))).toBe(true);
+  });
+});
