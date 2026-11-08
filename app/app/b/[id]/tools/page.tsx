@@ -87,7 +87,8 @@ export default async function ToolsPage({
             {queue.length === 1 ? "it" : "them"}
           </summary>
           <p className="queue-note">
-            Our research found these. None gets a score until a person checks its price, contract and data terms.
+            Our research and our discovery agent found these on the web. None gets a score until a person checks its
+            price, contract and data terms.
           </p>
           <table className="rtable">
             <thead>
@@ -95,7 +96,8 @@ export default async function ToolsPage({
                 <th scope="col">Tool</th>
                 <th scope="col">Workflow</th>
                 <th scope="col">Price</th>
-                <th scope="col">Source</th>
+                <th scope="col">Where we found it</th>
+                <th scope="col">Found</th>
               </tr>
             </thead>
             <tbody>
@@ -104,7 +106,16 @@ export default async function ToolsPage({
                   <th scope="row">{listing.name}</th>
                   <td data-label="Workflow">{WORKFLOWS[listing.workflow].name}</td>
                   <td data-label="Price">{listing.price}</td>
-                  <td data-label="Source">{listing.source}</td>
+                  <td data-label="Where we found it">
+                    {listing.url ? (
+                      <a href={listing.url} target="_blank" rel="noopener noreferrer nofollow">
+                        {listing.source}
+                      </a>
+                    ) : (
+                      listing.source
+                    )}
+                  </td>
+                  <td data-label="Found">{listing.foundOn}</td>
                 </tr>
               ))}
             </tbody>

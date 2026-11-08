@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { AnthropicProvider } from "./anthropic";
 import { readProviderConfig } from "./config";
-import { LlmRefusalError, LlmRequestError, LlmResponseError, type ObjectRequest, type TextRequest } from "./types";
+import { LlmRefusalError, LlmRequestError, LlmResponseError, type ObjectRequest, type TextRequest, type WebSearchRequest } from "./types";
 
 // =============================================================================
 // Module Overview
@@ -197,5 +197,79 @@ describe("AnthropicProvider replies", () => {
     expect(error).toMatchObject({ status: 401 });
     // A 401 is not retried, so the SDK made exactly one call.
     expect(sent).toHaveLength(1);
+  });
+});
+
+// -----------------------------------------------------------------
+// Web search
+// -----------------------------------------------------------------
+
+const SEARCH_REQUEST: WebSearchRequest = { tier: "default", prompt: "Find AI receptionists for a dental office.", maxTokens: 8000, maxSearches: 4 };
+
+/** A search result block listing `pages`, as the API returns it. */
+function searchResults(pages: readonly { url: string; title: string }[]): Record<string, unknown> {
+  return {
+    type: "web_search_tool_result",
+    tool_use_id: "srvtoolu_1",
+    content: pages.map((page) => ({ type: "web_search_result", url: page.url, title: page.title, encrypted_content: "x", page_age: null })),
+  };
+}
+
+const SEARCH_CALL = { type: "server_tool_use", id: "srvtoolu_1", name: "web_search", input: { query: "AI receptionist dental" } };
+
+describe("AnthropicProvider web search", () => {
+  it("sends the search tool with its cap and returns the answer with every page found, each once", async () => {
+    const { fetchImpl, sent } = recordingFetch(() =>
+      claudeMessage([
+        SEARCH_CALL,
+        searchResults([
+          { url: "https://www.arini.ai/", title: "Arini" },
+          { url: "https://www.getweave.com/", title: "Weave" },
+        ]),
+        searchResults([{ url: "https://www.arini.ai/", title: "Arini again" }]),
+        { type: "web_search_tool_result", tool_use_id: "srvtoolu_2", content: { type: "web_search_tool_result_error", error_code: "max_uses_exceeded" } },
+        { type: "text", text: "Arini and Weave both answer calls.", citations: null },
+      ]),
+    );
+
+    const findings = await claudeFor({}, fetchImpl).searchWeb(SEARCH_REQUEST);
+
+    expect(sent[0]?.body.tools).toEqual([{ type: "web_search_20260209", name: "web_search", max_uses: 4 }]);
+    expect(findings).toEqual({
+      text: "Arini and Weave both answer calls.",
+      sources: [
+        { url: "https://www.arini.ai/", title: "Arini" },
+        { url: "https://www.getweave.com/", title: "Weave" },
+      ],
+    });
+  });
+
+  it("gives Haiku the basic search tool", async () => {
+    const { fetchImpl, sent } = recordingFetch(() => claudeMessage([{ type: "text", text: "None found." }]));
+
+    await claudeFor({}, fetchImpl).searchWeb({ ...SEARCH_REQUEST, tier: "quick" });
+
+    expect(sent[0]?.body.tools).toEqual([{ type: "web_search_20250305", name: "web_search", max_uses: 4 }]);
+  });
+
+  it("resumes a paused search from what it found so far, without a new question", async () => {
+    const replies = [
+      claudeMessage([SEARCH_CALL, searchResults([{ url: "https://www.arini.ai/", title: "Arini" }])], "pause_turn"),
+      claudeMessage([{ type: "text", text: "Arini answers calls." }]),
+    ];
+    const { fetchImpl, sent } = recordingFetch(() => replies.shift() ?? claudeMessage([]));
+
+    const findings = await claudeFor({}, fetchImpl).searchWeb(SEARCH_REQUEST);
+
+    expect(sent).toHaveLength(2);
+    const resumed = sent[1]?.body.messages as { role: string }[];
+    expect(resumed.map((m) => m.role)).toEqual(["user", "assistant"]);
+    expect(findings).toEqual({ text: "Arini answers calls.", sources: [{ url: "https://www.arini.ai/", title: "Arini" }] });
+  });
+
+  it("raises `LlmRefusalError` when Claude declines the search", async () => {
+    const { fetchImpl } = recordingFetch(() => claudeMessage([], "refusal"));
+
+    await expect(claudeFor({}, fetchImpl).searchWeb(SEARCH_REQUEST)).rejects.toBeInstanceOf(LlmRefusalError);
   });
 });

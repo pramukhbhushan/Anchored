@@ -1,3 +1,4 @@
+import { DISCOVERED } from "@/lib/domain/discovered";
 import type { Check, DiscoveryListing, TradeKey, Tool } from "@/lib/domain/types";
 
 // =============================================================================
@@ -6,7 +7,7 @@ import type { Check, DiscoveryListing, TradeKey, Tool } from "@/lib/domain/types
 // The tool catalog Anchored rates, seeded from docs/research/corner-stores-and-restaurants-notes/tools_by_job.md and the HVAC
 // and coaching tool tables. Each `Tool` carries its price, charge, data and
 // start checks with the evidence behind them; `DISCOVERY_QUEUE` lists tools
-// the discovery agent found that nobody has reviewed yet.
+// that research or the discovery agent found and nobody has reviewed yet.
 
 // =============================================================================
 // Source helpers
@@ -678,8 +679,8 @@ export const TOOLS: readonly Tool[] = [
   },
 ];
 
-/** Tools found by the discovery agent and waiting for a person to check them. */
-export const DISCOVERY_QUEUE: readonly DiscoveryListing[] = [
+// Listings the team found by hand while researching, before the discovery agent ran.
+const RESEARCH_QUEUE: readonly DiscoveryListing[] = [
   {
     name: "Loman",
     workflow: "calls",
@@ -721,6 +722,9 @@ export const DISCOVERY_QUEUE: readonly DiscoveryListing[] = [
     foundOn: "Nov 6, 2026",
   },
 ];
+
+/** Tools found by research or the discovery agent and waiting for a person to check them. */
+export const DISCOVERY_QUEUE: readonly DiscoveryListing[] = [...RESEARCH_QUEUE, ...DISCOVERED];
 
 // =============================================================================
 // Lookups

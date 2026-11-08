@@ -15,6 +15,7 @@ Use Node.js 26, the version in `.nvmrc`.
 | `npm run typecheck` | `next typegen` for the route types, then `tsc --noEmit` |
 | `npm run build` | `next build` |
 | `npm run check` | The type check, the tests, then the build. CI in `.github/workflows/ci.yml` runs the same steps on every PR and every push to `main` |
+| `npm run discover -- --workflow <id> --business "<kind>"` | The discovery agent: searches the web for tools that do one workflow and appends them to `lib/domain/discovered.json` for a person to review. Needs `AI_PROVIDER=anthropic` in `.env.local` |
 
 A fresh worktree has no `.env.local`, so it runs with accounts off, AI off and data in memory, and the rules draft every profile and card. Production on Vercel runs with Supabase for data and sign-in; the README's "Deploy to Vercel" lists the settings. The tests and the build need no keys. AI turns on with `AI_PROVIDER`, one `AI_API_KEY` and an optional `AI_BASE_URL`, the same names for every provider. The README's AI provider table lists the model settings. A production server with no Supabase settings throws on its first data read; `ANCHORED_ALLOW_MEMORY_STORE=1` lets it run on the in-memory store instead.
 

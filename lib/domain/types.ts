@@ -144,6 +144,8 @@ export interface DiscoveryListing {
   readonly data: string;
   readonly contract: string;
   readonly source: string;
+  /** The page the discovery agent found it on. Listings from the team's own research have none. */
+  readonly url?: string;
   readonly foundOn: string;
 }
 

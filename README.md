@@ -26,6 +26,8 @@ Each tool gets a score out of 100 for your business. The score comes from seven 
 
 ![Tools page with scored tool cards](docs/screenshots/3-tools.png)
 
+New tools come from a discovery agent. It searches the web for tools that do one job, and code keeps a tool only when the page it came from is one the search returned. Each find waits under "waiting for a person to check" with a link to that page, and gets no score until a person checks its price, contract and data terms. See [Find new tools](#find-new-tools).
+
 ### 4. Approve before anything goes out
 
 Agents write each text or email as a card. You approve, edit or skip it. Anchored also holds texts during quiet hours and texts only customers who agreed to get them. Anchored isn't connected to texting or email yet, so approved messages wait in the outbox and nothing is sent.
@@ -65,6 +67,16 @@ You need Node.js 26, the version in `.nvmrc`.
 4. Open http://localhost:3000.
 
 With no keys set, Anchored keeps data in memory and maps businesses with its own rules. Data resets when the server restarts.
+
+### Find new tools
+
+The discovery agent needs Claude, since it uses Claude's web search. Set `AI_PROVIDER=anthropic` and `AI_API_KEY` in `.env.local`, then run it for one workflow and one kind of business:
+
+```bash
+npm run discover -- --workflow calls --business "dental office"
+```
+
+`--workflow base` covers the five workflows every business gets, and `--dry-run` prints the finds without saving them. The agent appends each new tool to `lib/domain/discovered.json`, and the Tools page lists it as waiting for a person to check. Review the diff, then open a PR with it. Each run makes two model calls, which count against `AI_DAILY_CALL_CAP`.
 
 ### Run it with accounts, the way production does
 
