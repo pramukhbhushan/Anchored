@@ -348,6 +348,10 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .shell-main{min-width:0;display:flex;flex-direction:column}
 .topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;min-height:var(--top-h);padding:8px var(--gutter);background:var(--paper);border-bottom:1px solid var(--line)}
 .menu-btn,.topbar-mark,.topbar-title{display:none}
+/* The two sides grow equally from zero, so the Jump to bar sits at the true center.
+   The bar leaves each side 320px, room for the switcher and the Example pill, and grows to 560px.
+   Each side keeps its content's width, so on a narrow bar the Jump to bar shrinks first. */
+.topbar-start{flex:1 1 0;display:flex;align-items:center;gap:12px}
 
 /* ---------- business switcher: a trigger and a panel of links, matching the sidebar's business rows ---------- */
 .switcher{position:relative;display:inline-flex;flex:0 1 340px;min-width:0}
@@ -379,10 +383,12 @@ html[data-dev] .side-foot{padding-bottom:64px}
 @keyframes switcher-in{from{opacity:0;transform:translateY(-4px)}}
 
 .sample-pill{flex:none}
-.palette-open{display:inline-flex;flex:none;align-items:center;gap:8px;white-space:nowrap;min-height:40px;padding:6px 10px 6px 12px;border:1.5px solid var(--line);border-radius:var(--r);background:var(--sheet);color:var(--muted);font-size:var(--fs-sm);font-weight:600;cursor:pointer}
+.palette-open{display:inline-flex;flex:0 1 clamp(240px,100% - 640px,560px);min-width:0;align-items:center;gap:8px;white-space:nowrap;min-height:40px;padding:6px 10px 6px 12px;border:1.5px solid var(--line);border-radius:var(--r);background:var(--sheet);color:var(--muted);font-size:var(--fs-sm);font-weight:600;cursor:pointer}
 .palette-open:hover{border-color:var(--ink);color:var(--ink)}
-.palette-hint{display:inline-flex;gap:3px;margin-left:4px}
-.topbar-end{margin-left:auto;display:flex;align-items:center;gap:10px}
+.palette-open svg{flex:none}
+.palette-label{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.palette-hint{display:inline-flex;gap:3px;margin-left:auto;padding-left:4px}
+.topbar-end{flex:1 1 0;display:flex;justify-content:flex-end;align-items:center;gap:10px}
 
 /* ---------- page area: the full width beside the sidebar ---------- */
 .content{container:app / inline-size;width:100%;padding:var(--s-6) var(--gutter) var(--s-8)}
@@ -402,7 +408,7 @@ html[data-dev] .side-foot{padding-bottom:64px}
   .scrim{position:fixed;inset:0;z-index:44;background:var(--scrim);display:none}
   .shell[data-drawer="open"] .scrim{display:block}
   .menu-btn{display:inline-grid;margin-left:-8px}
-  .topbar{gap:8px}
+  .topbar,.topbar-start{gap:8px}
   .palette-hint{display:none}
 }
 @media (max-width:959px) and (prefers-reduced-motion:no-preference){
@@ -413,6 +419,7 @@ html[data-dev] .side-foot{padding-bottom:64px}
 @media (max-width:640px){
   /* The title says "(example)" at this width, so the pill would repeat it */
   .switcher,.palette-open,.sample-pill{display:none}
+  .topbar-end{flex:none}
   .topbar-mark{display:inline-flex;color:var(--ink)}
   .topbar-title{display:block;min-width:0;flex:1;font-weight:600;font-size:var(--fs-md);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .content{padding-top:var(--s-5);padding-bottom:var(--s-7)}
