@@ -39,11 +39,18 @@ const LIMITS = {
   // onboardings plus chat. The daily model budget in `lib/server/ai-budget.ts` caps the spend.
   chat: { bucket: "chat", windowMs: WINDOW_MS, perSession: 90, perIp: 450 },
   newEvent: { bucket: "new-event", windowMs: WINDOW_MS, perSession: 60, perIp: 300 },
+  // Connecting a service and adding a contact create rows, so they get their own bucket.
+  connect: { bucket: "connect", windowMs: WINDOW_MS, perSession: 60, perIp: 300 },
+  // Twilio, Stripe and Postmark post from shared addresses with no session, so only the per-IP limit holds them.
+  hook: { bucket: "hook", windowMs: WINDOW_MS, perSession: 600, perIp: 3000 },
   mutation: { bucket: "mutation", windowMs: WINDOW_MS, perSession: 120, perIp: 600 },
 } as const satisfies Record<string, ApiLimit>;
 
 /** Largest request body accepted, by its declared `content-length`. */
 export const MAX_BODY_BYTES = 64 * 1024;
+
+/** Largest webhook body accepted. A forwarded email arrives with its attachments, which Anchored ignores. */
+export const MAX_HOOK_BODY_BYTES = 4 * 1024 * 1024;
 
 // Module scope lives as long as the server instance, so counts carry across requests.
 const limiter = createRateLimiter();
@@ -91,6 +98,8 @@ export function clientKey(ip: string): string {
 
 /** Return the rate limits for a `method` request to `pathname`, an API mutation. */
 export function limitFor(method: string, pathname: string): ApiLimit {
+  if (pathname.startsWith("/api/hooks/")) return LIMITS.hook;
+  if (/^\/api\/businesses\/[^/]+\/(?:connections|contacts)(?:\/[^/]+)?\/?$/.test(pathname)) return LIMITS.connect;
   if (method !== "POST") return LIMITS.mutation;
   if (/^\/api\/businesses\/?$/.test(pathname)) return LIMITS.createBusiness;
   if (/^\/api\/cards\/[^/]+\/rewrite\/?$/.test(pathname)) return LIMITS.rewrite;
@@ -99,11 +108,11 @@ export function limitFor(method: string, pathname: string): ApiLimit {
   return LIMITS.mutation;
 }
 
-/** Report whether a declared `content-length` is over `MAX_BODY_BYTES`. */
-export function isBodyTooLarge(contentLength: string | null): boolean {
+/** Report whether a declared `content-length` is over `max`, `MAX_BODY_BYTES` unless a route allows more. */
+export function isBodyTooLarge(contentLength: string | null, max: number = MAX_BODY_BYTES): boolean {
   // Checks the declared length only. A chunked body without one reaches the
   // route, where Vercel's own body limit and the Zod length caps still apply.
-  return contentLength !== null && Number(contentLength) > MAX_BODY_BYTES;
+  return contentLength !== null && Number(contentLength) > max;
 }
 
 /** Return an `ApiError` JSON response. */
@@ -128,8 +137,9 @@ function refuseUnsafeMutation(request: NextRequest): NextResponse<ApiError> | nu
   if (!isAllowedOrigin(request.headers.get("origin"), host)) {
     return refuse(403, "This request came from another site. Open Anchored itself and try again.");
   }
-  if (isBodyTooLarge(request.headers.get("content-length"))) {
-    return refuse(413, `This request is too large. Keep it under ${MAX_BODY_BYTES / 1024} KB.`);
+  const max = request.nextUrl.pathname.startsWith("/api/hooks/") ? MAX_HOOK_BODY_BYTES : MAX_BODY_BYTES;
+  if (isBodyTooLarge(request.headers.get("content-length"), max)) {
+    return refuse(413, `This request is too large. Keep it under ${max / 1024} KB.`);
   }
   return null;
 }
