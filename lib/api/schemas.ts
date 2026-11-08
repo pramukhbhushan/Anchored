@@ -10,6 +10,7 @@ import type {
   SaveContactRequest,
   SetChoiceRequest,
   SetStandingRuleRequest,
+  InvoiceSheetCheckRequest,
   SimulateRequest,
 } from "@/lib/api/contract";
 import { SKILLS } from "@/lib/domain/agents";
@@ -76,6 +77,8 @@ export const decideCardSchema = z.union([
 ]) satisfies z.ZodType<DecideCardRequest>;
 
 export const simulateSchema = z.object({ skill: skillId.optional() }) satisfies z.ZodType<SimulateRequest>;
+
+export const invoiceSheetCheckSchema = z.strictObject({}) satisfies z.ZodType<InvoiceSheetCheckRequest>;
 
 export const ingestSchema = z.object({
   businessId: z.string().min(1).max(80),

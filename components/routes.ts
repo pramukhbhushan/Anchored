@@ -55,3 +55,8 @@ export function cardAnchor(key: string): string {
 export function agentHref(id: string, agent: string): string {
   return `${businessHref(id, "workflows")}/${encodeURIComponent(agent)}`;
 }
+
+/** Return the URL of one automation's page: a step of workflow `workflow`, named by its route `key`. */
+export function automationHref(id: string, workflow: WorkflowId, key: string): string {
+  return `${businessHref(id, "workflows")}/${workflow}/${encodeURIComponent(key)}`;
+}

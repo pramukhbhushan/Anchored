@@ -154,3 +154,15 @@ describe("agent navigation in Sidebar", () => {
     expect(nav().querySelectorAll('[aria-current="page"]')).toHaveLength(1);
   });
 });
+
+
+describe("main frontend and agent integration", () => {
+  it("keeps main's automation links alongside agent workspaces", () => {
+    const business = { ...AGENT_BUSINESS, automations: [{ key: "nudger", name: "Remind about invoices", stage: "Getting paid", href: "/app/b/rosa/workflows/books/nudger", waiting: 1 }] };
+    render(<Sidebar businesses={[business]} location={{ page: "business", businessId: "rosa", section: "workflows", automation: "nudger" }} open={false} collapsed={false} closeRef={createRef<HTMLButtonElement>()} onClose={vi.fn()} onToggleCollapsed={vi.fn()} handle={null} />);
+    expect(screen.getByRole("list", { name: "Agents" })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Automations" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Remind about invoices/ })).toHaveAttribute("aria-current", "page");
+    expect(nav().querySelectorAll('[aria-current="page"]')).toHaveLength(1);
+  });
+});

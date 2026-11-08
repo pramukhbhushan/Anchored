@@ -331,11 +331,6 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .side-foot-link svg{flex:none;color:var(--muted)}
 .side-foot-link:hover{background:var(--hover);color:var(--ink)}
 .side-collapse{display:flex}
-/* The active agents under Workflows, indented like a thread under its project. */
-.side-sub{list-style:none;margin:2px 0 6px 19px;padding:0 0 0 10px;border-left:1.5px solid var(--line)}
-.side-sub-link{display:flex;align-items:center;gap:8px;min-height:32px;padding:5px 8px;border-radius:var(--r);color:var(--ink-2);font-size:13.5px;font-weight:500;text-decoration:none}
-.side-sub-link:hover{background:var(--hover);color:var(--ink)}
-.side-sub-link[aria-current="page"]{background:var(--paper);color:var(--ink);font-weight:700}
 
 /* ---------- collapsed sidebar: a 64px icon rail; names move into tooltips. The drawer is never collapsed ---------- */
 @media (min-width:960px){
@@ -714,3 +709,61 @@ fieldset.field{border:0;padding:0;margin:0}
    ============================================================================= */
 
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* =============================================================================
+   Workflows: the open business's automations in the sidebar, the list under
+   the map, and one automation's page. Brought over from the Harbor Chart
+   theme on feat/workflow-map without the rest of that theme; its colors fall
+   back to this file's tokens.
+   ============================================================================= */
+
+/* The open business's automations under Workflows, like threads under a project */
+.side-sub{list-style:none;margin:2px 0 6px 19px;padding:0}
+/* Each part of the day is a header, larger than its automations, which sit indented beneath it on a guide line */
+.side-sub ul{list-style:none;margin:2px 0 4px 10px;padding:0 0 0 8px;border-left:1.5px solid var(--line)}
+.side-sub-stage{padding:10px 8px 2px;font:800 15px/1.25 var(--display);font-stretch:100%;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.side-sub-link{display:flex;align-items:center;gap:8px;min-height:32px;padding:5px 8px;border-radius:var(--r);color:var(--ink-2);font-size:13.5px;font-weight:500;text-decoration:none}
+.side-sub-link:hover{background:var(--hover);color:var(--ink)}
+.side-sub-link[aria-current="page"]{background:var(--foam,var(--hover));color:var(--ink);font-weight:700}
+.side-sub-wait{flex:none;display:inline-grid;place-items:center;min-width:20px;height:18px;padding:0 5px;background:var(--carbon);color:var(--on-carbon);font:700 11.5px/1 var(--mono,"Courier New",ui-monospace,monospace)}
+
+.wf-list{margin-top:var(--s-6);border-top:1px solid var(--line);padding-top:var(--s-4)}
+.wf-list>summary{font:700 var(--fs-md)/1.3 var(--body);color:var(--link);padding:var(--s-2) 0}
+.wf-list[open]>summary{margin-bottom:var(--s-4)}
+
+.auto-page{display:flex;flex-direction:column;gap:var(--s-5)}
+.auto-crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-2) var(--s-4)}
+.auto-crumbs ol{display:flex;flex-wrap:wrap;gap:4px;list-style:none;margin:0;padding:0;font:700 14px/1.4 var(--mono,"Courier New",ui-monospace,monospace);color:var(--muted)}
+.auto-crumbs li+li::before{content:"›";margin-right:6px}
+.auto-crumbs li[aria-current="page"]{color:var(--ink)}
+.auto-head{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-4) var(--s-5)}
+.auto-bub{flex:none;width:64px;height:64px;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--ink);background:var(--sheet);box-shadow:0 0 0 5px var(--paper),0 0 0 10px var(--ocean,var(--link))}
+.auto-head[data-kind="owned"] .auto-bub,.auto-head[data-kind="new"] .auto-bub{box-shadow:0 0 0 5px var(--paper),0 0 0 10px var(--coral,#FF6A4D)}
+.auto-head[data-kind="none"] .auto-bub{box-shadow:none;border-style:dashed;color:var(--muted)}
+.auto-head[data-wait="true"] .auto-bub{box-shadow:0 0 0 5px var(--paper),0 0 0 10px var(--carbon)}
+.auto-head-text{flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:var(--s-2)}
+.auto-head h1{font-size:clamp(30px,3.6vw,44px)}
+.auto-head p{font-size:var(--fs-lg);color:var(--ink-2);max-width:65ch}
+.auto-wait{font:700 13px/1.3 var(--mono,"Courier New",ui-monospace,monospace);background:var(--carbon);color:var(--on-carbon);padding:3px 7px}
+.auto-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s-5);align-items:start}
+@container app (min-width:1000px){.auto-grid{grid-template-columns:minmax(0,2fr) minmax(300px,1fr)}}
+.auto-main,.auto-side{display:flex;flex-direction:column;gap:var(--s-5);min-width:0}
+.auto-card{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:var(--pad);display:flex;flex-direction:column;gap:var(--s-3);min-width:0}
+.auto-card-main{border:1.5px solid var(--ink)}
+.auto-card h2{font-size:var(--fs-xl)}
+.auto-sub{font-size:var(--fs-md);margin-top:var(--s-2)}
+.auto-cards{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--s-4)}
+.auto-cards li{display:flex;flex-direction:column;align-items:flex-start;gap:var(--s-2);padding-top:var(--s-4);border-top:1px solid var(--line)}
+.auto-cards li:first-child{padding-top:0;border-top:0}
+.auto-card-title{font-weight:700}
+.auto-hist{list-style:none;margin:0;padding:0}
+.auto-hist li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px var(--s-3);padding:var(--s-3) 0;border-top:1px solid var(--line);font-size:var(--fs-sm)}
+.auto-hist li:first-child{border-top:0;padding-top:0}
+.auto-hist time{grid-row:span 2;font:13px/1.5 var(--mono,"Courier New",ui-monospace,monospace);color:var(--muted)}
+.auto-hist span{color:var(--ink-2)}
+.auto-flow{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--s-2) var(--s-3);margin:0;font-size:var(--fs-sm)}
+.auto-flow dt{font:13px/1.5 var(--mono,"Courier New",ui-monospace,monospace);color:var(--muted)}
+.auto-flow dd{margin:0;color:var(--ink-2)}
+.auto-never{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:var(--fs-sm);color:var(--ink-2)}
+.auto-never li{display:flex;gap:8px;align-items:flex-start}
+.auto-never svg{flex:none;margin-top:2px;color:var(--good)}

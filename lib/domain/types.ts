@@ -231,6 +231,18 @@ export interface CardDraft {
   readonly fieldsUsed?: readonly FieldKey[];
   /** Set when this card moves the conversation to another agent, such as Front Desk handing a price question to Follow-up. */
   readonly handoff?: { readonly to: CoreAgentId; readonly reason: string };
+  /** Set on a payment reminder: the invoice it's about, so reminders can be counted and canceled once it's paid. */
+  readonly invoice?: InvoiceRef;
+}
+
+/** The invoice a payment reminder is about. `key` comes from `invoiceKey` in `lib/domain/invoices.ts`. */
+export interface InvoiceRef {
+  readonly key: string;
+  readonly number?: string;
+  /** The customer's name, lowercased, so a payment named only by customer can find its invoice. */
+  readonly customer?: string;
+  /** In dollars. */
+  readonly amount: number;
 }
 
 /** A card draft with the stable key that ties it to stored state. */
@@ -293,6 +305,8 @@ export interface BusinessProfile {
   readonly placeId?: string;
   /** How many times the profile has been saved. The store sets it; every save keeps a copy in the profile's history. */
   readonly version?: number;
+  /** The Google Sheet the owner keeps invoices in, shared with Anchored's service account. Bookkeeping reads it on request. */
+  readonly invoiceSheet?: { readonly id: string; readonly connectedAt: string };
   readonly caseStudy?: {
     readonly label: string;
     readonly stat: string;

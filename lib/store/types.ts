@@ -132,6 +132,11 @@ export interface Store {
   updatePendingCard(session: string, cardId: string, patch: CardPatch): Promise<CardRecord | null>;
   /** Mark every pending card to `contact` as `superseded`, except the one keyed `exceptKey`, and return how many changed. */
   supersedePendingCards(session: string, businessId: string, contact: string, exceptKey: string): Promise<number>;
+  /**
+   * An invoice was paid: mark its pending reminders `superseded`, and stop its reminders still queued to send by
+   * marking them `failed` with `note`. A reminder already sending or sent is left alone. Returns how many of each changed.
+   */
+  cancelInvoiceReminders(session: string, businessId: string, invoiceKey: string, note: string): Promise<{ readonly cards: number; readonly outbox: number }>;
   addOutbox(session: string, entry: NewOutboxEntry): Promise<OutboxEntry>;
   /**
    * Add an entry a rule authorized, unless the session already has one with the same `ruleKey`; `null` then. One
@@ -146,6 +151,8 @@ export interface Store {
   addMessages(session: string, thread: ChatThread, messages: readonly NewChatMessage[]): Promise<ChatMessage[]>;
   getIntake(session: string, id: string): Promise<IntakeRecord | null>;
   saveIntake(session: string, intake: IntakeRecord): Promise<void>;
+  /** The onboarding chat that built `businessId`, or `null` when the business came from the form or an example. */
+  findIntakeByBusiness(session: string, businessId: string): Promise<IntakeRecord | null>;
   /** Count one model call against the day's cap for every visitor together; `false` once the cap is reached. Deployment-wide. */
   useAiCall(day: string, cap: number): Promise<boolean>;
   /** Mark a queued entry as sending and return it; `null` when it isn't queued, so two senders can't both send it. */

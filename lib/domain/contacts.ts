@@ -92,6 +92,12 @@ export function contactByPhone(contacts: readonly Contact[], phone: string): Con
   return contacts.find((contact) => contact.phone === phone);
 }
 
+/** The contact whose email is `email`, ignoring case and spaces, or `undefined`. */
+export function contactByEmail(contacts: readonly Contact[], email: string): Contact | undefined {
+  const wanted = email.trim().toLowerCase();
+  return contacts.find((contact) => contact.email?.trim().toLowerCase() === wanted);
+}
+
 // =============================================================================
 // Who sends an approved message
 // =============================================================================
@@ -146,6 +152,8 @@ export function deliveryFor(message: PlannedMessage, setup: SendingSetup, contac
   if (message.channel === "email") {
     if (!setup.email) return { by: "owner", reason: null };
     if (!isEmailAddress(message.to)) return { by: "owner", reason: "This email has no address, so send it from your email." };
+    // STOP holds for every channel: a customer who opted out gets no email from any agent either.
+    if (contactByEmail(contacts, message.to)?.optedOutAt) return { by: "owner", reason: "This customer asked not to get messages. Anchored won't email them." };
     return { by: "anchored", to: message.to.trim() };
   }
   return { by: "owner", reason: null };

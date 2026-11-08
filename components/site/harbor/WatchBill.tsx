@@ -1,8 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { displayAgentName } from "@/components/agent-labels";
-import { presentAgents } from "@/components/business/agents/view-model";
 import { CORE_AGENTS } from "@/lib/domain/agents";
 import { DAY, DAY_END, DAY_START, clockLabel, dayAt, type ChipKind } from "@/components/site/harbor/watch-bill";
 import styles from "@/components/site/harbor/harbor.module.css";
@@ -15,14 +13,12 @@ import styles from "@/components/site/harbor/harbor.module.css";
 // its time, and drafts go Drafting, Waiting for you, then Approved or Held.
 // The finished day shows at rest, so the section reads without the animation.
 
-const AGENTS = presentAgents(Object.values(CORE_AGENTS).map((agent) => ({ ...agent, niche: false, approval: "every-card" as const })));
 const PLAY_MS = 14000;
 const CHIP_CLASS: Readonly<Record<ChipKind, string | undefined>> = {
   info: styles.info,
   draft: styles.draft,
   wait: styles.wait,
   sent: styles.sent,
-  copied: styles.info,
   held: styles.held,
   sched: styles.sched,
 };
@@ -89,8 +85,8 @@ export function WatchBill() {
             <span>Drafts written</span>
           </div>
           <div>
-            <b>{state.sent + state.copied}</b>
-            <span>Sent or copied after approval</span>
+            <b>{state.sent}</b>
+            <span>Sent after you approved</span>
           </div>
           <div>
             <b>{state.held}</b>
@@ -113,7 +109,7 @@ export function WatchBill() {
               <li key={`${row.minute}-${row.skill}`} className={[rs.future ? styles.future : "", rs.live ? styles.live : ""].join(" ")}>
                 <span className={styles.rowTime}>{clockLabel(row.minute)}</span>
                 <div className={styles.who}>
-                  <b>{displayAgentName(AGENTS.find((agent) => agent.id === row.agent)?.name ?? row.agent)}</b>
+                  <b>{CORE_AGENTS[row.agent].name}</b>
                   <span>{row.skill}</span>
                 </div>
                 <p className={styles.what}>{row.what}</p>

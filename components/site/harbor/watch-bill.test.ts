@@ -20,20 +20,7 @@ describe("dayAt", () => {
     const end = dayAt(DAY_END, true);
     expect(end.rows.at(-1)!.chip.kind).toBe("held");
     expect(end.drafts).toBe(DAY.filter((r) => r.steps.length > 1).length);
-    expect(end.sent + end.copied + end.held).toBe(end.drafts);
-  });
-});
-
-describe("example agent identities", () => {
-  it("groups first-contact and follow-up examples under Customer", () => {
-    expect(DAY.filter((row) => ["Callback", "Closer", "Review Asker"].includes(row.skill)).every((row) => row.agent === "customer")).toBe(true);
-  });
-
-  it("shows a copied Marketing draft separately from sent messages", () => {
-    const marketing = DAY.findIndex((row) => row.agent === "content");
-    const end = dayAt(DAY_END, true);
-    expect(end.rows[marketing]!.chip).toEqual({ kind: "copied", label: "Approved · copied" });
-    expect(end.copied).toBe(1);
+    expect(end.sent + end.held).toBe(end.drafts);
   });
 });
 

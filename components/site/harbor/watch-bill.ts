@@ -1,4 +1,4 @@
-import type { AgentViewId } from "@/components/business/agents/view-model";
+import type { CoreAgentId } from "@/lib/domain/types";
 
 // =============================================================================
 // Module Overview
@@ -9,7 +9,7 @@ import type { AgentViewId } from "@/components/business/agents/view-model";
 // approved after 8 p.m. holds until morning, as `checkSend` does in the app.
 
 /** How a row's status reads: plain info, a draft, waiting on the owner, sent, held, or not yet. */
-export type ChipKind = "info" | "draft" | "wait" | "sent" | "copied" | "held" | "sched";
+export type ChipKind = "info" | "draft" | "wait" | "sent" | "held" | "sched";
 
 /** One step of a row's status. */
 export interface Chip {
@@ -20,7 +20,7 @@ export interface Chip {
 /** One row of the day. `steps` is one chip for info rows, or draft, wait and outcome for drafts. */
 export interface WatchRow {
   readonly minute: number;
-  readonly agent: Exclude<AgentViewId, `niche:${string}`>;
+  readonly agent: CoreAgentId;
   readonly skill: string;
   readonly what: string;
   readonly steps: readonly Chip[];
@@ -35,13 +35,13 @@ const draftFlow = (outcome: Chip): readonly Chip[] => [
 /** Example data based on the College Park Heating & Air case study. */
 export const DAY: readonly WatchRow[] = [
   { minute: 420, agent: "internal", skill: "Daily Brief", what: "Four cards are waiting. $2,140 rides on them.", steps: [{ kind: "info", label: "In your brief" }] },
-  { minute: 552, agent: "customer", skill: "Callback", what: "Missed call from a new number. Drafts a text with two open times.", steps: draftFlow({ kind: "sent", label: "Approved · sent 9:14" }) },
+  { minute: 552, agent: "frontdesk", skill: "Callback", what: "Missed call from a new number. Drafts a text with two open times.", steps: draftFlow({ kind: "sent", label: "Approved · sent 9:14" }) },
   { minute: 640, agent: "internal", skill: "Inbox Triage", what: "A forwarded supplier email goes to Bookkeeping.", steps: [{ kind: "info", label: "Handed off" }] },
   { minute: 665, agent: "books", skill: "Price Watch", what: "Filter price is up 18% from the last order.", steps: [{ kind: "info", label: "Flagged for you" }] },
-  { minute: 870, agent: "customer", skill: "Closer", what: "A $1,200 quote from last week went quiet. Drafts a check-in.", steps: draftFlow({ kind: "sent", label: "Edited · sent 2:41" }) },
-  { minute: 975, agent: "customer", skill: "Review Asker", what: "Job closed. Drafts a Google review ask.", steps: draftFlow({ kind: "sent", label: "Approved · sent 4:20" }) },
-  { minute: 1020, agent: "content", skill: "Review Drafter", what: "Drafts a reply to yesterday's four-star review.", steps: draftFlow({ kind: "copied", label: "Approved · copied" }) },
-  { minute: 1205, agent: "customer", skill: "Callback", what: "Approved at 8:05 p.m. Quiet hours start at 8.", steps: draftFlow({ kind: "held", label: "Held until 8:00 a.m." }) },
+  { minute: 870, agent: "followup", skill: "Closer", what: "A $1,200 quote from last week went quiet. Drafts a check-in.", steps: draftFlow({ kind: "sent", label: "Edited · sent 2:41" }) },
+  { minute: 975, agent: "followup", skill: "Review Asker", what: "Job closed. Drafts a Google review ask.", steps: draftFlow({ kind: "sent", label: "Approved · sent 4:20" }) },
+  { minute: 1020, agent: "content", skill: "Review Drafter", what: "Drafts a reply to yesterday's four-star review.", steps: draftFlow({ kind: "sent", label: "Approved · posted" }) },
+  { minute: 1205, agent: "frontdesk", skill: "Callback", what: "Approved at 8:05 p.m. Quiet hours start at 8.", steps: draftFlow({ kind: "held", label: "Held until 8:00 a.m." }) },
 ];
 
 export const DAY_START = 420;
@@ -62,7 +62,6 @@ export interface DayState {
   readonly rows: readonly RowState[];
   readonly drafts: number;
   readonly sent: number;
-  readonly copied: number;
   readonly held: number;
 }
 
@@ -74,7 +73,7 @@ export function clockLabel(minute: number): string {
 
 /** Return what every row and the tally show at `minute`, or the finished day when `final`. */
 export function dayAt(minute: number, final = false): DayState {
-  let drafts = 0, sent = 0, copied = 0, held = 0;
+  let drafts = 0, sent = 0, held = 0;
   const rows = DAY.map((row): RowState => {
     const dt = minute - row.minute;
     const last = row.steps[row.steps.length - 1]!;
@@ -86,9 +85,8 @@ export function dayAt(minute: number, final = false): DayState {
     else chip = row.steps[dt < WAIT_AFTER ? 0 : 1]!;
     if (isDraft && (final || dt >= 0)) drafts++;
     if (isDraft && done && last.kind === "sent") sent++;
-    if (isDraft && done && last.kind === "copied") copied++;
     if (isDraft && done && last.kind === "held") held++;
     return { chip, future: !final && dt < 0, live: !final && dt >= 0 && dt < DECIDE_AFTER };
   });
-  return { rows, drafts, sent, copied, held };
+  return { rows, drafts, sent, held };
 }

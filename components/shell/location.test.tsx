@@ -16,9 +16,9 @@ describe("agent shell locations", () => {
     expect(renderHook(useShellLocation).result.current).toEqual({ page: "business", businessId: "rosa", section: "workflows", agent: "books" });
   });
 
-  it("reads the agent from the one segment under Workflows and ignores anything deeper", () => {
+  it("retains main's automation identity at the nested Workflows depth", () => {
     setLocation({ segments: ["b", "rosa", "workflows", "books", "nudger"] });
-    expect(renderHook(useShellLocation).result.current).toEqual({ page: "business", businessId: "rosa", section: "workflows", agent: "books" });
+    expect(renderHook(useShellLocation).result.current).toEqual({ page: "business", businessId: "rosa", section: "workflows", automation: "nudger" });
   });
 
   it("retains a niche agent identity supplied by Next's decoded segments", () => {

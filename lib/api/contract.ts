@@ -183,6 +183,14 @@ export interface SimulateRequest {
   readonly skill?: SkillId;
 }
 
+/** POST /api/businesses/[id]/invoice-sheet: an empty body asks to read the connected invoice sheet now. */
+export type InvoiceSheetCheckRequest = Readonly<Record<string, never>>;
+
+/** What reading the invoice sheet did, in the owner's words. */
+export interface InvoiceSheetCheckResponse {
+  readonly reply: string;
+}
+
 /** POST /api/businesses/[id]/cards and POST /api/ingest/[source]: the feed, plus the card the event created. */
 export interface EventCardResponse extends CardsResponse {
   /** The new card, or `null` when the store could not read it back. */

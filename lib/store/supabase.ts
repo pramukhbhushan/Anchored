@@ -356,6 +356,48 @@ export class SupabaseStore implements Store {
     return (data ?? []).length;
   }
 
+  async cancelInvoiceReminders(session: string, businessId: string, invoiceKey: string, note: string): Promise<{ readonly cards: number; readonly outbox: number }> {
+    // Every reminder for the invoice, whatever its status, so a queued send from an approved one is stopped too.
+    const reminders = await this.db
+      .from("cards")
+      .select("id, status")
+      .eq("session_id", session)
+      .eq("business_id", businessId)
+      .eq("draft->>skill", "nudger")
+      .eq("draft->invoice->>key", invoiceKey);
+    if (reminders.error) fail("cancelInvoiceReminders", reminders.error);
+    const rows = (reminders.data ?? []) as { id: string; status: string }[];
+    if (rows.length === 0) return { cards: 0, outbox: 0 };
+
+    const pending = rows.filter((row) => row.status === "pending").map((row) => row.id);
+    let cards = 0;
+    if (pending.length > 0) {
+      // `status = pending` in the filter keeps an owner's tap that lands meanwhile from being overwritten.
+      const { data, error } = await this.db
+        .from("cards")
+        .update({ status: "superseded", decided_at: new Date().toISOString() })
+        .eq("session_id", session)
+        .in("id", pending)
+        .eq("status", "pending")
+        .select("id");
+      if (error) fail("cancelInvoiceReminders", error);
+      cards = (data ?? []).length;
+    }
+    // `delivery = queued` leaves a send already claimed by the dispatcher alone.
+    const { data, error } = await this.db
+      .from("outbox")
+      .update({ delivery: "failed", delivery_note: note })
+      .eq("session_id", session)
+      .in(
+        "card_id",
+        rows.map((row) => row.id),
+      )
+      .eq("delivery", "queued")
+      .select("id");
+    if (error) fail("cancelInvoiceReminders", error);
+    return { cards, outbox: (data ?? []).length };
+  }
+
   async useAiCall(day: string, cap: number): Promise<boolean> {
     // `use_ai_call` increments and compares in one statement, so concurrent callers can't overshoot the cap.
     const { data, error } = await this.db.rpc("use_ai_call", { p_day: day, p_cap: cap });
@@ -652,6 +694,14 @@ export class SupabaseStore implements Store {
     const { data, error } = await this.db.from("businesses").select("id, session_id").order("created_at").limit(limit);
     if (error) fail("listBriefTargets", error);
     return (data ?? []).map((row) => ({ session: (row as { session_id: string }).session_id, businessId: (row as { id: string }).id }));
+  }
+
+  async findIntakeByBusiness(session: string, businessId: string): Promise<IntakeRecord | null> {
+    const { data, error } = await this.db.from("intake_drafts").select("id, draft, business_id").eq("session_id", session).eq("business_id", businessId).limit(1).maybeSingle();
+    if (error) fail("findIntakeByBusiness", error);
+    // `draft` is written only by `saveIntake` from a typed `IntakeDraft`.
+    const row = data as IntakeRow | null;
+    return row ? { id: row.id, draft: row.draft, businessId: row.business_id } : null;
   }
 
   async reset(session: string): Promise<void> {
