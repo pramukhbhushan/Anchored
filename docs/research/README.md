@@ -6,6 +6,7 @@ The team researched three trades before building Anchored, then wrote a design d
 
 - [design-document.pdf](design-document.pdf): Eric's design document, built on the HVAC research. It covers goals, business and security risks, C4 context, container and deployment views, and open questions.
 - [reconciliation.md](reconciliation.md): Where the research documents conflict, with a proposed call for each conflict, such as simulated demo texts, agent names, auto-send and Maryland quiet hours.
+- [ai-tool-platforms.md](ai-tool-platforms.md): Where owners find AI tools today: vendor-funded directories such as G2 and Capterra, AI tool directories, POS and field-service app marketplaces, SBA and SBDC programs, and matching services. It covers who pays each one, how it ranks, what it never checks, five sourced numbers for a slide, and where Anchored fits.
 
 ## HVAC
 
