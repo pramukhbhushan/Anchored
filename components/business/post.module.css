@@ -1,0 +1,23 @@
+/* A photo post in Approvals: photos in posting order, a caption tab per platform, and the copy and share actions. */
+.post{display:flex;flex-direction:column;gap:var(--s-3)}
+.photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,140px),1fr));gap:var(--s-3);margin:0;padding:0;list-style:none}
+.photo{display:flex;flex-direction:column;gap:var(--s-1);min-width:0}
+.image{width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:var(--r);border:1px solid var(--line);background:var(--paper);display:block}
+.slide{margin:0;font-size:var(--fs-fine);color:var(--ink-2);line-height:1.35}
+.moves{display:flex;gap:var(--s-1)}
+.moves button{flex:1;display:grid;place-items:center;min-height:32px;border:1.5px solid var(--line);border-radius:var(--r);background:var(--sheet);color:var(--ink);cursor:pointer}
+.moves button:hover:not(:disabled){border-color:var(--ink)}
+.moves button:disabled{opacity:.4;cursor:not-allowed}
+.tabs{display:flex;flex-wrap:wrap;gap:var(--s-1);border-bottom:1px solid var(--line)}
+.tab{padding:var(--s-2) var(--s-3);border:0;border-bottom:2px solid transparent;margin-bottom:-1px;background:none;color:var(--muted);font:inherit;font-size:var(--fs-sm);font-weight:600;cursor:pointer}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+.tab:disabled{cursor:not-allowed}
+.panel{display:flex;flex-direction:column;gap:var(--s-1)}
+.caption{width:100%;min-height:220px;max-height:520px;field-sizing:content;padding:var(--s-3);resize:vertical;border:1.5px solid var(--line);border-radius:var(--r);background:var(--paper);color:var(--ink);font:inherit;font-size:var(--fs-md);line-height:1.5;white-space:pre-wrap}
+.caption:focus{border-color:var(--ink)}
+.meta{margin:0;font-size:var(--fs-fine);color:var(--muted)}
+.acts{display:flex;flex-wrap:wrap;gap:var(--s-2)}
+.act{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:6px 14px;border:1.5px solid var(--line);border-radius:999px;background:var(--sheet);color:var(--ink);font:inherit;font-size:var(--fs-sm);font-weight:600;cursor:pointer}
+.act:hover:not(:disabled){border-color:var(--ink)}
+.act:disabled{opacity:.5;cursor:not-allowed}
+.status{margin:0;min-height:1.2em;font-size:var(--fs-sm);color:var(--ink-2)}

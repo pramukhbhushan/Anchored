@@ -1,11 +1,13 @@
 "use client";
 
-import { Anchor, ArrowLeftRight, ArrowUp, Check, ChevronDown, ChevronRight, CircleAlert, Inbox, Minus, Plus, RotateCcw } from "lucide-react";
+import { Anchor, ArrowLeftRight, ArrowUp, Check, ChevronDown, ChevronRight, CircleAlert, ImagePlus, Inbox, Minus, Plus, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { callApi, errorText, getApi } from "@/components/api";
 import { BoxGrip, useBoxHeight } from "@/components/chat/BoxGrip";
+import { PhotoTray } from "@/components/chat/PhotoTray";
+import { usePhotoPicker, type PhotoPicker } from "@/components/chat/photo-upload";
 import { ResizablePanel } from "@/components/resize/ResizablePanel";
 import { businessHref, cardAnchor, NEW_BUSINESS_HREF } from "@/components/routes";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -313,6 +315,7 @@ function BusinessChat({
   const [messages, setMessages] = useState<readonly ChatMessage[] | null>(null);
   const { outgoing, busy, run } = useSender();
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const picker = usePhotoPicker(businessId);
   const url = `/api/businesses/${encodeURIComponent(businessId)}/chat`;
 
   useEffect(() => {
@@ -329,8 +332,12 @@ function BusinessChat({
 
   async function send(text: string): Promise<void> {
     if (busy || readOnly) return;
-    await run(text, async () => {
-      const chat = await callApi<BusinessChatResponse>(url, "POST", { text });
+    // Photos go with the message that describes them, then leave the tray once the post is drafted.
+    const photos = picker.readyIds;
+    const shown = photos.length === 0 ? text : `${text}\n(${photos.length} photo${photos.length === 1 ? "" : "s"} attached)`;
+    await run(shown, async () => {
+      const chat = await callApi<BusinessChatResponse>(url, "POST", photos.length === 0 ? { text } : { text, photos });
+      if (photos.length > 0) picker.clear();
       setMessages(chat.messages);
       // Changed facts can add or drop workflows, and a new draft raises the approvals count in the sidebar,
       // so the page around the chat re-renders from the server.
@@ -370,7 +377,15 @@ function BusinessChat({
                   ))}
                 </div>
               )}
-              <Composer inputRef={inputRef} placeholder="Tell Anchored what changed, or ask your agents for a draft" disabled={messages === null || outgoing?.status === "failed"} busy={busy} onSend={(text) => void send(text)} />
+              <PhotoTray picker={picker} disabled={busy} />
+              <Composer
+                inputRef={inputRef}
+                placeholder={picker.photos.length > 0 ? "Say what the photos show, like \"Before and after of a furnace swap\"" : "Tell Anchored what changed, or ask your agents for a draft"}
+                disabled={messages === null || outgoing?.status === "failed"}
+                busy={busy}
+                onSend={(text) => void send(text)}
+                photos={picker}
+              />
             </>
           )}
         </div>
@@ -583,17 +598,24 @@ function Composer({
   disabled,
   busy,
   onSend,
+  photos,
 }: {
   readonly inputRef: RefObject<HTMLTextAreaElement | null>;
   readonly placeholder: string;
   readonly disabled: boolean;
   readonly busy: boolean;
   readonly onSend: (text: string) => void;
+  /** Set in a business chat, where the owner may add photos for a post. */
+  readonly photos?: PhotoPicker;
 }) {
   const [text, setText] = useState("");
+  const [dragging, setDragging] = useState(false);
   const id = useId();
+  const fileRef = useRef<HTMLInputElement>(null);
   const size = useBoxHeight();
-  const ready = !disabled && !busy && text.trim() !== "";
+  // Photos must finish uploading, and none may have failed, before the message that describes them goes out.
+  const photosReady = photos === undefined || (!photos.uploading && photos.photos.every((p) => p.status === "ready"));
+  const ready = !disabled && !busy && text.trim() !== "" && photosReady;
 
   function submit(event?: FormEvent): void {
     event?.preventDefault();
@@ -610,8 +632,44 @@ function Composer({
   }
 
   return (
-    <form className={styles.form} onSubmit={submit}>
+    <form
+      className={styles.form}
+      onSubmit={submit}
+      data-dragging={dragging || undefined}
+      onDragOver={(event) => {
+        if (!photos || disabled || !event.dataTransfer.types.includes("Files")) return;
+        event.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(event) => {
+        setDragging(false);
+        if (!photos || disabled) return;
+        event.preventDefault();
+        photos.add([...event.dataTransfer.files]);
+      }}
+    >
       <BoxGrip box={inputRef} controls={id} size={size} />
+      {photos && (
+        <>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+            multiple
+            hidden
+            data-testid="photo-input"
+            onChange={(event) => {
+              photos.add([...(event.target.files ?? [])]);
+              // Clear the picker so choosing the same photo again still counts as a change.
+              event.target.value = "";
+            }}
+          />
+          <button type="button" className={styles.attach} onClick={() => fileRef.current?.click()} disabled={disabled || busy || photos.full} aria-label={photos.full ? "Photo limit reached" : "Add photos for a post"}>
+            <ImagePlus size={20} strokeWidth={2.2} aria-hidden="true" />
+          </button>
+        </>
+      )}
       <label htmlFor={id} className={styles.srOnly}>
         Message Anchored
       </label>

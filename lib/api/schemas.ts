@@ -72,7 +72,8 @@ export const setChoiceSchema = z.union([
 export const approvePlanSchema = z.object({ approved: z.literal(true) }) satisfies z.ZodType<ApprovePlanRequest>;
 
 export const decideCardSchema = z.union([
-  z.object({ decision: z.literal("approve"), body: z.string().trim().min(1).max(2000).optional() }),
+  // Up to 3000 characters: a LinkedIn caption, the longest draft a card holds, may run that long.
+  z.object({ decision: z.literal("approve"), body: z.string().trim().min(1).max(3000).optional() }),
   z.object({ decision: z.literal("skip") }),
 ]) satisfies z.ZodType<DecideCardRequest>;
 
