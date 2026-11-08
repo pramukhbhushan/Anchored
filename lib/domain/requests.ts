@@ -484,12 +484,12 @@ export function declineReply(request: Exclude<ChatRequest, { kind: "none" } | Dr
     case "unstaffed": {
       const name = WORKFLOWS[request.workflow].name;
       return request.planned
-        ? `None of your agents does that yet. It's part of "${name}". Choose Build on it in Workflows, then ask me again.`
+        ? `None of your agents does that yet. It's part of "${name}". In Workflows, pick "Let Anchored draft it for your OK" there, then ask me again.`
         : `None of your agents does that, and "${name}" isn't in your plan yet. Tell me if that's work you do now, and I'll add it.`;
     }
     case "unclear":
       return request.offers.length === 0
-        ? "None of your agents drafts anything yet. Choose Build on a workflow in Workflows, then ask me here."
+        ? `None of your agents drafts anything yet. In Workflows, pick "Let Anchored draft it for your OK" on a workflow, then ask me here.`
         : `I can have your agents draft ${listText(offerNouns(request.offers))}. Say which, like "${askExample(request.offers)}".`;
   }
 }

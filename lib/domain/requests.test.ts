@@ -183,12 +183,12 @@ describe("what Anchored replies", () => {
   });
 
   it.each<[Exclude<ChatRequest, { kind: "none" | "draft" }>, string]>([
-    [{ kind: "unstaffed", skill: "posts", workflow: "social", planned: true }, `Choose Build on it in Workflows`],
+    [{ kind: "unstaffed", skill: "posts", workflow: "social", planned: true }, `In Workflows, pick "Let Anchored draft it for your OK" there`],
     [{ kind: "unstaffed", skill: "posts", workflow: "social", planned: true }, `"Social posts and marketing"`],
     [{ kind: "unstaffed", skill: "closer", workflow: "quotes", planned: false }, `"Quotes and estimates" isn't in your plan yet`],
     [{ kind: "allergy" }, "Anything about allergies comes from you"],
     [{ kind: "unclear", offers: ["posts", "closer"] }, `a post or a check-in on a quote. Say which, like "Write a post about this week's special"`],
-    [{ kind: "unclear", offers: [] }, "Choose Build on a workflow"],
+    [{ kind: "unclear", offers: [] }, `pick "Let Anchored draft it for your OK" on a workflow`],
   ])("answers %j in plain words", (request, words) => {
     expect(declineReply(request)).toContain(words);
   });
