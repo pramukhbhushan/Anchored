@@ -4,6 +4,8 @@ Nov 8, 2026 · branch `marketing_agent` · owner Pramukh
 
 Built from `Anchored Agent System Design V2.md` (Agent 3: Marketing) and `pramukh_tasks.md` (section 4), checked against the code on `main` at `b240085`.
 
+> **Status, Nov 8, 2026.** This was the first, text-only plan. What shipped instead is the photo post flow: the owner sends photos and one line in chat, and Anchored drafts an Instagram, Facebook and LinkedIn caption from the post playbook (`lib/domain/playbook.ts`, seeded into `post_formats`, `post_hooks` and `post_hashtags`), checked in code (`lib/server/posts.ts`) and reviewed on a post card in Approvals. Review replies through Google Business Profile wait on Google's API access and are not built. The sample data in `marketing/` still serves as test input for the profile, jobs and reviews below.
+
 ## What the agent does
 
 Marketing (`content`, shown as "Content and Social") keeps the business visible. It drafts posts about one real thing the business did, and drafts replies to reviews. A bad review also gets a flag for the owner. It publishes nothing itself. The owner approves a draft, taps Copy, and pastes it where it goes.

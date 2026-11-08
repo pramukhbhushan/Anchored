@@ -182,12 +182,12 @@ export interface IntakeAnswerRequest {
   readonly picks?: readonly string[];
 }
 
-/** POST /api/businesses/[id]/chat: tell Anchored what changed, or ask an agent for a draft. */
 /** What `POST /api/businesses/[id]/photos` returns for one uploaded photo. */
 export interface PhotoUploadResponse {
   readonly photo: { readonly id: string; readonly url: string };
 }
 
+/** POST /api/businesses/[id]/chat: tell Anchored what changed, or ask an agent for a draft. */
 export interface BusinessChatRequest {
   readonly text: string;
   /** Ids of photos the owner uploaded for a post, in the order they picked them. */
