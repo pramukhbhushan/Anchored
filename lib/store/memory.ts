@@ -15,9 +15,11 @@ import {
   type NewContact,
   type NewOutboxEntry,
   type OutboxPatch,
+  type PhotoFile,
   type ProfileVersion,
   type Store,
   type StoredConnection,
+  type StoredPhoto,
 } from "./types";
 
 // =============================================================================
@@ -40,7 +42,12 @@ interface SessionData {
   readonly intakes: Map<string, IntakeRecord>;
   /** Saved profile versions by business id, oldest first. */
   readonly versions: Map<string, ProfileVersion[]>;
+  /** Uploaded photos by id. */
+  readonly photos: Map<string, StoredPhoto & PhotoFile>;
 }
+
+// Past this many photos a session's oldest is dropped, so photos can't fill a server's memory.
+const MAX_PHOTOS_PER_SESSION = 60;
 
 // Past this many sessions the oldest is dropped, so a server on memory can't grow without bound.
 const MAX_SESSIONS = 2000;
@@ -64,7 +71,7 @@ export class MemoryStore implements Store {
         const oldest = this.sessions.keys().next().value;
         if (oldest !== undefined) this.sessions.delete(oldest);
       }
-      found = { businesses: new Map(), choices: new Map(), cards: new Map(), outbox: [], contacts: new Map(), connections: new Map(), events: [], threads: new Map(), intakes: new Map(), versions: new Map() };
+      found = { businesses: new Map(), choices: new Map(), cards: new Map(), outbox: [], contacts: new Map(), connections: new Map(), events: [], threads: new Map(), intakes: new Map(), versions: new Map(), photos: new Map() };
       this.sessions.set(session, found);
     }
     return found;
@@ -295,6 +302,22 @@ export class MemoryStore implements Store {
 
   async findIntakeByBusiness(session: string, businessId: string): Promise<IntakeRecord | null> {
     return [...(this.peek(session)?.intakes.values() ?? [])].find((intake) => intake.businessId === businessId) ?? null;
+  }
+
+  async savePhoto(session: string, businessId: string, data: Uint8Array, contentType: string): Promise<StoredPhoto> {
+    const photos = this.data(session).photos;
+    if (photos.size >= MAX_PHOTOS_PER_SESSION) {
+      const oldest = photos.keys().next().value;
+      if (oldest !== undefined) photos.delete(oldest);
+    }
+    const photo = { id: randomUUID(), businessId, contentType, size: data.byteLength };
+    photos.set(photo.id, { ...photo, data: data.slice() });
+    return photo;
+  }
+
+  async getPhoto(session: string, businessId: string, photoId: string): Promise<PhotoFile | null> {
+    const photo = this.peek(session)?.photos.get(photoId);
+    return photo && photo.businessId === businessId ? { contentType: photo.contentType, data: photo.data } : null;
   }
 
   async listPostPlaybook(niche: TradeKey): Promise<PostPlaybook> {

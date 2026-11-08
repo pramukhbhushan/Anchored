@@ -42,12 +42,22 @@ const LIMITS = {
   // Connecting a service and adding a contact create rows, so they get their own bucket.
   connect: { bucket: "connect", windowMs: WINDOW_MS, perSession: 60, perIp: 300 },
   // Twilio, Stripe and Postmark post from shared addresses with no session, so only the per-IP limit holds them.
+  // Each photo is its own request, and a post holds up to 10.
+  photo: { bucket: "photo", windowMs: WINDOW_MS, perSession: 100, perIp: 500 },
   hook: { bucket: "hook", windowMs: WINDOW_MS, perSession: 600, perIp: 3000 },
   mutation: { bucket: "mutation", windowMs: WINDOW_MS, perSession: 120, perIp: 600 },
 } as const satisfies Record<string, ApiLimit>;
 
 /** Largest request body accepted, by its declared `content-length`. */
 export const MAX_BODY_BYTES = 64 * 1024;
+
+/** Largest photo upload accepted. Matches `MAX_PHOTO_BYTES` in `lib/domain/photos.ts`, which the edge can't import. */
+export const MAX_PHOTO_BODY_BYTES = 5 * 1024 * 1024;
+
+/** Report whether `pathname` is the photo upload route. */
+function isPhotoUpload(pathname: string): boolean {
+  return /^\/api\/businesses\/[^/]+\/photos\/?$/.test(pathname);
+}
 
 /** Largest webhook body accepted. A forwarded email arrives with its attachments, which Anchored ignores. */
 export const MAX_HOOK_BODY_BYTES = 4 * 1024 * 1024;
@@ -101,6 +111,7 @@ export function limitFor(method: string, pathname: string): ApiLimit {
   if (pathname.startsWith("/api/hooks/")) return LIMITS.hook;
   if (/^\/api\/businesses\/[^/]+\/(?:connections|contacts)(?:\/[^/]+)?\/?$/.test(pathname)) return LIMITS.connect;
   if (method !== "POST") return LIMITS.mutation;
+  if (isPhotoUpload(pathname)) return LIMITS.photo;
   if (/^\/api\/businesses\/?$/.test(pathname)) return LIMITS.createBusiness;
   if (/^\/api\/cards\/[^/]+\/rewrite\/?$/.test(pathname)) return LIMITS.rewrite;
   if (/^\/api\/intake(\/[^/]+)?\/?$/.test(pathname) || /^\/api\/businesses\/[^/]+\/chat\/?$/.test(pathname)) return LIMITS.chat;
@@ -138,7 +149,8 @@ function refuseUnsafeMutation(request: NextRequest): NextResponse<ApiError> | nu
   if (!isAllowedOrigin(request.headers.get("origin"), host)) {
     return refuse(403, "This request came from another site. Open Anchored itself and try again.");
   }
-  const max = request.nextUrl.pathname.startsWith("/api/hooks/") ? MAX_HOOK_BODY_BYTES : MAX_BODY_BYTES;
+  const path = request.nextUrl.pathname;
+  const max = path.startsWith("/api/hooks/") ? MAX_HOOK_BODY_BYTES : isPhotoUpload(path) ? MAX_PHOTO_BODY_BYTES : MAX_BODY_BYTES;
   if (isBodyTooLarge(request.headers.get("content-length"), max)) {
     return refuse(413, `This request is too large. Keep it under ${max / 1024} KB.`);
   }

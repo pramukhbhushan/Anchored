@@ -1,4 +1,5 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { CardRecord, CardStatus, ChatMessage, OutboxEntry } from "@/lib/api/contract";
 import type { ConnectionKind } from "@/lib/domain/connections";
@@ -16,9 +17,11 @@ import {
   type NewContact,
   type NewOutboxEntry,
   type OutboxPatch,
+  type PhotoFile,
   type ProfileVersion,
   type Store,
   type StoredConnection,
+  type StoredPhoto,
 } from "./types";
 
 // =============================================================================
@@ -136,6 +139,14 @@ function toConnection(row: ConnectionRow): StoredConnection {
 
 function toMessage(row: ChatMessageRow): ChatMessage {
   return { id: String(row.id), role: row.role, text: row.body, at: row.created_at, ...(row.changes ? { changes: row.changes } : {}) };
+}
+
+/** The private Storage bucket that holds post photos, at `<session>/<business>/<photo id>`. */
+export const PHOTO_BUCKET = "post-photos";
+
+/** A photo's path in `PHOTO_BUCKET`. Every part is a session id, a business id or a UUID, so none holds a slash. */
+function photoPath(session: string, businessId: string, photoId: string): string {
+  return `${session}/${businessId}/${photoId}`;
 }
 
 /** A `post_formats` row as Postgres returns it. The table's checks keep `media` to the three values. */
@@ -507,6 +518,24 @@ export class SupabaseStore implements Store {
     return row ? { id: row.id, draft: row.draft, businessId: row.business_id } : null;
   }
 
+  async savePhoto(session: string, businessId: string, data: Uint8Array, contentType: string): Promise<StoredPhoto> {
+    const id = randomUUID();
+    const { error } = await this.db.storage.from(PHOTO_BUCKET).upload(photoPath(session, businessId, id), data, { contentType, upsert: false });
+    if (error) fail("savePhoto", error);
+    return { id, businessId, contentType, size: data.byteLength };
+  }
+
+  async getPhoto(session: string, businessId: string, photoId: string): Promise<PhotoFile | null> {
+    const { data, error } = await this.db.storage.from(PHOTO_BUCKET).download(photoPath(session, businessId, photoId));
+    if (error) {
+      // Storage answers a missing object with a 400 or 404 rather than a typed error.
+      const status = (error as { status?: number; statusCode?: string | number }).status ?? Number((error as { statusCode?: string | number }).statusCode);
+      if (status === 400 || status === 404 || /not found/i.test(error.message)) return null;
+      fail("getPhoto", error);
+    }
+    return { contentType: data.type || "application/octet-stream", data: new Uint8Array(await data.arrayBuffer()) };
+  }
+
   async listPostPlaybook(niche: TradeKey): Promise<PostPlaybook> {
     const niches = [niche, "any"];
     const [formats, hooks, hashtags] = await Promise.all([
@@ -526,10 +555,27 @@ export class SupabaseStore implements Store {
   }
 
   async reset(session: string): Promise<void> {
+    await this.removeSessionPhotos(session);
     // Outbox rows cascade from cards; the other tables are cleared one by one.
     for (const table of ["cards", "workflow_choices", "events", "chat_messages", "intake_drafts", "contacts", "connections", "profile_versions", "businesses"] as const) {
       const { error } = await this.db.from(table).delete().eq("session_id", session);
       if (error) fail(`reset ${table}`, error);
+    }
+  }
+
+  /** Delete every photo under the session's folder, one business folder at a time. */
+  private async removeSessionPhotos(session: string): Promise<void> {
+    const bucket = this.db.storage.from(PHOTO_BUCKET);
+    const { data: folders, error } = await bucket.list(session, { limit: 1000 });
+    if (error) fail("reset photos", error);
+    for (const folder of folders ?? []) {
+      const prefix = `${session}/${folder.name}`;
+      const { data: files, error: listError } = await bucket.list(prefix, { limit: 1000 });
+      if (listError) fail("reset photos", listError);
+      const paths = (files ?? []).map((file) => `${prefix}/${file.name}`);
+      if (paths.length === 0) continue;
+      const { error: removeError } = await bucket.remove(paths);
+      if (removeError) fail("reset photos", removeError);
     }
   }
 }

@@ -183,6 +183,11 @@ export interface IntakeAnswerRequest {
 }
 
 /** POST /api/businesses/[id]/chat: tell Anchored what changed, or ask an agent for a draft. */
+/** What `POST /api/businesses/[id]/photos` returns for one uploaded photo. */
+export interface PhotoUploadResponse {
+  readonly photo: { readonly id: string; readonly url: string };
+}
+
 export interface BusinessChatRequest {
   readonly text: string;
 }

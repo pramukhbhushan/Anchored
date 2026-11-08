@@ -56,6 +56,20 @@ export type NewConnection = Omit<StoredConnection, "id" | "createdAt">;
 /** A contact before the store assigns its id; with `id` set, it replaces that contact. */
 export type NewContact = Omit<Contact, "id"> & { readonly id?: string };
 
+/** A photo an owner uploaded for a post, without its bytes. */
+export interface StoredPhoto {
+  readonly id: string;
+  readonly businessId: string;
+  readonly contentType: string;
+  readonly size: number;
+}
+
+/** A photo's bytes and type, as `getPhoto` returns them. */
+export interface PhotoFile {
+  readonly contentType: string;
+  readonly data: Uint8Array;
+}
+
 /** A chat thread: one onboarding intake, or one business's ongoing chat. */
 export interface ChatThread {
   readonly kind: "intake" | "business";
@@ -137,6 +151,10 @@ export interface Store {
   deleteConnection(session: string, businessId: string, kind: ConnectionKind): Promise<void>;
   /** The connection a webhook names, with the session that owns it, or `null`. Deployment-wide. */
   findConnection(hookId: string): Promise<{ readonly session: string; readonly connection: StoredConnection } | null>;
+  /** Save a photo the owner uploaded for a post. `data` has already passed `checkPhoto`. */
+  savePhoto(session: string, businessId: string, data: Uint8Array, contentType: string): Promise<StoredPhoto>;
+  /** A photo's bytes, or `null` when this session's business has no photo with that id. */
+  getPhoto(session: string, businessId: string, photoId: string): Promise<PhotoFile | null>;
   /** The post formats, hooks and hashtags that apply to `niche`. Shared reference rows, read-only. Deployment-wide. */
   listPostPlaybook(niche: TradeKey): Promise<PostPlaybook>;
   /** Delete everything the session created, as "Delete my businesses" asks. */

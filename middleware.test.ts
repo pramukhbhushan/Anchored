@@ -131,6 +131,11 @@ describe("clientKey", () => {
 });
 
 describe("limitFor", () => {
+  it("gives photo uploads their own bucket", () => {
+    expect(limitFor("POST", "/api/businesses/abc/photos")).toMatchObject({ bucket: "photo", perSession: 100 });
+    expect(limitFor("POST", "/api/businesses/abc/chat")).not.toMatchObject({ bucket: "photo" });
+  });
+
   it("gives onboarding, which calls a paid model, the tightest limits", () => {
     expect(limitFor("POST", "/api/businesses")).toMatchObject({ perSession: 10, perIp: 60 });
   });
