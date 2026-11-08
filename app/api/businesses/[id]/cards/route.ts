@@ -33,7 +33,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // Example events show a visitor how agents draft; an owner's own cards come from real events.
     if (business.kind !== "case") return fail(409, "Example events run only on the example business.");
     const choices = await getChoices(business);
-    if (chosenSkills(business, choices).length === 0) return fail(409, "No agents are working yet. Choose Build on a workflow first.");
+    if (chosenSkills(business, choices).length === 0) return fail(409, "No agents are working yet. On the Workflows page, let Anchored draft a job for your OK first.");
     const { skill } = parsed.data;
     if (skill && !chosenSkills(business, choices).includes(skill)) return fail(409, "That skill isn't in this business's stack.");
 

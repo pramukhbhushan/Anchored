@@ -515,7 +515,15 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .ov-wf-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));column-gap:var(--s-6);border-top:1px dashed var(--line)}
 .ov-wf-list li{border-bottom:1px dashed var(--line);min-width:0}
 .ov-wf-list a{display:flex;justify-content:space-between;align-items:center;gap:var(--s-3);min-height:52px;padding:var(--s-3) 0;color:var(--ink);font-weight:600;text-decoration:none}
-.ov-wf-list a:hover span{text-decoration:underline;text-underline-offset:3px}
+.ov-wf-list a:hover > span:first-child{text-decoration:underline;text-underline-offset:3px}
+/* Who handles it, with the Workflows graph's handler color as a small square before it */
+.ov-who{display:inline-flex;align-items:center;gap:8px;flex:none;max-width:55%;font-size:var(--fs-sm);font-weight:500;color:var(--ink-2);text-align:right}
+.ov-who::before{content:"";flex:none;width:10px;height:10px;border-radius:2px;background:var(--skip)}
+.ov-who[data-kind="agent"]::before{background:var(--ink)}
+.ov-who[data-kind="owned"]::before{background:var(--good)}
+.ov-who[data-kind="new"]::before{background:var(--buy)}
+.ov-who[data-kind="none"]{color:var(--muted)}
+.ov-who[data-kind="none"]::before{background:transparent;border:1.5px dashed var(--skip)}
 .slip{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;min-width:0}
 .slip-head{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s-3);flex-wrap:wrap;padding:var(--s-3) var(--pad) var(--s-4);background:var(--carbon);color:var(--on-carbon)}
 .slip-head h2{font-size:var(--fs-lg);font-stretch:100%;font-weight:800}
@@ -570,8 +578,6 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .changes-list li:first-child{border-top:0;padding-top:0}
 .changes-list time{margin-left:auto;flex:none;font-size:var(--fs-fine);color:var(--muted)}
 
-/* ---------- workflows: the page layout lives in components/business/workflows.module.css; the loading skeleton reads `.wf-order` ---------- */
-.wf-order{min-width:0}
 
 /* ---------- tools: the filter, explainer, trade toggle and compare tray; the rows live in components/business/tools.module.css and the loading skeleton reads `.trows` ---------- */
 .filter{display:inline-flex;align-items:center;gap:var(--s-2);font-size:var(--fs-sm);font-weight:600;color:var(--ink-2)}

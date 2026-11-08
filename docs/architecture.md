@@ -80,7 +80,7 @@ TypeScript does much of the bookkeeping. Most catalogs are `Record` types keyed 
 
 | To add | Start here | Then |
 | --- | --- | --- |
-| A workflow | Add its id to `WorkflowId` in `lib/domain/types.ts`. | Fill the entries `tsc` asks for: `WORKFLOWS` in `lib/domain/workflows.ts`, `WORKFLOW_SKILLS` in `lib/domain/agents.ts` and `TOOL_STEPS` in `components/stack/copy.ts`. Add the rule that matches it in `planWorkflows` in `lib/domain/engine.ts`, with a test in `engine.test.ts`. |
+| A workflow | Add its id to `WorkflowId` in `lib/domain/types.ts`. | Fill the entries `tsc` asks for: `WORKFLOWS` in `lib/domain/workflows.ts`, `WORKFLOW_SKILLS` in `lib/domain/agents.ts` and `TOOL_STEPS` in `components/workflows/copy.ts`. Add the rule that matches it in `planWorkflows` in `lib/domain/engine.ts`, with a test in `engine.test.ts`. |
 | A skill | Add its id to `SkillId` in `lib/domain/types.ts`. | Fill `SKILLS` in `lib/domain/agents.ts`. Add a card template to `CARD_TEMPLATES` in `lib/domain/cards.ts` if the skill drafts cards. |
 | A tool | Add an entry to `TOOLS` in `lib/domain/catalog.ts`. | `rateTool` scores it against each business with no other change. |
 | A model provider that speaks the OpenAI API | Add its name to `ProviderName` in `lib/llm/types.ts` and to `PROVIDERS` in `lib/llm/config.ts`. | Fill `LABELS` and `BASE_URLS` in `lib/llm/config.ts` and `DIALECTS` in `lib/llm/openai-compatible.ts`. |

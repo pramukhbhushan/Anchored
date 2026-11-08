@@ -9,7 +9,7 @@ import { json, sentJson, stubFetch } from "@/test/http";
 // Module Overview
 // =============================================================================
 // The tools page's rated list as an owner uses it: tools for their kind of
-// business first, the rest behind a toggle, a Choose or Turn on button for the
+// business first, the rest behind a toggle, a Choose or Use button for the
 // next workflow a tool could run, and up to three tools picked into a tray that
 // opens a side-by-side table.
 
@@ -105,11 +105,11 @@ describe("CompareBoard", () => {
     expect(sentJson(fetchSpy, 0).body).toEqual({ workflow: "leads", path: "buy", toolId: "jobber" });
   });
 
-  it("turns on a tool the owner already pays for", async () => {
+  it("puts a tool the owner already pays for to use", async () => {
     const fetchSpy = stubFetch(() => json({ choice: { path: "turnon", toolId: "qbo" } }));
     renderBoard();
 
-    await userEvent.click(screen.getByRole("button", { name: "Turn on QuickBooks Online for bookkeeping and invoicing" }));
+    await userEvent.click(screen.getByRole("button", { name: "Use QuickBooks Online for bookkeeping and invoicing" }));
 
     expect(sentJson(fetchSpy, 0).body).toEqual({ workflow: "books", path: "turnon", toolId: "qbo" });
   });
@@ -120,7 +120,7 @@ describe("CompareBoard", () => {
     const housecall = screen.getAllByRole("article")[2];
     if (housecall === undefined) throw new Error("No Housecall Pro card");
     expect(housecall).toHaveTextContent(/In your stack for quotes and estimates/);
-    expect(within(housecall).queryByRole("button", { name: /^(Choose|Turn on)/ })).not.toBeInTheDocument();
+    expect(within(housecall).queryByRole("button", { name: /^(Choose|Use)/ })).not.toBeInTheDocument();
   });
 
   it("collects tools to compare and opens them side by side", async () => {

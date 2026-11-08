@@ -1,335 +1,223 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { AgentRoster } from "@/components/site/AgentRoster";
-import { ApprovalPreview } from "@/components/site/ApprovalPreview";
-import { HeroMapper } from "@/components/site/HeroMapper";
-import { RulesSheet } from "@/components/site/RulesSheet";
-import { ToolCompare } from "@/components/site/ToolCompare";
-import styles from "@/components/site/landing.module.css";
-import { NEW_BUSINESS_HREF, businessHref } from "@/components/routes";
-import { Stamp } from "@/components/ui/Stamp";
-import { topWorkflows } from "@/components/view-helpers";
-import { MODEL_TIERS, rulesFor } from "@/lib/domain/agents";
-import { SAMPLE_BUSINESS } from "@/lib/domain/cases";
-import { TOOLS } from "@/lib/domain/catalog";
-import type { BusinessProfile, PathKind } from "@/lib/domain/types";
-import { PATH_DESCRIPTION, WORKFLOWS } from "@/lib/domain/workflows";
+import type { CSSProperties } from "react";
+import { BOAT_KIND, BOAT_SYMBOL, Boat, BoatDefs, pennant } from "@/components/site/harbor/Boats";
+import { FleetChart } from "@/components/site/harbor/FleetChart";
+import { HarborHero } from "@/components/site/harbor/HarborHero";
+import { WatchBill } from "@/components/site/harbor/WatchBill";
+import styles from "@/components/site/harbor/harbor.module.css";
+import { NEW_BUSINESS_HREF } from "@/components/routes";
+import { CORE_AGENTS, SKILLS } from "@/lib/domain/agents";
+import type { CoreAgentId } from "@/lib/domain/types";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The landing page. The hero maps a business live; four steps follow the
-// product's own order (learn the business, check tools, hand the rest to
-// agents, approve), each pairing a claim with an artifact built from the
-// example business; then the example itself and the calls the research forced.
+// The landing page, in the Harbor Chart design (docs/brand.md). The hero puts
+// the owner at the helm; then the gaps small businesses lose jobs in, the
+// Approvals screen, the five agents as five boats, how they hand off, one
+// example day where every message waits for the owner, the research behind
+// it, and the anchor with Start sailing, which opens chat onboarding.
 
-/** The three paths in the order the engine tries them, with the hero's one-line gloss. */
-const PATHS: readonly (readonly [PathKind, string])[] = [
-  ["turnon", `${PATH_DESCRIPTION.turnon}, switched on`],
-  ["buy", `${PATH_DESCRIPTION.buy}, rated on seven checks`],
-  ["build", PATH_DESCRIPTION.build],
+const AGENT_ORDER: readonly CoreAgentId[] = ["frontdesk", "followup", "books", "content", "internal"];
+
+/** The line under each agent card: what that agent never does. */
+const NEVER: Readonly<Record<CoreAgentId, string>> = {
+  frontdesk: "Never quotes a price in a first reply. Never texts between 8 p.m. and 8 a.m.",
+  followup: "Never sends without your tap.",
+  books: "Never sends a reminder you haven't approved.",
+  content: "Never publishes. You post what you approve.",
+  internal: "Always on. Hands each forwarded email to the right agent.",
+};
+
+/** Figures from docs/research/coaching-operations.md, each with its source. */
+const GAPS: readonly (readonly [figure: string, text: string, source: string])[] = [
+  ["7×", "Firms that replied to a lead within an hour were nearly seven times as likely to qualify it.", "Harvard Business Review, 2011"],
+  ["23%", "of firms in the same study never replied to the lead at all.", "Harvard Business Review, 2011"],
+  ["75%", "of Meta lead-ad leads arrive outside weekday 9-to-5 hours.", "LeadSync, via Ainora"],
+  ["93%", "of converted leads were reached by the sixth attempt.", "Velocify, via Ainora"],
 ];
 
-/** Where the research documents disagreed, and what the code does about it. From docs/research/reconciliation.md. */
-const DECIDED: readonly (readonly [found: string, does: string])[] = [
-  [
-    "A Twilio trial account can't send the custom texts every card drafts.",
-    "You send each approved text from your own phone with one tap. Anchored sends nothing on its own.",
-  ],
-  [
-    "Owners asked to approve too often end up approving almost everything, so a run of unedited approvals can measure fatigue, not quality.",
-    "Every card waits for your tap. There's no auto-send mode.",
-  ],
-  [
-    "Maryland bars telephone solicitations from 8 p.m. to 8 a.m., and its consent rules cover texts.",
-    "Quiet hours run 8 p.m. to 8 a.m. A text approved late waits for the morning.",
-  ],
-  [
-    "Promotional texts need the customer's prior written consent.",
-    "A text to a contact with no consent record doesn't send.",
-  ],
+const CASES: readonly (readonly [name: string, trade: string])[] = [
+  ["College Park Heating & Air", "HVAC shop"],
+  ["Linden Street Kitchen", "Restaurant"],
+  ["Northpoint Career Coaching", "Career coach"],
 ];
 
 /** Render the landing page. */
 export default function HomePage() {
-  // `middleware.ts` sends a signed-out visitor to sign in first and then on to this page.
-  const startHref = NEW_BUSINESS_HREF;
-  const startLabel = "Set up your business";
-  const example = SAMPLE_BUSINESS;
-
   return (
-    <>
-      <section className={`wrap ${styles.hero}`} aria-labelledby="hero-title">
-        <div className={styles.heroGrid}>
-          <div>
-            <h1 id="hero-title" className={styles.headline}>
-              Find the AI that fits how your business already runs.
-            </h1>
-            <p className={styles.lede}>
-              Tell Anchored how your business works. It finds the jobs AI can take on, turns on what your software
-              already does, rates real tools for the rest, and builds approve-first agents where no tool fits.
-            </p>
-            <div className={`row ${styles.ctas}`}>
-              <Link className="btn" href={startHref}>
-                {startLabel}
-              </Link>
-              <a className="btn btn-secondary" href="#example">
-                Explore the example
-              </a>
-            </div>
-            <dl className={styles.legend} aria-label="The three paths for each workflow">
-              {PATHS.map(([path, text]) => (
-                <div key={path}>
-                  <dt>
-                    <Stamp path={path} />
-                  </dt>
-                  <dd>{text}</dd>
-                </div>
-              ))}
-            </dl>
+    <div className={styles.harbor}>
+      <BoatDefs />
+      <HarborHero>
+        <p className={styles.eyebrow}>For HVAC shops, restaurants, coaches and other small businesses</p>
+        <h1>Return missed calls. Chase quotes. Get paid.</h1>
+        <p className={styles.helm}>
+          Your crew does the work. <em>You hold the helm.</em>
+        </p>
+        <p className={styles.lede}>
+          Five AI agents draft the texts, follow-ups and invoice reminders that slip through the cracks. You approve every one before it reaches a customer.
+        </p>
+        <div className={styles.row}>
+          <Link className={`${styles.btn} ${styles.primary}`} href={NEW_BUSINESS_HREF}>
+            Start sailing
+          </Link>
+          <a className={`${styles.btn} ${styles.ghost}`} href="#product">
+            See the product
+          </a>
+        </div>
+        <p className={styles.note}>One plan, $29 a month. Tools you already pay for count as $0.</p>
+      </HarborHero>
+
+      <section className={`${styles.blk} ${styles.pad}`} id="gaps" aria-labelledby="gaps-title">
+        <div className={styles.inner}>
+          <div className={styles.secHead}>
+            <h2 id="gaps-title">
+              Small businesses lose jobs <em>in the gaps.</em>
+            </h2>
+            <p>Most leads aren&apos;t lost to a competitor. They&apos;re lost to a slow reply, a quote nobody chased, or a message that arrived after closing.</p>
           </div>
-          <HeroMapper />
+          <div className={styles.stats}>
+            {GAPS.map(([figure, text, source]) => (
+              <div key={figure}>
+                <b>{figure}</b>
+                <p>{text}</p>
+                <cite>{source}</cite>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
-      <Step
-        id="learn"
-        no={1}
-        title="It learns your business first"
-        body={
-          <>
-            <p>
-              Answer a few questions in chat, or describe the business in one sentence. Anchored writes a one-page
-              profile you confirm: how customers reach you, what you sell, the software you run and the languages you
-              speak.
-            </p>
-            <p>
-              There&apos;s no template per trade. Every business starts with the same five workflows, and each answer
-              can add more. The sheet shows which answers gave the example restaurant its workflows.
-            </p>
-          </>
-        }
-      >
-        <RulesSheet />
-      </Step>
+      <section className={`${styles.blk} ${styles.pad}`} id="product" aria-labelledby="product-title">
+        <div className={styles.inner}>
+          <div className={styles.secHead}>
+            <h2 id="product-title">
+              Every draft lands <em>in one inbox.</em>
+            </h2>
+            <p>Agents draft. You approve, edit or skip. This is the Approvals page for the College Park Heating &amp; Air sample business.</p>
+          </div>
+          <figure className={styles.shot}>
+            <div className={styles.bar}>anchored / approvals</div>
+            <img src="/landing/approvals.png" alt="Approvals page: draft texts waiting for the owner, each with Approve, Edit and Skip" width={1600} height={1000} loading="lazy" />
+            <figcaption>
+              <b>Approve, edit or skip</b>
+              <span>Each card says who drafted it, who it&apos;s for, and why now. Quiet hours and consent are checked before anything goes.</span>
+            </figcaption>
+          </figure>
+        </div>
+      </section>
 
-      <Step
-        id="tools"
-        no={2}
-        title="It checks what you already pay for, then rates what you'd buy"
-        body={
-          <>
-            <p>
-              For each workflow, Anchored looks first for a feature inside software you already run, so you switch
-              something on instead of buying another app.
-            </p>
-            <p>
-              Where you&apos;d need a new tool, it rates the catalog for your business on seven checks, from whether a
-              tool connects to your software to whether you stay in charge of what it says.
-            </p>
-          </>
-        }
-        note={`${TOOLS.length} tools rated from vendor pages read Nov 6 and 7, 2026. New listings wait until a person checks them, and only then get a score.`}
-      >
-        <ToolCompare business={example} workflow="calls" />
-      </Step>
+      <section className={`${styles.blk} ${styles.pad}`} id="agents" aria-labelledby="agents-title">
+        <div className={styles.inner}>
+          <div className={styles.secHead}>
+            <h2 id="agents-title">
+              Five agents. <em>One job each.</em>
+            </h2>
+            <p>Every business gets the same five agents, drawn here as the boats in your fleet. Each runs small skills, and each skill spells out what it reads, what it may do, and what it never does.</p>
+          </div>
+          <ul className={styles.crew}>
+            {AGENT_ORDER.map((id) => {
+              const agent = CORE_AGENTS[id];
+              const skills = agent.skills.map((s) => SKILLS[s].name);
+              return (
+                <li key={id} className={styles.mate} style={{ "--pc": pennant(id) } as CSSProperties}>
+                  <div className={styles.pic}>
+                    <Boat symbol={BOAT_SYMBOL[id]} viewBox="0 0 200 140" />
+                  </div>
+                  <p className={styles.boatKind}>
+                    {BOAT_KIND[id]}
+                    {agent.alwaysOn ? " · always on" : ""}
+                  </p>
+                  <h3>{agent.name}</h3>
+                  <p>{agent.job}.</p>
+                  <ul className={styles.skills} aria-label={`${agent.name} skills`}>
+                    {skills.slice(0, 3).map((name) => (
+                      <li key={name}>{name}</li>
+                    ))}
+                    {skills.length > 3 && <li>+{skills.length - 3} more</li>}
+                  </ul>
+                  <p className={styles.never}>{NEVER[id]}</p>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </section>
 
-      <Step
-        id="agents"
-        no={3}
-        title="Five agents cover the work no tool fits"
-        body={
-          <>
-            <p>
-              Every business gets the same five agents. Each runs small skills, such as Callback or Closer, and each
-              skill spells out what it reads, what it may do and what it never does.
-            </p>
-            <p>
-              When onboarding turns up work only some businesses have, Anchored spawns a niche agent for that business
-              alone.
-            </p>
-          </>
-        }
-        note={`Claude writes the drafts: ${MODEL_TIERS.quick.model} for routine texts, ${MODEL_TIERS.default.model} for writing in your voice. Code picks the workflows, computes every score and checks every send.`}
-      >
-        <AgentRoster />
-      </Step>
+      <section className={`${styles.blk} ${styles.pad}`} id="fleet" aria-labelledby="fleet-title">
+        <div className={styles.inner}>
+          <div className={styles.secHead}>
+            <h2 id="fleet-title">
+              How the agents <em>work together.</em>
+            </h2>
+            <p>One missed call can turn into a booked job, a paid invoice and a five-star review. Each agent hands off to the next, and every draft comes back to one harbor: you.</p>
+          </div>
+          <FleetChart />
+        </div>
+      </section>
 
-      <Step
-        id="approve"
-        no={4}
-        title="Nothing reaches a customer until you tap Approve"
-        body={
-          <>
-            <p>Agents draft cards. You approve, edit or skip each one, and code checks every text before it can go:</p>
-            <ul className={styles.ticks}>
-              {rulesFor(example).map((rule) => (
-                <li key={rule}>{rule}</li>
+      <section className={`${styles.blk} ${styles.pad}`} id="how" aria-labelledby="how-title">
+        <div className={styles.inner}>
+          <div className={styles.secHead}>
+            <h2 id="how-title">
+              You approve <em>every message.</em>
+            </h2>
+            <p>Here&apos;s one example day at an HVAC shop. Agents draft from 7 a.m. to 8 p.m. Every text waits for your tap, and one approved after 8 p.m. holds until morning.</p>
+          </div>
+          <WatchBill />
+        </div>
+      </section>
+
+      <section className={`${styles.blk} ${styles.pad}`} id="proof" aria-labelledby="proof-title">
+        <div className={`${styles.inner} ${styles.proof}`}>
+          <div>
+            <p className={styles.eyebrow}>Built on research</p>
+            <h2 id="proof-title" style={{ marginTop: 12 }}>
+              Researched with three very different businesses.
+            </h2>
+            <ul className={styles.cases} style={{ marginTop: 28 }}>
+              {CASES.map(([name, trade]) => (
+                <li key={name}>
+                  <b>{name}</b>
+                  <span>{trade}</span>
+                </li>
               ))}
             </ul>
-          </>
-        }
-        note="Each morning a brief lists the cards waiting for you and the dollars riding on them."
-      >
-        <ApprovalPreview business={example} skill="catering" />
-      </Step>
-
-      <section className={styles.research} id="example" aria-labelledby="example-title">
-        <div className="wrap">
-          <div className={styles.researchHead}>
-            <h2 id="example-title" className={styles.title}>
-              Explore an example business
-            </h2>
-            <p className={styles.body}>
-              Linden Street Kitchen is a fictional neighborhood restaurant, built from our sourced restaurant research.
-              Open it to see what Anchored does once it knows a business: the workflows it found, the tools it rated and
-              the cards its agents draft.
-            </p>
           </div>
-          <div className={styles.files}>
-            <CaseFile business={example} />
-            <div className={styles.tryIt}>
-              <h3>What to try in the example</h3>
-              <ol>
-                <li>Change a workflow&apos;s path, and watch the stack and its monthly cost follow.</li>
-                <li>Approve, edit or skip the cards waiting in Approvals.</li>
-                <li>Tap Watch an agent draft, and see a new card arrive for you to approve.</li>
-              </ol>
-              <p>
-                What you change in the example stays in your account and never reaches a real customer. When it makes
-                sense, set up your own.
-              </p>
-              <div className="row">
-                <Link className="btn" href={startHref}>
-                  {startLabel}
-                </Link>
-              </div>
-            </div>
-          </div>
-
-          <div className={styles.decided}>
-            <h3>Where our research disagreed, and what we decided</h3>
-            <p>
-              We wrote the reports in parallel, so they conflicted in places. Each conflict got a written call, and the
-              code follows it.
-            </p>
-            <table className="rtable">
-              <thead>
-                <tr>
-                  <th scope="col">What the research found</th>
-                  <th scope="col">What Anchored does</th>
-                </tr>
-              </thead>
-              <tbody>
-                {DECIDED.map(([found, does]) => (
-                  <tr key={found}>
-                    <th scope="row">{found}</th>
-                    <td data-label="Anchored does">{does}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div>
+            <p className={styles.eyebrow}>Rules every agent follows</p>
+            <ul className={styles.rules} style={{ marginTop: 20 }}>
+              <li>
+                <b>No auto-send.</b> Every card waits for your tap.
+              </li>
+              <li>
+                <b>Quiet hours, 8 p.m. to 8 a.m.</b> Maryland bars telephone solicitations in those hours, so a text approved late waits for morning.
+              </li>
+              <li>
+                <b>Consent first.</b> A text to a contact with no consent record doesn&apos;t send.
+              </li>
+              <li>
+                <b>Allergy questions go to you.</b> Agents never answer them.
+              </li>
+            </ul>
           </div>
         </div>
       </section>
 
-      <section className={styles.close} aria-labelledby="close-title">
-        <div className="wrap">
-          <h2 id="close-title" className={styles.closeTitle}>
-            See what Anchored would do for your business.
-          </h2>
-          <p className={styles.closeText}>
-            Mapping a business in the box above takes one sentence. Set up your own for the full plan: your workflows,
-            the tools rated for you and the agents ready to draft.
-          </p>
-          <div className={`row ${styles.closeCtas}`}>
-            <Link className={`btn ${styles.invert}`} href={startHref}>
-              {startLabel}
-            </Link>
-            <a className={`btn ${styles.outline}`} href="#try-text">
-              Map one in a sentence
-            </a>
-          </div>
+      <section className={`${styles.end} ${styles.pad}`} aria-labelledby="end-title">
+        <div className={styles.inner}>
+          <Boat symbol="boat-anchor" viewBox="0 0 120 150" className={styles.anchor} />
+          <h2 id="end-title">Drop anchor on busywork.</h2>
+          <p>Answer a few questions about your business. Anchored shows where AI fits, what it costs, and which agents to switch on. Skip anything you don&apos;t know.</p>
+          <Link className={`${styles.btn} ${styles.primary} ${styles.endBtn}`} href={NEW_BUSINESS_HREF}>
+            Start sailing
+          </Link>
         </div>
       </section>
-
-      <footer className={`wrap ${styles.foot}`}>
-        Built for the University of Maryland AI for Small Business Hack-a-thon, Fall 2026. Linden Street Kitchen and
-        the businesses in the mapper are fictional. Tool facts were gathered Nov 6 and 7, 2026, and can change.
+      <footer className={`${styles.foot} ${styles.pad}`}>
+        <span>Built for the University of Maryland AI for Small Business Hack-a-thon, Fall 2026.</span>
+        <span>The sample businesses are fictional.</span>
       </footer>
-    </>
-  );
-}
-
-/** Render one step: its number tab, title and claim beside the artifact that proves it. */
-function Step({
-  id,
-  no,
-  title,
-  body,
-  note,
-  children,
-}: {
-  readonly id: string;
-  readonly no: number;
-  readonly title: string;
-  readonly body: ReactNode;
-  readonly note?: string;
-  readonly children: ReactNode;
-}) {
-  return (
-    <section className={styles.step} id={id} aria-labelledby={`${id}-title`}>
-      <div className={`wrap ${styles.stepGrid}`}>
-        <div className={styles.claim}>
-          <span className={styles.no} aria-hidden="true">
-            {no}
-          </span>
-          <h2 id={`${id}-title`} className={styles.title}>
-            {title}
-          </h2>
-          <div className={styles.body}>{body}</div>
-          {note !== undefined && <p className={styles.note}>{note}</p>}
-        </div>
-        <div>{children}</div>
-      </div>
-    </section>
-  );
-}
-
-/** Render the example business as a file: the researched number, its source and the top three picks. */
-function CaseFile({ business }: { readonly business: BusinessProfile }) {
-  const research = business.caseStudy;
-  return (
-    <article className={styles.file}>
-      <p className={styles.fileHead}>
-        <b>Example</b>
-        <span>{business.place}</span>
-      </p>
-      <div className={styles.fileBody}>
-        <h3 className={styles.fileName}>{business.name}</h3>
-        {research !== undefined && (
-          <>
-            <p className={styles.fileStat}>{research.stat}</p>
-            <p className={styles.fileText}>{research.statText}</p>
-            <p className={styles.fileSrc}>
-              {research.statSource}. Researched by {research.researchedBy}.
-            </p>
-          </>
-        )}
-      </div>
-      <ul className={styles.picks} aria-label={`Top workflows for ${business.name}`}>
-        {topWorkflows(business, 3).map((w) => (
-          <li key={w.id}>
-            <span>{WORKFLOWS[w.id].name}</span>
-            <Stamp path={w.plan.rec} />
-          </li>
-        ))}
-      </ul>
-      <div className={styles.fileGo}>
-        <Link className="btn btn-secondary btn-sm" href={businessHref(business.id)}>
-          Open the example
-        </Link>
-      </div>
-    </article>
+    </div>
   );
 }

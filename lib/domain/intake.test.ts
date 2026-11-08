@@ -20,6 +20,7 @@ import {
   type IntakeDraft,
   type IntakeQuestion,
 } from "@/lib/domain/intake";
+import { PATH_OUTCOME } from "@/lib/domain/workflows";
 
 // =============================================================================
 // Module Overview
@@ -327,17 +328,29 @@ describe("business chat changes", () => {
     expect(profile.workflows.invoices?.why).toBe("Sysco raised dairy twice this spring.");
   });
 
+  it("keeps the owner's plan approval, so a workflow the change adds shows as a change to approve", () => {
+    const approval = { approvedAt: "2026-11-07T15:30:00.000Z", choices: {} };
+    const { profile } = applyChanges({ ...cafe, planApproval: approval }, readChanges("we started doing catering"));
+    expect(profile.planApproval).toEqual(approval);
+  });
+
   it("groups new paths in the reply", () => {
     const reply = changeReply(
       [
         { op: "added", area: "tool", label: "Clover" },
         { op: "removed", area: "tool", label: "Square" },
-        { op: "changed", area: "path", label: "Social posts and marketing", to: "Build" },
-        { op: "changed", area: "path", label: "Staff scheduling", to: "Build" },
+        { op: "changed", area: "path", label: "Social posts and marketing", to: PATH_OUTCOME.build },
+        { op: "changed", area: "path", label: "Staff scheduling", to: PATH_OUTCOME.build },
       ],
       "Corner Cafe",
     );
-    expect(reply).toBe("Updated your profile: added Clover; removed Square. Your plan now suggests Build for Social posts and marketing and Staff scheduling.");
+    expect(reply).toBe(
+      "Updated your profile: added Clover; removed Square. Your plan now suggests Anchored's drafts for Social posts and marketing and Staff scheduling.",
+    );
+  });
+
+  it("names a new pick by who would handle the work, never by its path", () => {
+    expect(Object.values(PATH_OUTCOME)).toEqual(["a tool you have", "a new tool", "Anchored's drafts", "no help yet"]);
   });
 
   it("replies plainly when nothing changed", () => {
