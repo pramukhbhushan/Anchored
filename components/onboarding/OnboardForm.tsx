@@ -158,7 +158,8 @@ export function OnboardForm({ aiName }: { readonly aiName: string | null }) {
         answers,
       });
       toast(`Plan built for ${business.name}`);
-      router.push(businessHref(id));
+      // The plan is the Workflows page, the same place chat onboarding opens.
+      router.push(businessHref(id, "workflows"));
       // The shell's sidebar and switcher were rendered before this business existed; refresh them to list it.
       router.refresh();
     } catch (error) {

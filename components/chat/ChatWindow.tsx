@@ -248,7 +248,8 @@ function IntakeChat() {
               <p>Your plan is ready to review.</p>
               <Button
                 onClick={() => {
-                  router.push(businessHref(builtId));
+                  // The plan is the Workflows page, where the landing page's "Open the full plan" also lands.
+                  router.push(businessHref(builtId, "workflows"));
                   // The shell's sidebar and switcher were rendered before this business existed; refresh them to list it.
                   router.refresh();
                 }}
