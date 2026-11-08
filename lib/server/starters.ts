@@ -55,7 +55,9 @@ const CHANNEL_GUIDE: Readonly<Record<KeyedCard["channel"], string>> = {
   sms: "a text message under 300 characters",
   email: "an email body under 90 words, with no subject line",
   list: "text the owner copies, under 60 words",
+  // No writable skill drafts these two; the entries keep the map complete.
   locked: "nothing; the owner replies",
+  flag: "nothing; Anchored asks the owner",
 };
 
 // Names offered per business: twice the starters, so the model can fit a name to each moment. Seeded by the
