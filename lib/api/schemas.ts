@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type {
+  ApprovePlanRequest,
   BusinessChatRequest,
   CreateBusinessRequest,
   DecideCardRequest,
@@ -62,6 +63,8 @@ export const setChoiceSchema = z.union([
   z.object({ workflow: workflowId, path: z.enum(["turnon", "buy"]), toolId: z.string().min(1).max(60) }),
   z.object({ workflow: workflowId, path: z.enum(["build", "skip"]) }),
 ]) satisfies z.ZodType<SetChoiceRequest>;
+
+export const approvePlanSchema = z.object({ approved: z.literal(true) }) satisfies z.ZodType<ApprovePlanRequest>;
 
 export const decideCardSchema = z.union([
   z.object({ decision: z.literal("approve"), body: z.string().trim().min(1).max(2000).optional() }),

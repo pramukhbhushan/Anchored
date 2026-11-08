@@ -17,7 +17,7 @@ interface Stop {
 }
 
 const STOPS: readonly Stop[] = [
-  { section: "workflows", title: "See where AI helps", text: "Each job gets a pick: turn on, buy or build." },
+  { section: "workflows", title: "See how the day runs", text: "Each job drawn step by step, with who handles it." },
   { section: "tools", title: "Compare the tools", text: "Each one scored out of 100 on seven checks." },
   { section: "approvals", title: "Approve the drafts", text: "Agents write. Nothing goes out until you tap Approve." },
   { section: "stack", title: "See the monthly bill", text: "Every tool and agent, and what it costs." },

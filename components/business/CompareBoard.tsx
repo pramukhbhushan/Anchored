@@ -139,7 +139,7 @@ function ToolRow({
   const [checksOpen, setChecksOpen] = useState(false);
   const checksId = useId();
   const { tool, rating, owned, chosenFor } = item;
-  const verb = owned ? "Turn on" : "Choose";
+  const verb = owned ? "Use" : "Choose";
   // Offer only workflows this tool doesn't already run, so a tap never moves a workflow it already covers.
   const open = (filter === "all" ? item.workflows : [filter]).filter((w) => !chosenFor.includes(w));
   const [target] = open;

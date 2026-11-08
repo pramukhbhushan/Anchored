@@ -29,7 +29,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const options = pathOptions(business, body.workflow);
     let choice: Choice;
     if (body.path === "build") {
-      if (!options.build) return fail(409, "Anchored doesn't build an agent for this workflow. Turn on or buy a tool instead.");
+      if (!options.build) return fail(409, "Anchored doesn't draft this job yet. Use a tool you have, or sign up for one, instead.");
       choice = { path: "build", skills: options.build.skills };
     } else if (body.path === "skip" || !("toolId" in body)) {
       choice = { path: "skip" };
@@ -37,7 +37,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       const tool = toolById(body.toolId);
       if (!tool || !tool.workflows.includes(body.workflow)) return fail(400, "That tool doesn't cover this workflow.");
       const owned = options.owned.some((ownedTool) => ownedTool.id === tool.id);
-      if (body.path === "turnon" && !owned) return fail(400, "You can only turn on a tool you already use. Choose Buy instead.");
+      if (body.path === "turnon" && !owned) return fail(400, "That isn't a tool you already use. Sign up for it instead.");
       // A tool the business already pays for is always a turn-on, even if the request said buy.
       choice = { path: owned ? "turnon" : "buy", toolId: tool.id };
     }

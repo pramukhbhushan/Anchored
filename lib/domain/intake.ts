@@ -1,6 +1,6 @@
 import { detectTradeKey, hintFor, planWorkflows, profileFromFacts, TRADE_HINTS } from "@/lib/domain/engine";
 import type { BusinessFacts, BusinessProfile, OnboardingAnswers, SignalId, TradeKey, WorkflowId, WorkflowPlan } from "@/lib/domain/types";
-import { LANGUAGE_OPTIONS, NOT_GIVEN, PATH_LABEL, REACH_OPTIONS, SIGNALS, TOOL_OPTIONS, WORKFLOW_IDS, WORKFLOWS } from "@/lib/domain/workflows";
+import { LANGUAGE_OPTIONS, NOT_GIVEN, PATH_OUTCOME, REACH_OPTIONS, SIGNALS, TOOL_OPTIONS, WORKFLOW_IDS, WORKFLOWS } from "@/lib/domain/workflows";
 
 // =============================================================================
 // Module Overview
@@ -1043,8 +1043,8 @@ function samePlan(a: WorkflowPlan | undefined, b: WorkflowPlan | undefined): boo
 }
 
 /**
- * Rebuild `business` from its facts with `changes` applied. The id, `builtBy` and researched cards carry
- * over, and a workflow whose rules reasoning didn't change keeps its written text, which may be the model's.
+ * Rebuild `business` from its facts with `changes` applied. The id, `builtBy`, researched cards and the
+ * owner's plan approval carry over, and a workflow whose rules reasoning didn't change keeps its written text, which may be the model's.
  */
 export function applyChanges(business: BusinessProfile, changes: FactChanges): { profile: BusinessProfile; changes: ProfileChange[] } {
   const before = factsFromProfile(business);
@@ -1062,6 +1062,7 @@ export function applyChanges(business: BusinessProfile, changes: FactChanges): {
     workflows,
     ...(business.cards ? { cards: business.cards } : {}),
     ...(business.lockedCards ? { lockedCards: business.lockedCards } : {}),
+    ...(business.planApproval ? { planApproval: business.planApproval } : {}),
   };
   return { profile, changes: describeChanges(business, profile) };
 }
@@ -1085,7 +1086,7 @@ function describeChanges(before: BusinessProfile, after: BusinessProfile): Profi
     const name = WORKFLOWS[id].name;
     if (!old && now) changes.push({ op: "added", area: "workflow", label: name });
     else if (old && !now) changes.push({ op: "removed", area: "workflow", label: name });
-    else if (old && now && old.rec !== now.rec) paths.push({ op: "changed", area: "path", label: name, to: PATH_LABEL[now.rec] });
+    else if (old && now && old.rec !== now.rec) paths.push({ op: "changed", area: "path", label: name, to: PATH_OUTCOME[now.rec] });
   }
   const same = (value: string) => value;
   changes.push(
@@ -1127,7 +1128,7 @@ export function changeReply(changes: readonly ProfileChange[], businessName: str
   const parts = [factsAdded.length ? `added ${listText(factsAdded)}` : "", factsRemoved.length ? `removed ${listText(factsRemoved)}` : "", renamed.length ? `changed ${listText(renamed)}` : ""].filter(Boolean);
   if (parts.length) sentences.push(`${sentences.length ? "I also updated your profile" : "Updated your profile"}: ${parts.join("; ")}.`);
 
-  // Group path changes by their new path: "Your plan now suggests Build for A and B."
+  // Group path changes by their new path: "Your plan now suggests a new tool for A and B."
   const paths = changes.filter((change) => change.area === "path" && change.to !== undefined);
   const byPath = unique(paths.map((change) => change.to ?? "")).map((to) => `${to} for ${listText(paths.filter((change) => change.to === to).map((change) => change.label))}`);
   if (sentences.length < 2 && byPath.length) sentences.push(`Your plan now suggests ${byPath.join(", and ")}.`);

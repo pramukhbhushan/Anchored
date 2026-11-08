@@ -6,7 +6,7 @@ import type { CardRecord, EventCardResponse, OutboxEntry } from "@/lib/api/contr
 import { draftFeed } from "@/lib/domain/cards";
 import { isSampleBusinessId, SAMPLE_BUSINESS } from "@/lib/domain/cases";
 import { chosenSkills, resolveChoices, workflowIdsOf } from "@/lib/domain/paths";
-import type { BusinessProfile, Choice, KeyedCard, SkillId, WorkflowId } from "@/lib/domain/types";
+import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, SkillId, WorkflowId } from "@/lib/domain/types";
 import { getStore } from "@/lib/store";
 import { getSessionId } from "./session";
 
@@ -45,6 +45,11 @@ const savedChoices = cache(async (businessId: string) => getStore().getChoices(a
 /** Return the chosen path for each of the business's workflows, filling in Anchored's picks. */
 export async function getChoices(business: BusinessProfile): Promise<Record<WorkflowId, Choice>> {
   return resolveChoices(business, await savedChoices(business.id));
+}
+
+/** Return only the picks the owner saved for the business, which `planStatus` compares with the approved ones. */
+export async function getSavedChoices(business: BusinessProfile): Promise<ChoiceMap> {
+  return savedChoices(business.id);
 }
 
 /** Narrow `choices` so only `skill` is built, letting a simulation target one skill. */

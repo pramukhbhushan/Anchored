@@ -6,10 +6,11 @@ import { SimulateButton } from "@/components/business/SimulateButton";
 import { NEW_BUSINESS_HREF, businessHref, cardAnchor } from "@/components/routes";
 import { ButtonLink } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Stamp } from "@/components/ui/Stamp";
 import { feedStats, money, placeOf, plannedWorkflows } from "@/components/view-helpers";
+import { whoHandles } from "@/components/workflows/flow";
 import { OWNER_TIME_ZONE } from "@/lib/domain/executor";
-import { activeAgents, chosenSkills, stackCost } from "@/lib/domain/paths";
+import { activeAgents, chosenSkills, stackCost, workflowIdsOf } from "@/lib/domain/paths";
+import { groupByStage } from "@/lib/domain/stages";
 import { WORKFLOWS } from "@/lib/domain/workflows";
 import { getBusinessOrNotFound, getChoices, getFeed } from "@/lib/server/data";
 
@@ -17,7 +18,7 @@ import { getBusinessOrNotFound, getChoices, getFeed } from "@/lib/server/data";
 // Module Overview
 // =============================================================================
 // The overview, the page an owner opens each day: the morning brief on the
-// carbon work-order slip, then a ledger of every workflow and its path. The
+// carbon work-order slip, then a ledger of every workflow and who handles it. The
 // example business opens with four stops for a first visitor. The brief leads with how
 // many approvals wait and links each one, then says what rides on them, what
 // is new, what the stack costs and, once there is any, what the owner has done.
@@ -158,17 +159,25 @@ export default async function OverviewPage({ params }: { readonly params: Promis
       <section className="ov-wf" aria-labelledby="ov-wf-title">
         <div className="ov-wf-head">
           <h2 id="ov-wf-title">Your workflows</h2>
-          <Link href={workflowsHref}>Change paths</Link>
+          <Link href={workflowsHref}>See how work moves</Link>
         </div>
         <ul className="ov-wf-list">
-          {plannedWorkflows(business).map((w) => (
-            <li key={w.id}>
-              <Link href={`${workflowsHref}#wf-${w.id}`}>
-                <span>{WORKFLOWS[w.id].name}</span>
-                <Stamp path={choices[w.id].path} />
-              </Link>
-            </li>
-          ))}
+          {groupByStage(workflowIdsOf(business))
+            .flatMap((group) => group.workflows)
+            .map((workflow) => {
+              const handler = whoHandles(business, choices, workflow);
+              return (
+                <li key={workflow}>
+                  <Link href={`${workflowsHref}#wf-${workflow}`}>
+                    <span>{WORKFLOWS[workflow].name}</span>
+                    <span className="ov-who" data-kind={handler.kind}>
+                      <span className="sr">, </span>
+                      {handler.short}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
         </ul>
       </section>
     </div>

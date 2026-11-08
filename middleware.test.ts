@@ -158,6 +158,7 @@ describe("limitFor", () => {
   it("puts every other mutation under the general limits", () => {
     for (const [method, path] of [
       ["PUT", "/api/businesses/b_1/choices"],
+      ["PUT", "/api/businesses/b_1/plan"],
       ["POST", "/api/cards/abc-123"],
       ["DELETE", "/api/businesses"],
       ["PUT", "/api/businesses"],

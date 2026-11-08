@@ -22,8 +22,8 @@ export const dynamic = "force-dynamic";
 
 const NEXT_STEPS: readonly string[] = [
   "Anchored writes a one-page profile you can check.",
-  "You get the five shared workflows, plus the ones your answers add.",
-  "Each workflow gets three paths and our pick.",
+  "Anchored maps the jobs your business does day to day and picks who handles each one.",
+  "You look the plan over, change any step, and approve it.",
   "Work only some businesses have, such as a SNAP stocking check, can get its own niche agent.",
   "Agents you choose start drafting cards for you to approve.",
 ];

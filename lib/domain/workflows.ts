@@ -63,6 +63,14 @@ export const PATH_LABEL: Readonly<Record<PathKind, string>> = {
   skip: "Skip for now",
 };
 
+/** Who would handle the work on each path, as the owner reads it in chat: "Your plan now suggests a new tool for Reviews." */
+export const PATH_OUTCOME: Readonly<Record<PathKind, string>> = {
+  turnon: "a tool you have",
+  buy: "a new tool",
+  build: "Anchored's drafts",
+  skip: "no help yet",
+};
+
 /** One-line explanation of each path. */
 export const PATH_DESCRIPTION: Readonly<Record<PathKind, string>> = {
   turnon: "A tool you already pay for",
