@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CardRecord } from "@/lib/api/contract";
-import { draftFeed } from "@/lib/domain/cards";
+import { customerNames, draftFeed } from "@/lib/domain/cards";
 import { SAMPLE_BUSINESS } from "@/lib/domain/cases";
 import { profileFromFacts } from "@/lib/domain/engine";
 import { OPT_OUT_LINE } from "@/lib/domain/executor";
@@ -52,14 +52,18 @@ function modelWriting(reply: (prompt: string) => readonly WrittenDraft[]): LlmPr
   } as unknown as LlmProvider & { prompts: string[] };
 }
 
-const PEOPLE = ["Rosalind Okoye", "Teodoro Vance", "Mira Castellanos", "Bertrand Achebe", "Ines Haddad", "Corwin Bell"];
+/** The customer names offered to the business a prompt is about, as the model would read them from it. */
+function offeredNames(prompt: string): string[] {
+  return customerNames(prompt.includes("Sugar Loaf") ? "b_bakery" : "b_plumber", 8);
+}
 
-/** A clean draft for every card skill, each to a different person, whatever the prompt asked for. */
-function draftsForEverySkill(text: (skill: string) => string): WrittenDraft[] {
+/** A clean draft for every card skill, each to a different offered customer, whatever skills the prompt asked for. */
+function draftsForEverySkill(text: (skill: string) => string, prompt: string): WrittenDraft[] {
+  const people = offeredNames(prompt);
   const skills = ["callback", "inquiry", "showup", "catering", "closer", "callfollow", "reviewer", "referral", "nudger", "posts", "reviewdrafter", "reactivator", "keeper"];
   return skills.map((skill, i) => ({
     skill,
-    contact: PEOPLE[i % PEOPLE.length] ?? "Rosalind Okoye",
+    contact: people[i % people.length] ?? "",
     title: `Written title for ${skill}`,
     body: text(skill),
     whyNow: "They asked this morning and are comparing options.",
@@ -117,7 +121,7 @@ beforeEach(async () => {
 
 describe("written starters", () => {
   it("are written from the owner's own profile", async () => {
-    const model = modelWriting(() => draftsForEverySkill(() => "Thanks for reaching out, we can help."));
+    const model = modelWriting((prompt) => draftsForEverySkill(() => "Thanks for reaching out, we can help.", prompt));
     models.current = model;
 
     await writeStarters(SESSION, plumber());
@@ -134,7 +138,7 @@ describe("written starters", () => {
   });
 
   it("go only to skills the plan turns on, three or four of them", async () => {
-    models.current = modelWriting(() => draftsForEverySkill(() => "Thanks for reaching out, we can help."));
+    models.current = modelWriting((prompt) => draftsForEverySkill(() => "Thanks for reaching out, we can help.", prompt));
     const business = plumber();
 
     await writeStarters(SESSION, business);
@@ -148,7 +152,7 @@ describe("written starters", () => {
   });
 
   it("skip a skill the owner switched off", async () => {
-    models.current = modelWriting(() => draftsForEverySkill(() => "Thanks for reaching out, we can help."));
+    models.current = modelWriting((prompt) => draftsForEverySkill(() => "Thanks for reaching out, we can help.", prompt));
     const business = plumber();
     await stores.current!.setChoice(SESSION, business.id, "leads", { path: "skip" });
 
@@ -158,7 +162,7 @@ describe("written starters", () => {
   });
 
   it("keep the fields code decides and mark each one an example", async () => {
-    models.current = modelWriting(() => draftsForEverySkill(() => "Thanks for reaching out, we can help."));
+    models.current = modelWriting((prompt) => draftsForEverySkill(() => "Thanks for reaching out, we can help.", prompt));
     const business = plumber();
 
     await writeStarters(SESSION, business);
@@ -180,7 +184,7 @@ describe("written starters", () => {
   });
 
   it("end every text with the opt-out line", async () => {
-    models.current = modelWriting(() => draftsForEverySkill(() => "Sorry we missed your call, want us to ring you back?"));
+    models.current = modelWriting((prompt) => draftsForEverySkill(() => "Sorry we missed your call, want us to ring you back?", prompt));
     const business = plumber();
 
     await writeStarters(SESSION, business);
@@ -191,7 +195,7 @@ describe("written starters", () => {
   });
 
   it("give different businesses different starters", async () => {
-    models.current = modelWriting((prompt) => draftsForEverySkill(() => (prompt.includes("Bakery") ? "Fresh loaves are ready, want one set aside?" : "We can come take a look at that leak.")));
+    models.current = modelWriting((prompt) => draftsForEverySkill(() => (prompt.includes("Bakery") ? "Fresh loaves are ready, want one set aside?" : "We can come take a look at that leak."), prompt));
 
     await writeStarters(SESSION, plumber());
     await writeStarters(SESSION, bakery());
@@ -201,6 +205,9 @@ describe("written starters", () => {
     expect(plumberBodies.filter((body) => bakeryBodies.includes(body))).toEqual([]);
     expect(plumberBodies.join(" ")).toContain("leak");
     expect(bakeryBodies.join(" ")).toContain("loaves");
+    const customers = async (business: BusinessProfile) => (await storedCards(business)).flatMap((card) => (card.to === undefined ? [] : [card.to]));
+    const bakeryCustomers = await customers(bakery());
+    expect((await customers(plumber())).filter((name) => bakeryCustomers.includes(name))).toEqual([]);
   });
 });
 
@@ -213,7 +220,7 @@ describe("a draft that breaks a rule", () => {
     ["a blank to fill", "Thanks! Book a time at [your booking link]."],
     ["allergy talk", "Our kitchen is peanut free, so no worries."],
   ])("with %s is replaced by the trade's template, and clean drafts stay", async (_label, body) => {
-    models.current = modelWriting(() => draftsForEverySkill((skill) => (skill === "inquiry" ? body : "Thanks for reaching out, we can help.")));
+    models.current = modelWriting((prompt) => draftsForEverySkill((skill) => (skill === "inquiry" ? body : "Thanks for reaching out, we can help."), prompt));
     const business = plumber();
 
     await writeStarters(SESSION, business);
@@ -224,17 +231,20 @@ describe("a draft that breaks a rule", () => {
   });
 
   it("is replaced when it reuses another draft's customer", async () => {
-    models.current = modelWriting(() => draftsForEverySkill(() => "Thanks for reaching out, we can help.").map((draft) => ({ ...draft, contact: "Rosalind Okoye" })));
+    const first = customerNames("b_plumber", 1)[0];
+    models.current = modelWriting((prompt) => draftsForEverySkill(() => "Thanks for reaching out, we can help.", prompt).map((draft) => ({ ...draft, contact: first ?? "" })));
     const business = plumber();
 
     await writeStarters(SESSION, business);
 
-    const toRosalind = (await storedCards(business)).filter((card) => card.to === "Rosalind Okoye");
-    expect(toRosalind).toHaveLength(1);
+    expect((await storedCards(business)).filter((card) => card.to === first)).toHaveLength(1);
   });
 
-  it("is replaced when the name carries anything but letters", async () => {
-    models.current = modelWriting(() => draftsForEverySkill(() => "Thanks for reaching out, we can help.").map((draft) => ({ ...draft, contact: "Customer 1" })));
+  it.each([
+    ["a stock name it wasn't offered", "Sarah Johnson"],
+    ["anything but a name", "Customer 1"],
+  ])("is replaced when the customer is %s", async (_label, contact) => {
+    models.current = modelWriting((prompt) => draftsForEverySkill(() => "Thanks for reaching out, we can help.", prompt).map((draft) => ({ ...draft, contact })));
     const business = plumber();
 
     await writeStarters(SESSION, business);
@@ -276,7 +286,7 @@ describe("falling back", () => {
 
 describe("writing once", () => {
   it("asks the model once per business", async () => {
-    const model = modelWriting(() => draftsForEverySkill(() => "Thanks for reaching out, we can help."));
+    const model = modelWriting((prompt) => draftsForEverySkill(() => "Thanks for reaching out, we can help.", prompt));
     models.current = model;
 
     await writeStarters(SESSION, plumber());
@@ -286,7 +296,7 @@ describe("writing once", () => {
   });
 
   it("never writes over the example business's researched cards", async () => {
-    const model = modelWriting(() => draftsForEverySkill(() => "Thanks for reaching out, we can help."));
+    const model = modelWriting((prompt) => draftsForEverySkill(() => "Thanks for reaching out, we can help.", prompt));
     models.current = model;
 
     await writeStarters(SESSION, SAMPLE_BUSINESS);

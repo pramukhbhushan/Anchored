@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { liveEventKey, standingKey } from "@/lib/domain/cards";
+import { customerNames, liveEventKey, standingKey } from "@/lib/domain/cards";
 import type { KeyedCard } from "@/lib/domain/types";
 import type { LlmProvider, ObjectRequest } from "@/lib/llm";
 import { MemoryStore } from "@/lib/store/memory";
@@ -29,6 +29,7 @@ vi.mock("next/server", async (original) => ({ ...(await original<typeof import("
 const { getFeed } = await import("./data");
 
 const shop = hvacShop();
+const CUSTOMER = customerNames(shop.id, 1)[0] ?? "";
 
 /** A card a customer's text produced through the connected number. */
 const LIVE_CARD: KeyedCard = {
@@ -106,7 +107,7 @@ describe("written starters on a page load", () => {
       generateText: async () => "",
       generateObject: async <T,>(request: ObjectRequest<T>) => {
         prompts.push(request.prompt);
-        return request.schema.parse({ starters: [{ skill: "inquiry", contact: "Rosalind Okoye", title: "Rosalind asked about a tune-up", body: "Hi Rosalind, happy to help with that.", whyNow: "She's comparing shops today." }] });
+        return request.schema.parse({ starters: [{ skill: "inquiry", contact: CUSTOMER, title: "A tune-up question", body: "Hi there, happy to help with that.", whyNow: "She's comparing shops today." }] });
       },
     } as unknown as LlmProvider;
 
@@ -114,14 +115,14 @@ describe("written starters on a page load", () => {
 
     expect(prompts).toHaveLength(0);
     expect(first.writingStarters).toBe(true);
-    expect(first.cards.find((card) => card.skill === "inquiry")?.title).not.toBe("Rosalind asked about a tune-up");
+    expect(first.cards.find((card) => card.skill === "inquiry")?.title).not.toBe("A tune-up question");
 
     for (const task of later.tasks.splice(0)) await task();
     const next = await getFeed(shop);
 
     expect(prompts).toHaveLength(1);
     expect(next.writingStarters).toBe(false);
-    expect(next.cards.find((card) => card.skill === "inquiry")).toMatchObject({ title: "Rosalind asked about a tune-up", to: "Rosalind Okoye", example: true });
+    expect(next.cards.find((card) => card.skill === "inquiry")).toMatchObject({ title: "A tune-up question", to: CUSTOMER, example: true });
     expect(later.tasks).toHaveLength(0);
   });
 

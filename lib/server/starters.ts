@@ -1,10 +1,10 @@
 import "server-only";
 import { after } from "next/server";
 import { z } from "zod";
-import { draftFeed, standingKey } from "@/lib/domain/cards";
+import { customerNames, draftFeed, standingKey } from "@/lib/domain/cards";
 import { ensureOptOut, mentionsAllergen } from "@/lib/domain/executor";
 import { resolveChoices } from "@/lib/domain/paths";
-import { STARTER_RECIPIENT, starterSkills, startersDue, type WritableSkill } from "@/lib/domain/starters";
+import { STARTER_LIMIT, STARTER_RECIPIENT, starterSkills, startersDue, type WritableSkill } from "@/lib/domain/starters";
 import type { BusinessProfile, KeyedCard } from "@/lib/domain/types";
 import type { LlmProvider } from "@/lib/llm";
 import { newFacts } from "@/lib/server/ai";
@@ -44,9 +44,9 @@ const MOMENTS: Readonly<Record<WritableSkill, string>> = {
   catering: "Someone asked about a catering or event order. Draft the first reply asking for the date and how many people.",
   closer: "A customer got a quote and has gone quiet. Draft a friendly check-in text that adds no new offer.",
   callfollow: "A prospect said they'd think about it after a call. Draft a short check-in email that adds no new offer.",
-  reviewer: "A customer's job or visit just finished. Draft the text thanking them and asking for a review. Say the link comes next; write no link.",
+  reviewer: `A customer's job or visit just finished. Draft the text thanking them and asking for a Google review. Write no link; end with "I'll send the link next."`,
   referral: "A customer is near the end of their work with the business. Draft an email asking for two lines about their experience and anyone they'd suggest.",
-  nudger: "A customer's invoice is past due. Draft a friendly reminder email. State no amount and no invoice number; say a payment link comes next.",
+  nudger: `A customer's invoice is past due. Draft a friendly reminder email. State no amount and no invoice number; end with "If paying online is easier, I'll send the link next."`,
   posts: "Draft a short social media or Google post the owner copies and posts. The contact is who the post is for, such as 'Neighbors'.",
   reviewdrafter: "A customer left a 4-star review that mentions one specific detail. Draft the owner's public reply citing that detail. The contact is the reviewer.",
 };
@@ -58,11 +58,12 @@ const CHANNEL_GUIDE: Readonly<Record<KeyedCard["channel"], string>> = {
   locked: "nothing; the owner replies",
 };
 
-// Longest text each field may hold. A longer draft is replaced, not cut, so no sentence ends mid-word.
-const MAX = { contact: 40, title: 90, whyNow: 140, sms: 300, other: 700 } as const;
+// Names offered per business: twice the starters, so the model can fit a name to each moment. Seeded by the
+// business id, so two businesses never get the same few customers a model reaches for on its own.
+const OFFERED_NAMES = STARTER_LIMIT * 2;
 
-// A person's name in letters only: one to four words, each starting with a capital.
-const PERSON_NAME = /^\p{Lu}[\p{L}'.-]*(?: \p{Lu}[\p{L}'.-]*){0,3}$/u;
+// Longest text each field may hold. A longer draft is replaced, not cut, so no sentence ends mid-word.
+const MAX = { title: 90, whyNow: 140, sms: 300, other: 700 } as const;
 // Any bracket a template blank or markup would use: "[your link]", "{name}", "<b>".
 const BLANK_OR_MARKUP = /[[\]{}<>]/;
 // A weekday, month or season in a title or reason could contradict the day the owner reads it.
@@ -74,7 +75,7 @@ function profileFacts(business: BusinessProfile): string {
 }
 
 /** The prompt for `skills`, with the owner's profile as data and code's channel for each skill. */
-function starterPrompt(business: BusinessProfile, skills: readonly WritableSkill[], channels: ReadonlyMap<WritableSkill, KeyedCard["channel"]>): string {
+function starterPrompt(business: BusinessProfile, skills: readonly WritableSkill[], channels: ReadonlyMap<WritableSkill, KeyedCard["channel"]>, names: readonly string[]): string {
   const lines = skills.map((skill) => `- ${skill}: ${MOMENTS[skill]} Write ${CHANNEL_GUIDE[channels.get(skill) ?? "list"]}.`).join("\n");
   return `You write starter drafts for Anchored, which drafts texts, emails and posts that a small business owner approves before anything is sent. These starters show the owner what each of their agents will draft. Write one starter for each skill below, for this business only.
 
@@ -83,7 +84,7 @@ ${lines}
 
 For each starter, write:
 - "skill": the skill id from the list.
-- "contact": the customer's first and last name. Pick names that people in ${business.place} who buy from this kind of business could have. Use a different person for each starter, and avoid stock names like John Smith or Jane Doe.
+- "contact": the customer, written exactly as one of these names: ${names.join(", ")}. Use a different one for each starter.
 - "title": one short line the owner reads in their approvals, saying what happened.
 - "body": the draft itself, in the owner's voice from <voice>, using the customer's first name.
 - "whyNow": one short sentence on why this is worth sending now.
@@ -111,9 +112,11 @@ Jobs that eat their week: ${business.tasks.join("; ")}
 <voice>${business.voice}</voice>`;
 }
 
-/** Tidy one string from the model: trimmed, wrapping quotes gone, any long dash turned into a comma. */
+/** Tidy one string from the model: straight quotes, trimmed, wrapping quotes gone, any long dash turned into a comma. */
 function tidy(text: string): string {
   return text
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
     .trim()
     .replace(/^"(.*)"$/s, "$1")
     .replace(/\s*[–—]\s*/g, ", ")
@@ -121,13 +124,13 @@ function tidy(text: string): string {
 }
 
 /** Why `draft` can't become `skill`'s starter, or `null` when it passes every rule. */
-function rejection(draft: Written, skill: WritableSkill, channel: KeyedCard["channel"], facts: string, usedNames: ReadonlySet<string>): string | null {
+function rejection(draft: Written, skill: WritableSkill, channel: KeyedCard["channel"], facts: string, offered: readonly string[], usedNames: ReadonlySet<string>): string | null {
   const all = `${draft.contact} ${draft.title} ${draft.body} ${draft.whyNow}`;
   if (!draft.title || !draft.body || !draft.whyNow) return "a field was empty";
   if (draft.title.length > MAX.title || draft.whyNow.length > MAX.whyNow) return "the title or reason ran long";
   if (draft.body.length > (channel === "sms" ? MAX.sms : MAX.other)) return "the draft ran long";
   if (STARTER_RECIPIENT[skill] === "person") {
-    if (draft.contact.length > MAX.contact || !PERSON_NAME.test(draft.contact)) return `"${draft.contact}" isn't a name`;
+    if (!offered.includes(draft.contact)) return `"${draft.contact}" isn't one of the names offered`;
     if (usedNames.has(draft.contact.toLowerCase())) return `${draft.contact} is already on another starter`;
   }
   if (BLANK_OR_MARKUP.test(all)) return "it left a blank or markup";
@@ -154,9 +157,10 @@ function withWords(template: KeyedCard, skill: WritableSkill, words: Written): K
 /** Ask the model for `skills`' starters and return the ones that pass, by skill; empty when the call fails. */
 async function writtenWords(llm: LlmProvider, business: BusinessProfile, skills: readonly WritableSkill[], templates: ReadonlyMap<WritableSkill, KeyedCard>): Promise<Map<WritableSkill, Written>> {
   const channels = new Map(skills.map((skill) => [skill, templates.get(skill)?.channel ?? "list"] as const));
+  const names = customerNames(business.id, OFFERED_NAMES);
   let reply: z.infer<typeof replySchema>;
   try {
-    reply = await llm.generateObject({ tier: "default", schema: replySchema, schemaName: "starter_drafts", prompt: starterPrompt(business, skills, channels), maxTokens: 2000 });
+    reply = await llm.generateObject({ tier: "default", schema: replySchema, schemaName: "starter_drafts", prompt: starterPrompt(business, skills, channels, names), maxTokens: 2000 });
   } catch (error) {
     console.warn(`[Starters] Writing starters for ${business.id} failed; keeping the trade's templates. Reason: ${error instanceof Error ? error.message : String(error)}`);
     return new Map();
@@ -170,7 +174,7 @@ async function writtenWords(llm: LlmProvider, business: BusinessProfile, skills:
     // Code picked the skills: a starter for any other skill, or a second one for the same skill, is dropped.
     if (skill === undefined || accepted.has(skill)) continue;
     const draft: Written = { skill, contact: tidy(raw.contact), title: tidy(raw.title), body: tidy(raw.body), whyNow: tidy(raw.whyNow) };
-    const reason = rejection(draft, skill, channels.get(skill) ?? "list", facts, usedNames);
+    const reason = rejection(draft, skill, channels.get(skill) ?? "list", facts, names, usedNames);
     if (reason !== null) {
       console.warn(`[Starters] Kept the template for ${business.id} ${skill}: ${reason}.`);
       continue;

@@ -107,13 +107,29 @@ interface Person {
   readonly full: string;
 }
 
-/** The customer on `skill`'s card at `variant`, picked from the business id so each business sees its own names. */
-function personFor(business: Pick<BusinessProfile, "id">, skill: CardSkill, variant: number): Person {
-  const seed = hash(`${business.id}:${skill}:${variant}`);
+/** The person a seed string lands on, always the same one for the same seed. */
+function personFrom(seedText: string): Person {
+  const seed = hash(seedText);
   const first = FIRST_NAMES[seed % FIRST_NAMES.length] ?? FIRST_NAMES[0];
   // A second hash, so first and last names don't move together.
   const last = LAST_NAMES[hash(`${seed}:last`) % LAST_NAMES.length] ?? LAST_NAMES[0];
   return { first, last, full: `${first} ${last}` };
+}
+
+/** The customer on `skill`'s card at `variant`, picked from the business id so each business sees its own names. */
+function personFor(business: Pick<BusinessProfile, "id">, skill: CardSkill, variant: number): Person {
+  return personFrom(`${business.id}:${skill}:${variant}`);
+}
+
+/** `count` customer names for a business, each with its own first name, the same list every time for the same id. */
+export function customerNames(businessId: string, count: number): string[] {
+  const names: Person[] = [];
+  // The pool holds far more first names than any caller asks for, so the loop ends long before its cap.
+  for (let i = 0; names.length < count && i < count * 20; i += 1) {
+    const person = personFrom(`${businessId}:customer:${i}`);
+    if (!names.some((taken) => taken.first === person.first)) names.push(person);
+  }
+  return names.map((person) => person.full);
 }
 
 // -----------------------------------------------------------------
