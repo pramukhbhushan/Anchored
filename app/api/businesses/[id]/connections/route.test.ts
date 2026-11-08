@@ -46,6 +46,8 @@ function params(id: string) {
 }
 
 beforeEach(async () => {
+  // Twilio's number lookup, answering that the number is in the account.
+  vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ incoming_phone_numbers: [{ phone_number: "+13015550192" }] }), { status: 200 }));
   vi.stubEnv("CONNECTOR_SECRET_KEY", Buffer.alloc(32, 7).toString("base64"));
   state.store = new MemoryStore();
   state.viewer = ACCOUNT;
@@ -114,4 +116,8 @@ describe("/api/businesses/[id]/contacts", () => {
     expect(response.status).toBe(400);
     expect(((await response.json()) as { error: string }).error).toMatch(/^Enter the phone number/);
   });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });

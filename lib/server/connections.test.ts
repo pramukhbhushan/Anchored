@@ -42,6 +42,8 @@ async function view(kind: string) {
 }
 
 beforeEach(() => {
+  // Twilio's number lookup, answering that the number is in the account.
+  vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ incoming_phone_numbers: [{ phone_number: "+13015550192" }] }), { status: 200 }));
   stores.current = new MemoryStore();
 });
 
@@ -209,4 +211,8 @@ describe("saveContactFromOwner", () => {
     expect(cleared.consent).toBeNull();
     expect(await stores.current?.listContacts(SESSION, business.id)).toHaveLength(1);
   });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });

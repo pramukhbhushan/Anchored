@@ -2,6 +2,7 @@ import "server-only";
 import type { NextResponse } from "next/server";
 import type { ApiError, ConnectionView, ConnectionsResponse, ConnectRequest, SaveContactRequest } from "@/lib/api/contract";
 import type { Viewer } from "@/lib/auth/viewer";
+import { checkTwilioNumber } from "@/lib/connectors/twilio";
 import { CONNECTION_KINDS, type ConnectionKind } from "@/lib/domain/connections";
 import { isEmailAddress, normalizePhone, type Contact } from "@/lib/domain/contacts";
 import type { BusinessProfile } from "@/lib/domain/types";
@@ -39,8 +40,8 @@ export class ConnectError extends Error {
 /** Checks a Twilio Account SID, auth token and number before they are saved: an owner-facing problem, or `null` when they work. */
 export type TwilioCheck = (accountSid: string, authToken: string, phone: string) => Promise<string | null>;
 
-/** The hook point for a live Twilio credential check. It checks nothing yet, so every texting connection saves. */
-export const TWILIO_CHECK: TwilioCheck = async () => null;
+/** The live Twilio check: the credentials work and the number is in that account. */
+export const TWILIO_CHECK: TwilioCheck = (accountSid, authToken, phone) => checkTwilioNumber(accountSid, authToken, phone);
 
 const EXAMPLE_REFUSAL = "The example business can't connect services. Set up your business first.";
 const GUEST_REFUSAL = "Save your work with an email or Google account first, so the services you connect stay yours.";
