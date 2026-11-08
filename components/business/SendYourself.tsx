@@ -20,20 +20,20 @@ export async function copyText(text: string): Promise<boolean> {
   } catch {
     // No async clipboard (an insecure origin or an older browser), or permission refused; try the old way below.
   }
+  const area = document.createElement("textarea");
   try {
-    const area = document.createElement("textarea");
     area.value = text;
     area.setAttribute("readonly", "");
     area.style.position = "fixed";
     area.style.opacity = "0";
     document.body.append(area);
     area.select();
-    const copied = document.execCommand("copy");
-    area.remove();
-    return copied;
+    return document.execCommand("copy");
   } catch {
     // Nothing left to try; the caller tells the owner where the text still is.
     return false;
+  } finally {
+    area.remove();
   }
 }
 

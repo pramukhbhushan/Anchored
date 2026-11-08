@@ -55,11 +55,12 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllEnvs();
 });
 
 /** Post a Twilio webhook for `event`, signed with `token` unless told otherwise. */
-function fromTwilio(event: "sms" | "voice", fields: Record<string, string>, token = TOKEN, hookId = TEXT_HOOK) {
+function fromTwilio(event: "sms" | "voice" | "voice-result", fields: Record<string, string>, token = TOKEN, hookId = TEXT_HOOK) {
   const url = `https://anchored.test/api/hooks/twilio/${hookId}/${event}`;
   const request = new Request(`http://localhost/api/hooks/twilio/${hookId}/${event}`, {
     method: "POST",
@@ -106,6 +107,17 @@ describe("Twilio texts", () => {
 
     expect((await store().listCards(SESSION, SHOP.id))[0]).toMatchObject({ channel: "locked" });
   });
+
+  it("keeps only the newest reply pending when texts arrive quickly", async () => {
+    await fromTwilio("sms", { From: "+13015550192", Body: "First question" });
+    await fromTwilio("sms", { From: "+13015550192", Body: "Second question" });
+    await fromTwilio("sms", { From: "+13015550192", Body: "Third question" });
+
+    const cards = await store().listCards(SESSION, SHOP.id);
+    expect(cards.filter((card) => card.status === "pending")).toHaveLength(1);
+    expect(cards.filter((card) => card.status === "superseded")).toHaveLength(2);
+    expect(cards.find((card) => card.status === "pending")?.reason).toContain("Third question");
+  });
 });
 
 describe("Twilio calls", () => {
@@ -118,6 +130,28 @@ describe("Twilio calls", () => {
     expect(await cardTitles()).toEqual(["Missed call from +13015550177"]);
     // A caller hasn't agreed to texts, so they are kept with no consent.
     expect((await store().listContacts(SESSION, SHOP.id))[0]).toMatchObject({ phone: "+13015550177", consent: null });
+  });
+
+  it("rings the owner for 20 seconds, then drafts only when the call was not answered", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-09T15:00:00Z"));
+    await store().saveConnection(SESSION, {
+      businessId: SHOP.id,
+      kind: "texting",
+      hookId: TEXT_HOOK,
+      settings: { phone: "+13015550100", accountSid: `AC${"0".repeat(32)}`, forwardTo: "+13015550101" },
+      secret: encryptSecret(JSON.stringify({ authToken: TOKEN }), { CONNECTOR_SECRET_KEY: KEY }),
+    });
+
+    const ringing = await fromTwilio("voice", { From: "+13015550177", CallStatus: "ringing" });
+    const dial = await ringing.text();
+    expect(dial).toContain('<Dial timeout="20"');
+    expect(dial).toContain("<Number>+13015550101</Number>");
+    expect(dial).toContain("/voice-result");
+    expect(await cardTitles()).toEqual([]);
+
+    await fromTwilio("voice-result", { From: "+13015550177", DialCallStatus: "no-answer" });
+    expect(await cardTitles()).toEqual(["Missed call from +13015550177"]);
   });
 });
 
@@ -153,18 +187,48 @@ describe("Stripe", () => {
 });
 
 describe("forwarded email", () => {
-  function forward(key: string, mailbox = MAIL_HOOK) {
+  function forward(key: string, mailbox = MAIL_HOOK, fields: Record<string, string> = {}) {
     const request = new Request(`http://localhost/api/hooks/email?key=${key}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ From: "pat@example.com", FromName: "Pat", Subject: "Quote for a new AC", TextBody: "Can you send a quote?", MailboxHash: mailbox }),
+      body: JSON.stringify({ From: "pat@example.com", FromName: "Pat", Subject: "Quote for a new AC", TextBody: "Can you send a quote?", MailboxHash: mailbox, ...fields }),
     });
     return email.POST(request);
   }
 
-  it("hands a forwarded email to Inbox Triage", async () => {
+  it("files a customer's email under the agent that answers customers", async () => {
     expect(await (await forward("inbound-key")).json()).toEqual({ received: true, drafted: true });
-    expect(await cardTitles()).toEqual(["Forwarded email from Pat <pat@example.com>: Quote for a new AC"]);
+    const [card] = await store().listCards(SESSION, SHOP.id);
+    expect(card).toMatchObject({ title: "Customer email from Pat <pat@example.com>: Quote for a new AC", skill: "inquiry", channel: "list" });
+  });
+
+  it("files a billing email under Payment Nudger and states no amount", async () => {
+    await forward("inbound-key", MAIL_HOOK, { Subject: "Invoice 1042 is past due", TextBody: "Your balance is $240.50" });
+    const [card] = await store().listCards(SESSION, SHOP.id);
+    expect(card).toMatchObject({ skill: "nudger", title: expect.stringContaining("Billing email") });
+    expect(card?.reason).toContain("no amount");
+  });
+
+  it("gives the owner an email no agent of theirs handles", async () => {
+    await forward("inbound-key", MAIL_HOOK, { Subject: "New price list from Ferguson", TextBody: "Prices change next month." });
+    await forward("inbound-key", MAIL_HOOK, { Subject: "Hello", TextBody: "Lunch next week?" });
+    const cards = await store().listCards(SESSION, SHOP.id);
+    expect(cards.map((card) => [card.skill, card.title.split(" from ")[0]])).toEqual([
+      ["triage", "Supplier email"],
+      ["triage", "Forwarded email"],
+    ]);
+    expect(cards[0]?.reason).toContain("None of your agents handles this kind of email");
+  });
+
+  it("makes one card for an email Postmark delivers twice", async () => {
+    await forward("inbound-key", MAIL_HOOK, { MessageID: "abc-123" });
+    await forward("inbound-key", MAIL_HOOK, { MessageID: "abc-123" });
+    expect(await cardTitles()).toHaveLength(1);
+  });
+
+  it("sends nothing to anyone", async () => {
+    await forward("inbound-key");
+    expect(await store().listOutbox(SESSION, SHOP.id)).toEqual([]);
   });
 
   it("shows the email's own words and promises no draft that nothing will write", async () => {

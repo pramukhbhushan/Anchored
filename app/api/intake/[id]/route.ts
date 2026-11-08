@@ -1,5 +1,6 @@
 import type { IntakeResponse } from "@/lib/api/contract";
 import { intakeAnswerSchema } from "@/lib/api/schemas";
+import { withCrewDecisions } from "@/lib/domain/crew";
 import { answerText, draftDetails, draftToAnswers, nextQuestion, planReadyText } from "@/lib/domain/intake";
 import { buildProfileFromAnswers } from "@/lib/server/create-business";
 import { fail, handleError, json, readBody } from "@/lib/server/http";
@@ -62,8 +63,13 @@ export async function POST(request: Request, { params }: Context) {
     let reply = turn.reply;
     if (reply === null) {
       // The owner confirmed the details at the review, so they arrive as theirs.
-      const business = { ...(await buildProfileFromAnswers(draftToAnswers(turn.draft))), ...draftDetails(turn.draft) };
+      const business = withCrewDecisions({ ...(await buildProfileFromAnswers(draftToAnswers(turn.draft))), ...draftDetails(turn.draft) });
       await store.saveBusiness(session, business, "onboarding");
+      await store.recordEvent(session, business.id, "onboarding_raw", {
+        intakeId: id,
+        messages: transcript.map(({ role, text, at }) => ({ role, text, at })),
+        draft: turn.draft,
+      });
       // The starters are written after this response, so the plan appears without waiting on the model.
       scheduleStarters(session, business);
       businessId = business.id;

@@ -90,3 +90,24 @@ describe("deliveryFor", () => {
     expect(isEmailAddress("Sam <sam@example.com>")).toBe(false);
   });
 });
+
+describe("deliveryFor on Telegram", () => {
+  const TG: Contact = { ...DANA, id: "c2", phone: null, consent: { source: "messaged-first", at: "2026-11-07T15:00:00Z" }, telegramChatId: "5551234567" };
+  const BOT = { texting: false, email: false, telegram: true };
+  const message = { channel: "telegram", to: "Dana", contactId: "c2" };
+
+  it("sends to the contact's chat, found by contact id, never by the name the owner reads", () => {
+    expect(deliveryFor(message, BOT, [TG])).toEqual({ by: "anchored", to: "5551234567" });
+    expect(deliveryFor({ ...message, contactId: "someone-else" }, BOT, [TG]).by).toBe("owner");
+  });
+
+  it("refuses with a reason when the bot isn't set up, the customer sent /stop, or there's no OK on file", () => {
+    expect(deliveryFor(message, { ...BOT, telegram: false }, [TG])).toMatchObject({ by: "owner", reason: expect.stringContaining("Telegram isn't set up") });
+    expect(deliveryFor(message, BOT, [{ ...TG, optedOutAt: "2026-11-08T10:00:00Z" }])).toMatchObject({ by: "owner", reason: expect.stringContaining("/stop") });
+    expect(deliveryFor(message, BOT, [{ ...TG, consent: null }]).by).toBe("owner");
+  });
+
+  it("still delivers the bot's confirmation of a /stop", () => {
+    expect(deliveryFor({ ...message, rule: "protocol" }, BOT, [{ ...TG, optedOutAt: "2026-11-08T10:00:00Z" }])).toEqual({ by: "anchored", to: "5551234567" });
+  });
+});

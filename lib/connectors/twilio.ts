@@ -102,5 +102,10 @@ export function twimlSayAndHangUp(words: string | null): string {
   return `<?xml version="1.0" encoding="UTF-8"?><Response>${say}<Hangup/></Response>`;
 }
 
+/** TwiML that rings the owner's phone for 20 seconds, then reports the result to `action`. */
+export function twimlDialOwner(phone: string, action: string): string {
+  return `<?xml version="1.0" encoding="UTF-8"?><Response><Dial timeout="20" action="${xml(action)}" method="POST"><Number>${xml(phone)}</Number></Dial></Response>`;
+}
+
 /** An empty TwiML reply: Twilio sends nothing back to the texter. */
 export const EMPTY_TWIML = `<?xml version="1.0" encoding="UTF-8"?><Response></Response>`;

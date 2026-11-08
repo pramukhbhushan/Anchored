@@ -1,13 +1,16 @@
+import { DeleteTelegramMessage } from "@/components/business/DeleteTelegramMessage";
 import { CheckCheck, Plug } from "lucide-react";
 import type { Metadata } from "next";
 import { AgentCard } from "@/components/business/AgentCard";
+import { CardFeedRealtime } from "@/components/business/CardFeedRealtime";
+import { OpenFromHash } from "@/components/business/OpenFromHash";
 import { cardSource } from "@/components/agent-labels";
 import { businessHref } from "@/components/routes";
 import { ResizablePanel } from "@/components/resize/ResizablePanel";
 import { SendYourself } from "@/components/business/SendYourself";
 import { SimulateButton } from "@/components/business/SimulateButton";
 import { WritingStarters } from "@/components/business/WritingStarters";
-import { approvedDraft, handOff, type HandOff, type HandOffBusiness } from "@/components/business/handoff";
+import { approvedDraft, handOff, type ApprovedDraft, type HandOff, type HandOffBusiness } from "@/components/business/handoff";
 import { buttonClass, ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader, SectionHeader } from "@/components/ui/PageHeader";
@@ -32,22 +35,36 @@ import { getBusinessOrNotFound, getChoices, getFeed } from "@/lib/server/data";
 
 export const metadata: Metadata = { title: "Approvals" };
 
-const CHANNEL_LABEL: Readonly<Record<OutboxEntry["channel"], string>> = {
+type DisplayEntry = Omit<OutboxEntry, "channel"> & Pick<ApprovedDraft, "channel">;
+
+const CHANNEL_LABEL: Readonly<Record<DisplayEntry["channel"], string>> = {
   sms: "Text",
   email: "Email",
   list: "Logged",
+  telegram: "Telegram message",
 };
 
+/** Report whether a delivery renders its message body instead of a list action. */
+function isMessage(channel: string): boolean {
+  return channel === "sms" || channel === "telegram";
+}
+
 /** Return the outbox line for an email or list entry, from its card when the feed still has it. */
-function logText(entry: OutboxEntry, card: CardRecord | undefined): string {
+function logText(entry: DisplayEntry, card: CardRecord | undefined): string {
   if (card === undefined) return `${CHANNEL_LABEL[entry.channel]}: ${entry.to}`;
   return entry.channel === "email" ? `Email to ${entry.to}: ${card.title}` : `${card.action}: ${card.title}`;
 }
 
 /** Say where one outbox entry stands, or `null` when the owner sends it and there is nothing to add. */
-function deliveryLine(entry: OutboxEntry, held: boolean): string | null {
+function deliveryLine(entry: DisplayEntry, held: boolean): string | null {
+  if (entry.deletionState === "deleted") return "Removed from Telegram. Someone may already have read it.";
+  if (entry.deletionState === "deleting") return "Removal is being checked. The original sent record is kept here.";
+  if (entry.deletionState === "failed") return `Sent by Anchored. Removal was not confirmed: ${entry.deletionNote ?? "Try again."}`;
   if (entry.delivery === "sent") return "Sent by Anchored";
-  if (entry.delivery === "failed") return entry.note === null ? "Didn't send. Send it yourself." : `Didn't send: ${entry.note}`;
+  if (entry.delivery === "failed") {
+    if (entry.channel === "telegram") return entry.note === null ? "Didn't send. Check the Telegram connection." : `Didn't send: ${entry.note} Check the Telegram connection.`;
+    return entry.note === null ? "Didn't send. Send it yourself." : `Didn't send: ${entry.note}`;
+  }
   if (held) return `Ready to send at ${sendTimeText(new Date(entry.sentAt))}`;
   if (entry.delivery === "sending") return "Sending now";
   // Due but not yet picked up: the scheduled sender takes it on its next run, so nothing has gone out yet.
@@ -56,13 +73,20 @@ function deliveryLine(entry: OutboxEntry, held: boolean): string | null {
 }
 
 /** Render one outbox entry: a text as a bubble, anything else as a log line, each with its send step when the owner sends it. */
+/** Say what authorized an entry no card tap approved: the owner's acknowledgment rule, or the bot's fixed answer. */
+function ruleLine(entry: DisplayEntry): string | null {
+  if (entry.rule === "acknowledge") return entry.delivery === "sent" ? "Sent under your acknowledgment rule" : "Under your acknowledgment rule";
+  if (entry.rule === "protocol") return "The bot's fixed answer to the customer's /start or /stop";
+  return null;
+}
+
 function OutboxItem({
   entry,
   card,
   queued,
   business,
 }: {
-  readonly entry: OutboxEntry;
+  readonly entry: DisplayEntry;
   readonly card?: CardRecord;
   readonly queued: boolean;
   readonly business: HandOffBusiness;
@@ -76,12 +100,21 @@ function OutboxItem({
   const draft = approvedDraft(entry, card);
   const step: HandOff | null = !ownerSends || draft === null ? null : handOff(draft, business);
   const send = step === null ? null : <SendYourself handOff={step} />;
-  if (entry.channel === "sms") {
+  if (isMessage(entry.channel)) {
     return (
       <li className={`bubble${held ? " is-queued" : ""}`}>
-        <small>Text to {entry.to}</small>
+        <small>{CHANNEL_LABEL[entry.channel]} to {entry.to}</small>
         {entry.body}
+        {ruleLine(entry) !== null && <small>{ruleLine(entry)}</small>}
         {when}
+        {entry.channel === "telegram" && entry.delivery === "failed" && (
+          <div className="handoff">
+            <div className="handoff-acts">
+              <a className={buttonClass("secondary", "sm")} href={businessHref(entry.businessId, "connections")}>See connections</a>
+            </div>
+          </div>
+        )}
+        {entry.canDeleteTelegram && <DeleteTelegramMessage businessId={entry.businessId} entryId={entry.id} />}
         {send}
       </li>
     );
@@ -135,6 +168,8 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
 
   return (
     <>
+      <CardFeedRealtime businessId={business.id} />
+      <OpenFromHash />
       <PageHeader
         title="Approvals"
         description={
@@ -212,7 +247,7 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
                       <p className="phone-label">Held for quiet hours</p>
                       <ul className="phone-list">
                         {queued.map((entry) => (
-                          <OutboxItem key={entry.id} entry={entry} card={cardById.get(entry.cardId)} queued business={handOffBusiness} />
+                          <OutboxItem key={entry.id} entry={entry} card={entry.cardId === null ? undefined : cardById.get(entry.cardId)} queued business={handOffBusiness} />
                         ))}
                       </ul>
                     </>
@@ -222,7 +257,7 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
                       {queued.length > 0 && <p className="phone-label">Approved</p>}
                       <ul className="phone-list">
                         {sent.map((entry) => (
-                          <OutboxItem key={entry.id} entry={entry} card={cardById.get(entry.cardId)} queued={false} business={handOffBusiness} />
+                          <OutboxItem key={entry.id} entry={entry} card={entry.cardId === null ? undefined : cardById.get(entry.cardId)} queued={false} business={handOffBusiness} />
                         ))}
                       </ul>
                     </>

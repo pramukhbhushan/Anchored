@@ -1,4 +1,5 @@
 import { SKILL_STEPS, TOOL_STEPS, TRADE_TRIGGERS } from "@/components/workflows/copy";
+import { displayAgentName } from "@/components/agent-labels";
 import { money } from "@/components/view-helpers";
 import type { SetChoiceRequest } from "@/lib/api/contract";
 import { SKILLS } from "@/lib/domain/agents";
@@ -25,7 +26,7 @@ export interface WhoHandles {
   readonly kind: HandlerKind;
   /** The handler's name on the graph: "Anchored drafts it", "Your OpenTable", "Certus", "Not handled yet". */
   readonly name: string;
-  /** The line under the name: "Front Desk agent, in your $29 plan", "New, $250 a month". */
+  /** The line under the name: "Customer agent, in your $29 plan", "New, $250 a month". */
   readonly note: string;
   /** A full sentence: "Certus answers the phone for you, $250 a month". */
   readonly line: string;
@@ -82,7 +83,7 @@ export function whoHandles(business: BusinessProfile, choices: Readonly<Record<W
   const choice = choices[id] ?? { path: "skip" };
   if (choice.path === "build") {
     const build = pathOptions(business, id).build;
-    const agent = build === null ? "Anchored" : `${build.agentName} agent`;
+    const agent = build === null ? "Anchored" : `${displayAgentName(build.agentName)} agent`;
     return {
       kind: "agent",
       name: "Anchored drafts it",
@@ -183,7 +184,7 @@ export function changeOptions(business: BusinessProfile, choices: Readonly<Recor
         title: "Let Anchored draft it for your OK",
         detail: `${options.build.skills.map((skill) => SKILLS[skill].job).join(". ")}. In your ${money(AGENT_PLAN_MONTHLY)} plan.`,
         request: { workflow: id, path: "build" },
-        runner: `${options.build.agentName} agent`,
+        runner: `${displayAgentName(options.build.agentName)} agent`,
       }),
     );
   }

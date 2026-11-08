@@ -1,23 +1,23 @@
 /* =============================================================================
    Module Overview
    =============================================================================
-   The Tools page's ranked rows: fit ring, the tool's letter tile and price
-   chip, the workflows it covers as icon chips, its check dots, and its one
-   action. One row per tool keeps the ranking read top to bottom. At wide sizes
-   every part takes its own column; narrower, the parts stack beside the ring.
-   Layouts switch on `@container app`, the page area beside the sidebar. */
+   The Tools page's ranked tool cards: fit ring, the tool's letter tile and
+   price chip, the workflows it covers as icon chips, its check dots, and its
+   one action. Two cards form each desktop row; a phone shows one card so its
+   content stays readable. Layouts switch on `@container app`, the page area
+   beside the sidebar. */
 
 .board{min-width:0}
-.rows{min-width:0}
+.rows{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s-4);align-items:start;min-width:0}
 .none{max-width:65ch;color:var(--muted)}
 
 /* =============================================================================
-   Row layout
+   Card layout
    ============================================================================= */
 
-/* Phone: the ring on the left, everything else stacked beside it */
+/* Phone: the ring on the left, everything else stacked beside it. */
 .head{display:none}
-.row{display:grid;grid-template-columns:48px minmax(0,1fr);grid-template-areas:"fit tool" ". covers" ". checks" ". acts" "detail detail";gap:var(--s-3);align-items:start;padding:var(--s-4) 0;border-bottom:1px dashed var(--line)}
+.row{display:grid;grid-template-columns:48px minmax(0,1fr);grid-template-areas:"fit tool" ". covers" ". checks" ". acts" "detail detail";gap:var(--s-3);align-items:start;padding:var(--pad);border:1px solid var(--line);border-radius:var(--r);background:var(--sheet);min-width:0}
 .fit{grid-area:fit}
 .tool{grid-area:tool}
 .covers{grid-area:covers}
@@ -25,18 +25,10 @@
 .acts{grid-area:acts}
 .detail{grid-area:detail}
 
-/* Tablet: the action stays in a right column, so Choose lines up down the list */
+/* Two cards fill each desktop row. */
 @container app (min-width:640px){
-  .row{grid-template-columns:48px minmax(0,1fr) auto;grid-template-areas:"fit tool acts" ". covers acts" ". checks acts" ". detail detail";column-gap:var(--s-5)}
-}
-
-/* Wide: each part gets a column, headed once at the top */
-@container app (min-width:1100px){
-  .head,.row{grid-template-columns:48px minmax(0,1.1fr) minmax(0,1.5fr) 250px 220px;column-gap:var(--s-5)}
-  .row{grid-template-areas:"fit tool covers checks acts" ". detail detail detail detail";align-items:center}
-  .head{display:grid;padding-bottom:var(--s-2);border-bottom:1px solid var(--line);font-size:var(--fs-fine);font-weight:600;color:var(--muted)}
-  .head span:first-child{text-align:center}
-  .acts{align-self:start}
+  .rows{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .row{grid-template-columns:48px minmax(0,1fr) auto;grid-template-areas:"fit tool acts" ". covers acts" ". checks acts" ". detail detail";column-gap:var(--s-4)}
 }
 
 /* =============================================================================

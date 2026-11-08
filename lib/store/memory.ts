@@ -1,8 +1,11 @@
+import type { RecordedFollowup } from "@/lib/domain/followups";
 import { randomUUID } from "node:crypto";
 import type { CardRecord, ChatMessage, OutboxEntry } from "@/lib/api/contract";
 import type { ConnectionKind } from "@/lib/domain/connections";
 import type { Contact } from "@/lib/domain/contacts";
-import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
+import { defaultRuleState, type OutboxRule, type StandingRuleId, type StandingRuleState } from "@/lib/domain/rules";
+import { inOrder, type NewThreadMessage, type ThreadMessage } from "@/lib/domain/threads";
+import type { BusinessProfile, Choice, ChoiceMap, ConversationOwner, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
 import {
   NotFoundError,
   type CardPatch,
@@ -12,10 +15,15 @@ import {
   type NewConnection,
   type NewContact,
   type NewOutboxEntry,
+  type NewTelegramChat,
   type OutboxPatch,
   type ProfileVersion,
   type Store,
+  type StoredEvent,
   type StoredConnection,
+  type TelegramChat,
+  type BriefRunResult,
+  type BriefState,
 } from "./types";
 
 // =============================================================================
@@ -26,18 +34,37 @@ import {
 // each serverless instance has its own copy, so production uses `SupabaseStore`.
 
 interface SessionData {
+  readonly followups: Map<string, RecordedFollowup>;
   readonly businesses: Map<string, BusinessProfile>;
   readonly choices: Map<string, Map<WorkflowId, Choice>>;
   readonly cards: Map<string, CardRecord>;
   readonly outbox: OutboxEntry[];
   readonly contacts: Map<string, Contact>;
   readonly connections: Map<string, StoredConnection>;
-  readonly events: { businessId: string; source: string; payload: Readonly<Record<string, unknown>>; receivedAt: string }[];
+  readonly events: StoredEvent[];
   /** Chat messages by thread, keyed `${kind}:${id}`. */
   readonly threads: Map<string, ChatMessage[]>;
   readonly intakes: Map<string, IntakeRecord>;
   /** Saved profile versions by business id, oldest first. */
   readonly versions: Map<string, ProfileVersion[]>;
+  /** Customer thread messages, in the order they were added. */
+  readonly threadMessages: ThreadMessage[];
+  /** Conversation owner by `${businessId}:${contactId}`. */
+  readonly conversationOwners: Map<string, ConversationOwner>;
+  /** Standing rules, keyed `${businessId}:${rule}`. */
+  readonly rules: Map<string, StandingRuleState>;
+  /** Telegram hook ids by business id. */
+  readonly telegramHooks: Map<string, string>;
+  /** The keys of outbox entries a rule authorized, so each key queues once. */
+  readonly ruleKeys: Set<string>;
+  /** Each business's brief state, by business id. */
+  readonly briefs: Map<string, BriefState>;
+}
+
+/** A Telegram update's processing state. */
+interface UpdateClaim {
+  status: "claimed" | "done" | "failed";
+  claimedAt: string;
 }
 
 // Past this many sessions the oldest is dropped, so a server on memory can't grow without bound.
@@ -52,6 +79,9 @@ export class MemoryStore implements Store {
   readonly kind = "memory" as const;
   private readonly sessions = new Map<string, SessionData>();
   private readonly aiCalls = new Map<string, number>();
+  // The shared bot's records belong to no one session: a webhook knows only a chat id, an update id or a hook id.
+  private readonly telegramChats = new Map<string, TelegramChat>();
+  private readonly telegramUpdates = new Map<number, UpdateClaim>();
 
   /** Return the session's data for a write, creating it on first use and evicting the oldest past `MAX_SESSIONS`. */
   private data(session: string): SessionData {
@@ -62,7 +92,25 @@ export class MemoryStore implements Store {
         const oldest = this.sessions.keys().next().value;
         if (oldest !== undefined) this.sessions.delete(oldest);
       }
-      found = { businesses: new Map(), choices: new Map(), cards: new Map(), outbox: [], contacts: new Map(), connections: new Map(), events: [], threads: new Map(), intakes: new Map(), versions: new Map() };
+      found = {
+        followups: new Map(),
+        businesses: new Map(),
+        choices: new Map(),
+        cards: new Map(),
+        outbox: [],
+        contacts: new Map(),
+        connections: new Map(),
+        events: [],
+        threads: new Map(),
+        intakes: new Map(),
+        versions: new Map(),
+        threadMessages: [],
+        conversationOwners: new Map(),
+        rules: new Map(),
+        telegramHooks: new Map(),
+        ruleKeys: new Set(),
+        briefs: new Map(),
+      };
       this.sessions.set(session, found);
     }
     return found;
@@ -71,6 +119,17 @@ export class MemoryStore implements Store {
   /** Return the session's data for a read, without creating an entry for a visitor who has stored nothing. */
   private peek(session: string): SessionData | undefined {
     return this.sessions.get(session);
+  }
+
+  async listFollowups(session: string, businessId: string): Promise<RecordedFollowup[]> {
+    return [...(this.peek(session)?.followups.values() ?? [])].filter((record) => record.businessId === businessId).map((record) => ({ ...record }));
+  }
+
+  async saveFollowup(session: string, followup: RecordedFollowup): Promise<void> {
+    const records = this.data(session).followups;
+    const before = records.get(followup.id);
+    if (before !== undefined && before.businessId !== followup.businessId) throw new NotFoundError("Follow-up not found in this business.");
+    records.set(followup.id, { ...followup });
   }
 
   async listBusinesses(session: string): Promise<BusinessProfile[]> {
@@ -112,6 +171,7 @@ export class MemoryStore implements Store {
     const existingKeys = new Set([...cards.values()].map((card) => card.key));
     for (const draft of drafts) {
       if (existingKeys.has(draft.key)) continue;
+      existingKeys.add(draft.key);
       const id = randomUUID();
       cards.set(id, { ...draft, id, businessId, status: "pending", edited: false, createdAt: new Date().toISOString(), decidedAt: null });
     }
@@ -167,7 +227,7 @@ export class MemoryStore implements Store {
     }
     let outbox = 0;
     data.outbox.forEach((entry, index) => {
-      if (!ids.has(entry.cardId) || entry.delivery !== "queued") return;
+      if (entry.cardId === null || !ids.has(entry.cardId) || entry.delivery !== "queued") return;
       data.outbox[index] = { ...entry, delivery: "failed", note };
       outbox += 1;
     });
@@ -189,6 +249,25 @@ export class MemoryStore implements Store {
     return saved;
   }
 
+  async addRuleOutbox(session: string, entry: NewOutboxEntry & { readonly rule: OutboxRule; readonly ruleKey: string }): Promise<OutboxEntry | null> {
+    // Check and write happen with no await between them, so a second entry with the key can't slip in.
+    const keys = this.data(session).ruleKeys;
+    if (keys.has(entry.ruleKey)) return null;
+    keys.add(entry.ruleKey);
+    const { ruleKey: _key, ...rest } = entry;
+    return this.addOutbox(session, rest);
+  }
+
+  async claimTelegramDeletion(session: string, businessId: string, entryId: string): Promise<OutboxEntry | null> {
+    const outbox = this.peek(session)?.outbox ?? [];
+    const index = outbox.findIndex((entry) => entry.id === entryId && entry.businessId === businessId && entry.channel === "telegram" && entry.delivery === "sent" && entry.deletionState !== "deleting" && entry.deletionState !== "deleted");
+    const entry = outbox[index];
+    if (entry === undefined) return null;
+    const claimed: OutboxEntry = { ...entry, deletionState: "deleting" };
+    outbox[index] = claimed;
+    return claimed;
+  }
+
   async claimOutbox(session: string, entryId: string): Promise<OutboxEntry | null> {
     // Check and write happen with no await between them, so a second sender finds it already sending.
     const outbox = this.peek(session)?.outbox ?? [];
@@ -205,7 +284,7 @@ export class MemoryStore implements Store {
     const index = outbox.findIndex((entry) => entry.id === entryId);
     const entry = outbox[index];
     if (entry === undefined) throw new NotFoundError(`Outbox entry ${entryId} not found in this session.`);
-    outbox[index] = { ...entry, delivery: patch.delivery, note: patch.note === undefined ? entry.note : patch.note, sentAt: patch.sentAt ?? entry.sentAt };
+    outbox[index] = { ...entry, ...patch, delivery: patch.delivery, note: patch.note === undefined ? entry.note : patch.note, sentAt: patch.sentAt ?? entry.sentAt };
   }
 
   async listDueOutbox(now: string, limit: number): Promise<{ readonly session: string; readonly entry: OutboxEntry }[]> {
@@ -221,10 +300,13 @@ export class MemoryStore implements Store {
 
   async saveContact(session: string, contact: NewContact): Promise<Contact> {
     const contacts = this.data(session).contacts;
-    // One contact per phone number: a second save for the same number updates the first.
+    // One contact per phone number and per Telegram chat: a second save for either updates the first.
     const samePhone = contact.phone === null ? undefined : [...contacts.values()].find((c) => c.businessId === contact.businessId && c.phone === contact.phone);
-    const id = contact.id ?? samePhone?.id ?? randomUUID();
-    if (samePhone !== undefined && samePhone.id !== id) contacts.delete(samePhone.id);
+    const sameChat = contact.telegramChatId === undefined ? undefined : [...contacts.values()].find((c) => c.businessId === contact.businessId && c.telegramChatId === contact.telegramChatId);
+    const id = contact.id ?? samePhone?.id ?? sameChat?.id ?? randomUUID();
+    for (const duplicate of [samePhone, sameChat]) {
+      if (duplicate !== undefined && duplicate.id !== id) contacts.delete(duplicate.id);
+    }
     const saved: Contact = { ...contact, id };
     contacts.set(id, saved);
     return saved;
@@ -268,7 +350,11 @@ export class MemoryStore implements Store {
   }
 
   async recordEvent(session: string, businessId: string, source: string, payload: Readonly<Record<string, unknown>>): Promise<void> {
-    this.data(session).events.push({ businessId, source, payload, receivedAt: new Date().toISOString() });
+    this.data(session).events.push({ id: randomUUID(), businessId, source, payload, receivedAt: new Date().toISOString() });
+  }
+
+  async listEvents(session: string, businessId: string, since?: string): Promise<StoredEvent[]> {
+    return (this.peek(session)?.events ?? []).filter((event) => event.businessId === businessId && (since === undefined || event.receivedAt > since)).map((event) => ({ ...event }));
   }
 
   async listMessages(session: string, thread: ChatThread, limit: number): Promise<ChatMessage[]> {
@@ -291,11 +377,123 @@ export class MemoryStore implements Store {
     this.data(session).intakes.set(intake.id, intake);
   }
 
+  async telegramHook(session: string, businessId: string, candidate: string): Promise<string> {
+    const data = this.peek(session);
+    if (data === undefined || !data.businesses.has(businessId)) throw new NotFoundError(`Business ${businessId} not found in this session.`);
+    const saved = data.telegramHooks.get(businessId);
+    if (saved !== undefined) return saved;
+    data.telegramHooks.set(businessId, candidate);
+    return candidate;
+  }
+
+  async findTelegramHook(hookId: string): Promise<{ readonly session: string; readonly businessId: string } | null> {
+    for (const [session, data] of this.sessions) {
+      for (const [businessId, saved] of data.telegramHooks) {
+        if (saved === hookId) return { session, businessId };
+      }
+    }
+    return null;
+  }
+
+  async findTelegramChat(chatId: string): Promise<TelegramChat | null> {
+    const chat = this.telegramChats.get(chatId);
+    // A binding outlives nothing: once its session is evicted or reset, the chat is unbound.
+    return chat !== undefined && this.sessions.has(chat.session) ? chat : null;
+  }
+
+  async bindTelegramChat(session: string, chat: NewTelegramChat): Promise<TelegramChat> {
+    // Touch the session, so the binding lives exactly as long as the session's other data.
+    this.data(session);
+    const saved: TelegramChat = { ...chat, session, blockedAt: null };
+    this.telegramChats.set(chat.chatId, saved);
+    return saved;
+  }
+
+  async setTelegramChatBlocked(chatId: string, at: string | null): Promise<void> {
+    const chat = this.telegramChats.get(chatId);
+    if (chat !== undefined) this.telegramChats.set(chatId, { ...chat, blockedAt: at });
+  }
+
+  async telegramUpdateDone(updateId: number): Promise<boolean> {
+    return this.telegramUpdates.get(updateId)?.status === "done";
+  }
+
+  async claimTelegramUpdate(updateId: number, now: string, retakeAfterMs: number): Promise<boolean> {
+    // Check and write happen with no await between them, so two deliveries of one update can't both claim it.
+    const claim = this.telegramUpdates.get(updateId);
+    const stale = claim !== undefined && claim.status === "claimed" && Date.parse(claim.claimedAt) <= Date.parse(now) - retakeAfterMs;
+    if (claim !== undefined && claim.status !== "failed" && !stale) return false;
+    this.telegramUpdates.set(updateId, { status: "claimed", claimedAt: now });
+    return true;
+  }
+
+  async finishTelegramUpdate(updateId: number, status: "done" | "failed"): Promise<void> {
+    const claim = this.telegramUpdates.get(updateId);
+    if (claim !== undefined) claim.status = status;
+  }
+
+  async addThreadMessage(session: string, message: NewThreadMessage): Promise<ThreadMessage> {
+    const saved: ThreadMessage = { ...message, id: randomUUID() };
+    this.data(session).threadMessages.push(saved);
+    return saved;
+  }
+
+  async listThreadMessages(session: string, businessId: string, contactId: string, limit: number): Promise<ThreadMessage[]> {
+    const thread = (this.peek(session)?.threadMessages ?? []).filter((message) => message.businessId === businessId && message.contactId === contactId);
+    return inOrder(thread).slice(-limit);
+  }
+
+  async getConversationOwner(session: string, businessId: string, contactId: string): Promise<ConversationOwner> {
+    return this.peek(session)?.conversationOwners.get(`${businessId}:${contactId}`) ?? "frontdesk";
+  }
+
+  async setConversationOwner(session: string, businessId: string, contactId: string, owner: ConversationOwner, _at: string): Promise<void> {
+    this.data(session).conversationOwners.set(`${businessId}:${contactId}`, owner);
+  }
+
+  async getStandingRules(session: string, businessId: string): Promise<StandingRuleState[]> {
+    return [...(this.peek(session)?.rules.entries() ?? [])].filter(([key]) => key.startsWith(`${businessId}:`)).map(([, state]) => state);
+  }
+
+  async setStandingRule(session: string, businessId: string, rule: StandingRuleId, enabled: boolean, at: string): Promise<StandingRuleState> {
+    const rules = this.data(session).rules;
+    const before = rules.get(`${businessId}:${rule}`) ?? defaultRuleState(rule);
+    const saved: StandingRuleState = { rule, enabled, approvedAt: enabled ? at : before.approvedAt, changedAt: at };
+    rules.set(`${businessId}:${rule}`, saved);
+    return saved;
+  }
+
+  async getBriefState(session: string, businessId: string): Promise<BriefState | null> {
+    return this.peek(session)?.briefs.get(businessId) ?? null;
+  }
+
+  async claimBriefRun(session: string, businessId: string, now: string, retakeAfterMs: number): Promise<boolean> {
+    // Check and write happen with no await between them, so two runs can't both start.
+    const briefs = this.data(session).briefs;
+    const state = briefs.get(businessId) ?? { runningSince: null, lastSuccessAt: null, lastCardKey: null, lastSnapshot: null };
+    if (state.runningSince !== null && Date.parse(state.runningSince) > Date.parse(now) - retakeAfterMs) return false;
+    briefs.set(businessId, { ...state, runningSince: now });
+    return true;
+  }
+
+  async finishBriefRun(session: string, businessId: string, result: BriefRunResult): Promise<void> {
+    const briefs = this.data(session).briefs;
+    const state = briefs.get(businessId) ?? { runningSince: null, lastSuccessAt: null, lastCardKey: null, lastSnapshot: null };
+    briefs.set(businessId, result.ok ? { runningSince: null, lastSuccessAt: result.at, lastCardKey: result.cardKey, lastSnapshot: result.snapshot } : { ...state, runningSince: null });
+  }
+
+  async listBriefTargets(limit: number): Promise<{ readonly session: string; readonly businessId: string }[]> {
+    return [...this.sessions].flatMap(([session, data]) => [...data.businesses.keys()].map((businessId) => ({ session, businessId }))).slice(0, limit);
+  }
+
   async findIntakeByBusiness(session: string, businessId: string): Promise<IntakeRecord | null> {
     return [...(this.peek(session)?.intakes.values() ?? [])].find((intake) => intake.businessId === businessId) ?? null;
   }
 
   async reset(session: string): Promise<void> {
     this.sessions.delete(session);
+    for (const [chatId, chat] of this.telegramChats) {
+      if (chat.session === session) this.telegramChats.delete(chatId);
+    }
   }
 }

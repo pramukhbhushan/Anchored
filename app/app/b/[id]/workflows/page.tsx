@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CrewPanel } from "@/components/business/CrewPanel";
 import { OpenFromHash } from "@/components/business/OpenFromHash";
 import { automationHref, businessHref, cardAnchor, toolsHref } from "@/components/routes";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -89,6 +90,7 @@ export default async function WorkflowsPage({ params }: { readonly params: Promi
         stackHref={businessHref(business.id, "stack")}
         canApprove={!isSampleBusinessId(business.id)}
       />
+      <CrewPanel business={business} choices={choices} />
       <WorkflowMap businessId={business.id} businessName={business.name} stages={map} approvalsHref={approvalsHref} pendingTotal={pending.length} />
       <details className="wf-list">
         <summary>See every job as a list, step by step</summary>

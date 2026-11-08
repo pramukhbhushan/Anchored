@@ -1,8 +1,10 @@
 import "server-only";
+import { canDeleteTelegram } from "@/lib/server/dispatch";
 import { randomUUID } from "node:crypto";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import type { CardRecord, ChatMessage, EventCardResponse, OutboxEntry } from "@/lib/api/contract";
+import { STANDING_SKILLS } from "@/lib/domain/agents";
 import { draftFeed } from "@/lib/domain/cards";
 import { isSampleBusinessId, SAMPLE_BUSINESS } from "@/lib/domain/cases";
 import { chosenSkills, resolveChoices, workflowIdsOf } from "@/lib/domain/paths";
@@ -182,15 +184,15 @@ export async function getFeed(business: BusinessProfile): Promise<Feed> {
   );
   const due = isAiConfigured() && startersDue(business, choices, stored, connected);
   if (due) scheduleStarters(session, business);
-  return { cards: cards.sort(feedOrder), outbox, connected, examplesHidden: hidden, writingStarters: due || isWritingStarters(session, business.id) };
+  return { cards: cards.sort(feedOrder), outbox: outbox.map((entry) => { const { providerId: _provider, ...publicEntry } = entry; return { ...publicEntry, canDeleteTelegram: business.kind === "custom" && canDeleteTelegram(entry, new Date()) }; }), connected, examplesHidden: hidden, writingStarters: due || isWritingStarters(session, business.id) };
 }
 
 // Standing drafts sort below every real event: new calls, leads and invoices should lead the feed.
 const STANDING_DRAFT_TIME = new Date(0).toISOString();
 
-/** Skills whose cards can be acted on now: the chosen build skills, plus triage, which always runs. */
+/** Skills whose cards can be acted on now: the chosen build skills, plus the brief and triage, which always run. */
 function liveSkills(business: BusinessProfile, choices: Record<WorkflowId, Choice>): Set<SkillId> {
-  return new Set<SkillId>([...chosenSkills(business, choices), "triage"]);
+  return new Set<SkillId>([...chosenSkills(business, choices), ...STANDING_SKILLS]);
 }
 
 /** Report whether `card` can still be decided: its skill is chosen now, so its agent is working. */

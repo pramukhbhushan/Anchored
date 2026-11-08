@@ -1,10 +1,10 @@
 "use client";
 
-import { ChevronDown, LogOut, Mail, Trash2, UserRound } from "lucide-react";
+import { ChevronDown, LogOut, Mail, RotateCcw, Trash2, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { callApi, errorText } from "@/components/api";
-import { APP_HREF } from "@/components/routes";
+import { APP_HREF, NEW_BUSINESS_HREF } from "@/components/routes";
 import { useToast } from "@/components/ui/Toast";
 import type { DeleteBusinessesResponse } from "@/lib/api/contract";
 import { createBrowserSupabase } from "@/lib/auth/browser";
@@ -113,6 +113,7 @@ export function AccountMenu({ viewer }: AccountMenuProps) {
           </div>
         )}
         {canSaveWork && <SaveWork />}
+        <StartFresh />
         <DeleteBusinesses />
         {viewer.authEnabled && (
           <form className={styles.signOut} method="post" action={SIGN_OUT_PATH}>
@@ -130,6 +131,59 @@ export function AccountMenu({ viewer }: AccountMenuProps) {
 // =============================================================================
 // Panel sections
 // =============================================================================
+
+/** Clear demo data after confirmation, then open a new onboarding. */
+function StartFresh() {
+  const router = useRouter();
+  const toast = useToast();
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function reset() {
+    setBusy(true);
+    setError(null);
+    try {
+      await callApi<DeleteBusinessesResponse>("/api/businesses", "DELETE");
+      toast("Ready for a fresh business");
+      setConfirming(false);
+      router.push(NEW_BUSINESS_HREF);
+      router.refresh();
+    } catch (failure) {
+      setError(errorText(failure));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!confirming) {
+    return (
+      <div className={styles.section}>
+        <button type="button" className={styles.item} onClick={() => setConfirming(true)}>
+          <RotateCcw aria-hidden="true" />
+          Start fresh
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.section}>
+      <div className={styles.confirm} role="group" aria-label="Confirm starting fresh">
+        <p>This clears this account&apos;s businesses, approvals and messages, then starts a new onboarding. It can&apos;t be undone.</p>
+        <div className={styles.actions}>
+          <button type="button" className="btn sm" onClick={reset} disabled={busy} autoFocus>
+            {busy ? "Clearing..." : "Clear and start"}
+          </button>
+          <button type="button" className="btn sm ghost" onClick={() => setConfirming(false)} disabled={busy}>
+            Cancel
+          </button>
+        </div>
+        {error !== null && <p role="alert" className={styles.error}>{error}</p>}
+      </div>
+    </div>
+  );
+}
 
 /** Render "Delete my businesses": a confirmation that names what goes, then the delete and a return to the list. */
 function DeleteBusinesses() {

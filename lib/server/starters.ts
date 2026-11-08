@@ -8,6 +8,7 @@ import { resolveChoices } from "@/lib/domain/paths";
 import { STARTER_LIMIT, STARTER_RECIPIENT, starterSkills, startersDue, type WritableSkill } from "@/lib/domain/starters";
 import type { BusinessProfile, KeyedCard } from "@/lib/domain/types";
 import type { LlmProvider } from "@/lib/llm";
+import { tierForTask } from "@/lib/llm/task-tier";
 import { newFacts, plainPunctuation } from "@/lib/server/ai";
 import { getBudgetedLlm } from "@/lib/server/ai-budget";
 import { getStore } from "@/lib/store";
@@ -55,6 +56,7 @@ const MOMENTS: Readonly<Record<WritableSkill, string>> = {
 const CHANNEL_GUIDE: Readonly<Record<KeyedCard["channel"], string>> = {
   sms: "a text message under 300 characters",
   email: "an email body under 90 words, with no subject line",
+  telegram: "a chat message under 300 characters",
   list: "text the owner copies, under 60 words",
   // No writable skill drafts these two; the entries keep the map complete.
   locked: "nothing; the owner replies",
@@ -161,7 +163,7 @@ async function writtenWords(llm: LlmProvider, business: BusinessProfile, skills:
   const names = customerNames(business.id, OFFERED_NAMES);
   let reply: z.infer<typeof replySchema>;
   try {
-    reply = await llm.generateObject({ tier: "default", schema: replySchema, schemaName: "starter_drafts", prompt: starterPrompt(business, skills, channels, names), maxTokens: 2000 });
+    reply = await llm.generateObject({ tier: tierForTask("draft"), schema: replySchema, schemaName: "starter_drafts", prompt: starterPrompt(business, skills, channels, names), maxTokens: 2000 });
   } catch (error) {
     console.warn(`[Starters] Writing starters for ${business.id} failed; keeping the trade's templates. Reason: ${error instanceof Error ? error.message : String(error)}`);
     return new Map();

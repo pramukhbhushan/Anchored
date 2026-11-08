@@ -34,6 +34,7 @@ const WINDOW_MS = 10 * 60 * 1000;
 // times looser, since judges on one venue Wi-Fi share a single address.
 const LIMITS = {
   createBusiness: { bucket: "create-business", windowMs: WINDOW_MS, perSession: 10, perIp: 60 },
+  places: { bucket: "places", windowMs: WINDOW_MS, perSession: 20, perIp: 120 },
   rewrite: { bucket: "rewrite", windowMs: WINDOW_MS, perSession: 20, perIp: 120 },
   // One onboarding runs 11 to 14 turns and an owner may map several businesses, so 90 fits three
   // onboardings plus chat. The daily model budget in `lib/server/ai-budget.ts` caps the spend.
@@ -43,6 +44,10 @@ const LIMITS = {
   connect: { bucket: "connect", windowMs: WINDOW_MS, perSession: 60, perIp: 300 },
   // Twilio, Stripe and Postmark post from shared addresses with no session, so only the per-IP limit holds them.
   hook: { bucket: "hook", windowMs: WINDOW_MS, perSession: 600, perIp: 3000 },
+  // Run now writes a brief card; a few a minute is plenty for an owner checking it.
+  agentWork: { bucket: "agent-work", windowMs: WINDOW_MS, perSession: 30, perIp: 150 },
+  telegramDelete: { bucket: "telegram-delete", windowMs: WINDOW_MS, perSession: 20, perIp: 100 },
+  brief: { bucket: "brief", windowMs: WINDOW_MS, perSession: 30, perIp: 150 },
   mutation: { bucket: "mutation", windowMs: WINDOW_MS, perSession: 120, perIp: 600 },
 } as const satisfies Record<string, ApiLimit>;
 
@@ -100,12 +105,16 @@ export function clientKey(ip: string): string {
 export function limitFor(method: string, pathname: string): ApiLimit {
   if (pathname.startsWith("/api/hooks/")) return LIMITS.hook;
   if (/^\/api\/businesses\/[^/]+\/(?:connections|contacts)(?:\/[^/]+)?\/?$/.test(pathname)) return LIMITS.connect;
+  if (method === "POST" && /^\/api\/businesses\/[^/]+\/outbox\/[^/]+\/delete\/?$/.test(pathname)) return LIMITS.telegramDelete;
+  if (/^\/api\/businesses\/[^/]+\/(?:followups|licenses)\/?$/.test(pathname)) return LIMITS.agentWork;
   if (method !== "POST") return LIMITS.mutation;
   if (/^\/api\/businesses\/?$/.test(pathname)) return LIMITS.createBusiness;
+  if (/^\/api\/onboarding\/(?:lookup|place)\/?$/.test(pathname)) return LIMITS.places;
   if (/^\/api\/cards\/[^/]+\/rewrite\/?$/.test(pathname)) return LIMITS.rewrite;
   if (/^\/api\/intake(\/[^/]+)?\/?$/.test(pathname) || /^\/api\/businesses\/[^/]+\/chat\/?$/.test(pathname)) return LIMITS.chat;
   // Reading the invoice sheet drafts cards the way an arriving event does, so it shares their bucket.
   if (/^\/api\/businesses\/[^/]+\/(?:cards|invoice-sheet)\/?$/.test(pathname) || /^\/api\/ingest\/[^/]+\/?$/.test(pathname)) return LIMITS.newEvent;
+  if (/^\/api\/businesses\/[^/]+\/brief\/?$/.test(pathname)) return LIMITS.brief;
   return LIMITS.mutation;
 }
 

@@ -50,7 +50,7 @@ describe("SimulateButton", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Watch an agent draft" }));
 
-    const toast = await screen.findByText(/Follow-up agent/);
+    const toast = await screen.findByText(/Customer agent/);
     expect(toast).toHaveRole("status");
     expect(within(toast).getByRole("link", { name: "See it" })).toHaveAttribute("href", "#waiting");
     expect(sentJson(fetchSpy, 0)).toEqual({ method: "POST", url: "/api/businesses/restaurant/cards", body: {} });

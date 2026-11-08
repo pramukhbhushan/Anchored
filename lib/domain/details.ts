@@ -1,4 +1,5 @@
 import { FIELD_KEYS, FIELDS, fieldsFor, isFilled } from "@/lib/domain/fields";
+import type { License } from "@/lib/domain/renewals";
 import type { BusinessProfile, CoreAgentId, FieldEvidence, FieldKey, NextStep, PriceItem, ProfileDetails, SourceType, TradeKey, Vocabulary } from "@/lib/domain/types";
 
 // =============================================================================
@@ -190,6 +191,8 @@ export function priceText(item: PriceItem): string {
 /** A detail's value as one line the owner reads. */
 export function detailText(key: FieldKey, value: unknown): string {
   switch (key) {
+    case "licenses":
+      return (value as readonly License[]).map((license) => `${license.name}: ${license.expiresOn}${license.completed ? " (handled)" : ""}. Source: ${license.evidence}`).join("; ");
     case "vocabulary": {
       const v = value as Vocabulary;
       return `customers are "${v.customer}", the work is "${v.workUnit}", a price is "${v.priceTerm}", a booking is "${v.bookingTerm}"`;
@@ -228,6 +231,7 @@ const PRICE_RANGE = /\$\s?(\d[\d,]*(?:\.\d{1,2})?)(?:\s*(?:to|-|and)\s*\$?\s?(\d
 const MINIMUM = /\bminimum(?:\s+(?:charge|fee|order|job|is|of|now))*\s*\$\s?(\d[\d,]*(?:\.\d{1,2})?)/i;
 const NO_MINIMUM = /\b(?:no minimum|none|nope|no)\b/i;
 const URL = /https?:\/\/[^\s<>"]+/i;
+const PHONE = /\+?\(?[0-9][0-9 ().-]{6,22}[0-9]/;
 
 function toNumber(text: string): number {
   return Number(text.replace(/,/g, ""));
@@ -354,12 +358,19 @@ export function parseDetail<K extends FieldKey>(key: K, text: string): ProfileDe
   if (clean === "") return undefined;
   const read = ((): unknown => {
     switch (key) {
+      case "licenses":
+        // Dates and their evidence must come through the structured owner form.
+        return undefined;
       case "ownerName": {
         const name = /(?:my name is|i'm|i am|this is|call me)\s+([A-Z][a-zA-Z'-]{1,29})/i.exec(clean)?.[1] ?? /^([A-Z][a-zA-Z'-]{1,29})$/.exec(clean)?.[1];
         return name === undefined ? undefined : name[0]?.toUpperCase() + name.slice(1);
       }
       case "vocabulary":
         return readVocabulary(clean);
+      case "address":
+        return clean.length <= 180 ? clean.replace(/[.]+$/, "") : undefined;
+      case "businessPhone":
+        return PHONE.exec(clean)?.[0];
       case "hours":
         return clean.length <= 160 ? clean.replace(/[.]+$/, "") : undefined;
       case "pricingMethod":
@@ -480,8 +491,8 @@ export function looksLikeSessionNotes(text: string): boolean {
   return SESSION_NOTE_PATTERNS.filter((pattern) => pattern.test(text)).length >= 1;
 }
 
-/** Field keys a source may fill, in registry order. Every field is fair game except the owner's own past writing. */
-export const EXTRACTABLE: readonly FieldKey[] = FIELD_KEYS.filter((key) => key !== "examples");
+/** Field keys a source may fill, in registry order. Owner writing and structured license dates are excluded. */
+export const EXTRACTABLE: readonly FieldKey[] = FIELD_KEYS.filter((key) => key !== "examples" && key !== "licenses");
 
 /** The registry label for a field, for prompts and summaries. */
 export function fieldLabel(key: FieldKey): string {

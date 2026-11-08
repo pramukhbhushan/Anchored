@@ -1,3 +1,4 @@
+import userEvent from "@testing-library/user-event";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { MonthlyBill as Bill } from "@/components/stack/bill";
@@ -16,13 +17,52 @@ const BILL: Bill = {
   plan: 29,
   onQuote: [],
   segments: [
-    { key: "anchored", group: "build", name: "Anchored's agents", amount: 29, share: 0.22 },
+    {
+      key: "anchored",
+      group: "build",
+      name: "Anchored's agents",
+      amount: 29,
+      share: 0.22,
+    },
     { key: "jobber", group: "buy", name: "Jobber", amount: 100, share: 0.78 },
   ],
   groups: [
-    { id: "build", amount: 29, lines: [{ key: "followup", name: "Follow-up", does: ["Follows up on quotes"], price: null }] },
-    { id: "buy", amount: 100, lines: [{ key: "jobber", name: "Jobber", does: ["Tracks quotes and follows up"], price: "$100" }] },
-    { id: "turnon", amount: 0, lines: [{ key: "qbo", name: "QuickBooks Online", does: ["Keeps your books"], price: "Already paid" }] },
+    {
+      id: "build",
+      amount: 29,
+      lines: [
+        {
+          key: "followup",
+          name: "Follow-up",
+          does: ["Follows up on quotes"],
+          price: null,
+        },
+      ],
+    },
+    {
+      id: "buy",
+      amount: 100,
+      lines: [
+        {
+          key: "jobber",
+          name: "Jobber",
+          does: ["Tracks quotes and follows up"],
+          price: "$100",
+        },
+      ],
+    },
+    {
+      id: "turnon",
+      amount: 0,
+      lines: [
+        {
+          key: "qbo",
+          name: "QuickBooks Online",
+          does: ["Keeps your books"],
+          price: "Already paid",
+        },
+      ],
+    },
     { id: "skip", amount: 0, lines: [] },
   ],
   pricesCheckedOn: "Nov 6 and 7, 2026",
@@ -54,7 +94,9 @@ describe("MonthlyBill", () => {
   it("shows the monthly total", () => {
     render(<MonthlyBill bill={BILL} />);
 
-    expect(screen.getByRole("heading", { level: 2, name: "Your monthly bill" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Your monthly bill" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("$129")).toBeInTheDocument();
     expect(screen.getByText("a month")).toBeInTheDocument();
   });
@@ -94,7 +136,9 @@ describe("MonthlyBill", () => {
     expect(screen.getByText("Follows up on quotes")).toBeInTheDocument();
     expect(screen.getByText("QuickBooks Online")).toBeInTheDocument();
     expect(screen.getByText("Already paid")).toBeInTheDocument();
-    expect(screen.getByText("Tracks quotes and follows up")).toBeInTheDocument();
+    expect(
+      screen.getByText("Tracks quotes and follows up"),
+    ).toBeInTheDocument();
   });
 
   it("keeps all four groups and draws no bar when nothing costs money", () => {
@@ -108,10 +152,29 @@ describe("MonthlyBill", () => {
 
   it("dates the tool prices on the bill, and claims no date with no tool on it", () => {
     const { unmount } = render(<MonthlyBill bill={BILL} />);
-    expect(screen.getByText(/Tool prices come from pages checked Nov 6 and 7, 2026\./)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Tool prices come from pages checked Nov 6 and 7, 2026\./,
+      ),
+    ).toBeInTheDocument();
     unmount();
 
     render(<MonthlyBill bill={NOTHING_YET} />);
     expect(screen.queryByText(/pages checked/)).not.toBeInTheDocument();
   });
+});
+
+it("lets an owner select a paid piece with the keyboard and see its work", async () => {
+  render(<MonthlyBill bill={BILL} />);
+  const jobber = screen.getByRole("button", { name: /Jobber \$100/ });
+  jobber.focus();
+  await userEvent.keyboard("{Enter}");
+  expect(jobber).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("status")).toHaveTextContent("Jobber covers");
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "Tracks quotes and follows up",
+  );
+  await userEvent.keyboard("{Enter}");
+  expect(jobber).toHaveAttribute("aria-pressed", "false");
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
 });

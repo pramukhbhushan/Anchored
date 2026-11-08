@@ -1,6 +1,6 @@
 # Anchored
 
-Anchored shows a small business owner where AI can save them time, which tools fit, and what it all costs. Where no tool fits, Anchored's own AI agents draft the work. Nothing reaches a customer until the owner taps Approve.
+Anchored shows a small business owner where AI can save them time, which tools fit, and what it all costs. Where no tool fits, Anchored's own AI agents draft the work for the owner's approval. The Telegram bot also sends fixed start/stop confirmations and a fixed acknowledgment under the business's acknowledgment rule, which starts on and can be turned off.
 
 Built for the University of Maryland AI for Small Business Hack-a-thon, Fall 2026. The research behind it is in [`docs/research/`](docs/research/).
 
@@ -42,6 +42,24 @@ One page shows the monthly bill and what each piece does. Tools you already pay 
 
 For how the code fits together, see [`docs/architecture.md`](docs/architecture.md).
 
+## Agent workspaces
+
+Active agents appear under Workflows in the sidebar, the command palette and Overview. Each workspace shows its existing drafts, recent decisions and jobs. Approvals remains the single review queue. Main's workflow map, setup chat, automation pages and existing URLs are preserved.
+
+The core workspace route tokens under `/app/b/<id>/workflows/` are `customer`, `books`, `content` and `internal`. A workspace opens only when that agent is active in the business's plan. Active niche agents also get workspaces. Customer groups the stored Front Desk and Follow-up records for display; the canonical agent migration remains Pramukh's work.
+
+Customer now reads real, session-scoped Telegram conversations and their delivery results. Customer and Connections show the business's Telegram link and a locally generated QR when the server has a bot configured. Guest-owned businesses can use this link; the shared example cannot. The acknowledgment switch saves to the server. Its fixed reply starts on and is limited to once per contact per 12-hour window. Switching it off cancels queued acknowledgments. Free-text replies still wait in Approvals.
+
+Internal Communications reads forwarded email, sorts it with checked rules, and creates owner cards without sending an email reply. Its daily brief and Run now are connected to persisted brief runs; Overview shows the latest completed brief. The scheduled brief runs once per day from 7 a.m. Eastern when a scheduler calls its route. All brief numbers and wording currently come from code.
+
+Open Chat uses the existing general business chat. Agent-scoped Ask remains unavailable until Pramukh supplies the validated optional `agent` contract. Billing, supplier and review handoffs currently become owner notes. Specialized Bookkeeping/Marketing feeds, cross-agent handoff helpers, and a job-completion contract for review follow-ons remain integration work. Main's existing invoice-sheet and paid-invoice behavior is retained; a paid invoice alone is not proof of a completed job.
+
+Customer's recorded follow-ups accept an explicit due time, state, source id and evidence. They draft Telegram messages only for chosen skills and eligible contacts; Debrief creates an owner-only note. STOP, allergy locks, touch limits and saved cancellation are checked again at approval and dispatch. Timers never authorize automatic customer sends. Internal's license-date control stores evidenced expiry dates in the versioned profile. License Clerk creates owner-only warnings at 30 days, 7 days, expiry and overdue, using Eastern civil dates across clock changes; completing, removing or changing a date replaces stale pending notices.
+
+The outbox offers Telegram removal only when the server confirms a sent message is eligible within 48 hours. Its authorized route uses stored message identity, preserves sent text and delivery history, and reports the provider's actual result. Someone may already have read a removed message. These features are implemented and covered by the combined tests, but their new database migrations and controlled live verification remain release prerequisites. See [Remaining deployment prerequisites](#remaining-deployment-prerequisites).
+
+The [integration notes](components/business/agents/integration.md) identify the connected routes and remaining contracts. The [demo runbook](docs/agent-demo.md) separates implemented behavior, reported phone testing, automated tests and live checks still to run. Eric's earlier local phone test covered start, an incoming message, the acknowledgment and an approved reply. It did not verify the deployed Supabase-backed flow or real Postmark delivery. No recorded demo video is claimed here.
+
 ## Run it locally
 
 You need Node.js 26, the version in `.nvmrc`.
@@ -49,7 +67,7 @@ You need Node.js 26, the version in `.nvmrc`.
 1. Install dependencies:
 
    ```bash
-   npm install
+   npm ci
    ```
 
 2. Copy the environment file. Every key is optional for a local run:
@@ -92,7 +110,7 @@ It applies every migration in `supabase/migrations/` and serves the auth email i
 
 ## Environment variables
 
-Every variable is optional for `npm run dev`. `.env.example` lists them all with empty values.
+Every variable is optional for `npm run dev`. `.env.example` lists the common settings. Until its Telegram entries are added, copy the Telegram variable names from the table below into your ignored `.env.local`.
 
 ### Accounts and storage
 
@@ -141,7 +159,10 @@ Each service stays off until its variables are set. [Connect real services](#con
 | `EMAIL_FROM_ADDRESS` | The address approved emails come from, on a domain verified in Resend. Each email shows the business's name and sets the owner as reply-to |
 | `INBOUND_EMAIL_ADDRESS` | The Postmark inbound address. Each business forwards to it with its own hook id after a `+` |
 | `INBOUND_EMAIL_SECRET` | A random string that Postmark's webhook URL carries as `?key=`, so only Postmark can post inbound email |
-| `CRON_SECRET` | The bearer token `GET /api/cron/dispatch` requires before it sends queued messages |
+| `TELEGRAM_BOT_TOKEN` | The shared bot token from BotFather, used only on the server |
+| `TELEGRAM_BOT_USERNAME` | The bot username without `@`. The current test bot is `AnchorMesageBot`, with one "s" in "Mesage" |
+| `TELEGRAM_WEBHOOK_SECRET` | The private secret Telegram sends with webhook updates. The registration script and deployed app must use the same value |
+| `CRON_SECRET` | The bearer token required by scheduled dispatch and brief routes. Missing or incorrect authorization returns 404 |
 | `PUBLIC_APP_URL` | This deployment's public https address. The webhook URLs on the Connections page start with it |
 | `ANCHORED_ALLOW_GUEST_CONNECTIONS` | Set to `1` to let a guest connect services in a local run. Leave it unset in production, where only email and Google accounts can connect |
 | `GOOGLE_PLACES_API_KEY` | Turns on the "Is this you?" step in onboarding: after the name and town, Anchored shows up to three Google listings, and the one the owner picks fills their hours and review link for them to confirm. Restrict the key to the Places API in Google Cloud and give it a daily quota. It stays on the server |
@@ -151,11 +172,7 @@ Each service stays off until its variables are set. [Connect real services](#con
 Accounts and saved data both need a Supabase project. Do these steps in the Supabase dashboard unless a step says otherwise.
 
 1. Create a Supabase project.
-2. Run every file in `supabase/migrations/`, in filename order. Use the project's SQL editor, or the Supabase CLI:
-
-   ```bash
-   supabase db push
-   ```
+2. On a new database, run every file in `supabase/migrations/` in filename order using the SQL Editor, or the Supabase CLI with an accurate migration history. On the existing team project, Pramukh applies new migrations in the SQL Editor. Its earlier migrations were applied by hand and are not recorded in CLI history, so do not run `supabase db push` against it without first reconciling that history.
 
 3. Copy the project's keys into your environment. Newer projects call the anon key the publishable key and the service role key the secret key. Either form works.
    - From **Project Settings > Data API**, copy the project URL into `NEXT_PUBLIC_SUPABASE_URL`.
@@ -183,7 +200,7 @@ The server reads and writes with the service role key, which bypasses row-level 
 Production runs on Vercel with Supabase for both data and sign-in. `next build` needs no secrets, so the build itself never fails for a missing key. A production server with no store settings refuses its first data read instead of keeping work in memory.
 
 1. Create a Supabase project, then do these steps in its dashboard:
-   1. Run every file in `supabase/migrations/` in filename order, oldest first, in the **SQL Editor**. With the Supabase CLI linked to the project, `supabase db push` does the same.
+   1. On a new database, run every file in `supabase/migrations/` in filename order, oldest first, in the **SQL Editor**. Pramukh owns new migrations on the existing team project; its CLI migration history is incomplete. Apply new migrations before deploying code that queries them.
    2. Under **Authentication > Sign In / Providers**, leave **Email** on, turn on **Allow anonymous sign-ins**, and turn on **Google** with the client ID and secret of a Google OAuth web client. In Google Cloud, add `https://<project-ref>.supabase.co/auth/v1/callback` to that client's authorized redirect URIs.
    3. Under **Authentication > URL Configuration**, set **Site URL** to your Vercel domain, such as `https://anchored.vercel.app`. Add `https://anchored.vercel.app/**` to **Redirect URLs**, and `https://*-<your-team>.vercel.app/**` if you want sign-in on preview deploys.
    4. Under **Authentication > Emails**, set up your own SMTP server. The built-in email service sends only a few emails an hour.
@@ -213,9 +230,9 @@ Visitors can try Anchored without an account through **Continue as guest**, and 
 
 ## Connect real services
 
-An owner connects each service on a business's Connections page, signed in with email or Google. Before that, the deployment needs the variables in [Connected services](#connected-services) and these steps.
+An owner connects credential-bearing services on a business's Connections page, signed in with email or Google. The shared Telegram bot also supports guest-owned businesses. The deployment needs the variables in [Connected services](#connected-services) and these steps.
 
-1. Run `supabase/migrations/20261108000000_connectors.sql`, or `supabase db push`. Set `CONNECTOR_SECRET_KEY` and `PUBLIC_APP_URL`.
+1. Have the database owner apply any missing migrations in filename order. See [Set up Supabase](#set-up-supabase) for the existing team project's migration-history restriction. Set `CONNECTOR_SECRET_KEY` and `PUBLIC_APP_URL` for credential-bearing integrations.
 2. **Texting and missed calls.** Each business uses its own Twilio account.
    1. Buy a Twilio number and register it for A2P 10DLC texting. Twilio delivers no texts to US numbers until the registration clears, which can take days. Calls work before that.
    2. On the Connections page, enter the Account SID, the auth token and the number.
@@ -224,7 +241,37 @@ An owner connects each service on a business's Connections page, signed in with 
 3. **Email out.** Verify a sending domain in Resend, then set `RESEND_API_KEY` and `EMAIL_FROM_ADDRESS`.
 4. **Email in.** Create a Postmark inbound server. Set `INBOUND_EMAIL_ADDRESS` to its inbound address and `INBOUND_EMAIL_SECRET` to a random string, then set the server's inbound webhook to `<PUBLIC_APP_URL>/api/hooks/email?key=<INBOUND_EMAIL_SECRET>`.
 5. **Stripe invoices.** In Stripe, add the webhook endpoint the Connections page shows, for the `invoice.overdue` and `invoice.payment_failed` events. Paste its signing secret on the Connections page.
-6. **Scheduled sends.** Call `GET /api/cron/dispatch` every few minutes with `Authorization: Bearer <CRON_SECRET>`. Vercel Cron sends that header itself when `CRON_SECRET` is set, on a plan that allows a schedule that often; any outside scheduler works too. Texts held for quiet hours wait for that call, so without it they never go out.
+6. **Scheduled work.** Pramukh owns scheduler configuration. The existing dispatch route now also checks due recorded follow-ups and license warnings; Run now checks this work before counting its brief. No additional cron entry is needed. Call `GET /api/cron/dispatch` every 5 minutes and `GET /api/cron/brief` hourly, both with `Authorization: Bearer <CRON_SECRET>`. Both routes return 404 for missing or incorrect authorization. Vercel Cron supplies that header when configured with `CRON_SECRET`; an outside scheduler can supply it too. SMS held for quiet hours needs the dispatch schedule. Telegram and email do not wait for quiet hours. The brief route writes at most once per business per local day from 7 a.m. Eastern.
+7. **Telegram.** Follow [Set up Telegram](#set-up-telegram). It is one shared bot with a separate random link and session-scoped inbox for each business.
+
+## Set up Telegram
+
+These are operator steps for an authorized test or deployment. Registering a webhook changes where the shared bot sends updates; it is not part of a normal local app start.
+
+1. In Telegram, open the official BotFather chat. Create a bot with `/newbot`, or use the existing test bot. Keep its token private. The current test bot's username is `AnchorMesageBot`, with one "s" in "Mesage"; use the actual username rather than its display name.
+2. Set `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` and `TELEGRAM_WEBHOOK_SECRET` on the server and in the ignored local environment used for registration. Set `CRON_SECRET` for scheduled work. Share secret values privately, never in issues, screenshots, browser props or source control. The local registration secret must exactly match the receiving deployment's secret, or every update is rejected with 404.
+3. Confirm the database owner has applied the Telegram and brief migrations, plus any later migrations required by the code being deployed. The original Telegram and brief files are `20261108000300_telegram_threads.sql` and `20261108000600_internal_briefs.sql`; the handoff reports both were applied. `20261108000700_telegram_deletion.sql` and `20261108000800_customer_followups.sql` are new local migrations that Pramukh must review and apply before this version deploys.
+4. Once the intended deployment is running and its operator has approved moving the shared bot, register its public HTTPS address and inspect the result under Node 26:
+
+   ```bash
+   node --conditions=react-server --env-file-if-exists=.env.local --import tsx scripts/telegram-webhook.ts set https://YOUR-DEPLOYMENT
+   node --conditions=react-server --env-file-if-exists=.env.local --import tsx scripts/telegram-webhook.ts info
+   ```
+
+   `set` replaces the bot's webhook and drops pending Telegram updates. A bot has one webhook, so registering a laptop tunnel takes updates away from production. The script prints the target, pending update count and Telegram's last reported error without printing credentials. A past reported error is diagnostic history; verify a new message arrives at the intended deployment.
+5. Create your own business, choose a Customer workflow for Anchored to draft, and open Connections or Customer. Scan the QR, tap Start, send a question, then review the draft in Approvals. Only an approved free-text reply sends. The fixed acknowledgment starts on; turn it off in Customer if you do not want it. `/stop` stops that business's messages, and a new `/start` from its link explicitly restarts them.
+6. Run the controlled phone checks in the [demo runbook](docs/agent-demo.md). A local tunnel test does not verify production credentials, Supabase queries or scheduling. With the in-memory store, restarting the app removes its businesses, chat bindings and history, so recreate the business and open its new link after a restart.
+
+## Remaining deployment prerequisites
+
+The combined working tree passed Node 26 `npm run check`: type checking, 1,567 tests across 131 files and the production build. Browser checks verified license entry through its API and saved profile, the generated approval card and the refreshed brief. Internal controls fit at 1440, 1024, 768 and 390px without sideways scrolling or page errors. The resumed pass rechecked Customer, Internal, Workflows, Approvals, Stack and Tools at 390px, including the cost view and fit explanation sheet. These checks used the local in-memory store, not live Supabase or provider delivery.
+
+Before deploying, Pramukh must manually review and apply the two new append-only migrations, in order, on the existing team database:
+
+- `supabase/migrations/20261108000700_telegram_deletion.sql`
+- `supabase/migrations/20261108000800_customer_followups.sql`
+
+These files have not been applied to live Supabase by this implementation. Keep the existing cron schedules: dispatch every 5 minutes now also checks recorded work, and brief runs hourly. No new cron configuration is needed. Confirm production settings, matching Telegram secrets, real Supabase persistence and authorized phone delivery separately. The [demo runbook](docs/agent-demo.md) records the remaining live checks and teammate contracts. No deployment, video or new screenshot is claimed by an automated test run.
 
 ## Project layout
 
@@ -235,7 +282,7 @@ An owner connects each service on a business's Connections page, signed in with 
 | `lib/domain/` | Workflows, agents and skills, the catalog, ratings, the rules engine, the example business, card templates and the executor. Pure TypeScript with tests |
 | `lib/api/` | The request and response types of every API route, and the Zod schema for every request body |
 | `lib/llm/` | The model layer: the `LlmProvider` interface and one adapter per provider |
-| `lib/connectors/` | One adapter per connected service: Twilio, Resend, Postmark and Stripe |
+| `lib/connectors/` | One adapter per connected service: Telegram, Twilio, Resend, Postmark and Stripe |
 | `lib/auth/` | Supabase Auth clients, the sign-in paths and the `Viewer` type |
 | `lib/server/` | Session, data access, model calls under the daily budget, and card decisions |
 | `lib/store/` | The `Store` interface with Supabase and in-memory versions |
@@ -265,3 +312,11 @@ CI runs the same steps on every pull request and on every push to `main`.
 ## Contribute
 
 Read [`AGENTS.md`](AGENTS.md) before you change anything, whether you or a coding agent writes the code. It covers the layout, the rules that protect owners' customers, how several people work in parallel worktrees, and the commit conventions. Land every change through a pull request by following [`.claude/skills/land-a-pr/SKILL.md`](.claude/skills/land-a-pr/SKILL.md). Claude Code loads both on its own through `CLAUDE.md` and the skill.
+
+### Agent implementation screenshots
+
+These show the November 8 local preview with demonstration facts and the in-memory store. They do not prove live Telegram delivery.
+
+![Internal Communications with a recorded license and its renewal card](docs/screenshots/agent-license-desktop.png)
+
+[Phone view of the same controls](docs/screenshots/agent-license-phone.png). See [Eric's remaining-work checkpoint](Agent%20System%20Implementation/Eric%20Remaining%20Implementation.md) for completed stages and deployment dependencies.

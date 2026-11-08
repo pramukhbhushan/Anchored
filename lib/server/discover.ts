@@ -13,6 +13,7 @@ import {
 import type { WorkflowId } from "@/lib/domain/types";
 import { WORKFLOWS } from "@/lib/domain/workflows";
 import type { LlmProvider } from "@/lib/llm";
+import { tierForTask } from "@/lib/llm/task-tier";
 import { getBudgetedLlm } from "@/lib/server/ai-budget";
 import { fetchPage } from "@/lib/server/fetch-page";
 
@@ -168,7 +169,7 @@ function extractPrompt(request: DiscoveryRequest, findings: string, pages: reado
 async function gatherBySearch(llm: LlmProvider, request: DiscoveryRequest, known: readonly string[]): Promise<Gathered> {
   const search = llm.searchWeb?.bind(llm);
   if (!search) return { pages: [], findings: "", skipped: [] };
-  const findings = await search({ tier: "default", prompt: searchPrompt(request.workflow, request.business, known), maxTokens: 8000, maxSearches: MAX_SEARCHES });
+  const findings = await search({ tier: tierForTask("draft"), prompt: searchPrompt(request.workflow, request.business, known), maxTokens: 8000, maxSearches: MAX_SEARCHES });
   return { pages: findings.sources, findings: findings.text, skipped: [] };
 }
 
@@ -176,7 +177,7 @@ async function gatherBySearch(llm: LlmProvider, request: DiscoveryRequest, known
 async function gatherBySites(llm: LlmProvider, request: DiscoveryRequest, known: readonly string[]): Promise<Gathered> {
   // Naming real products is recall from training, so it gets the largest model; a small one names AI music apps.
   const { tools } = await llm.generateObject({
-    tier: "complex",
+    tier: tierForTask("multi_step"),
     prompt: suggestPrompt(request.workflow, request.business, known),
     maxTokens: 2000,
     schema: suggestionsSchema,
@@ -232,7 +233,7 @@ export async function discoverTools(request: DiscoveryRequest): Promise<Discover
 
   // Ten pages of vendor copy with similar-sounding fields: a small model files features under "data".
   const { tools } = await llm.generateObject({
-    tier: "complex",
+    tier: tierForTask("multi_step"),
     prompt: extractPrompt(request, gathered.findings, gathered.pages),
     maxTokens: 4000,
     schema: candidatesSchema,

@@ -1,9 +1,24 @@
 "use client";
 
-import { Building2, CornerDownLeft, LayoutGrid, Plus, Search, BookOpen, type LucideIcon } from "lucide-react";
+import { Command as CommandMenu } from "cmdk";
+import paletteStyles from "./command-menu.module.css";
+import {
+  Building2,
+  LayoutGrid,
+  Plus,
+  Search,
+  BookOpen,
+  type LucideIcon,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { APP_HREF, NEW_BUSINESS_HREF, SECTIONS, businessHref } from "@/components/routes";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  APP_HREF,
+  NEW_BUSINESS_HREF,
+  SECTIONS,
+  businessHref,
+  agentHref,
+} from "@/components/routes";
 import { SECTION_ICON, SECTION_SHORTCUT } from "@/components/shell/nav";
 import type { ShellLocation } from "@/components/shell/location";
 import type { BusinessSummary } from "@/components/shell/shell-data";
@@ -28,8 +43,14 @@ interface Command {
 }
 
 /** Build every command for the viewer's `location`. */
-function commandsFor(businesses: readonly BusinessSummary[], location: ShellLocation): Command[] {
-  const current = location.page === "business" ? businesses.find((b) => b.id === location.businessId) : undefined;
+function commandsFor(
+  businesses: readonly BusinessSummary[],
+  location: ShellLocation,
+): Command[] {
+  const current =
+    location.page === "business"
+      ? businesses.find((b) => b.id === location.businessId)
+      : undefined;
   const pages: Command[] =
     current === undefined
       ? []
@@ -42,7 +63,10 @@ function commandsFor(businesses: readonly BusinessSummary[], location: ShellLoca
           keys: SECTION_SHORTCUT[section ?? "overview"],
         }));
   // The owner's own businesses come first, as in the sidebar; the example follows.
-  const ordered = [...businesses.filter((b) => b.kind === "custom"), ...businesses.filter((b) => b.kind === "case")];
+  const ordered = [
+    ...businesses.filter((b) => b.kind === "custom"),
+    ...businesses.filter((b) => b.kind === "case"),
+  ];
   const places: Command[] = ordered.map((b) => ({
     id: `biz:${b.id}`,
     group: "Businesses",
@@ -51,11 +75,39 @@ function commandsFor(businesses: readonly BusinessSummary[], location: ShellLoca
     icon: Building2,
   }));
   const app: Command[] = [
-    { id: "app:all", group: "Anchored", label: "All businesses", href: APP_HREF, icon: LayoutGrid },
-    { id: "app:new", group: "Anchored", label: "Set up a new business", href: NEW_BUSINESS_HREF, icon: Plus },
-    { id: "app:built", group: "Anchored", label: "How it's built", href: "/built", icon: BookOpen },
+    {
+      id: "app:all",
+      group: "Anchored",
+      label: "All businesses",
+      href: APP_HREF,
+      icon: LayoutGrid,
+    },
+    {
+      id: "app:new",
+      group: "Anchored",
+      label: "Set up a new business",
+      href: NEW_BUSINESS_HREF,
+      icon: Plus,
+    },
+    {
+      id: "app:built",
+      group: "Anchored",
+      label: "How it's built",
+      href: "/built",
+      icon: BookOpen,
+    },
   ];
-  return [...pages, ...places, ...app];
+  const agents: Command[] =
+    current === undefined
+      ? []
+      : (current.agents ?? []).map((agent) => ({
+          id: `agent:${agent.id}`,
+          group: `${current.name} agents`,
+          label: agent.name,
+          href: agentHref(current.id, agent.id),
+          icon: SECTION_ICON.workflows,
+        }));
+  return [...pages, ...agents, ...places, ...app];
 }
 
 /** Keep the commands whose label or group contains every word of `query`. */
@@ -82,130 +134,105 @@ export function CommandPalette({
 }) {
   const router = useRouter();
   const dialog = useRef<HTMLDialogElement>(null);
-  const listId = useId();
   const [query, setQuery] = useState("");
-  const [active, setActive] = useState(0);
-  const commands = useMemo(() => commandsFor(businesses, location), [businesses, location]);
+  const commands = useMemo(
+    () => commandsFor(businesses, location),
+    [businesses, location],
+  );
   const shown = useMemo(() => filter(commands, query), [commands, query]);
-
   useEffect(() => {
     const node = dialog.current;
-    if (node === null) return;
+    if (!node) return;
     if (open && !node.open) {
       setQuery("");
-      setActive(0);
       node.showModal();
-    } else if (!open && node.open) {
-      node.close();
-    }
+    } else if (!open && node.open) node.close();
   }, [open]);
-
-  // Keep the highlighted row on screen as the arrows move it.
-  useEffect(() => {
-    document.getElementById(`${listId}-${active}`)?.scrollIntoView({ block: "nearest" });
-  }, [active, listId]);
-
-  function go(command: Command | undefined) {
-    if (command === undefined) return;
+  function go(command: Command) {
     onClose();
     router.push(command.href);
   }
-
-  function onKey(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      const step = event.key === "ArrowDown" ? 1 : -1;
-      setActive((index) => (shown.length === 0 ? 0 : (index + step + shown.length) % shown.length));
-    } else if (event.key === "Enter") {
-      event.preventDefault();
-      go(shown[active]);
-    }
-  }
-
+  const groups = [...new Set(shown.map((command) => command.group))];
   return (
     <dialog
       ref={dialog}
-      className="palette"
+      className={`palette ${paletteStyles.dialog}`}
       aria-label="Jump to a page or business"
       onClose={onClose}
-      // A click on the backdrop lands on the dialog element itself; clicks inside land on its children.
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="palette-search">
-        <Search aria-hidden="true" size={18} />
-        <input
-          type="text"
-          role="combobox"
-          aria-expanded="true"
-          aria-controls={listId}
-          aria-activedescendant={shown.length > 0 ? `${listId}-${active}` : undefined}
-          aria-label="Search pages and businesses"
-          placeholder="Jump to a page or business"
-          value={query}
-          autoFocus
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setActive(0);
-          }}
-          onKeyDown={onKey}
-        />
-      </div>
-      <ul className="palette-list" id={listId} role="listbox" aria-label="Results">
-        {shown.length === 0 && <li className="palette-empty">Nothing matches. Try a business name or a page such as Tools.</li>}
-        {shown.map((command, index) => {
-          const Icon = command.icon;
-          const startsGroup = index === 0 || shown[index - 1]?.group !== command.group;
-          return (
-            <li key={command.id} role="presentation">
-              {startsGroup && (
-                <p className="palette-group" aria-hidden="true">
-                  {command.group}
-                </p>
-              )}
-              <button
-                type="button"
-                id={`${listId}-${index}`}
-                role="option"
-                aria-selected={index === active}
-                className="palette-item"
-                tabIndex={-1}
-                onMouseMove={() => setActive(index)}
-                onClick={() => go(command)}
-              >
-                <Icon aria-hidden="true" size={16} />
-                {command.label}
-                {command.keys !== undefined && (
-                  <span className="palette-keys" aria-label={`Shortcut ${command.keys.join(" then ")}`}>
-                    {command.keys.map((key) => (
-                      <kbd key={key}>{key}</kbd>
-                    ))}
-                  </span>
-                )}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      <div className="palette-foot" aria-hidden="true">
-        <span>
-          <kbd>&uarr;</kbd>
-          <kbd>&darr;</kbd> to move
-        </span>
-        <span>
-          <kbd>
-            <CornerDownLeft size={12} />
-          </kbd>{" "}
-          to open
-        </span>
-        <span>
-          <kbd>/</kbd> to type in chat
-        </span>
-        <span>
-          <kbd>Esc</kbd> to close
-        </span>
-      </div>
+      <CommandMenu
+        label="Search pages and businesses"
+        shouldFilter={false}
+        loop
+      >
+        <div className="palette-search">
+          <Search aria-hidden="true" size={18} />
+          <CommandMenu.Input
+            aria-label="Search pages and businesses"
+            placeholder="Jump to a page or business"
+            value={query}
+            onValueChange={setQuery}
+            autoFocus
+          />
+        </div>
+        <CommandMenu.List
+          className={`palette-list ${paletteStyles.list}`}
+          aria-label="Results"
+        >
+          <CommandMenu.Empty className="palette-empty">
+            Nothing matches. Try a business name or a page such as Tools.
+          </CommandMenu.Empty>
+          {groups.map((group) => (
+            <CommandMenu.Group
+              key={group}
+              heading={group}
+              className={paletteStyles.group}
+            >
+              {shown
+                .filter((c) => c.group === group)
+                .map((command) => {
+                  const Icon = command.icon;
+                  return (
+                    <CommandMenu.Item
+                      key={command.id}
+                      value={command.id}
+                      onSelect={() => go(command)}
+                      className={`palette-item ${paletteStyles.item}`}
+                    >
+                      <Icon aria-hidden="true" size={16} />
+                      <span>{command.label}</span>
+                      {command.keys && (
+                        <span
+                          className="palette-keys"
+                          aria-label={`Shortcut ${command.keys.join(" then ")}`}
+                        >
+                          {command.keys.map((key) => (
+                            <kbd key={key}>{key}</kbd>
+                          ))}
+                        </span>
+                      )}
+                    </CommandMenu.Item>
+                  );
+                })}
+            </CommandMenu.Group>
+          ))}
+        </CommandMenu.List>
+        <div className="palette-foot" aria-hidden="true">
+          <span>
+            <kbd>↑</kbd>
+            <kbd>↓</kbd> to move
+          </span>
+          <span>
+            <kbd>↵</kbd> to open
+          </span>
+          <span>
+            <kbd>Esc</kbd> to close
+          </span>
+        </div>
+      </CommandMenu>
     </dialog>
   );
 }

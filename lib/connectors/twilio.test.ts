@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ConnectorError, type FetchLike } from "./errors";
-import { checkTwilioNumber, sendTwilioText, twilioSignature, twimlSayAndHangUp, verifyTwilioRequest, type TwilioAccount } from "./twilio";
+import { checkTwilioNumber, sendTwilioText, twilioSignature, twimlDialOwner, twimlSayAndHangUp, verifyTwilioRequest, type TwilioAccount } from "./twilio";
 
 // =============================================================================
 // Module Overview
@@ -132,5 +132,16 @@ describe("twimlSayAndHangUp", () => {
 
   it("hangs up without speaking when there is nothing to say", () => {
     expect(twimlSayAndHangUp(null)).toBe(`<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>`);
+  });
+});
+
+describe("twimlDialOwner", () => {
+  it("rings for 20 seconds and escapes the result URL", () => {
+    const twiml = twimlDialOwner("+13015550101", "https://anchored.test/voice-result?a=1&b=2");
+
+    expect(twiml).toContain('<Dial timeout="20"');
+    expect(twiml).toContain('action="https://anchored.test/voice-result?a=1&amp;b=2"');
+    expect(twiml).toContain("<Number>+13015550101</Number>");
+    expect(twiml).not.toMatch(/Record|Gather/);
   });
 });

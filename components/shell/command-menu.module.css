@@ -1,0 +1,29 @@
+/* Module Overview: cmdk supplies keyboard navigation while Anchored supplies its existing palette styling. */
+.dialog {
+  padding: 0;
+}
+.dialog [cmdk-root] {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.group [cmdk-group-heading] {
+  font-size: var(--fs-fine);
+  color: var(--muted);
+  padding: var(--s-3) var(--s-3) var(--s-1);
+  font-weight: 600;
+}
+.item {
+  cursor: pointer;
+}
+.item[data-selected="true"] {
+  background: var(--hover);
+  color: var(--ink);
+}

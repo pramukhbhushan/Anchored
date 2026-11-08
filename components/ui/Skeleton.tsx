@@ -91,10 +91,12 @@ function SkeletonBody({ layout }: { readonly layout: SkeletonLayout }) {
         </div>
       );
     case "rows":
-      // The tools ranking: ruled rows on paper.
+      // The tools ranking: two cards per desktop row, one on phones.
       return (
         <div className="trows">
-          <SkeletonRows count={8} />
+          {Array.from({ length: 6 }, (_, i) => (
+            <SkeletonCard key={i} height={156} />
+          ))}
         </div>
       );
     case "list":

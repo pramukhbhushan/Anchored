@@ -31,6 +31,12 @@ function quotes(business: Pick<BusinessProfile, "details">): boolean {
 
 /** Every profile detail, keyed by field. */
 export const FIELDS: Readonly<Record<FieldKey, FieldDef>> = {
+  licenses: {
+    key: "licenses",
+    label: "License expiry dates",
+    needs: { internal: "nice" },
+    ask: { prompt: "In Internal Communications, record each license's expiry date and where it came from.", example: "Use the date printed on the license." },
+  },
   ownerName: {
     key: "ownerName",
     label: "Your first name",
@@ -42,6 +48,18 @@ export const FIELDS: Readonly<Record<FieldKey, FieldDef>> = {
     label: "Your words for customers and work",
     needs: { frontdesk: "must", followup: "must", books: "must", content: "must", internal: "must" },
     ask: { prompt: "What do you call your customers, and one piece of work you do for them?", example: "Homeowners, and a service call" },
+  },
+  address: {
+    key: "address",
+    label: "Business address",
+    needs: { frontdesk: "nice", internal: "nice" },
+    ask: { prompt: "What address should customers use?", example: "10 Main St, Bowie, MD 20715" },
+  },
+  businessPhone: {
+    key: "businessPhone",
+    label: "Business phone",
+    needs: { frontdesk: "nice", internal: "nice" },
+    ask: { prompt: "What phone number should customers call?", example: "(301) 555-0192" },
   },
   hours: {
     key: "hours",

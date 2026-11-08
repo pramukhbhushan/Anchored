@@ -18,16 +18,19 @@ export type ShellLocation =
       readonly section: Section | null;
       /** The open automation's route key, on `/workflows/<workflow>/<key>`. */
       readonly automation?: string;
+      readonly agent?: string;
     };
 
 /** Return the viewer's place in the app. Call only from components the `/app` layout renders. */
 export function useShellLocation(): ShellLocation {
   // Segments below `app/app/layout.tsx`: [] for /app, ["new"], or ["b", "<id>", "<section>"?, "<workflow>"?, "<key>"?].
-  const [first, id, section, , key] = useSelectedLayoutSegments();
+  const [first, id, section, segment, key] = useSelectedLayoutSegments();
   if (first === "new") return { page: "new" };
   if (first === "b" && id !== undefined) {
     const where = { page: "business", businessId: id, section: sectionOf(section) } as const;
-    return key === undefined ? where : { ...where, automation: decodeURIComponent(key) };
+    if (section !== "workflows" || segment === undefined) return where;
+    const token = (raw: string) => { try { return decodeURIComponent(raw); } catch { return raw; } };
+    return key === undefined ? { ...where, agent: token(segment) } : { ...where, automation: token(key) };
   }
   return { page: "home" };
 }

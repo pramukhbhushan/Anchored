@@ -32,6 +32,7 @@ import {
 } from "@/lib/domain/intake";
 import { LANGUAGE_OPTIONS, REACH_OPTIONS, SIGNALS, TOOL_OPTIONS } from "@/lib/domain/workflows";
 import type { LlmProvider } from "@/lib/llm";
+import { tierForTask } from "@/lib/llm/task-tier";
 import { getBudgetedLlm } from "@/lib/server/ai-budget";
 import { extractDetails } from "@/lib/server/extract";
 import { fetchPage } from "@/lib/server/fetch-page";
@@ -133,6 +134,8 @@ async function listingTurn(draft: IntakeDraft, answer: IntakeAnswer, reading: An
   const placeId = pickedListing(draft, answer.picks);
   const facts = placeId === null ? null : await placeDetails(placeId);
   let after = applyListing(draft, placeId, facts?.candidates ?? []);
+  if (facts?.listingText) after = withCandidates(after, await extractDetails("listing", facts.listingText));
+  if (facts?.reviewText) after = withCandidates(after, await extractDetails("reviews", facts.reviewText));
   // Only a model can read a website for facts, so without one the page isn't fetched at all.
   if (facts?.website && getBudgetedLlm() !== null) {
     const page = await fetchPage(facts.website);
@@ -199,7 +202,7 @@ export function shortPhrase(value: string | null, maxWords: number, maxChars: nu
 
 /** Ask the model what one answer says. Throws on any provider failure, refusal or malformed reply. */
 async function readWithModel(llm: LlmProvider, draft: IntakeDraft, question: IntakeQuestion, answer: string, transcript: readonly ChatMessage[]): Promise<ModelReading> {
-  const out = await llm.generateObject({ tier: "quick", schema: modelSchema, schemaName: "intake_answer", prompt: intakePrompt(draft, question, answer, transcript), maxTokens: 700 });
+  const out = await llm.generateObject({ tier: tierForTask("triage"), schema: modelSchema, schemaName: "intake_answer", prompt: intakePrompt(draft, question, answer, transcript), maxTokens: 700 });
 
   const facts: IntakeFacts = {
     ...allowedLists(out),

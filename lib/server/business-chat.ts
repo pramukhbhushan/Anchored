@@ -24,6 +24,7 @@ import type { BusinessProfile, Channel, KeyedCard, SkillId } from "@/lib/domain/
 import { LANGUAGE_OPTIONS, REACH_OPTIONS, SIGNALS, TOOL_OPTIONS } from "@/lib/domain/workflows";
 import { ConnectorError } from "@/lib/connectors/errors";
 import { LlmResponseError, type LlmProvider } from "@/lib/llm";
+import { tierForTask } from "@/lib/llm/task-tier";
 import { newFacts } from "@/lib/server/ai";
 import { getBudgetedLlm } from "@/lib/server/ai-budget";
 import { checkEvent, ingestEvent } from "@/lib/server/ingest";
@@ -258,11 +259,11 @@ async function writeWords(business: BusinessProfile, request: DraftRequest, text
 }
 
 // The longest draft each channel takes. A text runs a few lines; a post or a review reply a short paragraph.
-const WORDS_MAX: Readonly<Record<Channel, number>> = { sms: 360, email: 900, list: 600, locked: 0, flag: 0 };
+const WORDS_MAX: Readonly<Record<Channel, number>> = { sms: 360, email: 900, telegram: 600, list: 600, locked: 0, flag: 0 };
 
 /** Ask the model for the draft's words, and refuse a reply that adds a fact, mentions an allergen or leaves a blank. */
 async function wordsFromModel(llm: LlmProvider, business: BusinessProfile, request: DraftRequest, text: string): Promise<string> {
-  const raw = await llm.generateText({ tier: SKILLS[request.skill].tier, prompt: draftPrompt(business, request, text), maxTokens: 600 });
+  const raw = await llm.generateText({ tier: tierForTask("draft"), prompt: draftPrompt(business, request, text), maxTokens: 600 });
   const words = raw.trim().replace(/^subject:.*\n+/i, "").replace(/^["“]|["”]$/g, "").trim();
   if (words === "") throw new LlmResponseError("The draft came back empty.");
   if (words.length > WORDS_MAX[requestChannel(request)]) throw new LlmResponseError(`The draft ran to ${words.length} characters.`);
@@ -339,7 +340,7 @@ const changesSchema = z.object({
 
 /** Ask the model what changed. Only allowed option values survive. Throws on any provider failure or malformed reply. */
 async function readChangesWithModel(llm: LlmProvider, business: BusinessProfile, text: string, transcript: readonly ChatMessage[]): Promise<FactChanges> {
-  const out = await llm.generateObject({ tier: "quick", schema: changesSchema, schemaName: "business_changes", prompt: changesPrompt(business, text, transcript), maxTokens: 700 });
+  const out = await llm.generateObject({ tier: tierForTask("triage"), schema: changesSchema, schemaName: "business_changes", prompt: changesPrompt(business, text, transcript), maxTokens: 700 });
   // A model can read a change into a question; a new name, town, kind or voice counts only when the owner's message says it.
   const stated = (value: string | undefined): string | undefined => (value !== undefined && statedIn(value, text) ? value : undefined);
   return {

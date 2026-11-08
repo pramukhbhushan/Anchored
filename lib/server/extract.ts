@@ -3,6 +3,7 @@ import { z } from "zod";
 import { EXTRACTABLE, fieldLabel, looksLikeSessionNotes, parseDetail, type DetailCandidate } from "@/lib/domain/details";
 import type { FieldKey, SourceType } from "@/lib/domain/types";
 import { LlmResponseError, type LlmProvider } from "@/lib/llm";
+import { tierForTask } from "@/lib/llm/task-tier";
 import { getBudgetedLlm } from "@/lib/server/ai-budget";
 
 // =============================================================================
@@ -28,8 +29,11 @@ const extractionSchema = z.object({
 
 // How each field's value must be written, so `parseDetail` can read it.
 const FORMATS: Readonly<Record<FieldKey, string>> = {
+  licenses: "not used. Licenses require the structured owner form",
   ownerName: "the owner's first name only",
   vocabulary: "four words in the business's own terms, split by \" / \": what they call a customer / one piece of work / a price / a booking",
+  address: "the full customer-facing street address",
+  businessPhone: "the customer-facing phone number as written",
   hours: "the opening hours as written, under 160 characters",
   pricingMethod: "one of: menu (set prices for each item), hourly, quote, packages. Only when the source says how it prices, never from a list of prices",
   prices: "each item and its price as \"Item $40\" or \"Item $90 to $120\", items split by \"; \"",
@@ -77,10 +81,10 @@ ${text.replace(/[<>]/g, " ").slice(0, MAX_SOURCE_CHARS)}
 /** Ask once, and once more with the error when the reply has the wrong shape. */
 async function ask(llm: LlmProvider, sourceType: SourceType, text: string, focus: readonly FieldKey[]): Promise<z.infer<typeof extractionSchema>> {
   try {
-    return await llm.generateObject({ tier: "default", schema: extractionSchema, schemaName: "profile_details", prompt: prompt(sourceType, text, focus, null), maxTokens: 1500 });
+    return await llm.generateObject({ tier: tierForTask("extraction"), schema: extractionSchema, schemaName: "profile_details", prompt: prompt(sourceType, text, focus, null), maxTokens: 1500 });
   } catch (error) {
     if (!(error instanceof LlmResponseError)) throw error;
-    return await llm.generateObject({ tier: "default", schema: extractionSchema, schemaName: "profile_details", prompt: prompt(sourceType, text, focus, error.message), maxTokens: 1500 });
+    return await llm.generateObject({ tier: tierForTask("extraction"), schema: extractionSchema, schemaName: "profile_details", prompt: prompt(sourceType, text, focus, error.message), maxTokens: 1500 });
   }
 }
 

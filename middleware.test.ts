@@ -139,6 +139,11 @@ describe("limitFor", () => {
     expect(limitFor("POST", "/api/cards/abc-123/rewrite")).toMatchObject({ perSession: 20, perIp: 120 });
   });
 
+  it("limits Google business lookup separately", () => {
+    expect(limitFor("POST", "/api/onboarding/lookup")).toMatchObject({ bucket: "places", perSession: 20, perIp: 120 });
+    expect(limitFor("POST", "/api/onboarding/place").bucket).toBe("places");
+  });
+
   it("shares one chat limit between onboarding turns and the business chat", () => {
     const start = limitFor("POST", "/api/intake");
     const answer = limitFor("POST", "/api/intake/abc-123");
@@ -155,6 +160,11 @@ describe("limitFor", () => {
     expect(simulate).toMatchObject({ perSession: 60, perIp: 300 });
     expect(ingest.bucket).toBe(simulate.bucket);
     expect(sheet.bucket).toBe(simulate.bucket);
+  });
+
+  it("gives Run now on the daily brief its own bucket, apart from other changes", () => {
+    expect(limitFor("POST", "/api/businesses/b_1/brief")).toMatchObject({ bucket: "brief", perSession: 30 });
+    expect(limitFor("PUT", "/api/businesses/b_1/standing-rules").bucket).toBe("mutation");
   });
 
   it("gives connecting a service and saving a contact their own bucket", () => {
@@ -373,4 +383,12 @@ describe("middleware with accounts on", () => {
     const response = await middleware(request("/api/businesses", { method: "DELETE", ip: "198.51.100.24", headers: { origin: "https://evil.example" } }));
     expect(response.status).toBe(403);
   });
+});
+
+
+it("gives recorded work and Telegram removal their own mutation limits", () => {
+  expect(limitFor("POST", "/api/businesses/shop/followups").bucket).toBe("agent-work");
+  expect(limitFor("PUT", "/api/businesses/shop/followups").bucket).toBe("agent-work");
+  expect(limitFor("PUT", "/api/businesses/shop/licenses").bucket).toBe("agent-work");
+  expect(limitFor("POST", "/api/businesses/shop/outbox/entry/delete").bucket).toBe("telegram-delete");
 });

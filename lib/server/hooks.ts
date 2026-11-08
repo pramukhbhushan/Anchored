@@ -3,6 +3,7 @@ import type { ConnectionKind } from "@/lib/domain/connections";
 import { applyOptOut, contactByPhone, normalizePhone, optOutKeyword } from "@/lib/domain/contacts";
 import type { BusinessProfile } from "@/lib/domain/types";
 import { ingestEvent, type IngestResult } from "@/lib/server/ingest";
+import { triageEmail, type TriageEmail } from "@/lib/server/triage";
 import { getStore } from "@/lib/store";
 import type { StoredConnection } from "@/lib/store/types";
 
@@ -14,7 +15,8 @@ import type { StoredConnection } from "@/lib/store/types";
 // across sessions. A customer's text updates their contact: STOP and START
 // change whether Anchored may text them, and anything else becomes a reply
 // draft. A missed call, an unpaid Stripe invoice and a forwarded email each
-// become a draft through `ingestEvent`.
+// become a draft through `ingestEvent`, except the email, which Inbox Triage in
+// `lib/server/triage.ts` files under the agent whose work it is.
 
 /** The connection, business and owning session a webhook's hook id names. */
 export interface HookTarget {
@@ -93,10 +95,10 @@ export async function receiveUnpaidInvoice(
   return logged(await ingestEvent(target.session, target.business, "invoice-late", payload, "live"), "invoice-late");
 }
 
-/** Hand a forwarded email to Inbox Triage. */
-export async function receiveEmail(target: HookTarget, email: { readonly from: string; readonly fromName: string | null; readonly subject: string; readonly text: string }): Promise<boolean> {
-  const from = (email.fromName ? `${email.fromName} <${email.from}>` : email.from).slice(0, 120);
-  return logged(await ingestEvent(target.session, target.business, "email", { from, subject: email.subject, text: email.text }, "live"), "email");
+/** Hand a forwarded email to Inbox Triage, which files it under the agent whose work it is. */
+export async function receiveEmail(target: HookTarget, email: TriageEmail): Promise<boolean> {
+  await triageEmail(target.session, target.business, email);
+  return true;
 }
 
 /** Whether a card was drafted; a refusal is logged, since the provider only needs to know the webhook arrived. */

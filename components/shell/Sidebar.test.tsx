@@ -2,9 +2,12 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { presentAgents } from "@/components/business/agents/view-model";
+import { ACTIVE_AGENT_FIXTURES } from "@/components/business/agents/fixtures";
+import type { BusinessSummary } from "@/components/shell/shell-data";
 import type { ShellLocation } from "@/components/shell/location";
 import { Sidebar } from "@/components/shell/Sidebar";
-import { AT_HOME, AT_NEW, BUSINESSES, atBusiness } from "@/test/shell-fixtures";
+import { AT_HOME, AT_NEW, BUSINESSES, ROSA, atBusiness } from "@/test/shell-fixtures";
 
 // =============================================================================
 // Module Overview
@@ -114,5 +117,52 @@ describe("Sidebar", () => {
     await userEvent.click(screen.getByRole("button", { name: "Close menu" }));
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+const AGENT_BUSINESS: BusinessSummary = {
+  ...ROSA,
+  agents: presentAgents(ACTIVE_AGENT_FIXTURES),
+};
+
+function renderAgentSidebar(location: ShellLocation, collapsed = false) {
+  return render(<Sidebar businesses={[AGENT_BUSINESS]} location={location} open={false} collapsed={collapsed} closeRef={createRef<HTMLButtonElement>()} onClose={vi.fn()} onToggleCollapsed={vi.fn()} handle={null} />);
+}
+
+describe("agent navigation in Sidebar", () => {
+  it("lists active agents and niche agents under Workflows", () => {
+    renderAgentSidebar({ page: "business", businessId: "rosa", section: "workflows" });
+    const agents = within(nav()).getByRole("list", { name: "Agents" });
+    expect(within(agents).getByRole("link", { name: "Customer" })).toHaveAttribute("href", "/app/b/rosa/workflows/customer");
+    expect(within(agents).getByRole("link", { name: "Stock Check" })).toHaveAttribute("href", "/app/b/rosa/workflows/niche%3Astock-check");
+    expect(within(nav()).getByRole("link", { name: "Workflows" })).toHaveAttribute("aria-current", "page");
+    expect(nav().querySelectorAll('[aria-current="page"]')).toHaveLength(1);
+  });
+
+  it("marks only the open agent as current", () => {
+    renderAgentSidebar({ page: "business", businessId: "rosa", section: "workflows", agent: "customer" });
+    expect(within(nav()).getByRole("link", { name: "Customer" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav()).getByRole("link", { name: "Workflows" })).not.toHaveAttribute("aria-current");
+    expect(nav().querySelectorAll('[aria-current="page"]')).toHaveLength(1);
+  });
+
+  it("keeps the Workflows icon current when the open agent is hidden in the collapsed rail", () => {
+    renderAgentSidebar({ page: "business", businessId: "rosa", section: "workflows", agent: "customer" }, true);
+    expect(screen.queryByRole("list", { name: "Agents" })).not.toBeInTheDocument();
+    expect(within(nav()).getByRole("link", { name: "Workflows" })).toHaveAttribute("aria-current", "page");
+    expect(nav().querySelectorAll('[aria-current="page"]')).toHaveLength(1);
+  });
+});
+
+
+describe("main frontend and agent integration", () => {
+  it("keeps main's automation links alongside agent workspaces", () => {
+    const business = { ...AGENT_BUSINESS, automations: [{ key: "nudger", name: "Remind about invoices", stage: "Getting paid", href: "/app/b/rosa/workflows/books/nudger", waiting: 1 }] };
+    render(<Sidebar businesses={[business]} location={{ page: "business", businessId: "rosa", section: "workflows", automation: "nudger" }} open={false} collapsed={false} closeRef={createRef<HTMLButtonElement>()} onClose={vi.fn()} onToggleCollapsed={vi.fn()} handle={null} />);
+    expect(screen.getByRole("list", { name: "Agents" })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Automations" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Remind about invoices/ })).toHaveAttribute("aria-current", "page");
+    expect(nav().querySelectorAll('[aria-current="page"]')).toHaveLength(1);
   });
 });

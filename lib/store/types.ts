@@ -1,8 +1,12 @@
+import type { RecordedFollowup } from "@/lib/domain/followups";
 import type { CardRecord, CardStatus, ChatMessage, Delivery, OutboxEntry } from "@/lib/api/contract";
 import type { ConnectionKind } from "@/lib/domain/connections";
 import type { Contact } from "@/lib/domain/contacts";
 import type { IntakeDraft } from "@/lib/domain/intake";
-import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
+import type { BriefSnapshot } from "@/lib/domain/brief";
+import type { OutboxRule, StandingRuleId, StandingRuleState } from "@/lib/domain/rules";
+import type { NewThreadMessage, ThreadMessage } from "@/lib/domain/threads";
+import type { BusinessProfile, Choice, ChoiceMap, ConversationOwner, KeyedCard, ProfileChangeSource, WorkflowId } from "@/lib/domain/types";
 
 // =============================================================================
 // Module Overview
@@ -32,6 +36,8 @@ export interface OutboxPatch {
   readonly note?: string | null;
   /** The provider's id for the message, such as Twilio's `SM...` sid. */
   readonly providerId?: string;
+  readonly deletionState?: "deleting" | "deleted" | "failed";
+  readonly deletionNote?: string;
   /** When it actually went out. */
   readonly sentAt?: string;
 }
@@ -64,6 +70,31 @@ export interface ChatThread {
 /** A chat message before the store assigns its id and time. A reply's card is read from the cards, never stored on it. */
 export type NewChatMessage = Omit<ChatMessage, "id" | "at" | "card">;
 
+/** Which business a Telegram chat is talking to: the one whose link the customer opened last, with the owning session. */
+export interface TelegramChat {
+  readonly chatId: string;
+  readonly session: string;
+  readonly businessId: string;
+  readonly contactId: string;
+  readonly boundAt: string;
+  /** When the customer blocked the bot, or `null`. Blocking stops every business on the shared bot. */
+  readonly blockedAt: string | null;
+}
+
+/** A Telegram chat binding before it is saved. The session comes from the caller. */
+export type NewTelegramChat = Omit<TelegramChat, "session" | "blockedAt">;
+
+/** A business's daily brief: whether one is being written, and the last one that finished. */
+export interface BriefState {
+  readonly runningSince: string | null;
+  readonly lastSuccessAt: string | null;
+  readonly lastCardKey: string | null;
+  readonly lastSnapshot: BriefSnapshot | null;
+}
+
+/** How a brief run ended: with its card and snapshot, or failed, which keeps the last good brief. */
+export type BriefRunResult = { readonly ok: true; readonly at: string; readonly cardKey: string; readonly snapshot: BriefSnapshot } | { readonly ok: false };
+
 /** An onboarding chat: the draft so far and, once the owner confirms, the business it built. */
 export interface IntakeRecord {
   readonly id: string;
@@ -79,12 +110,26 @@ export interface ProfileVersion {
   readonly snapshot: BusinessProfile;
 }
 
+/** One raw outside or onboarding input retained so code can recount or re-extract it later. */
+export interface StoredEvent {
+  readonly id: string;
+  readonly businessId: string;
+  readonly source: string;
+  readonly payload: Readonly<Record<string, unknown>>;
+  readonly receivedAt: string;
+}
+
 /**
- * Persistence for businesses, choices, cards, the outbox, raw events, chats, contacts and connections. Every method
- * takes the session first and touches only its rows, except the three marked deployment-wide.
+ * Persistence for businesses, choices, cards, the outbox, raw events, chats, contacts, connections, customer threads,
+ * Telegram chats and standing rules. Every method takes the session first and touches only its rows, except the ones
+ * marked deployment-wide, which webhooks and the scheduled sender use and which return the owning session.
  */
 export interface Store {
   readonly kind: "supabase" | "memory";
+  /** Read only this business's recorded follow-up facts. */
+  listFollowups(session: string, businessId: string): Promise<RecordedFollowup[]>;
+  /** Save an owner-recorded timer or its cancellation, retaining its source. */
+  saveFollowup(session: string, followup: RecordedFollowup): Promise<void>;
   /** Return the session's own businesses, oldest first. The example business lives in code and is not stored. */
   listBusinesses(session: string): Promise<BusinessProfile[]>;
   getBusiness(session: string, id: string): Promise<BusinessProfile | null>;
@@ -109,8 +154,15 @@ export interface Store {
    */
   cancelInvoiceReminders(session: string, businessId: string, invoiceKey: string, note: string): Promise<{ readonly cards: number; readonly outbox: number }>;
   addOutbox(session: string, entry: NewOutboxEntry): Promise<OutboxEntry>;
+  /**
+   * Add an entry a rule authorized, unless the session already has one with the same `ruleKey`; `null` then. One
+   * statement checks and writes, so a burst of messages or a retried update queues one acknowledgment.
+   */
+  addRuleOutbox(session: string, entry: NewOutboxEntry & { readonly rule: OutboxRule; readonly ruleKey: string }): Promise<OutboxEntry | null>;
   listOutbox(session: string, businessId: string): Promise<OutboxEntry[]>;
   recordEvent(session: string, businessId: string, source: string, payload: Readonly<Record<string, unknown>>): Promise<void>;
+  /** Return this business's retained raw inputs, oldest first, optionally from `since`. */
+  listEvents(session: string, businessId: string, since?: string): Promise<StoredEvent[]>;
   /** Return the latest `limit` messages of a thread, oldest first. */
   listMessages(session: string, thread: ChatThread, limit: number): Promise<ChatMessage[]>;
   /** Append messages to a thread in order, and return them as stored. */
@@ -122,6 +174,8 @@ export interface Store {
   /** Count one model call against the day's cap for every visitor together; `false` once the cap is reached. Deployment-wide. */
   useAiCall(day: string, cap: number): Promise<boolean>;
   /** Mark a queued entry as sending and return it; `null` when it isn't queued, so two senders can't both send it. */
+  /** Claim deletion of a sent Telegram message once, scoped to its business and session. */
+  claimTelegramDeletion(session: string, businessId: string, entryId: string): Promise<OutboxEntry | null>;
   claimOutbox(session: string, entryId: string): Promise<OutboxEntry | null>;
   settleOutbox(session: string, entryId: string, patch: OutboxPatch): Promise<void>;
   /** Queued entries due by `now`, oldest first, from every session, for the scheduled sender. Deployment-wide. */
@@ -136,6 +190,51 @@ export interface Store {
   deleteConnection(session: string, businessId: string, kind: ConnectionKind): Promise<void>;
   /** The connection a webhook names, with the session that owns it, or `null`. Deployment-wide. */
   findConnection(hookId: string): Promise<{ readonly session: string; readonly connection: StoredConnection } | null>;
+  /**
+   * Return the business's Telegram hook id, the random id in its customer link. The first call saves `candidate`;
+   * later calls return the saved one. Throws `NotFoundError` when the business isn't the session's.
+   */
+  telegramHook(session: string, businessId: string, candidate: string): Promise<string>;
+  /** The business a Telegram hook id names, with the session that owns it, or `null`. Deployment-wide. */
+  findTelegramHook(hookId: string): Promise<{ readonly session: string; readonly businessId: string } | null>;
+  /** The business a Telegram chat is bound to, with its session, or `null`. Deployment-wide: the bot knows only the chat id. */
+  findTelegramChat(chatId: string): Promise<TelegramChat | null>;
+  /** Bind a chat to one of the session's businesses, replacing any earlier binding and clearing a block. */
+  bindTelegramChat(session: string, chat: NewTelegramChat): Promise<TelegramChat>;
+  /** Record that the customer blocked the bot, or `null` once they unblock it. Deployment-wide. */
+  setTelegramChatBlocked(chatId: string, at: string | null): Promise<void>;
+  /**
+   * Claim a Telegram update so it is processed once: `true` for the caller that should process it. A failed update, or
+   * one claimed more than `retakeAfterMs` ago and never finished, can be claimed again. Deployment-wide.
+   */
+  /** Deployment-wide status only: distinguish a finished update from a worker still processing it. */
+  telegramUpdateDone(updateId: number): Promise<boolean>;
+  claimTelegramUpdate(updateId: number, now: string, retakeAfterMs: number): Promise<boolean>;
+  /** Record how processing a claimed update ended. Deployment-wide. */
+  finishTelegramUpdate(updateId: number, status: "done" | "failed"): Promise<void>;
+  /** Append a message to a customer's thread and return it as stored. */
+  addThreadMessage(session: string, message: NewThreadMessage): Promise<ThreadMessage>;
+  /** Return the latest `limit` messages of a customer's thread, oldest first. */
+  listThreadMessages(session: string, businessId: string, contactId: string, limit: number): Promise<ThreadMessage[]>;
+  /** Return which agent owns a customer's conversation. A new conversation starts at Front Desk. */
+  getConversationOwner(session: string, businessId: string, contactId: string): Promise<ConversationOwner>;
+  /** Save the code-validated owner of a customer's conversation. */
+  setConversationOwner(session: string, businessId: string, contactId: string, owner: ConversationOwner, at: string): Promise<void>;
+  /** Return the business's saved standing rules. A rule with no saved state is off. */
+  getStandingRules(session: string, businessId: string): Promise<StandingRuleState[]>;
+  /** Turn a standing rule on or off at `at`, and return it as saved. */
+  setStandingRule(session: string, businessId: string, rule: StandingRuleId, enabled: boolean, at: string): Promise<StandingRuleState>;
+  /** Return the business's brief state, or `null` before its first brief. */
+  getBriefState(session: string, businessId: string): Promise<BriefState | null>;
+  /**
+   * Start a brief run: `true` for the caller that should write it. A run still going is refused, unless it started more
+   * than `retakeAfterMs` ago and stalled.
+   */
+  claimBriefRun(session: string, businessId: string, now: string, retakeAfterMs: number): Promise<boolean>;
+  /** End a brief run; a success becomes the brief the owner reads, a failure leaves the last good one. */
+  finishBriefRun(session: string, businessId: string, result: BriefRunResult): Promise<void>;
+  /** Up to `limit` stored businesses with their sessions, for the scheduled brief. Deployment-wide. */
+  listBriefTargets(limit: number): Promise<{ readonly session: string; readonly businessId: string }[]>;
   /** Delete everything the session created, as "Delete my businesses" asks. */
   reset(session: string): Promise<void>;
 }
