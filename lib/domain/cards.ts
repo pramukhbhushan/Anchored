@@ -38,6 +38,14 @@ function pick<T>(variant: number, standing: T, ...simulated: readonly [T, ...T[]
   return simulated[index] ?? simulated[0];
 }
 
+/** Where a new inquiry arrives, from the first written channel the owner named, or `null` when they named none. */
+function inquiryChannel(business: Pick<BusinessProfile, "reach">): string | null {
+  if (business.reach.includes("Website form")) return "from your website";
+  if (business.reach.includes("Instagram or Facebook")) return "on social media";
+  if (business.reach.includes("Email")) return "by email";
+  return null;
+}
+
 /** Whether the owner said customers find them on Google or that they keep a Google Business Profile. */
 function usesGoogle(business: Pick<BusinessProfile, "reach" | "tools">): boolean {
   return business.reach.includes("Google") || business.tools.includes("Google Business Profile");
@@ -63,8 +71,10 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
   },
   inquiry: (b, v) => {
     const name = pick(v, "Sam", "Alex", "Morgan");
+    const channel = inquiryChannel(b);
     return {
-      title: `New inquiry from your website: ${name}`,
+      // Name only a channel the owner said they have, so a business with no website never sees one.
+      title: channel === null ? `New inquiry from ${name}` : `New inquiry ${channel}: ${name}`,
       body: `Hi ${name}, thanks for reaching out to ${b.name}! Could we talk ${pick(v, "tomorrow at 10 a.m. or 3 p.m.", "Thursday at 9 a.m. or Friday at 1 p.m.", "Monday at 11 a.m. or 2 p.m.")}?`,
       reason: "Replies within the hour qualify far more often.",
       checks: ["Times match your calendar", "No price in a first reply"],

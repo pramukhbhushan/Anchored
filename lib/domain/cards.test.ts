@@ -171,8 +171,22 @@ describe("callback cards", () => {
   });
 });
 
+describe("inquiry cards", () => {
+  const title = (reach: readonly string[]) => CARD_TEMPLATES.inquiry({ ...hvacShop(), reach }, 0).title;
+
+  it("name the website only for a business that said it has a website form", () => {
+    expect(title(["Phone calls", "Website form"])).toBe("New inquiry from your website: Sam");
+    expect(title(["Phone calls", "Walk-ins"])).toBe("New inquiry from Sam");
+  });
+
+  it("name the first written channel the owner has", () => {
+    expect(title(["Instagram or Facebook", "Email"])).toBe("New inquiry on social media: Sam");
+    expect(title(["Email"])).toBe("New inquiry by email: Sam");
+  });
+});
+
 describe("post cards", () => {
-  const posts = (business: BusinessProfile): CardBody[] => VARIANTS.map((variant) => CARD_TEMPLATES.posts(business, variant));
+  const posts =(business: BusinessProfile): CardBody[] => VARIANTS.map((variant) => CARD_TEMPLATES.posts(business, variant));
 
   it("drafts Google listing posts only for a business that uses Google", () => {
     const corner = exampleProfile("corner");
