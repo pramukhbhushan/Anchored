@@ -1,10 +1,11 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, CalendarCheck, CircleDashed, CircleDollarSign, MessageSquareText, Users, Wrench, X, type LucideIcon } from "lucide-react";
+import { ArrowRight, CalendarCheck, CircleDollarSign, Users, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { workflowIcon } from "@/components/business/workflow-icons";
-import type { HandlerKind } from "@/components/workflows/flow";
+import { ChangeHandler } from "@/components/workflows/ChangeHandler";
+import type { ChangeOption, HandlerKind } from "@/components/workflows/flow";
 import styles from "@/components/workflows/map.module.css";
 import type { StageId } from "@/lib/domain/stages";
 import type { WorkflowId } from "@/lib/domain/types";
@@ -13,27 +14,33 @@ import type { WorkflowId } from "@/lib/domain/types";
 // Module Overview
 // =============================================================================
 // The Workflows map: the business in the middle, the three parts of its day
-// around it, the jobs inside each part, and the automations inside each job.
-// One level shows at a time, so an owner never faces more than a few circles.
-// A guide above it names where they are with a big title and a three-step
-// progress bar. Tapping an automation opens a short overview that links to the
-// automation's own page. React renders every circle once; a small spring
-// engine in `useEffect` moves them, so hovering pops a circle and the rest
-// drift and settle like a graph view. Reduced motion places them still.
+// around it, and every job on one ring outside them, all on screen at once so
+// nothing hides behind a click. Drafts waiting for the owner's OK come first:
+// a strip above the map links straight to each one in Approvals, and on the
+// map a yellow trail runs from the business to every job with a draft
+// waiting, which wears a count. Tapping a job opens a panel with its
+// automations, each a link to its own page, and the way to change who handles
+// it. Ring colors match the plan band and the bill: ink for Anchored, green
+// for a tool the owner has, blue for a new tool, grey dashes for work nobody
+// handles. On a narrow screen the jobs hang in one column under each part of
+// the day. React renders every circle once; a small spring engine in
+// `useEffect` moves them, so hovering pops a circle and the rest drift and
+// settle. Reduced motion places them still.
 
-/** One automation on the map, told in the owner's words. */
+/** One automation inside a job, told in the owner's words. */
 export interface MapAutomation {
   readonly key: string;
   readonly name: string;
   readonly summary: string;
-  readonly handler: string;
-  readonly result: string | null;
   /** Drafts waiting for the owner's OK. */
   readonly waiting: number;
+  /** The automation's own page. */
   readonly href: string;
+  /** The first waiting draft in Approvals, or `null` when none waits. */
+  readonly reviewHref: string | null;
 }
 
-/** One job on the map and its automations. */
+/** One job on the map, its automations, and who else could handle it. */
 export interface MapJob {
   readonly id: WorkflowId;
   readonly name: string;
@@ -41,6 +48,9 @@ export interface MapJob {
   readonly handler: string;
   readonly note: string;
   readonly automations: readonly MapAutomation[];
+  readonly options: readonly ChangeOption[];
+  /** The tool comparison for this job. */
+  readonly compareHref: string;
 }
 
 /** One part of the day on the map and its jobs. */
@@ -51,25 +61,37 @@ export interface MapStage {
   readonly jobs: readonly MapJob[];
 }
 
-type View = { readonly level: 0 } | { readonly level: 1; readonly stage: StageId } | { readonly level: 2; readonly stage: StageId; readonly job: WorkflowId };
+type Selection = { readonly type: "stage"; readonly id: StageId } | { readonly type: "job"; readonly id: WorkflowId } | null;
 
-type NodeType = "company" | "stage" | "job" | "auto";
+type NodeType = "company" | "stage" | "job";
 
 interface MapNode {
   readonly id: string;
   readonly type: NodeType;
   readonly parent: string | null;
   readonly label: string;
+  /** The label broken into at most two lines. */
+  readonly lines: readonly string[];
   readonly sub: string;
-  readonly wait: boolean;
+  /** Drafts waiting for the owner's OK in this circle and everything under it. */
+  readonly waiting: number;
   readonly tip: string;
   readonly kind: HandlerKind | null;
   readonly icon: LucideIcon | null;
-  /** The ring's color token. */
-  readonly ring: string;
   readonly stage?: MapStage;
   readonly job?: MapJob;
-  readonly auto?: MapAutomation;
+}
+
+/** Which side of its circle a label sits on: away from the middle, so it never runs into a stage. */
+type LabelAt = "below" | "above" | "left" | "right";
+
+/** Where a layout puts one circle and its label. */
+interface Spot {
+  readonly x: number;
+  readonly y: number;
+  readonly r: number;
+  readonly shown: boolean;
+  readonly label: LabelAt;
 }
 
 /** Live position and motion for one circle; the engine mutates it every frame. */
@@ -77,59 +99,131 @@ interface Body {
   x: number; y: number; vx: number; vy: number;
   r: number; tr: number; tx: number; ty: number;
   o: number; to: number; s: number; sv: number;
-  dim: number; phase: number; lab: boolean; ox: number; oy: number;
+  dim: number; phase: number; label: LabelAt; ox: number; oy: number;
+}
+
+interface NodeEls {
+  g: SVGGElement | null; body: SVGCircleElement | null; ring: SVGCircleElement | null; halo: SVGCircleElement | null;
+  lab: SVGTextElement | null; sub: SVGTextElement | null; icon: SVGGElement | null; badge: SVGGElement | null;
+  link: SVGPathElement | null; trail: SVGPathElement | null; inner: SVGTextElement | null;
 }
 
 const STAGE_ICON: Readonly<Record<StageId, LucideIcon>> = { customers: Users, serving: CalendarCheck, running: CircleDollarSign };
-const STAGE_RING: Readonly<Record<StageId, string>> = { customers: "var(--ocean)", serving: "var(--lagoon)", running: "var(--good)" };
-const KIND_RING: Readonly<Record<HandlerKind, string>> = { agent: "var(--ocean)", owned: "var(--coral)", new: "var(--coral)", none: "transparent" };
-const AUTO_ICON: Readonly<Record<HandlerKind, LucideIcon>> = { agent: MessageSquareText, owned: Wrench, new: Wrench, none: CircleDashed };
-const STEPS = ["Pick a part", "Pick a job", "Watch it work"] as const;
+const KEY: Readonly<Record<HandlerKind, string>> = {
+  agent: "Anchored drafts it, you approve",
+  owned: "A tool you have does it",
+  new: "A new tool does it",
+  none: "Nobody does it yet",
+};
+const KINDS: readonly HandlerKind[] = ["agent", "owned", "new", "none"];
+/** Below this chart width the ring gets too small to read, so the jobs hang in columns instead. */
+const COLUMN_BELOW = 720;
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 const waitingOf = (jobs: readonly MapJob[]) => jobs.reduce((sum, j) => sum + j.automations.reduce((s, a) => s + a.waiting, 0), 0);
+const rad = (d: number) => (d * Math.PI) / 180;
 
-/** Lay the business, its stages, jobs and automations out as one tree of circles. */
+/** Break `text` at the space nearest its middle when it runs past `max` characters. */
+function wrap(text: string, max = 16): string[] {
+  if (text.length <= max) return [text];
+  const mid = text.length / 2;
+  let best = -1;
+  for (let i = text.indexOf(" "); i !== -1; i = text.indexOf(" ", i + 1)) {
+    if (best === -1 || Math.abs(i - mid) < Math.abs(best - mid)) best = i;
+  }
+  return best === -1 ? [text] : [text.slice(0, best), text.slice(best + 1)];
+}
+
+/** List the business, its stages and its jobs as one tree of circles. */
 function nodesOf(businessName: string, stages: readonly MapStage[]): MapNode[] {
   const jobCount = stages.reduce((n, s) => n + s.jobs.length, 0);
   const out: MapNode[] = [
-    { id: "hq", type: "company", parent: null, label: businessName, sub: plural(jobCount, "job"), wait: false, kind: null, icon: null, ring: "var(--ink)",
-      tip: "This is your business. Everything Anchored does for you connects back here." },
+    { id: "hq", type: "company", parent: null, label: businessName, lines: wrap(businessName, 18), sub: plural(jobCount, "job"), waiting: 0, kind: null, icon: null,
+      tip: "This is your business. Every job on the map connects back here." },
   ];
   for (const stage of stages) {
     const w = waitingOf(stage.jobs);
-    out.push({ id: `s:${stage.id}`, type: "stage", parent: "hq", label: stage.name, sub: plural(stage.jobs.length, "job") + (w > 0 ? ` · ${plural(w, "message")} wait${w === 1 ? "s" : ""} for your OK` : ""),
-      wait: false, kind: null, icon: STAGE_ICON[stage.id], ring: STAGE_RING[stage.id], stage, tip: `${stage.blurb}. Tap to see the jobs in this part.` });
+    out.push({ id: `s:${stage.id}`, type: "stage", parent: "hq", label: stage.name, lines: wrap(stage.name),
+      sub: w > 0 ? `${plural(w, "draft")} for your OK` : plural(stage.jobs.length, "job"), waiting: w, kind: null, icon: STAGE_ICON[stage.id], stage,
+      tip: `${stage.blurb}. Tap to list its jobs.` });
     for (const job of stage.jobs) {
       const jw = waitingOf([job]);
-      out.push({ id: `j:${job.id}`, type: "job", parent: `s:${stage.id}`, label: job.name, sub: jw > 0 ? "Needs your OK" : job.handler, wait: jw > 0, kind: job.kind,
-        icon: workflowIcon(job.id), ring: jw > 0 ? "var(--carbon)" : KIND_RING[job.kind], stage, job,
+      out.push({ id: `j:${job.id}`, type: "job", parent: `s:${stage.id}`, label: job.name, lines: wrap(job.name),
+        sub: jw > 0 ? `${plural(jw, "draft")} for your OK` : job.handler, waiting: jw, kind: job.kind, icon: workflowIcon(job.id), stage, job,
         tip: job.kind === "agent" ? "Anchored writes the messages for this job. Nothing goes out until you approve it."
-          : job.kind === "none" ? "Nobody handles this yet, so you do it yourself."
+          : job.kind === "none" ? "Nobody handles this yet, so you do it yourself. Tap to pick who could."
           : `${job.handler} does this job. ${job.note}.` });
-      for (const auto of job.automations) {
-        out.push({ id: `a:${job.id}:${auto.key}`, type: "auto", parent: `j:${job.id}`, label: auto.name,
-          sub: auto.waiting > 0 ? "Needs your OK" : job.kind === "none" ? "Not set up yet" : job.kind === "agent" ? "Anchored does it" : auto.handler,
-          wait: auto.waiting > 0, kind: job.kind, icon: AUTO_ICON[job.kind], ring: auto.waiting > 0 ? "var(--carbon)" : KIND_RING[job.kind], stage, job, auto,
-          tip: `${auto.summary} Tap for a quick overview.` });
-      }
     }
   }
   return out;
 }
 
-const rad = (d: number) => (d * Math.PI) / 180;
-const polar = (x: number, y: number, r: number, deg: number): [number, number] => [x + r * Math.cos(rad(deg)), y + r * Math.sin(rad(deg))];
-
-/** Angles for `n` children of the circle in the middle: side by side when wide, below when narrow. */
-function childAngles(n: number, portrait: boolean): number[] {
-  if (n === 1) return [portrait ? 90 : 0];
-  if (n === 2) return portrait ? [58, 122] : [180, 0];
-  return Array.from({ length: n }, (_, k) => (k * 360) / n - 90);
+/** Label a job on the ring at `deg` on its outer side: above or below near the top and bottom, beside it at the sides. */
+function outward(deg: number): LabelAt {
+  const s = Math.sin(rad(deg));
+  if (s < -0.55) return "above";
+  if (s > 0.55) return "below";
+  return Math.cos(rad(deg)) > 0 ? "right" : "left";
 }
 
-/** Render the map for `businessName` and its `stages`. */
-export function WorkflowMap({ businessName, stages }: { readonly businessName: string; readonly stages: readonly MapStage[] }) {
+/**
+ * Put the business in the middle, every job on one ring around it, and each stage between the business and
+ * its jobs. `wide` stretches the ring sideways to fill a wide chart.
+ */
+function ringLayout(stages: readonly MapStage[], wide: number): Map<string, Spot> {
+  const spots = new Map<string, Spot>([["hq", { x: 0, y: 0, r: 64, shown: true, label: "below" }]]);
+  const total = stages.reduce((n, s) => n + s.jobs.length, 0);
+  // Each stage leaves a gap after its jobs, so they read as one group.
+  const gap = 0.8;
+  const step = 360 / Math.max(1, total + gap * stages.length);
+  const ring = Math.max(330, 230 / (2 * Math.sin(rad(Math.min(step, 180) / 2))));
+  const hub = Math.max(200, ring * 0.5);
+  // The first stage's jobs center on the top of the ring.
+  let a = -90 - (((stages[0]?.jobs.length ?? 1) - 1) * step) / 2;
+  for (const stage of stages) {
+    const n = stage.jobs.length;
+    const mid = rad(a + ((n - 1) * step) / 2);
+    spots.set(`s:${stage.id}`, { x: hub * wide * Math.cos(mid), y: hub * Math.sin(mid), r: 54, shown: true, label: "below" });
+    stage.jobs.forEach((job, k) => {
+      const deg = a + k * step;
+      spots.set(`j:${job.id}`, { x: ring * wide * Math.cos(rad(deg)), y: ring * Math.sin(rad(deg)), r: 44, shown: true, label: outward(deg) });
+    });
+    a += (n + gap) * step;
+  }
+  return spots;
+}
+
+/** Hang each stage's jobs in one column under it, for a narrow screen; the business itself stays off this view. */
+function columnLayout(stages: readonly MapStage[]): Map<string, Spot> {
+  const spots = new Map<string, Spot>([["hq", { x: -56, y: -60, r: 0, shown: false, label: "right" }]]);
+  let y = 0;
+  for (const stage of stages) {
+    spots.set(`s:${stage.id}`, { x: -56, y, r: 32, shown: true, label: "right" });
+    y += 88;
+    for (const job of stage.jobs) {
+      spots.set(`j:${job.id}`, { x: 0, y, r: 28, shown: true, label: "right" });
+      y += 84;
+    }
+    y += 20;
+  }
+  return spots;
+}
+
+/** Render the map for `businessName` and its `stages`, with the drafts waiting in `approvalsHref` up top. */
+export function WorkflowMap({
+  businessId,
+  businessName,
+  stages,
+  approvalsHref,
+  pendingTotal,
+}: {
+  readonly businessId: string;
+  readonly businessName: string;
+  readonly stages: readonly MapStage[];
+  readonly approvalsHref: string;
+  /** Every draft waiting in Approvals, including ones from work outside these jobs. */
+  readonly pendingTotal: number;
+}) {
   const nodes = useMemo(() => nodesOf(businessName, stages), [businessName, stages]);
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const children = useMemo(() => {
@@ -138,142 +232,116 @@ export function WorkflowMap({ businessName, stages }: { readonly businessName: s
     return m;
   }, [nodes]);
 
-  const [view, setView] = useState<View>({ level: 0 });
-  const [peek, setPeek] = useState<MapNode | null>(null);
-  const [title, setTitle] = useState("Your business");
-  const [swap, setSwap] = useState(false);
-
+  const [sel, setSel] = useState<Selection>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const worldRef = useRef<SVGGElement>(null);
-  const tipRef = useRef<HTMLDivElement>(null);
-  const panelOpen = view.level > 0;
+  const chartRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const els = useRef(new Map<string, { g: SVGGElement | null; body: SVGCircleElement | null; ring: SVGCircleElement | null; lab: SVGTextElement | null; sub: SVGTextElement | null; icon: SVGGElement | null; link: SVGLineElement | null; inner: SVGTextElement | null; innerSub: SVGTextElement | null }>());
-  const viewRef = useRef<View>(view);
+  const tipRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const els = useRef(new Map<string, NodeEls>());
+  const selRef = useRef<Selection>(sel);
   const activateRef = useRef<(id: string) => void>(() => {});
   const relayout = useRef<() => void>(() => {});
 
-  const refFor = (id: string, part: "g" | "body" | "ring" | "lab" | "sub" | "icon" | "link" | "inner" | "innerSub") => (el: SVGElement | null) => {
-    const entry = els.current.get(id) ?? { g: null, body: null, ring: null, lab: null, sub: null, icon: null, link: null, inner: null, innerSub: null };
-    (entry as Record<string, SVGElement | null>)[part] = el;
+  const refFor = (id: string, part: keyof NodeEls) => (el: SVGElement | null) => {
+    const entry = els.current.get(id) ?? { g: null, body: null, ring: null, halo: null, lab: null, sub: null, icon: null, badge: null, link: null, trail: null, inner: null };
+    (entry as unknown as Record<string, SVGElement | null>)[part] = el;
     els.current.set(id, entry);
   };
-
-  const go = useCallback((v: View) => {
-    setPeek(null);
-    setView(v);
-  }, []);
 
   activateRef.current = (id: string) => {
     const n = byId.get(id);
     if (!n) return;
-    if (n.type === "company") go({ level: 0 });
-    else if (n.type === "stage" && n.stage) go({ level: 1, stage: n.stage.id });
-    else if (n.type === "job" && n.stage && n.job) go({ level: 2, stage: n.stage.id, job: n.job.id });
-    else if (n.type === "auto") setPeek(n);
+    const next: Selection = n.type === "stage" && n.stage ? { type: "stage", id: n.stage.id } : n.type === "job" && n.job ? { type: "job", id: n.job.id } : null;
+    // Tapping the open circle again closes it.
+    setSel((cur) => (cur && next && cur.type === next.type && cur.id === next.id ? null : next));
   };
 
-  // The guide's title fades out, changes, and fades back in.
-  const nextTitle = view.level === 0 ? "Your business" : view.level === 1 ? (byId.get(`s:${view.stage}`)?.label ?? "") : (byId.get(`j:${view.job}`)?.label ?? "");
   useEffect(() => {
-    if (nextTitle === title) return;
-    setSwap(true);
-    const t = setTimeout(() => { setTitle(nextTitle); setSwap(false); }, 280);
-    return () => clearTimeout(t);
-  }, [nextTitle, title]);
-
-  useEffect(() => {
-    viewRef.current = view;
+    selRef.current = sel;
     relayout.current();
-  }, [view]);
+    // In columns the panel sits under a tall map, so bring it to the owner.
+    if (sel !== null && wrapRef.current?.dataset.layout === "column") {
+      const smooth = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+      panelRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+    }
+  }, [sel]);
 
-  // Esc steps back up one level, or closes the overview.
+  // Esc closes the panel.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      if (peek) { setPeek(null); return; }
-      const v = viewRef.current;
-      if (v.level === 2) go({ level: 1, stage: v.stage });
-      else if (v.level === 1) go({ level: 0 });
-    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSel(null); };
     addEventListener("keydown", onKey);
     return () => removeEventListener("keydown", onKey);
-  }, [peek, go]);
+  }, []);
 
   // ---------------------------------------------------------------- the engine
   useEffect(() => {
-    const svg = svgRef.current, world = worldRef.current;
-    if (!svg || !world) return;
+    const svg = svgRef.current, world = worldRef.current, chart = chartRef.current, wrapEl = wrapRef.current;
+    if (!svg || !world || !chart || !wrapEl) return;
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const bodies = new Map<string, Body>(nodes.map((n) => [n.id, { x: 0, y: 0, vx: 0, vy: 0, r: 0, tr: 0, tx: 0, ty: 0, o: 0, to: 0, s: 1, sv: 0, dim: 1, phase: Math.random() * 6.28, lab: false, ox: 0, oy: 0 }]));
+    const bodies = new Map<string, Body>(nodes.map((n) => [n.id, { x: 0, y: 0, vx: 0, vy: 0, r: 0, tr: 0, tx: 0, ty: 0, o: 0, to: 0, s: 1, sv: 0, dim: 1, phase: Math.random() * 6.28, label: "below", ox: 0, oy: 0 }]));
     const cam = { x: 0, y: 0, s: 1, tx: 0, ty: 0, ts: 1, px: 0, py: 0 };
     let vp = { w: 800, h: 600, panel: 0 };
+    let column = false;
     let hover: string | null = null;
     let hot: Set<string> | null = null;
+    let lit: Set<string> | null = null;
     let drag: { id: string; sx: number; sy: number; dx: number; dy: number; moved: boolean } | null = null;
-    let pan: { sx: number; sy: number; px: number; py: number } | null = null;
+    let pan: { sx: number; sy: number; px: number; py: number; moved: boolean } | null = null;
     let raf = 0;
 
     const related = (id: string) => new Set([id, byId.get(id)?.parent ?? "", ...(children.get(id) ?? [])].filter(Boolean));
-
-    const measure = () => {
-      const r = svg.getBoundingClientRect();
-      if (!r.width) return;
-      const panel = wrapRef.current?.dataset.panel === "open" && innerWidth > 760 ? Math.min(360, r.width * 0.4) + 24 : 0;
-      vp = { w: r.width, h: r.height, panel };
-    };
-
-    const place = (id: string, xy: [number, number], r: number) => {
-      const b = bodies.get(id);
-      if (!b) return;
-      b.tx = xy[0]; b.ty = xy[1]; b.tr = r; b.to = 1; b.lab = true;
-    };
+    const selId = () => { const s = selRef.current; return s === null ? null : s.type === "stage" ? `s:${s.id}` : `j:${s.id}`; };
 
     const layout = () => {
-      measure();
-      for (const b of bodies.values()) b.to = -1;
-      const v = viewRef.current;
-      const portrait = vp.w - vp.panel < vp.h * 0.92;
-      if (v.level === 0) {
-        place("hq", [0, 0], 78);
-        const ang = [-90, 30, 150];
-        stages.forEach((s, i) => place(`s:${s.id}`, polar(0, 0, 260, (ang[i % 3] ?? 0) + Math.floor(i / 3) * 60), 58));
-      } else if (v.level === 1) {
-        place(`s:${v.stage}`, [0, 0], 68);
-        const jobs = children.get(`s:${v.stage}`) ?? [];
-        const a = childAngles(jobs.length, portrait);
-        jobs.forEach((id, k) => place(id, polar(0, 0, jobs.length > 3 ? 250 : 230, a[k] ?? 0), jobs.length > 4 ? 48 : 58));
-      } else {
-        place(`j:${v.job}`, [0, 0], 62);
-        const autos = children.get(`j:${v.job}`) ?? [];
-        const a = childAngles(autos.length, portrait);
-        autos.forEach((id, k) => place(id, polar(0, 0, 220, a[k] ?? 0), 52));
-      }
-      // Circles not on this level fold into their parent.
-      for (const n of nodes) {
-        const b = bodies.get(n.id)!;
-        if (b.to === 1) continue;
-        const p = n.parent ? bodies.get(n.parent) : undefined;
-        b.tx = p ? p.tx : 0; b.ty = p ? p.ty : 0; b.tr = 0; b.to = 0; b.lab = false;
-      }
-      for (const n of nodes) {
-        const g = els.current.get(n.id)?.g;
-        if (!g) continue;
-        const on = bodies.get(n.id)!.to > 0;
-        g.style.pointerEvents = on ? "auto" : "none";
-        g.setAttribute("tabindex", on ? "0" : "-1");
-        g.setAttribute("aria-hidden", on ? "false" : "true");
-      }
-      // Fit the camera to what shows.
+      const rect = svg.getBoundingClientRect();
+      if (!rect.width) return;
+      column = rect.width < COLUMN_BELOW;
+      const sid = selId();
+      vp = { w: rect.width, h: rect.height, panel: !column && sid !== null ? Math.min(360, rect.width * 0.4) + 24 : 0 };
+      wrapEl.dataset.layout = column ? "column" : "ring";
+      lit = sid === null ? null : related(sid);
+      // A wide chart stretches the ring sideways, so the jobs spread into the room beside it.
+      const spots = column ? columnLayout(stages) : ringLayout(stages, Math.max(1, Math.min(1.5, (rect.width / rect.height) * 0.85)));
       let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-      for (const b of bodies.values()) {
-        if (b.to <= 0) continue;
-        x0 = Math.min(x0, b.tx - b.tr - 90); x1 = Math.max(x1, b.tx + b.tr + 90);
-        y0 = Math.min(y0, b.ty - b.tr - 14); y1 = Math.max(y1, b.ty + b.tr + 56);
+      for (const n of nodes) {
+        const b = bodies.get(n.id)!, s = spots.get(n.id);
+        if (!s) continue;
+        const r = s.r + (n.type !== "company" && n.waiting > 0 ? 6 : 0);
+        b.tx = s.x; b.ty = s.y; b.tr = s.shown ? r : 0; b.to = s.shown ? 1 : 0; b.label = s.label;
+        const g = els.current.get(n.id)?.g;
+        if (g) {
+          g.dataset.label = s.label;
+          g.dataset.sel = n.id === sid ? "true" : "false";
+          g.style.pointerEvents = s.shown ? "auto" : "none";
+          g.setAttribute("tabindex", s.shown ? "0" : "-1");
+          g.setAttribute("aria-hidden", s.shown ? "false" : "true");
+        }
+        if (!s.shown) continue;
+        // Room for the label: about 11px a letter, 10px a letter for the monospace subline, two lines and the subline.
+        const w = Math.max(Math.max(...n.lines.map((l) => l.length)) * 11, n.sub.length * 10), h = n.lines.length * 22 + 22;
+        const across = s.label === "left" || s.label === "right";
+        x0 = Math.min(x0, s.x - (s.label === "left" ? r + 14 + w : across ? r + 10 : Math.max(r, w / 2) + 10));
+        x1 = Math.max(x1, s.x + (s.label === "right" ? r + 14 + w : across ? r + 10 : Math.max(r, w / 2) + 10));
+        y0 = Math.min(y0, s.y - (s.label === "above" ? r + 24 + h : across ? Math.max(r, h / 2) + 12 : r + 18));
+        y1 = Math.max(y1, s.y + (s.label === "below" ? r + 22 + h : across ? Math.max(r, h / 2) + 8 : r + 10));
       }
-      cam.ts = Math.max(0.4, Math.min(1.25, (vp.w - vp.panel - 32) / (x1 - x0), (vp.h - 60) / (y1 - y0)));
       cam.tx = (x0 + x1) / 2; cam.ty = (y0 + y1) / 2; cam.px = 0; cam.py = 0;
-      const f = bodies.get(v.level === 2 ? `j:${v.job}` : v.level === 1 ? `s:${v.stage}` : "hq");
+      if (column) {
+        cam.ts = Math.max(0.6, Math.min(1.1, (vp.w - 24) / (x1 - x0)));
+        // The chart grows to the column's height, and the page scrolls instead of the map shrinking.
+        const want = Math.ceil((y1 - y0) * cam.ts + 24);
+        if (Math.abs(chart.clientHeight - want) > 2) chart.style.height = `${want}px`;
+      } else {
+        chart.style.height = "";
+        const fit = Math.min((vp.w - vp.panel - 32) / (x1 - x0), (vp.h - 40) / (y1 - y0));
+        cam.ts = Math.max(0.45, Math.min(1.15, fit));
+        // Too little room beside the panel to show it all: center on what is open instead.
+        const f = sid === null ? undefined : bodies.get(sid);
+        if (f && fit < 0.45) { cam.tx = f.tx; cam.ty = f.ty; }
+      }
+      const f = sid === null ? undefined : bodies.get(sid);
       if (f) f.sv += 0.09;
     };
     relayout.current = () => requestAnimationFrame(layout);
@@ -325,7 +393,10 @@ export function WorkflowMap({ businessName, stages }: { readonly businessName: s
           const b = bodies.get(drag.id)!, [wx, wy] = toWorld(e.clientX, e.clientY);
           b.ox = wx - drag.dx - b.tx; b.oy = wy - drag.dy - b.ty;
         }
-      } else if (pan) { cam.px = pan.px + (e.clientX - pan.sx); cam.py = pan.py + (e.clientY - pan.sy); }
+      } else if (pan) {
+        if (!pan.moved && Math.hypot(e.clientX - pan.sx, e.clientY - pan.sy) > 5) pan.moved = true;
+        cam.px = pan.px + (e.clientX - pan.sx); cam.py = pan.py + (e.clientY - pan.sy);
+      }
     };
     const up = () => {
       if (drag) {
@@ -333,10 +404,18 @@ export function WorkflowMap({ businessName, stages }: { readonly businessName: s
         if (!drag.moved) activateRef.current(drag.id);
         b.ox = 0; b.oy = 0; drag = null;
       }
+      // A tap on the open sea closes the panel.
+      if (pan && !pan.moved) setSel(null);
       pan = null;
     };
-    const bgDown = (e: PointerEvent) => { if (e.button === 0 && !drag) pan = { sx: e.clientX, sy: e.clientY, px: cam.px, py: cam.py }; };
-    addEventListener("pointermove", move); addEventListener("pointerup", up); svg.addEventListener("pointerdown", bgDown);
+    // A scroll that takes over a touch ends it without a tap.
+    const cancel = () => {
+      if (drag) { const b = bodies.get(drag.id)!; b.ox = 0; b.oy = 0; }
+      drag = null; pan = null;
+    };
+    const bgDown = (e: PointerEvent) => { if (e.button === 0 && !drag && !column) pan = { sx: e.clientX, sy: e.clientY, px: cam.px, py: cam.py, moved: false }; };
+    addEventListener("pointermove", move); addEventListener("pointerup", up); addEventListener("pointercancel", cancel);
+    svg.addEventListener("pointerdown", bgDown);
     const ro = new ResizeObserver(() => layout());
     ro.observe(svg);
 
@@ -348,14 +427,14 @@ export function WorkflowMap({ businessName, stages }: { readonly businessName: s
       cam.x += (cam.tx - cam.x) * ck; cam.y += (cam.ty - cam.y) * ck; cam.s += (cam.ts - cam.s) * ck;
       const { ox, oy } = origin();
       world.setAttribute("transform", `translate(${ox.toFixed(1)},${oy.toFixed(1)}) scale(${cam.s.toFixed(4)}) translate(${(-cam.x).toFixed(1)},${(-cam.y).toFixed(1)})`);
-      const inv = Math.max(1, Math.min(1.9, 1 / cam.s));
+      const inv = Math.max(1, Math.min(1.5, 1 / cam.s));
       const dragged = drag?.moved ? drag.id : null;
       const dragRel = dragged ? related(dragged) : null;
 
       for (const n of nodes) {
         const b = bodies.get(n.id)!;
         let gx = b.tx + b.ox, gy = b.ty + b.oy;
-        if (!reduce && n.id !== dragged) { gx += Math.sin(t * 0.6 + b.phase) * 3.5; gy += Math.cos(t * 0.5 + b.phase * 1.3) * 3.5; }
+        if (!reduce && n.id !== dragged) { gx += Math.sin(t * 0.6 + b.phase) * 3; gy += Math.cos(t * 0.5 + b.phase * 1.3) * 3; }
         if (dragged && n.id !== dragged && dragRel?.has(n.id)) { const d = bodies.get(dragged)!; gx += d.ox * 0.35; gy += d.oy * 0.35; }
         if (reduce || n.id === dragged) { b.x = gx; b.y = gy; b.vx = b.vy = 0; }
         else {
@@ -365,9 +444,10 @@ export function WorkflowMap({ businessName, stages }: { readonly businessName: s
         }
         b.r += (b.tr - b.r) * (reduce ? 1 : 1 - Math.pow(1 - 0.06, dt));
         b.o += (b.to - b.o) * (reduce ? 1 : 1 - Math.pow(1 - 0.05, dt));
-        const ts = hover === n.id ? 1.14 : 1;
+        const ts = hover === n.id ? 1.12 : 1;
         if (reduce) b.s = ts; else { b.sv = (b.sv + (ts - b.s) * 0.12) * 0.74; b.s += b.sv; }
-        b.dim += ((hot && !hot.has(n.id) ? 0.3 : 1) - b.dim) * 0.2;
+        const want = hot ? (hot.has(n.id) ? 1 : 0.3) : lit ? (lit.has(n.id) ? 1 : 0.4) : 1;
+        b.dim += (want - b.dim) * 0.2;
       }
       // Push overlapping circles apart.
       const vis = nodes.map((n) => [n.id, bodies.get(n.id)!] as const).filter(([, b]) => b.o > 0.05 && b.r > 4);
@@ -389,42 +469,58 @@ export function WorkflowMap({ businessName, stages }: { readonly businessName: s
         e.g.style.opacity = (b.o * b.dim).toFixed(3);
         e.g.style.display = b.o < 0.01 && b.to === 0 ? "none" : "";
         e.body?.setAttribute("r", r.toFixed(1));
-        e.ring?.setAttribute("r", (r + (n.type === "company" ? 10 : n.type === "auto" ? 4 : 6)).toFixed(1));
+        e.ring?.setAttribute("r", (r + (n.type === "company" ? 10 : 6)).toFixed(1));
+        e.halo?.setAttribute("r", (r + 16).toFixed(1));
         if (n.type === "company") {
-          // Shrink a long business name so it fits across the circle (Archivo at 116% runs about 0.62em a letter)
-          const fs = Math.max(10, Math.min(r * 0.24, (r * 1.6) / (Math.max(1, n.label.length) * 0.62)));
-          const big = r > 60;
-          if (e.inner) { e.inner.style.fontSize = `${fs}px`; e.inner.setAttribute("y", (fs * 0.15).toFixed(1)); e.inner.style.display = big ? "" : "none"; }
-          if (e.innerSub) { e.innerSub.style.fontSize = `${Math.max(8, r * 0.15)}px`; e.innerSub.setAttribute("y", (fs * 0.15 + r * 0.3).toFixed(1)); e.innerSub.style.display = big ? "" : "none"; }
+          // The business's initial fills its circle, the way the business switcher shows it; the name sits below
+          if (e.inner) { e.inner.style.fontSize = `${(r * 0.95).toFixed(1)}px`; e.inner.setAttribute("y", (r * 0.33).toFixed(1)); e.inner.style.display = r > 12 ? "" : "none"; }
         } else if (e.icon) {
           const is = (r * 0.8) / 24;
           e.icon.setAttribute("transform", `scale(${is.toFixed(3)}) translate(-12,-12)`);
           e.icon.style.display = r > 9 ? "" : "none";
         }
-        const ls = (n.type === "auto" ? 14 : 15) * inv, ss = 13 * inv;
+        if (e.badge) {
+          e.badge.style.display = n.waiting > 0 && r > 8 ? "" : "none";
+          e.badge.setAttribute("transform", `translate(${(r * 0.74).toFixed(1)},${(-r * 0.74).toFixed(1)}) scale(${inv.toFixed(3)})`);
+        }
+        const ls = (n.type === "company" ? 19 : n.type === "stage" ? 16 : 15) * inv, ss = 13 * inv, lead = (n.lines.length - 1) * ls * 1.15;
+        // Baselines for the label's first line and the subline, on the side of the circle the layout picked.
+        let lx = 0, ly = r + 14 + ls * 0.9, sy = ly + lead + ss * 1.3;
+        if (b.label === "above") { sy = -r - 16; ly = sy - ss * 1.3 - lead; }
+        else if (b.label === "left" || b.label === "right") {
+          lx = b.label === "right" ? r + 12 : -r - 12;
+          ly = -(lead + ss * 1.3) / 2 + ls * 0.35; sy = ly + lead + ss * 1.3;
+        }
+        const shown = b.o > 0.05;
         if (e.lab) {
-          e.lab.style.display = b.lab && (n.type !== "company" || r <= 60) ? "" : "none";
+          e.lab.style.display = shown ? "" : "none";
           e.lab.style.fontSize = `${ls}px`;
-          e.lab.setAttribute("y", (r + 14 + ls * 0.9).toFixed(1));
+          e.lab.setAttribute("transform", `translate(${lx.toFixed(1)},${ly.toFixed(1)})`);
         }
         if (e.sub) {
-          e.sub.style.display = b.lab && n.type !== "company" ? "" : "none";
+          e.sub.style.display = shown ? "" : "none";
           e.sub.style.fontSize = `${ss}px`;
-          e.sub.setAttribute("y", (r + 18 + ls * 0.9 + ss * 1.25).toFixed(1));
+          e.sub.setAttribute("transform", `translate(${lx.toFixed(1)},${sy.toFixed(1)})`);
         }
         if (e.link && n.parent) {
           const p = bodies.get(n.parent)!;
           const dx = b.x - p.x, dy = b.y - p.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
           const a0 = p.r * p.s + 8, a1 = b.r * b.s + 8;
-          const show = d > a0 + a1 && b.o > 0.02 && p.o > 0.02;
+          const show = b.o > 0.02 && p.o > 0.02 && (column || d > a0 + a1);
+          // In a column the wire drops from the stage and turns into the job; on the ring it runs straight.
+          const path = column
+            ? `M${p.x.toFixed(1)},${(p.y + p.r * p.s + 6).toFixed(1)}V${b.y.toFixed(1)}H${(b.x - a1).toFixed(1)}`
+            : `M${(p.x + ux * a0).toFixed(1)},${(p.y + uy * a0).toFixed(1)}L${(b.x - ux * a1).toFixed(1)},${(b.y - uy * a1).toFixed(1)}`;
           e.link.style.display = show ? "" : "none";
-          if (show) {
-            e.link.setAttribute("x1", (p.x + ux * a0).toFixed(1)); e.link.setAttribute("y1", (p.y + uy * a0).toFixed(1));
-            e.link.setAttribute("x2", (b.x - ux * a1).toFixed(1)); e.link.setAttribute("y2", (b.y - uy * a1).toFixed(1));
+          if (show) e.link.setAttribute("d", path);
+          const lineLit = !!hot && hot.has(n.id) && hot.has(n.parent) && (hover === n.id || hover === n.parent);
+          e.link.classList.toggle(styles.linkHot ?? "linkHot", lineLit);
+          const o = Math.min(b.o, p.o) * Math.min(b.dim, p.dim);
+          e.link.style.opacity = o.toFixed(3);
+          if (e.trail) {
+            e.trail.style.display = show && n.waiting > 0 ? "" : "none";
+            if (show && n.waiting > 0) { e.trail.setAttribute("d", path); e.trail.style.opacity = (o * 0.9).toFixed(3); }
           }
-          const lit = !!hot && hot.has(n.id) && hot.has(n.parent) && (hover === n.id || hover === n.parent);
-          e.link.classList.toggle(styles.linkHot ?? "linkHot", lit);
-          e.link.style.opacity = (Math.min(b.o, p.o) * Math.min(b.dim, p.dim) * (lit ? 1 : 0.55)).toFixed(3);
         }
       }
       if (hover && tipRef.current && !tipRef.current.hidden) {
@@ -441,88 +537,93 @@ export function WorkflowMap({ businessName, stages }: { readonly businessName: s
     layout();
     for (const b of bodies.values()) { b.x = 0; b.y = 0; b.r = 0; b.o = 0; }
     cam.x = cam.tx; cam.y = cam.ty; cam.s = cam.ts;
-    raf = requestAnimationFrame(frame);
+    raf = requestAnimationFrame((now) => { frame(now); svg.dataset.ready = "true"; });
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
-      removeEventListener("pointermove", move); removeEventListener("pointerup", up); svg.removeEventListener("pointerdown", bgDown);
+      removeEventListener("pointermove", move); removeEventListener("pointerup", up); removeEventListener("pointercancel", cancel);
+      svg.removeEventListener("pointerdown", bgDown);
       cleanups.forEach((c) => c());
     };
   }, [nodes, byId, children, stages]);
 
-  const back = () => {
-    if (view.level === 2) go({ level: 1, stage: view.stage });
-    else if (view.level === 1) go({ level: 0 });
-  };
-  const hint = view.level === 0 ? "Tap one of the parts of your day around your business."
-    : view.level === 1 ? "Tap a job to see what Anchored does for you there."
-    : "Tap a circle for a quick overview, then open it to use it.";
-  const stageNode = view.level === 0 ? undefined : byId.get(`s:${view.stage}`);
-  const jobNode = view.level === 2 ? byId.get(`j:${view.job}`) : undefined;
+  const jobs = stages.flatMap((stage) => stage.jobs.map((job) => ({ stage, job })));
+  const waiting = jobs.flatMap(({ job }) => job.automations.filter((a) => a.waiting > 0).map((auto) => ({ job, auto })));
+  const extra = Math.max(0, pendingTotal - waiting.reduce((n, { auto }) => n + auto.waiting, 0));
+  const kinds = KINDS.filter((k) => jobs.some(({ job }) => job.kind === k));
+  const selStage = sel?.type === "stage" ? stages.find((s) => s.id === sel.id) : undefined;
+  const selJob = sel?.type === "job" ? jobs.find(({ job }) => job.id === sel.id) : undefined;
 
   return (
     <section className={styles.map} aria-labelledby="map-title">
-      <div className={styles.guide}>
-        <nav className={styles.crumbs} aria-label="Where you are on the map">
-          {view.level > 0 && (
-            <button type="button" className={styles.back} onClick={back}>
-              <ArrowLeft aria-hidden="true" size={16} /> Back
-            </button>
-          )}
-          <button type="button" onClick={() => go({ level: 0 })} aria-current={view.level === 0 ? "step" : undefined}>{businessName}</button>
-          {stageNode?.stage && (
-            <>
-              <span aria-hidden="true">›</span>
-              <button type="button" onClick={() => go({ level: 1, stage: stageNode.stage!.id })} aria-current={view.level === 1 ? "step" : undefined}>{stageNode.label}</button>
-            </>
-          )}
-          {jobNode && (
-            <>
-              <span aria-hidden="true">›</span>
-              <button type="button" aria-current="step">{jobNode.label}</button>
-            </>
-          )}
-        </nav>
-        <ol className={styles.progress} aria-label="Progress">
-          {STEPS.map((step, i) => (
-            <li key={step} data-state={i < view.level ? "done" : i === view.level ? "now" : "next"} aria-current={i === view.level ? "step" : undefined}>
-              <span><b>Step {i + 1}</b>{step}</span>
-              <span className={styles.bar}><i /></span>
-            </li>
-          ))}
-        </ol>
-        <h2 id="map-title" className={styles.title} data-swap={swap ? "true" : "false"}>{title}</h2>
-        <p className={styles.hint}>{hint}</p>
-      </div>
+      <h2 id="map-title" className="sr">Map of every job</h2>
+      {waiting.length > 0 || extra > 0 ? (
+        <div className={styles.needs}>
+          <h3 className={styles.needsTitle}>Waiting for your OK</h3>
+          <ul className={styles.needsList}>
+            {waiting.map(({ job, auto }) => (
+              <li key={`${job.id}:${auto.key}`}>
+                <Link href={auto.reviewHref ?? auto.href} className={styles.need} aria-label={`Review ${plural(auto.waiting, "draft")} from ${auto.name}`}>
+                  <b className={styles.count} aria-hidden="true">{auto.waiting}</b>
+                  <span className={styles.needText}><b>{auto.name}</b><span>{job.name}</span></span>
+                  <span className={styles.go} aria-hidden="true">Review <ArrowRight size={14} /></span>
+                </Link>
+              </li>
+            ))}
+            {extra > 0 && (
+              <li>
+                <Link href={approvalsHref} className={styles.need}>
+                  <b className={styles.count} aria-hidden="true">{extra}</b>
+                  <span className={styles.needText}><b>{plural(extra, waiting.length > 0 ? "more draft" : "draft")} in Approvals</b><span>From work outside these jobs</span></span>
+                  <span className={styles.go} aria-hidden="true">Review <ArrowRight size={14} /></span>
+                </Link>
+              </li>
+            )}
+          </ul>
+        </div>
+      ) : (
+        <p className={styles.hint}>Nothing waits for your OK right now.</p>
+      )}
+      <p className={styles.hint}>Tap any job to see what it does and change who handles it.</p>
 
-      <div className={styles.stage} ref={wrapRef} data-panel={panelOpen ? "open" : "closed"}>
-        <div className={styles.chart}>
-          <svg ref={svgRef} className={styles.svg} role="group" aria-label={`Map of ${businessName}'s workflows`}>
+      <div className={styles.stage} ref={wrapRef} data-panel={sel ? "open" : "closed"}>
+        <div className={styles.chart} ref={chartRef}>
+          <svg ref={svgRef} className={styles.svg} role="group" aria-label={`Map of ${businessName}'s jobs`}>
             <g ref={worldRef}>
               <g>
                 {nodes.filter((n) => n.parent !== null).map((n) => (
-                  <line key={n.id} ref={refFor(n.id, "link")} className={styles.link} data-dash={n.kind === "none" ? "true" : undefined} />
+                  <path key={n.id} ref={refFor(n.id, "trail")} className={styles.trail} style={{ display: "none" }} />
+                ))}
+              </g>
+              <g>
+                {nodes.filter((n) => n.parent !== null).map((n) => (
+                  <path key={n.id} ref={refFor(n.id, "link")} className={styles.link} data-dash={n.kind === "none" ? "true" : undefined} />
                 ))}
               </g>
               <g>
                 {nodes.map((n) => {
                   const Icon = n.icon;
                   return (
-                    <g key={n.id} ref={refFor(n.id, "g")} className={styles.node} data-type={n.type} data-kind={n.kind ?? undefined} data-wait={n.wait ? "true" : undefined}
-                      role="button" tabIndex={-1} aria-label={`${n.label}. ${n.sub}`} style={{ "--ring": n.ring } as React.CSSProperties}>
-                      <circle className={styles.halo} r={0} />
+                    <g key={n.id} ref={refFor(n.id, "g")} className={styles.node} data-type={n.type} data-kind={n.kind ?? undefined} data-wait={n.waiting > 0 ? "true" : undefined}
+                      role="button" tabIndex={0} aria-label={`${n.label}. ${n.sub}`}>
+                      <circle ref={refFor(n.id, "halo")} className={styles.halo} r={0} />
                       <circle ref={refFor(n.id, "ring")} className={styles.ring} r={0} />
                       <circle ref={refFor(n.id, "body")} className={styles.body} r={0} />
                       {n.type === "company" ? (
-                        <>
-                          <text ref={refFor(n.id, "inner")} className={styles.hqName}>{n.label}</text>
-                          <text ref={refFor(n.id, "innerSub")} className={styles.hqSub}>{n.sub}</text>
-                        </>
+                        <text ref={refFor(n.id, "inner")} className={styles.hqName} aria-hidden="true">{n.label.trim().charAt(0).toUpperCase()}</text>
                       ) : (
                         Icon && <g ref={refFor(n.id, "icon")} className={styles.icon}><Icon width={24} height={24} strokeWidth={1.7} /></g>
                       )}
-                      <text ref={refFor(n.id, "lab")} className={styles.label}>{n.label}</text>
-                      <text ref={refFor(n.id, "sub")} className={styles.sub} data-wait={n.wait ? "true" : undefined}>{n.sub}</text>
+                      <text ref={refFor(n.id, "lab")} className={styles.label}>
+                        {n.lines.map((line, i) => <tspan key={i} x={0} dy={i === 0 ? 0 : "1.15em"}>{line}</tspan>)}
+                      </text>
+                      <text ref={refFor(n.id, "sub")} className={styles.sub} data-wait={n.waiting > 0 ? "true" : undefined}>{n.sub}</text>
+                      {n.waiting > 0 && (
+                        <g ref={refFor(n.id, "badge")} className={styles.badge} style={{ display: "none" }}>
+                          <circle r={14} />
+                          <text>{n.waiting}</text>
+                        </g>
+                      )}
                     </g>
                   );
                 })}
@@ -530,96 +631,65 @@ export function WorkflowMap({ businessName, stages }: { readonly businessName: s
             </g>
           </svg>
           <div ref={tipRef} className={styles.tip} hidden />
-          <div className={styles.legend} aria-hidden="true">
-            <span><i style={{ borderColor: "var(--ocean)" }} />Anchored does it, you approve</span>
-            <span><i style={{ borderColor: "var(--coral)" }} />Another app does it</span>
-            <span><i data-dash="true" />Nobody does this yet</span>
-          </div>
         </div>
-        <aside className={styles.panel} aria-label="Details" hidden={!panelOpen}>
-          <button type="button" className={styles.panelX} aria-label="Step back" onClick={back}><X aria-hidden="true" size={18} /></button>
-          {view.level === 1 && stageNode?.stage && (
+        <ul className={styles.legend} aria-label="What the colors mean">
+          {kinds.map((k) => <li key={k}><i className={styles.dot} data-kind={k} />{KEY[k]}</li>)}
+          {waiting.length > 0 && <li><i className={styles.dot} data-wait="true" />Has a draft for your OK</li>}
+        </ul>
+        <aside ref={panelRef} className={styles.panel} aria-label="Details" hidden={sel === null}>
+          <button type="button" className={styles.panelX} aria-label="Close details" onClick={() => setSel(null)}><X aria-hidden="true" size={18} /></button>
+          {selStage && (
             <>
               <p className={styles.eyebrow}>Part of your day</p>
-              <h3 className={styles.panelTitle}>{stageNode.label}</h3>
-              <p className={styles.lede}>{stageNode.stage.blurb}.</p>
+              <h3 className={styles.panelTitle}>{selStage.name}</h3>
+              <p className={styles.lede}>{selStage.blurb}.</p>
               <ul className={styles.rows}>
-                {stageNode.stage.jobs.map((job) => (
-                  <li key={job.id}>
-                    <button type="button" className={styles.row} onClick={() => go({ level: 2, stage: stageNode.stage!.id, job: job.id })}>
-                      <span className={styles.rowHead}><b>{job.name}</b>{waitingOf([job]) > 0 && <span className={styles.wait}>Needs your OK</span>}</span>
-                      <span className={styles.who}><i data-kind={job.kind} /><span><b>{job.handler}</b> {job.note}</span></span>
-                      <span className={styles.go}>Open <ArrowRight aria-hidden="true" size={14} /></span>
-                    </button>
-                  </li>
-                ))}
+                {selStage.jobs.map((job) => {
+                  const jw = waitingOf([job]);
+                  return (
+                    <li key={job.id}>
+                      <button type="button" className={styles.row} onClick={() => setSel({ type: "job", id: job.id })}>
+                        <span className={styles.rowHead}><b>{job.name}</b>{jw > 0 && <span className={styles.wait}>{plural(jw, "draft")} for your OK</span>}</span>
+                        <span className={styles.who}><i className={styles.dot} data-kind={job.kind} /><span><b>{job.handler}</b> {job.note}</span></span>
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             </>
           )}
-          {view.level === 2 && jobNode?.job && (
-            <>
-              <p className={styles.eyebrow}>{stageNode?.label}</p>
-              <h3 className={styles.panelTitle}>{jobNode.label}</h3>
-              <p className={styles.who}><i data-kind={jobNode.job.kind} /><span><b>{jobNode.job.handler}</b> {jobNode.job.note}</span></p>
-              <p className={styles.eyebrow}>What happens in this job</p>
-              <ul className={styles.rows}>
-                {jobNode.job.automations.map((a) => (
-                  <li key={a.key}>
-                    <button type="button" className={styles.row} onClick={() => setPeek(byId.get(`a:${jobNode.job!.id}:${a.key}`) ?? null)}>
-                      <span className={styles.rowHead}><b>{a.name}</b>{a.waiting > 0 && <span className={styles.wait}>Needs your OK</span>}</span>
-                      <span className={styles.lede}>{a.summary}</span>
-                      <span className={styles.go}>Quick overview <ArrowRight aria-hidden="true" size={14} /></span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+          {selJob && <JobDetails businessId={businessId} stageName={selJob.stage.name} job={selJob.job} />}
         </aside>
       </div>
-
-      {peek?.auto && peek.job && (
-        <Peek auto={peek.auto} job={peek.job} stageName={peek.stage?.name ?? ""} onClose={() => setPeek(null)} />
-      )}
     </section>
   );
 }
 
-/** Render the short overview of one automation, with the link to its own page. */
-function Peek({ auto, job, stageName, onClose }: { readonly auto: MapAutomation; readonly job: MapJob; readonly stageName: string; readonly onClose: () => void }) {
-  const openRef = useRef<HTMLAnchorElement>(null);
-  const [shown, setShown] = useState(false);
-  useEffect(() => {
-    const back = document.activeElement as HTMLElement | null;
-    openRef.current?.focus();
-    const t = requestAnimationFrame(() => setShown(true));
-    return () => { cancelAnimationFrame(t); back?.focus?.(); };
-  }, []);
-  const Icon = AUTO_ICON[job.kind];
+/** Render one job in the panel: who handles it, its drafts to review, its automations, and the way to change who handles it. */
+function JobDetails({ businessId, stageName, job }: { readonly businessId: string; readonly stageName: string; readonly job: MapJob }) {
+  const jw = waitingOf([job]);
+  const review = job.automations.find((a) => a.reviewHref !== null)?.reviewHref ?? null;
   return (
-    <div className={styles.scrim} data-shown={shown ? "true" : "false"} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={styles.peek} role="dialog" aria-modal="true" aria-labelledby="peek-title">
-        <header className={styles.peekHead}>
-          <span className={styles.bub} data-wait={auto.waiting > 0 ? "true" : undefined} data-kind={job.kind}><Icon aria-hidden="true" size={22} strokeWidth={1.7} /></span>
-          <div>
-            <h3 id="peek-title">{auto.name}</h3>
-            <p>{stageName} › {job.name}</p>
-          </div>
-          <button type="button" className={styles.panelX} aria-label="Close" onClick={onClose}><X aria-hidden="true" size={18} /></button>
-        </header>
-        <div className={styles.peekBody}>
-          {auto.waiting > 0 && <p><span className={styles.wait}>{auto.waiting === 1 ? "1 message needs your OK" : `${auto.waiting} messages need your OK`}</span></p>}
-          <p className={styles.peekLede}>{auto.summary}</p>
-          <dl className={styles.flow}>
-            <dt>Who does it</dt><dd>{auto.handler}</dd>
-            <dt>Result</dt><dd>{auto.result ?? "Nothing yet. You do this yourself."}</dd>
-          </dl>
-          <div className={styles.peekActs}>
-            <Link ref={openRef} href={auto.href} className="btn">Open {auto.name.toLowerCase()} <ArrowRight aria-hidden="true" size={16} /></Link>
-            <button type="button" className="btn ghost" onClick={onClose}>Close</button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <>
+      <p className={styles.eyebrow}>{stageName}</p>
+      <h3 className={styles.panelTitle}>{job.name}</h3>
+      <p className={styles.who}><i className={styles.dot} data-kind={job.kind} /><span><b>{job.handler}</b> {job.note}</span></p>
+      {jw > 0 && review !== null && (
+        <Link href={review} className="btn">Review {plural(jw, "draft")} <ArrowRight aria-hidden="true" size={16} /></Link>
+      )}
+      <h4 className={styles.eyebrow}>What happens in this job</h4>
+      <ul className={styles.rows}>
+        {job.automations.map((a) => (
+          <li key={a.key}>
+            <Link href={a.href} className={styles.row}>
+              <span className={styles.rowHead}><b>{a.name}</b>{a.waiting > 0 && <span className={styles.wait}>{plural(a.waiting, "draft")} for your OK</span>}</span>
+              <span className={styles.lede}>{a.summary}</span>
+              <span className={styles.go}>Open <ArrowRight aria-hidden="true" size={14} /></span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <ChangeHandler businessId={businessId} name={job.name} options={job.options} compareHref={job.compareHref} />
+    </>
   );
 }
