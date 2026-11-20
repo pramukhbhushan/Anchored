@@ -17,7 +17,14 @@ export async function POST(request: Request) {
     const secret = process.env.INBOUND_EMAIL_SECRET?.trim();
     const key = new URL(request.url).searchParams.get("key") ?? "";
     if (!secret || !sameSecret(key, secret)) return new Response("Not found", { status: 404 });
-    const email = readInboundEmail(await request.json());
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      // A body that isn't JSON never will be, so a 400 stops Postmark from retrying it.
+      return json({ error: "This isn't a Postmark inbound email." }, 400);
+    }
+    const email = readInboundEmail(body);
     // Postmark retries on an error, so an email for no business is acknowledged and dropped.
     if (email === null) return json({ received: true, drafted: false });
     const target = await connectionFor(email.mailbox.toLowerCase(), "email-in");

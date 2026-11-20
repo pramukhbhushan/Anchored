@@ -188,6 +188,11 @@ describe("limitFor", () => {
     }
   });
 
+  it("gives plan approval and adding a job, which each save a profile version, their own bucket", () => {
+    expect(limitFor("PUT", "/api/businesses/b_1/plan")).toMatchObject({ bucket: "profile", perSession: 30, perIp: 150 });
+    expect(limitFor("POST", "/api/businesses/b_1/workflows").bucket).toBe("profile");
+  });
+
   it("lets provider webhooks through on a loose per-IP limit", () => {
     expect(limitFor("POST", "/api/hooks/twilio/abc/sms")).toMatchObject({ bucket: "hook", perIp: 3000 });
     expect(limitFor("POST", "/api/hooks/email")).toMatchObject({ bucket: "hook" });
@@ -196,7 +201,6 @@ describe("limitFor", () => {
   it("puts every other mutation under the general limits", () => {
     for (const [method, path] of [
       ["PUT", "/api/businesses/b_1/choices"],
-      ["PUT", "/api/businesses/b_1/plan"],
       ["POST", "/api/cards/abc-123"],
       ["DELETE", "/api/businesses"],
       ["PUT", "/api/businesses"],
