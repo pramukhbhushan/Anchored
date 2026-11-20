@@ -33,9 +33,10 @@ import {
 // =============================================================================
 // Module Overview
 // =============================================================================
-// `MemoryStore` keeps every session's data in process memory. It lets local
-// development and CI run with no Supabase keys. Data lives only as long as the server process, and
-// each serverless instance has its own copy, so production uses `SupabaseStore`.
+// `MemoryStore` keeps every session's data in process memory, so local
+// development and CI run with no Supabase keys. Data lives only as long as the
+// server process, and each serverless instance has its own copy, so production
+// uses `SupabaseStore`.
 
 interface SessionData {
   readonly followups: Map<string, RecordedFollowup>;
