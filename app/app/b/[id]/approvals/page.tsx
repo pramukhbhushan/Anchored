@@ -72,7 +72,6 @@ function deliveryLine(entry: DisplayEntry, held: boolean): string | null {
   return entry.note;
 }
 
-/** Render one outbox entry: a text as a bubble, anything else as a log line, each with its send step when the owner sends it. */
 /** Say what authorized an entry no card tap approved: the owner's acknowledgment rule, or the bot's fixed answer. */
 function ruleLine(entry: DisplayEntry): string | null {
   if (entry.rule === "acknowledge") return entry.delivery === "sent" ? "Sent under your acknowledgment rule" : "Under your acknowledgment rule";
@@ -80,6 +79,7 @@ function ruleLine(entry: DisplayEntry): string | null {
   return null;
 }
 
+/** Render one outbox entry: a text as a bubble, anything else as a log line, each with its send step when the owner sends it. */
 function OutboxItem({
   entry,
   card,
@@ -100,12 +100,13 @@ function OutboxItem({
   const draft = approvedDraft(entry, card);
   const step: HandOff | null = !ownerSends || draft === null ? null : handOff(draft, business);
   const send = step === null ? null : <SendYourself handOff={step} />;
+  const rule = ruleLine(entry);
   if (isMessage(entry.channel)) {
     return (
       <li className={`bubble${held ? " is-queued" : ""}`}>
         <small>{CHANNEL_LABEL[entry.channel]} to {entry.to}</small>
         {entry.body}
-        {ruleLine(entry) !== null && <small>{ruleLine(entry)}</small>}
+        {rule !== null && <small>{rule}</small>}
         {when}
         {entry.channel === "telegram" && entry.delivery === "failed" && (
           <div className="handoff">
