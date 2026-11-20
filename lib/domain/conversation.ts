@@ -4,8 +4,9 @@ import type { ConversationOwner } from "@/lib/domain/types";
 // Module Overview
 // =============================================================================
 // The allowed ownership changes for one customer conversation. Routing code
-// asks this table before it hands work to another agent, so an unknown or
-// backward jump is rejected by code rather than invented by a model.
+// asks this table before it hands work to another agent, so a jump the table
+// doesn't list, such as reopening a closed conversation, is rejected by code
+// rather than invented by a model.
 
 /** Conversation owners each state may hand work to. */
 const ALLOWED_HANDOFFS: Readonly<Record<ConversationOwner, readonly ConversationOwner[]>> = {

@@ -522,8 +522,10 @@ function listText(items: readonly string[]): string {
   return `${items.slice(0, -1).join(", ")} or ${items.at(-1)}`;
 }
 
+type AskExample = { readonly skill: AskableSkill; readonly text: string };
+
 // A request an owner could type for each skill, in the order the chat suggests them.
-const ASK_EXAMPLES: readonly { readonly skill: AskableSkill; readonly text: string }[] = [
+const ASK_EXAMPLES: readonly [AskExample, ...AskExample[]] = [
   { skill: "posts", text: "Write a post for our Google listing" },
   { skill: "closer", text: "Follow up on the quote we sent last week" },
   { skill: "callback", text: "Text back the caller we missed this morning" },
@@ -539,7 +541,6 @@ const ASK_EXAMPLES: readonly { readonly skill: AskableSkill; readonly text: stri
   { skill: "reactivator", text: "Write a note to past customers for the slow season" },
 ];
 
-/** A request the owner could type that one of `chosen` drafts, or a post request when none of them takes requests. */
 /** The example request for one skill, such as "Write a post for our Google listing", or `null` when chat can't ask it for work. */
 export function askExampleFor(skill: string): string | null {
   return ASK_EXAMPLES.find((example) => example.skill === skill)?.text ?? null;
@@ -552,8 +553,9 @@ export function automationQuestion(skill: SkillId, jobName: string): string | nu
   return example === null ? null : `${jobName} is on. Want me to draft one now? Tell me what you need, like "${example}."`;
 }
 
+/** A request the owner could type that one of `chosen` drafts, or a post request when none of them takes requests. */
 export function askExample(chosen: readonly SkillId[]): string {
-  return ASK_EXAMPLES.find(({ skill }) => chosen.includes(skill))?.text ?? "Write a post for our Google listing";
+  return (ASK_EXAMPLES.find(({ skill }) => chosen.includes(skill)) ?? ASK_EXAMPLES[0]).text;
 }
 
 /** Whether any of `chosen` takes requests in chat. */

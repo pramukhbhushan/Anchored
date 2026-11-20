@@ -621,7 +621,7 @@ describe("the listing step", () => {
 });
 
 describe("the invoice sheet question", () => {
-  const LINK = "https://docs.google.com/spreadsheets/d/1jYg4Sn7znhd57XYKdPfj53reorhkliVlOoTEEQsIKiw/edit";
+  const LINK = "https://docs.google.com/spreadsheets/d/1u8jzPde0IgxLd6GncfBAepfJBd0Kh8oOOL8dKLzdocJ/edit";
   /** A coaching agency through the nine planned questions and the gaps, with the tools answer given. */
   const coaching = (tools: IntakeAnswer) =>
     throughGaps(
@@ -649,7 +649,7 @@ describe("the invoice sheet question", () => {
 
   it("keeps the pasted link's sheet ID, then moves on to the review", () => {
     const answered = answer(coaching(text("Google Sheets")), text(`here it is ${LINK}`));
-    expect(answered.invoiceSheet).toEqual({ id: "1jYg4Sn7znhd57XYKdPfj53reorhkliVlOoTEEQsIKiw" });
+    expect(answered.invoiceSheet).toEqual({ id: "1u8jzPde0IgxLd6GncfBAepfJBd0Kh8oOOL8dKLzdocJ" });
     expect(question(answered).field).toBe("confirm");
   });
 
