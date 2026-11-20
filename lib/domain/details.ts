@@ -352,6 +352,21 @@ export function correctVocabulary(current: Vocabulary, text: string): Vocabulary
   return changed ? next : undefined;
 }
 
+// "My name is" and "call me" always introduce a name, in any case. "I'm" and "I am" introduce one only before a
+// capital, so "I'm not sure" and "I am the owner" name nobody.
+const NAME_INTRO = /\b(?:[Mm]y name is|[Cc]all me)\s+([A-Za-z][a-zA-Z'-]{1,29})\b|\b(?:I'm|i'm|I am|i am)\s+([A-Z][a-zA-Z'-]{1,29})\b/;
+
+/** The first name `text` introduces, such as "Dana" from "my name is dana", or `undefined`. */
+export function introducedName(text: string): string | undefined {
+  const match = NAME_INTRO.exec(text);
+  const name = match?.[1] ?? match?.[2];
+  return name === undefined ? undefined : capitalized(name);
+}
+
+function capitalized(word: string): string {
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
 /** Read one field's value from words, or `undefined` when the words don't give one. */
 export function parseDetail<K extends FieldKey>(key: K, text: string): ProfileDetails[K] | undefined {
   const clean = text.replace(/\s+/g, " ").trim();
@@ -362,8 +377,7 @@ export function parseDetail<K extends FieldKey>(key: K, text: string): ProfileDe
         // Dates and their evidence must come through the structured owner form.
         return undefined;
       case "ownerName": {
-        const name = /(?:my name is|i'm|i am|this is|call me)\s+([A-Z][a-zA-Z'-]{1,29})/i.exec(clean)?.[1] ?? /^([A-Z][a-zA-Z'-]{1,29})$/.exec(clean)?.[1];
-        return name === undefined ? undefined : name[0]?.toUpperCase() + name.slice(1);
+        return introducedName(clean) ?? /^([A-Z][a-zA-Z'-]{1,29})$/.exec(clean)?.[1];
       }
       case "vocabulary":
         return readVocabulary(clean);

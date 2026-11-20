@@ -557,6 +557,12 @@ describe("details in business chat", () => {
   it("reads no detail from a message that states none", () => {
     expect(readDetailChanges("We started doing catering")).toEqual([]);
   });
+
+  it("reads the owner's first name however the sentence starts", () => {
+    expect(readDetailChanges("I'm Mike, by the way")).toMatchObject([{ key: "ownerName", value: "Mike" }]);
+    expect(readDetailChanges("My name is mike")).toMatchObject([{ key: "ownerName", value: "Mike" }]);
+    expect(readDetailChanges("I'm not sure we open Sundays")).toEqual([]);
+  });
 });
 
 describe("the listing step", () => {
@@ -565,6 +571,18 @@ describe("the listing step", () => {
     { id: "place-a", name: "Apex Heating & Air", address: "1 Main St, Laurel, MD", rating: 4.8 },
     { id: "place-b", name: "Apex Plumbing", address: "9 Elm St, Laurel, MD" },
   ];
+
+  it("drops a listing's value when the owner says it is wrong, so confirming never makes it theirs", () => {
+    const hours = { key: "hours", value: "9 to 5", sourceType: "listing", quote: "Open 9-5", confidence: "medium" } as const;
+    const listed = applyListing(withListingChoices(named, choices), "place-a", [hours]);
+    expect(listed.details?.hours).toBe("9 to 5");
+
+    for (const reply of ["no", "wrong"]) {
+      const answered = applyAnswer(listed, "gap:hours", text(reply));
+      expect(draftDetails(answered).details?.hours).toBeUndefined();
+      expect(answered.gaps).toContain("hours");
+    }
+  });
 
   it("asks right after the name, with each match and a way to say none", () => {
     const draft = withListingChoices(named, choices);
