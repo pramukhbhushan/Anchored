@@ -1,15 +1,8 @@
 import type { IntakeResponse } from "@/lib/api/contract";
 import { intakeAnswerSchema } from "@/lib/api/schemas";
-import { withCrewDecisions } from "@/lib/domain/crew";
-import { answerText, draftDetails, draftToAnswers, nextQuestion, planReadyText } from "@/lib/domain/intake";
-import { buildProfileFromAnswers } from "@/lib/server/create-business";
 import { fail, handleError, json, readBody } from "@/lib/server/http";
-import { intakeState, intakeThread, takeIntakeTurn } from "@/lib/server/intake-ai";
-import { connectInvoiceSheet } from "@/lib/server/invoice-sheet";
+import { answerIntake, readIntake } from "@/lib/server/intake";
 import { getSessionId } from "@/lib/server/session";
-import { scheduleStarters } from "@/lib/server/starters";
-import { getStore } from "@/lib/store";
-import type { IntakeRecord, NewChatMessage } from "@/lib/store/types";
 
 // =============================================================================
 // Module Overview
@@ -23,18 +16,15 @@ type Context = { params: Promise<{ id: string }> };
 // `POST /api/intake` mints ids as `i_` plus a UUID; anything else can't exist.
 const INTAKE_ID = /^i_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const NOT_FOUND = "That onboarding chat wasn't found. Start a new one.";
-const THREAD_LIMIT = 200;
 
 /** Return an onboarding chat's messages, facts and current question. */
 export async function GET(_request: Request, { params }: Context) {
   const { id } = await params;
   if (!INTAKE_ID.test(id)) return fail(404, NOT_FOUND);
   try {
-    const session = await getSessionId();
-    const store = getStore();
-    const intake = await store.getIntake(session, id);
-    if (!intake) return fail(404, NOT_FOUND);
-    return json<IntakeResponse>(intakeState(intake, await store.listMessages(session, intakeThread(id), THREAD_LIMIT)));
+    const state = await readIntake(await getSessionId(), id);
+    if (!state) return fail(404, NOT_FOUND);
+    return json<IntakeResponse>(state);
   } catch (error) {
     return handleError(error, "GET /api/intake/[id]");
   }
@@ -47,43 +37,9 @@ export async function POST(request: Request, { params }: Context) {
   const parsed = await readBody(request, intakeAnswerSchema);
   if (!parsed.ok) return parsed.response;
   try {
-    const session = await getSessionId();
-    const store = getStore();
-    const intake = await store.getIntake(session, id);
-    if (!intake) return fail(404, NOT_FOUND);
-    const thread = intakeThread(id);
-    const transcript = await store.listMessages(session, thread, THREAD_LIMIT);
-    // A finished intake answers with its final state, so a repeated tap can't build a second business.
-    if (intake.businessId !== null) return json<IntakeResponse>(intakeState(intake, transcript));
-
-    // No question means the owner confirmed but the build didn't finish last time; build it now.
-    const question = nextQuestion(intake.draft);
-    const turn = question ? await takeIntakeTurn(intake.draft, question, parsed.data, transcript) : { draft: intake.draft, reply: null };
-    let businessId: string | null = null;
-    let reply = turn.reply;
-    if (reply === null) {
-      // The owner confirmed the details at the review, so they arrive as theirs.
-      const business = withCrewDecisions({ ...(await buildProfileFromAnswers(draftToAnswers(turn.draft))), ...draftDetails(turn.draft) });
-      await store.saveBusiness(session, business, "onboarding");
-      await store.recordEvent(session, business.id, "onboarding_raw", {
-        intakeId: id,
-        messages: transcript.map(({ role, text, at }) => ({ role, text, at })),
-        draft: turn.draft,
-      });
-      // The starters are written after this response, so the plan appears without waiting on the model.
-      scheduleStarters(session, business);
-      businessId = business.id;
-      reply = planReadyText(business);
-      // An invoice sheet pasted during onboarding is read now, so its reminders wait in Approvals with the plan.
-      const sheetId = turn.draft.invoiceSheet?.id;
-      if (sheetId) reply = `${reply}\n\n${await connectInvoiceSheet(session, business, sheetId)}`;
-    }
-
-    const saved: IntakeRecord = { id, draft: turn.draft, businessId };
-    await store.saveIntake(session, saved);
-    const fresh: NewChatMessage[] = [...(question ? [{ role: "owner" as const, text: answerText(question, parsed.data) }] : []), { role: "anchored", text: reply }];
-    const added = await store.addMessages(session, thread, fresh);
-    return json<IntakeResponse>(intakeState(saved, [...transcript, ...added]));
+    const state = await answerIntake(await getSessionId(), id, parsed.data);
+    if (!state) return fail(404, NOT_FOUND);
+    return json<IntakeResponse>(state);
   } catch (error) {
     return handleError(error, "POST /api/intake/[id]");
   }

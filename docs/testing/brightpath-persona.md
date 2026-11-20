@@ -1,6 +1,6 @@
 # Test persona: Brightpath Coaching
 
-A made-up career coaching agency for testing the Bookkeeping agent. Every customer email ends in `@example.com`, so nothing reaches a real person.
+A made-up career coaching agency for testing the Bookkeeping agent by hand. Every customer email ends in `@example.com`, so nothing reaches a real person.
 
 ## The business
 
@@ -65,9 +65,9 @@ Following up on late invoices, replying to new leads faster, and reminding clien
 
 ## The invoice sheet
 
-[Brightpath Coaching invoices (Anchored test)](https://docs.google.com/spreadsheets/d/1jYg4Sn7znhd57XYKdPfj53reorhkliVlOoTEEQsIKiw/edit), shared with `anchored-reader@western-oarlock-514103-q8.iam.gserviceaccount.com` as a Viewer.
+Make a Google Sheet named "Brightpath Coaching invoices" with the rows below, and share it as a Viewer with the `client_email` of the service account in `GOOGLE_SERVICE_ACCOUNT_JSON`. The due dates suit a test run in early November 2026. Move them so invoice 1044 is still in the future and the others are past due.
 
-| Invoice # | Customer | Email | Amount | Due date | Status | What it tests (as of Nov 8, 2026) |
+| Invoice # | Customer | Email | Amount | Due date | Status | What it tests |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1042 | Maya Chen | maya.chen@example.com | $450 | 2026-10-20 | Unpaid | Overdue, gets a reminder |
 | 1043 | Jordan Ellis | jordan.ellis@example.com | $1,200 | 2026-10-28 | Unpaid | Overdue. Change to "Paid" during the test to show the cancel |
@@ -82,7 +82,6 @@ Following up on late invoices, replying to new leads faster, and reminding clien
 ### 1. Start the app with sign-in off
 
 ```bash
-cd /Users/pramukhb/Downloads/AI4SB/Anchored/Anchored
 NEXT_PUBLIC_SUPABASE_URL= NEXT_PUBLIC_SUPABASE_ANON_KEY= npm run dev -- -p 3102
 ```
 
@@ -90,7 +89,7 @@ Open http://localhost:3102. Data is kept in memory and resets when the server re
 
 ### 2. Onboard
 
-Use the onboarding answers above.
+Use the onboarding answers above. To answer them for you, open the browser console on the app and paste [`scripts/onboard-brightpath.js`](../../scripts/onboard-brightpath.js), with your sheet's link in place of `YOUR_SHEET_ID`.
 
 ### 3. Turn on Bookkeeping
 
@@ -114,7 +113,7 @@ Restart the server first if you want a clean slate, then onboard again.
 
 | Do | Expected |
 | --- | --- |
-| Paste `here's my invoice sheet https://docs.google.com/spreadsheets/d/1jYg4Sn7znhd57XYKdPfj53reorhkliVlOoTEEQsIKiw/edit` | "Connected your invoice sheet. I checked your invoice sheet: 7 invoices. I drafted 5 reminders for overdue invoices. They're waiting in Approvals. 1 isn't due yet." |
+| Paste `here's my invoice sheet https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit` | "Connected your invoice sheet. I checked your invoice sheet: 7 invoices. I drafted 5 reminders for overdue invoices. They're waiting in Approvals. 1 isn't due yet." |
 | Type `check my invoice sheet` | "5 overdue invoices already have a reminder." Nothing drafted twice |
 | In the sheet, change 1043's Status to `Paid`, then type `check my invoice sheet` | "I stopped 1 reminder for invoices now marked paid." |
 | Change 1043 back to `Unpaid` afterward | Resets the sheet for the next test |
