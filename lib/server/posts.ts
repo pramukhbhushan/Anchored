@@ -49,7 +49,7 @@ const reviewSchema = z.object({
 });
 
 /** Why the model's caption for `plan` can't be used, or `null` when it passes every check. */
-export function captionProblem(caption: string, plan: PlatformPlan, source: string): string | null {
+function captionProblem(caption: string, plan: PlatformPlan, source: string): string | null {
   const text = caption.trim();
   if (text === "") return "it came back empty";
   if (hasBlanks(text)) return "it left a {blank} from a hook";

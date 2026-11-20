@@ -10,14 +10,14 @@ import "server-only";
 // replies and oversized pages, and gives up after a timeout.
 
 /** A page as the discovery agent reads it. `url` is the address after redirects. */
-export interface FetchedPage {
+interface FetchedPage {
   readonly url: string;
   readonly title: string;
   readonly text: string;
 }
 
 /** Limits for one fetch; tests shrink them. */
-export interface FetchOptions {
+interface FetchOptions {
   readonly fetchImpl?: typeof fetch;
   readonly timeoutMs?: number;
   readonly maxBytes?: number;
@@ -32,7 +32,7 @@ const DEFAULT_MAX_CHARS = 12_000;
 const ENTITIES: Readonly<Record<string, string>> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", "#39": "'" };
 
 /** Whether `host` names this machine or a private network, which the agent must never load. */
-export function isPrivateHost(host: string): boolean {
+function isPrivateHost(host: string): boolean {
   const name = host.toLowerCase().replace(/^\[|\]$/g, "");
   if (name === "localhost" || name.endsWith(".localhost") || name.endsWith(".local") || name.endsWith(".internal")) return true;
   // Vendor sites have names; an IPv6 literal or a bare single-label name is never one of them.

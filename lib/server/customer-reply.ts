@@ -27,7 +27,7 @@ import { getStore } from "@/lib/store";
 // becomes a locked card the owner answers. Every card waits for the owner.
 
 /** The customer's message and who sent it, as the Telegram webhook hands it over. */
-export interface TelegramMessageIn {
+interface TelegramMessageIn {
   readonly contactId: string;
   readonly text: string;
   /** The card key this message's reply gets, fixed by the update so a retried update drafts no second card. */

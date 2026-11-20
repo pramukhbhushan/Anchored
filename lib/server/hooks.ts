@@ -19,7 +19,7 @@ import type { StoredConnection } from "@/lib/store/types";
 // `lib/server/triage.ts` files under the agent whose work it is.
 
 /** The connection, business and owning session a webhook's hook id names. */
-export interface HookTarget {
+interface HookTarget {
   readonly session: string;
   readonly connection: StoredConnection;
   readonly business: BusinessProfile;
@@ -45,7 +45,7 @@ export function signedUrl(request: Request, env: Readonly<Record<string, string 
 }
 
 /** What a customer's text did. */
-export type TextOutcome = "opted-out" | "opted-in" | "drafted" | "ignored";
+type TextOutcome = "opted-out" | "opted-in" | "drafted" | "ignored";
 
 /** Handle a customer's text: STOP and START update their contact; anything else becomes a reply draft. */
 export async function receiveText(target: HookTarget, rawFrom: string, body: string, now: Date): Promise<TextOutcome> {

@@ -16,7 +16,7 @@ import { getStore } from "@/lib/store";
 // with `saveChoice` or `addJob`.
 
 /** The choice to save, or the status and owner-facing reason a request was refused. */
-export type ChoiceCheck =
+type ChoiceCheck =
   | { readonly ok: true; readonly choice: Choice }
   | { readonly ok: false; readonly status: 400 | 409; readonly error: string };
 

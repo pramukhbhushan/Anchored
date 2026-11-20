@@ -27,7 +27,7 @@ import { dispatchEntry, planDelivery } from "@/lib/server/dispatch";
 const HOUR_MS = 60 * 60 * 1000;
 
 /** Result of a decision: the response to send, or a conflict to report. */
-export type DecisionResult = { ok: true; response: DecideCardResponse } | { ok: false; status: number; error: string };
+type DecisionResult = { ok: true; response: DecideCardResponse } | { ok: false; status: number; error: string };
 
 /** Return the first whole hour within a day when `checkSend` allows the card, or `null`. */
 function nextAllowedHour(card: CardDraft, now: Date): Date | null {

@@ -47,7 +47,7 @@ export async function planDelivery(
 }
 
 /** What one dispatch did with an entry. */
-export type DispatchOutcome = "sent" | "failed" | "yours" | "requeued" | "skipped";
+type DispatchOutcome = "sent" | "failed" | "yours" | "requeued" | "skipped";
 
 /** Read the texting connection's auth token. */
 function twilioToken(connection: StoredConnection, env: Readonly<Record<string, string | undefined>>): string {
