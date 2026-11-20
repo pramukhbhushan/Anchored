@@ -204,7 +204,7 @@ export function hasBlanks(text: string): boolean {
 
 /**
  * Write one platform's caption from the plan and the owner's words alone. Only what the post is about goes in,
- * never how the owner asked for it to be written. It always passes the hashtag check.
+ * never how the owner asked for it to be written. It passes the hashtag check whenever the plan offers enough hashtags.
  */
 export function ruleCaption(business: Pick<BusinessProfile, "name">, plan: PlatformPlan, description: string): string {
   const hook = plan.hooks.find((h) => !hasBlanks(h.text))?.text ?? "Proud of this one.";
@@ -226,7 +226,7 @@ const CLAIMS: readonly { readonly label: string; readonly pattern: RegExp }[] = 
   { label: "a guarantee", pattern: /\bguarantee(?:d|s)?\b|\bwarrant(?:y|ies|ied)\b/i },
   { label: "a ranking", pattern: /\bthe best\b|\bbest in\b|\btop[- ]rated\b|\bnumber one\b|#1\b|\bno\. 1\b|\bleading\b/i },
   { label: "a credential", pattern: /\b(?:certified|licensed|accredited|insured)\b/i },
-  { label: "a deal", pattern: /\b(?:discount|free|% off|percent off|sale|coupon|deal)\b/i },
+  { label: "a deal", pattern: /\b(?:discount|(?<!feel )free|% off|percent off|sale|coupon|deal)\b/i },
 ];
 
 // Phrases that mark a caption as machine-written. The prompt asks the model to avoid them; code refuses the worst.
@@ -257,6 +257,7 @@ export function aiTells(caption: string): string[] {
 
 /** List the claims `caption` makes that `source`, the owner's own words, doesn't. */
 export function unbackedClaims(source: string, caption: string): string[] {
-  const body = caption.replace(/#[A-Za-z0-9_]+/g, "");
+  // A hashtag starts with a letter, so "#1" stays in and the ranking check still sees it.
+  const body = caption.replace(/#[A-Za-z][A-Za-z0-9_]*/g, "");
   return CLAIMS.filter((c) => c.pattern.test(body) && !c.pattern.test(source)).map((c) => c.label);
 }

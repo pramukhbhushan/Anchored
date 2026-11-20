@@ -19,7 +19,7 @@ export interface SheetInvoice {
   readonly number: string | null;
   readonly customer: string | null;
   readonly email: string | null;
-  readonly amount: number | null;
+  readonly amount: number;
   /** The due date as `YYYY-MM-DD`, or `null` when the cell was empty or not a date. */
   readonly due: string | null;
   readonly paid: boolean;
@@ -92,7 +92,7 @@ export function parseInvoiceRows(rows: readonly (readonly string[])[]): ParsedSh
       email: cell("email")?.slice(0, 200) ?? null,
       amount,
       due,
-      paid: /\b(?:paid|settled|cleared|yes)\b/i.test(status) && !/\b(?:unpaid|not paid|no)\b/i.test(status),
+      paid: /\b(?:paid|settled|cleared|yes)\b/i.test(status) && !/\b(?:unpaid|not paid|no|partial|partially|partly)\b/i.test(status),
     });
   });
   return { invoices, problems, missingColumns: [] };
@@ -123,7 +123,7 @@ export function sheetEvents(invoices: readonly SheetInvoice[], today: string): S
   let notDue = 0;
   for (const invoice of invoices) {
     const key = invoiceKey({ number: invoice.number, email: invoice.email, name: invoice.customer, amount: invoice.amount });
-    if (key === null || invoice.amount === null) {
+    if (key === null) {
       problems.push(`Row ${invoice.row} has no invoice number, customer or email, so I can't tell it apart.`);
       continue;
     }

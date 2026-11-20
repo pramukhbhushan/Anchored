@@ -24,11 +24,11 @@ const BRIGHTPATH = [
 
 describe("sheetIdFromText", () => {
   it("finds the ID in a pasted link", () => {
-    expect(sheetIdFromText("connect my invoice sheet https://docs.google.com/spreadsheets/d/1jYg4Sn7znhd57XYKdPfj53reorhkliVlOoTEEQsIKiw/edit?usp=sharing")).toBe(
-      "1jYg4Sn7znhd57XYKdPfj53reorhkliVlOoTEEQsIKiw",
+    expect(sheetIdFromText("connect my invoice sheet https://docs.google.com/spreadsheets/d/1KDNvHILs3ENgxrsMhGjdjjzpMbH6DR5sBFcFEYXAmUM/edit?usp=sharing")).toBe(
+      "1KDNvHILs3ENgxrsMhGjdjjzpMbH6DR5sBFcFEYXAmUM",
     );
     expect(sheetIdFromText("no link here")).toBeNull();
-    expect(sheetIdFromText("https://docs.google.com/document/d/1jYg4Sn7znhd57XYKdPfj53reorhkliVlOoTEEQsIKiw/edit")).toBeNull();
+    expect(sheetIdFromText("https://docs.google.com/document/d/1KDNvHILs3ENgxrsMhGjdjjzpMbH6DR5sBFcFEYXAmUM/edit")).toBeNull();
   });
 });
 
@@ -74,6 +74,7 @@ describe("parseInvoiceRows", () => {
     expect(status("Paid in full")).toBe(true);
     expect(status("Not paid")).toBe(false);
     expect(status("Unpaid")).toBe(false);
+    expect(status("Partially paid")).toBe(false);
     expect(status("")).toBe(false);
   });
 

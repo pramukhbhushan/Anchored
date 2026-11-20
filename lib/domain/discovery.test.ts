@@ -100,6 +100,12 @@ describe("vetCandidates", () => {
     expect(skipped).toEqual([{ name: "Phantom Desk", reason: "The research never mentions it" }]);
   });
 
+  it("matches a name's words as whole words, so a short one can't hide inside another", () => {
+    const { skipped } = run([candidate({ name: "Acme AI", maker: "" })], { findings: "Acme keeps a maintenance log." });
+
+    expect(skipped).toEqual([{ name: "Acme AI", reason: "The research never mentions it" }]);
+  });
+
   it("puts the maker in front of the name and lists each tool once per run", () => {
     const { listings, skipped } = run([
       candidate({ name: "Receptionist", maker: "Weave" }),
