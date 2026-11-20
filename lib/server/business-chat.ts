@@ -313,10 +313,13 @@ async function answerInvoice(session: string, business: BusinessProfile, text: s
   if (replyMessage === undefined) throw new Error("The store saved the chat but returned no reply.");
   const key = chatCardKey(business.id, replyMessage.id);
   const result = await ingestEvent(session, business, "invoice-late", payload, "live", { key });
-  if (!result.ok) console.warn(`[Business chat] The reminder passed its check but wasn't drafted: ${result.error}`);
+  if (!result.ok) {
+    // Something changed between the check and the draft, such as another reminder landing first, so the chat corrects itself.
+    const note = await store.addMessages(session, thread.thread, [{ role: "anchored", text: `That reminder wasn't drafted after all. ${result.error}` }]);
+    return { messages: linkCards(business, [...thread.stored, ...saved, ...note], thread.cards), changes: [] };
+  }
   const title = `${name} owes ${money(amount)}${number ? ` on invoice ${number}` : ""}`;
-  const linked = result.ok ? [...thread.cards, { key, title, status: "pending" as const }] : thread.cards;
-  return { messages: linkCards(business, [...thread.stored, ...saved], linked), changes: [] };
+  return { messages: linkCards(business, [...thread.stored, ...saved], [...thread.cards, { key, title, status: "pending" }]), changes: [] };
 }
 
 /**

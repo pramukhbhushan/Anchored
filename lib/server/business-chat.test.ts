@@ -214,6 +214,24 @@ describe("Bookkeeping in an owner's chat", () => {
     expect(await reminders()).toHaveLength(2);
   });
 
+  it("says so when another reminder lands between the check and the draft", async () => {
+    const memory = store();
+    const addMessages = memory.addMessages.bind(memory);
+    // Two reminders for the same invoice arrive while the chat stores its reply, so the draft hits the cap.
+    vi.spyOn(memory, "addMessages").mockImplementationOnce(async (...args) => {
+      const saved = await addMessages(...args);
+      const invoice = { key: "n:1042", amount: 450, number: "1042" };
+      const reminder = { agent: null, skill: "nudger" as const, title: "Reminder", body: "", reason: "", checks: [], action: "Send email", channel: "email" as const, invoice };
+      await memory.ensureCards(SESSION, shop.id, [{ ...reminder, key: "other-1" }, { ...reminder, key: "other-2" }]);
+      return saved;
+    });
+
+    const sent = await say("Maya Chen owes $450 on invoice 1042");
+
+    expect(sent.messages.at(-1)?.text).toBe("That reminder wasn't drafted after all. Invoice 1042 already has 2 reminders. Anchored won't send a third. Call the customer if it's still unpaid.");
+    expect(sent.messages.some((message) => message.card !== undefined)).toBe(false);
+  });
+
   it("marks an invoice paid and says how many reminders it stopped", async () => {
     await say("Maya Chen owes $450 on invoice 1042");
     const sent = await say("Maya paid 1042");
