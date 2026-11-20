@@ -11,9 +11,6 @@
 /** A standing rule the owner can turn on. */
 export type StandingRuleId = "acknowledge";
 
-/** Every standing rule, in the order the owner sees them. */
-export const STANDING_RULES: readonly StandingRuleId[] = ["acknowledge"];
-
 /** What authorized an outbox entry that no card tap approved: an owner's standing rule, or a protocol notice. */
 export type OutboxRule = StandingRuleId | "protocol";
 
@@ -51,7 +48,7 @@ export function acknowledgmentText(businessName: string): string {
 }
 
 /** How long one acknowledgment covers a customer: later messages in the window get none. */
-export const ACKNOWLEDGMENT_WINDOW_HOURS = 12;
+const ACKNOWLEDGMENT_WINDOW_HOURS = 12;
 
 /** The key that allows one acknowledgment per contact per window, so a retry or a burst of messages sends one. */
 export function acknowledgmentKey(contactId: string, at: Date): string {
