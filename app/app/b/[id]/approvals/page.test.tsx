@@ -17,10 +17,10 @@ import { hvacShop } from "@/test/trades";
 // starters are tagged as examples, and once they are done with nothing
 // connected the page points to Connections; the example business says how
 // approving works instead, and is the only one that offers to watch an agent
-// draft. Each approved text in the
-// outbox opens the owner's own texting app, except one quiet hours still hold
-// and one Anchored sent itself. A text that failed says why and offers the
-// owner's texting app, and one Anchored left for the owner says why.
+// draft. Each approved text in the outbox opens the owner's own texting app,
+// except one quiet hours still hold and one Anchored sent itself. A text that
+// failed says why and offers the owner's texting app, and one Anchored left
+// for the owner says why.
 // The page reads a real in-memory store under a fixed session.
 
 const SESSION = "owner-session";
