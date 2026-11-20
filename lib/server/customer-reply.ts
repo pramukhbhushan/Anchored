@@ -27,7 +27,7 @@ import { getStore } from "@/lib/store";
 // becomes a locked card the owner answers. Every card waits for the owner.
 
 /** The customer's message and who sent it, as the Telegram webhook hands it over. */
-export interface TelegramMessageIn {
+interface TelegramMessageIn {
   readonly contactId: string;
   readonly text: string;
   /** The card key this message's reply gets, fixed by the update so a retried update drafts no second card. */
@@ -127,7 +127,7 @@ async function cardFor(
   }
   const route = routeCustomerMessage(text, chosen, cards);
   if (route.kind === "billing") {
-    // Bookkeeping's handoff arrives with the shared groundwork; until then the owner sees the question with no amount.
+    // Nothing hands a billing question to Bookkeeping yet, so the owner answers it, and the card states no amount.
     return ownerNote(business, name, ownerSkill("nudger"), `Billing question from ${name} on Telegram`, `${name} asked about a bill or a payment. Anchored states no amount it didn't read from your invoices, so reply to them yourself. ${said}`);
   }
   if (route.kind === "owner") {

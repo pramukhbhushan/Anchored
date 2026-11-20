@@ -5,10 +5,10 @@ import type { Store } from "@/lib/store";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Adds harmless, clearly labeled sample operations to a copied example
-// business. Judges can see customer, completed-work, invoice and photo-backed
-// agent paths without any real customer data. Fresh owner-built businesses are
-// never seeded.
+// Adds labeled sample data to a copy of the example business: three made-up
+// customers with test phone numbers and emails, finished jobs, an overdue
+// invoice and two photos, so a visitor can try the customer, invoice and photo
+// agents without real customer data. A business the owner built is never seeded.
 
 /** Add the small operational dataset used by a copied example business. */
 export async function seedDemoBusiness(store: Store, session: string, business: BusinessProfile, now = new Date()): Promise<void> {

@@ -19,7 +19,7 @@ import type { StoredConnection } from "@/lib/store/types";
 // `lib/server/triage.ts` files under the agent whose work it is.
 
 /** The connection, business and owning session a webhook's hook id names. */
-export interface HookTarget {
+interface HookTarget {
   readonly session: string;
   readonly connection: StoredConnection;
   readonly business: BusinessProfile;
@@ -45,7 +45,7 @@ export function signedUrl(request: Request, env: Readonly<Record<string, string 
 }
 
 /** What a customer's text did. */
-export type TextOutcome = "opted-out" | "opted-in" | "drafted" | "ignored";
+type TextOutcome = "opted-out" | "opted-in" | "drafted" | "ignored";
 
 /** Handle a customer's text: STOP and START update their contact; anything else becomes a reply draft. */
 export async function receiveText(target: HookTarget, rawFrom: string, body: string, now: Date): Promise<TextOutcome> {
@@ -85,10 +85,12 @@ export async function receiveUnpaidInvoice(
   target: HookTarget,
   invoice: { readonly kind: "overdue" | "failed"; readonly customerName: string | null; readonly customerEmail: string | null; readonly amountDue: number; readonly number: string | null },
 ): Promise<boolean> {
+  // Stripe allows longer names than a reminder event takes, and a name over the limit would drop the whole reminder.
+  const name = invoice.customerName?.trim().slice(0, 80).trim();
   const payload = {
     kind: invoice.kind,
     amount: invoice.amountDue,
-    ...(invoice.customerName ? { name: invoice.customerName } : {}),
+    ...(name ? { name } : {}),
     ...(invoice.customerEmail ? { email: invoice.customerEmail } : {}),
     ...(invoice.number ? { number: invoice.number } : {}),
   };

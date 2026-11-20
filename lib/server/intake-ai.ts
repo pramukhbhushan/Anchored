@@ -53,7 +53,7 @@ import type { ChatThread, IntakeRecord } from "@/lib/store/types";
 const NO_LISTS: FactLists = { reach: [], tools: [], signals: [], languages: [] };
 
 /** The result of one turn: the updated draft, and Anchored's reply, or `null` once the owner has confirmed. */
-export interface IntakeTurn {
+interface IntakeTurn {
   readonly draft: IntakeDraft;
   readonly reply: string | null;
 }
