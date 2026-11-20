@@ -8,10 +8,11 @@ import styles from "./telegram.module.css";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The business's server-provided Telegram test link. This view works for a
-// guest without collecting credentials. A real, locally generated QR may be
-// supplied by the caller; this component never fabricates one or sends the
-// business link to an outside image service.
+// The business's Telegram test link, as the server made it, with Open and
+// Copy. It asks for no credentials, so a guest sees it too. The caller may
+// pass a QR code drawn on the server (`TelegramQr`); this file draws none and
+// never sends the link to an outside image service. A link that isn't a plain
+// t.me bot link with one start parameter shows as unavailable.
 
 interface TelegramSetupProps {
   readonly businessId: string;
@@ -36,7 +37,7 @@ function testLink(raw: string | null): string | null {
   }
 }
 
-/** Show a business's Telegram test link and copy feedback without connecting secrets. */
+/** Render the Telegram test link for one business, starting fresh when the business or link changes. */
 export function TelegramSetup(props: TelegramSetupProps) {
   return <TelegramLink key={`${props.businessId}:${props.url}`} {...props} />;
 }

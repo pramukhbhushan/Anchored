@@ -8,9 +8,11 @@ import styles from "./rule.module.css";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The owner's switch for the fixed acknowledgment, which starts on. The view keeps
-// attempted changes separate from the last saved state and accepts a save
-// callback only when the server contract and permission are available.
+// The owner's switch for the acknowledgment, the one fixed text Anchored sends
+// a customer without waiting for an OK. It starts on. "Right now" shows the
+// state the server saved, and the checkbox the owner's unsaved choice. A
+// caller that can't save, such as a guest, passes no `save`, and the control
+// says why instead of offering the button.
 
 export interface AcknowledgmentRuleState {
   readonly enabled: boolean;
@@ -30,7 +32,7 @@ function stateKey(state: AcknowledgmentRuleState | null): string {
   return state === null ? "unknown" : `${state.enabled}:${state.approvedAt ?? ""}`;
 }
 
-/** Present explicit approval for the fixed acknowledgment, using only returned saved state. */
+/** Render the acknowledgment switch for one business, showing only state the server saved. */
 export function AcknowledgmentRule(props: AcknowledgmentRuleProps) {
   return <RuleControl key={props.businessId} {...props} />;
 }

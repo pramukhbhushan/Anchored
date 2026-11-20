@@ -7,8 +7,10 @@ import { AcknowledgmentRule, type AcknowledgmentRuleState } from "./Acknowledgme
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The owner's explicit acknowledgment approval: visible template, saved
-// versus attempted state, duplicate protection and business-switch isolation.
+// The acknowledgment switch as an owner uses it: the exact text shows before
+// they turn it on, "Right now" changes only after a save, a double tap saves
+// once, a failed save keeps their choice, and switching businesses drops a
+// save still in flight.
 
 const OFF = { enabled: false };
 
@@ -22,7 +24,7 @@ describe("AcknowledgmentRule", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
 
-  it("adopts the returned state only after an explicit save and blocks duplicate saves", async () => {
+  it('changes "Right now" only after a save, and saves once on a double tap', async () => {
     const reply = deferred<AcknowledgmentRuleState>();
     const save = vi.fn(() => reply.promise);
     const user = userEvent.setup();

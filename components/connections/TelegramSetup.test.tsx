@@ -6,8 +6,9 @@ import { TelegramSetup } from "./TelegramSetup";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The Telegram setup as an owner uses it, including unavailable links,
-// browser clipboard limits and the optional real QR supplied by the caller.
+// The Telegram test link as an owner uses it: Open and Copy, a link the
+// server can't offer, a browser that blocks the clipboard, and the QR code
+// when the page passes one.
 
 const URL = "https://t.me/anchored_test_bot?start=business-123";
 
