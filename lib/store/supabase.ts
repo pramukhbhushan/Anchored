@@ -545,14 +545,16 @@ export class SupabaseStore implements Store {
 
   async saveContact(session: string, contact: NewContact): Promise<Contact> {
     // One contact per phone number and per Telegram chat: a save for either already on file updates that contact.
-    let id = contact.id;
-    for (const [column, value] of [["phone", contact.phone], ["telegram_chat_id", contact.telegramChatId ?? null]] as const) {
-      if (id !== undefined || value === null) continue;
+    const holder = async (column: "phone" | "telegram_chat_id", value: string): Promise<string | undefined> => {
       const { data, error } = await this.db.from("contacts").select("id").eq("session_id", session).eq("business_id", contact.businessId).eq(column, value).maybeSingle();
       if (error) fail("saveContact", error);
-      id = (data as { id: string } | null)?.id;
-    }
-    const row = contactRow(session, contact);
+      return (data as { id: string } | null)?.id;
+    };
+    const chatHolder = contact.telegramChatId === undefined ? undefined : await holder("telegram_chat_id", contact.telegramChatId);
+    const id = contact.id ?? (contact.phone === null ? undefined : await holder("phone", contact.phone)) ?? chatHolder;
+    // Contacts never merge: a chat another contact holds stays with it, and this one keeps whatever chat it had.
+    const { telegram_chat_id, telegram_name, ...rest } = contactRow(session, contact);
+    const row = chatHolder === undefined || chatHolder === id ? { ...rest, telegram_chat_id, telegram_name } : rest;
     const query = id === undefined ? this.db.from("contacts").insert(row) : this.db.from("contacts").update(row).eq("session_id", session).eq("id", id);
     const { data, error } = await query.select(CONTACT_COLUMNS).single();
     if (error) fail("saveContact", error);
