@@ -20,7 +20,7 @@ Updated November 8, 2026. This is a recording script and verification checklist,
 
 1. Choose the exact deployed or local version and record its commit or working-tree state. Run Node 26 `npm run check` on the same combined code. A passing build does not prove a provider delivered a message.
 2. Ask Pramukh to confirm the receiving database has every migration required by that version. The handoff reports the original Telegram and brief migrations applied. Pramukh must manually review and apply `20261108000700_telegram_deletion.sql`, then `20261108000800_customer_followups.sql`, before this version deploys. Neither new migration was applied to live Supabase by this implementation. Do not run `supabase db push` against the existing team database with its incomplete migration history.
-3. Confirm `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME=AnchorMesageBot`, `TELEGRAM_WEBHOOK_SECRET` and `CRON_SECRET` are set on the receiving server. Compare the secret privately with the registration environment. Never show tokens, secret values, private email addresses or other customers' messages in the recording.
+3. Confirm `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET` and `CRON_SECRET` are set on the receiving server. Compare the secret privately with the registration environment. Never show tokens, secret values, private email addresses or other customers' messages in the recording.
 4. With the shared bot operator's approval, register the intended HTTPS deployment and inspect its status:
 
    ```bash
