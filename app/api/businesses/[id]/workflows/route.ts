@@ -27,7 +27,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { id } = await params;
     if (isSampleBusinessId(id)) return fail(409, "This example's jobs are set. Set up your own business to add jobs to it.");
     const business = await findBusiness(id);
-    if (!business) return fail(404, "Business not found. It may have been reset.");
+    if (!business) return fail(404, "Business not found. It may have been deleted. Reload the page to see your businesses.");
     const body = parsed.data;
     if (workflowIdsOf(business).includes(body.workflow)) {
       return fail(409, "That job is already in your workflows. Change who handles it on the Workflows page.");

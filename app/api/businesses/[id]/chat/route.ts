@@ -15,7 +15,7 @@ import { getSessionId } from "@/lib/server/session";
 
 type Context = { params: Promise<{ id: string }> };
 
-const NOT_FOUND = "Business not found. It may have been reset.";
+const NOT_FOUND = "Business not found. It may have been deleted. Reload the page to see your businesses.";
 
 /** Return the business's chat. */
 export async function GET(request: Request, { params }: Context) {

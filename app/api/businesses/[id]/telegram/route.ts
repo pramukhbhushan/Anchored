@@ -16,7 +16,7 @@ export async function GET(_request: Request, { params }: Params) {
   try {
     const { id } = await params;
     const business = await findBusiness(id);
-    if (business === null) return fail(404, "Business not found. It may have been reset.");
+    if (business === null) return fail(404, "Business not found. It may have been deleted. Reload the page to see your businesses.");
     return json(await telegramSetup(await getSessionId(), business));
   } catch (error) {
     return handleError(error, "GET /api/businesses/[id]/telegram");

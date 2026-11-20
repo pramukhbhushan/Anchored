@@ -23,7 +23,7 @@ export async function POST(request: Request, { params }: Context) {
       return fail(415, "Send the photo itself, with its image type as `Content-Type`.");
     }
     const business = await findBusiness(id);
-    if (!business) return fail(404, "Business not found. It may have been reset.");
+    if (!business) return fail(404, "Business not found. It may have been deleted. Reload the page to see your businesses.");
     if (business.kind === "case") return fail(403, `${business.name} is an example, so it can't hold your photos. Set up your business to try this.`);
     const bytes = await readBytesCapped(request, MAX_PHOTO_BYTES);
     if (bytes === null) return fail(413, `That photo is over ${MAX_PHOTO_BYTES / 1024 / 1024} MB. Try a smaller one.`);

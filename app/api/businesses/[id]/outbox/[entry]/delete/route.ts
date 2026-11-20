@@ -7,8 +7,10 @@ import { getSessionId } from "@/lib/server/session";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Owner-authorized removal of a stored Telegram message. Request input never
-// supplies chat or provider identity, and deletion preserves the outbox audit.
+// POST /api/businesses/[id]/outbox/[entry]/delete removes a Telegram message
+// Anchored sent from the customer's chat, at the owner's request. The chat
+// comes from the outbox entry, never the request, and the entry stays in the
+// outbox as a record.
 
 /** Remove a Telegram message owned by this session and business. */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string; entry: string }> }) {
@@ -17,7 +19,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!body.ok) return body.response;
     const { id, entry } = await params;
     const business = await findBusiness(id);
-    if (business === null || business.kind !== "custom") return fail(404, "Business not found.");
+    if (business === null || business.kind !== "custom") return fail(404, "Business not found. It may have been deleted. Reload the page to see your businesses.");
     const result = await deleteDispatchedTelegram(await getSessionId(), business.id, entry);
     return result.deleted ? json({ deleted: true, message: result.message }) : fail(result.status, result.message);
   } catch (error) {

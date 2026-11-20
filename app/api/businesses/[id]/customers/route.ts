@@ -15,7 +15,7 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(request: Request, { params }: Params) {
   try {
     const business = await findBusiness((await params).id);
-    if (business === null) return fail(404, "Business not found. It may have been reset.");
+    if (business === null) return fail(404, "Business not found. It may have been deleted. Reload the page to see your businesses.");
     const contact = new URL(request.url).searchParams.get("contact");
     return json(await customerThreads(await getSessionId(), business, contact === null || contact === "" ? null : contact.slice(0, 64)));
   } catch (error) {

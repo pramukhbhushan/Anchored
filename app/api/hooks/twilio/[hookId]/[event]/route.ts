@@ -31,6 +31,11 @@ function resultUrl(request: Request): string {
   return url.toString();
 }
 
+/** The message a caller hears when nobody picks up. */
+function missedCallMessage(businessName: string): string {
+  return twimlSayAndHangUp(`Sorry we missed your call at ${businessName}. We'll get back to you soon.`);
+}
+
 /** A TwiML response. */
 function twiml(body: string, status = 200): Response {
   return new Response(body, { status, headers: { "content-type": "text/xml; charset=utf-8" } });
@@ -61,14 +66,14 @@ export async function POST(request: Request, { params }: Context) {
     if (event === "voice-result") {
       if (fields.DialCallStatus === "completed") return twiml(EMPTY_TWIML);
       await receiveMissedCall(target, from);
-      return twiml(twimlSayAndHangUp(`Sorry we missed your call at ${target.business.name}. We'll get back to you soon.`));
+      return twiml(missedCallMessage(target.business.name));
     }
     const forwardTo = target.connection.settings.forwardTo;
     if (forwardTo !== undefined && duringCallHours()) {
       return twiml(twimlDialOwner(forwardTo, resultUrl(request)));
     }
     await receiveMissedCall(target, from);
-    return twiml(twimlSayAndHangUp(`Sorry we missed your call at ${target.business.name}. We'll get back to you soon.`));
+    return twiml(missedCallMessage(target.business.name));
   } catch (error) {
     return handleError(error, "POST /api/hooks/twilio/[hookId]/[event]");
   }

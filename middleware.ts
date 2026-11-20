@@ -31,7 +31,7 @@ export interface ApiLimit {
 const WINDOW_MS = 10 * 60 * 1000;
 
 // Routes that call a paid model get the tightest limits. Per-IP limits are five to six
-// times looser, since judges on one venue Wi-Fi share a single address.
+// times looser, since everyone on one office or event Wi-Fi shares a single address.
 const LIMITS = {
   createBusiness: { bucket: "create-business", windowMs: WINDOW_MS, perSession: 10, perIp: 60 },
   places: { bucket: "places", windowMs: WINDOW_MS, perSession: 20, perIp: 120 },
@@ -42,15 +42,16 @@ const LIMITS = {
   newEvent: { bucket: "new-event", windowMs: WINDOW_MS, perSession: 60, perIp: 300 },
   // Connecting a service and adding a contact create rows, so they get their own bucket.
   connect: { bucket: "connect", windowMs: WINDOW_MS, perSession: 60, perIp: 300 },
-  // Twilio, Stripe and Postmark post from shared addresses with no session, so only the per-IP limit holds them.
   // Each photo is its own request, and a post holds up to 10.
   photo: { bucket: "photo", windowMs: WINDOW_MS, perSession: 100, perIp: 500 },
   // Turning a job on can add a question to the chat, so the switch gets its own bucket.
   automation: { bucket: "automation", windowMs: WINDOW_MS, perSession: 60, perIp: 300 },
+  // Twilio, Stripe and Postmark post from shared addresses with no session, so only the per-IP limit holds them.
   hook: { bucket: "hook", windowMs: WINDOW_MS, perSession: 600, perIp: 3000 },
-  // Run now writes a brief card; a few a minute is plenty for an owner checking it.
+  // Recorded follow-ups and license dates create rows and can draft a card.
   agentWork: { bucket: "agent-work", windowMs: WINDOW_MS, perSession: 30, perIp: 150 },
   telegramDelete: { bucket: "telegram-delete", windowMs: WINDOW_MS, perSession: 20, perIp: 100 },
+  // Run now writes a brief card; a few a minute is plenty for an owner checking it.
   brief: { bucket: "brief", windowMs: WINDOW_MS, perSession: 30, perIp: 150 },
   // Approving the plan and adding a job each save a new profile version, a full snapshot row.
   profile: { bucket: "profile", windowMs: WINDOW_MS, perSession: 30, perIp: 150 },
