@@ -242,6 +242,20 @@ describe("matchPaidInvoice", () => {
     expect(matchPaidInvoice(cards, { name: "maya  Chen" })).toEqual({ kind: "ambiguous", options: ["invoice 1042", "invoice 1046"] });
   });
 
+  it("finds a number-keyed reminder from a message that names the customer and amount", () => {
+    const sheet = [reminder("n:1042", "pending", { number: "1042" })];
+    expect(matchPaidInvoice(sheet, { name: "Maya Chen", amount: 450 })).toEqual({ kind: "match", key: "n:1042" });
+  });
+
+  it("keeps a direct key that an open reminder carries", () => {
+    const byEmail = [reminder("e:maya.chen@example.com:450.00", "pending"), reminder("n:1046", "pending", { number: "1046", amount: 90 })];
+    expect(matchPaidInvoice(byEmail, { email: "maya.chen@example.com", name: "Maya Chen", amount: 450 })).toEqual({ kind: "match", key: "e:maya.chen@example.com:450.00" });
+  });
+
+  it("still asks which one when a name and amount match no key and the customer has two open invoices", () => {
+    expect(matchPaidInvoice(cards, { name: "Maya Chen", amount: 300 })).toEqual({ kind: "ambiguous", options: ["invoice 1042", "invoice 1046"] });
+  });
+
   it("ignores closed reminders and finds nothing for an unknown customer", () => {
     expect(matchPaidInvoice([reminder("n:1042", "superseded")], { name: "Maya Chen" })).toEqual({ kind: "none" });
     expect(matchPaidInvoice(cards, { name: "Nobody" })).toEqual({ kind: "none" });
