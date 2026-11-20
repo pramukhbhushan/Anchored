@@ -7,7 +7,7 @@
 // trusting the type the browser declared, so a renamed file can't get through.
 
 /** The image types a post photo may be. */
-export const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
 /** One accepted image type. */
 export type PhotoType = (typeof PHOTO_TYPES)[number];

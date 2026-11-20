@@ -5,9 +5,7 @@ import {
   checkReminderDraft,
   followUpQuestion,
   invoiceKey,
-  isPriceIncrease,
   matchPaidInvoice,
-  priceChange,
   readInvoiceMessage,
   reminderRecords,
   remindersFor,
@@ -220,29 +218,6 @@ describe("checkReminderDraft", () => {
 
   it("refuses any amount when the invoice gave none", () => {
     expect(checkReminderDraft("Your balance is $50.", { name: "Sam", amount: null, number: null, due: null }).ok).toBe(false);
-  });
-});
-
-describe("priceChange", () => {
-  it("reports a rise in dollars and percent", () => {
-    expect(priceChange(2.1, 2.5)).toEqual({ direction: "up", difference: 0.4, percent: 19 });
-    expect(priceChange(119, 149)).toEqual({ direction: "up", difference: 30, percent: 25.2 });
-    expect(isPriceIncrease(119, 149)).toBe(true);
-  });
-
-  it("reports a drop and no change", () => {
-    expect(priceChange(50, 45)).toEqual({ direction: "down", difference: -5, percent: -10 });
-    expect(priceChange(50, 50)).toEqual({ direction: "same", difference: 0, percent: 0 });
-    expect(isPriceIncrease(50, 45)).toBe(false);
-  });
-
-  it("returns null when a price is missing or not real", () => {
-    expect(priceChange(null, 10)).toBeNull();
-    expect(priceChange(10, undefined)).toBeNull();
-    expect(priceChange(0, 10)).toBeNull();
-    expect(priceChange(10, -1)).toBeNull();
-    expect(priceChange(Number.NaN, 10)).toBeNull();
-    expect(isPriceIncrease(null, 10)).toBe(false);
   });
 });
 

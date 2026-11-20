@@ -93,7 +93,7 @@ export function contactByPhone(contacts: readonly Contact[], phone: string): Con
 }
 
 /** The contact whose email is `email`, ignoring case and spaces, or `undefined`. */
-export function contactByEmail(contacts: readonly Contact[], email: string): Contact | undefined {
+function contactByEmail(contacts: readonly Contact[], email: string): Contact | undefined {
   const wanted = email.trim().toLowerCase();
   return contacts.find((contact) => contact.email?.trim().toLowerCase() === wanted);
 }
