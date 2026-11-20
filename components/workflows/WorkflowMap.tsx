@@ -458,7 +458,7 @@ export function WorkflowMap({
         if (!drag.moved) activateRef.current(drag.id);
         b.ox = 0; b.oy = 0; drag = null;
       }
-      // A tap on the open sea closes the panel.
+      // A tap on the empty chart, away from every circle, closes the panel.
       if (pan && !pan.moved) setSel(null);
       pan = null;
     };
@@ -477,7 +477,7 @@ export function WorkflowMap({
       e.preventDefault();
       zoomTo(cam.ts * Math.exp(-Math.max(-30, Math.min(30, e.deltaY)) * 0.01), e.clientX, e.clientY);
     };
-    // Double-clicking the open sea zooms in there.
+    // Double-clicking the empty chart zooms in there.
     const dbl = (e: MouseEvent) => {
       if (column || (e.target as Element).closest("[role=button]")) return;
       zoomTo(cam.ts * 1.6, e.clientX, e.clientY);

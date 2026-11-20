@@ -242,7 +242,7 @@ export function OnboardForm({ aiName }: { readonly aiName: string | null }) {
         {suggestions.length > 0 && (
           <div role="group" aria-labelledby="ob-hints" style={{ marginTop: 10 }}>
             <p className="exlabel" id="ob-hints">
-              Businesses like yours often... Tap one to tick its box below.
+              Businesses like yours often have these. Tap one to tick its box below.
             </p>
             <div className="tabs" style={{ marginBottom: 0 }}>
               {suggestions.map((s) => (
