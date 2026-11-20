@@ -185,22 +185,28 @@ export type PaidMatch =
   | { readonly kind: "ambiguous"; readonly options: readonly string[] };
 
 /**
- * Find the invoice a payment settles. A number, or an email or name with the amount, names it directly. A name
- * alone matches the customer's one open reminder; two open invoices for that customer make the owner choose.
+ * Find the invoice a payment settles. A number, or an email or name with the amount, names it directly when an open
+ * reminder carries that key. Otherwise a name matches the customer's one open reminder, and two open invoices for
+ * that customer make the owner choose. With no open reminder to match, a direct key still comes back as the match.
  */
 export function matchPaidInvoice(cards: readonly InvoiceCard[], paid: { readonly number?: string | null; readonly email?: string | null; readonly name?: string | null; readonly amount?: number | null }): PaidMatch {
+  const open = cards.flatMap((card) => (card.skill === "nudger" && card.invoice && (card.status === "pending" || card.status === "approved") ? [card.invoice] : []));
   const direct = invoiceKey(paid);
-  if (direct !== null) return { kind: "match", key: direct };
-  const name = paid.name?.trim().toLowerCase().replace(/\s+/g, " ");
+  if (direct !== null && open.some((ref) => ref.key === direct)) return { kind: "match", key: direct };
+  // A reminder keyed by its number, and a payment the owner named by customer and amount, give different keys.
+  const byName = matchByName(open, paid.name);
+  if (byName.kind !== "none" || direct === null) return byName;
+  return { kind: "match", key: direct };
+}
+
+/** The open reminders for the customer called `rawName`: one is the match, two or more make the owner choose. */
+function matchByName(open: readonly InvoiceRef[], rawName: string | null | undefined): PaidMatch {
+  const name = rawName?.trim().toLowerCase().replace(/\s+/g, " ");
   if (!name) return { kind: "none" };
-  const open = new Map<string, InvoiceRef>();
-  for (const card of cards) {
-    if (card.skill !== "nudger" || !card.invoice || card.invoice.customer !== name) continue;
-    if (card.status === "pending" || card.status === "approved") open.set(card.invoice.key, card.invoice);
-  }
-  const refs = [...open.values()];
-  if (refs.length === 0) return { kind: "none" };
-  if (refs.length === 1) return { kind: "match", key: refs[0]?.key ?? "" };
+  const refs = [...new Map(open.filter((ref) => ref.customer === name).map((ref) => [ref.key, ref])).values()];
+  const [only] = refs;
+  if (only === undefined) return { kind: "none" };
+  if (refs.length === 1) return { kind: "match", key: only.key };
   return { kind: "ambiguous", options: refs.map((ref) => (ref.number ? `invoice ${ref.number}` : `the ${money(ref.amount)} invoice`)) };
 }
 
