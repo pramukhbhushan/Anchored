@@ -42,7 +42,7 @@ const SOURCE_RANK: Readonly<Record<SourceType, number>> = { owner: 0, document: 
 const CONFIDENCE_RANK: Readonly<Record<Confidence, number>> = { high: 0, medium: 1, low: 2 };
 
 /** Where a value came from, as the owner reads it in a sentence: "Your website says ...". */
-export const SOURCE_LABEL: Readonly<Record<SourceType, string>> = {
+const SOURCE_LABEL: Readonly<Record<SourceType, string>> = {
   owner: "You said",
   document: "Your document says",
   listing: "Your Google listing says",
@@ -136,7 +136,7 @@ export function gapsFor(state: Partial<DetailState>, agents: readonly CoreAgentI
 }
 
 /** How ready one agent is: must fields filled over required, and the first one still missing. */
-export interface Readiness {
+interface Readiness {
   readonly filled: number;
   readonly required: number;
   readonly next: FieldKey | null;
@@ -183,7 +183,7 @@ export function money(amount: number): string {
 }
 
 /** One price line: "Tune-up $129" or "Install $1,200 to $1,800". */
-export function priceText(item: PriceItem): string {
+function priceText(item: PriceItem): string {
   const amount = item.high === undefined || item.high === item.low ? money(item.low) : `${money(item.low)} to ${money(item.high)}`;
   return item.item === "" ? amount : `${item.item} ${amount}`;
 }
@@ -238,7 +238,7 @@ function toNumber(text: string): number {
 }
 
 /** Split a list the owner typed: commas, semicolons, "and", "or" and new lines all separate items. */
-export function splitList(text: string): string[] {
+function splitList(text: string): string[] {
   return text
     .split(/[,;\n]|\s+(?:and|or)\s+/i)
     .map((part) => part.replace(/^\s*(?:and|or|like|such as|e\.g\.)\s+/i, "").replace(/[.!]+$/, "").trim())

@@ -9,10 +9,10 @@ import type { BusinessProfile, CoreAgentId, FieldKey, ProfileDetails } from "@/l
 // `ProfileDetails` and to `FIELDS` here, and `tsc` lists anything else to fill.
 
 /** How much an agent depends on a field. */
-export type Need = "must" | "nice";
+type Need = "must" | "nice";
 
 /** One registry entry. */
-export interface FieldDef {
+interface FieldDef {
   readonly key: FieldKey;
   /** The field's name as the owner reads it. */
   readonly label: string;

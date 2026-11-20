@@ -74,7 +74,7 @@ export interface ListingChoice {
 export type ListKey = "reach" | "tools" | "signals" | "languages";
 
 /** A free-text fact. `place` has no question of its own; it rides on the name answer. */
-export type TextKey = "name" | "place" | "kind" | "what" | "week" | "voice";
+type TextKey = "name" | "place" | "kind" | "what" | "week" | "voice";
 
 /** The four multiple-choice facts. */
 export interface FactLists {
@@ -187,7 +187,7 @@ export const INTAKE_FIELDS: readonly IntakeField[] = ["name", "kind", "what", "r
 export const MAX_FOLLOW_UPS = 2;
 
 /** Most gap questions one intake asks. Anything still missing shows on the profile instead. */
-export const MAX_GAPS = 3;
+const MAX_GAPS = 3;
 
 const LIST_KEYS: readonly ListKey[] = ["reach", "tools", "signals", "languages"];
 const TEXT_KEYS: readonly TextKey[] = ["name", "place", "kind", "what", "week", "voice"];
@@ -683,7 +683,7 @@ function isListStep(step: IntakeStep): step is ListKey {
 // =============================================================================
 
 /** The gap step for a profile detail. */
-export function gapStep(key: FieldKey): GapStep {
+function gapStep(key: FieldKey): GapStep {
   return `gap:${key}`;
 }
 
@@ -739,7 +739,7 @@ function plannedAgents(draft: IntakeDraft): CoreAgentId[] {
 }
 
 /** The gap questions still to ask: must fields of the agents the plan turns on, once every planned question is done. */
-export function pendingGaps(draft: IntakeDraft): FieldKey[] {
+function pendingGaps(draft: IntakeDraft): FieldKey[] {
   if (INTAKE_FIELDS.some((field) => needsAsking(draft, field)) || listingOpen(draft)) return [];
   const asked = draft.gaps ?? [];
   if (asked.length >= MAX_GAPS) return [];
@@ -1046,7 +1046,7 @@ const VAGUE = /\b(?:the usual|you know|stuff|things|whatever|all sorts|a bit of 
 const VAGUE_WHAT_TEXT = "Name two or three things you sell most, like drain cleaning or water heater installs, and roughly what they cost.";
 
 /** Whether an answer about what the business sells names nothing: vague words and nothing else of substance. */
-export function isVagueWhat(text: string): boolean {
+function isVagueWhat(text: string): boolean {
   if (!VAGUE.test(text)) return false;
   const rest = text.replace(new RegExp(VAGUE.source, "gi"), " ").replace(/\b(?:oh|um|uh|well|just|really|like|we|do|sell|offer|i|the|a|and|of|all|kinds?|sorts?)\b/gi, " ").replace(/[^a-z]/gi, "");
   return rest.length < 4;
