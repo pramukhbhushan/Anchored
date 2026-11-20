@@ -6,15 +6,13 @@ import { withCrewDecisions } from "@/lib/domain/crew";
 import { mergeCandidates } from "@/lib/domain/details";
 import { profileFromSentence } from "@/lib/domain/engine";
 import type { BusinessProfile } from "@/lib/domain/types";
-import { buildProfileFromAnswers } from "@/lib/server/create-business";
-import { seedDemoBusiness } from "@/lib/server/demo-seed";
+import { buildProfileFromAnswers, saveNewBusiness } from "@/lib/server/create-business";
+import { resetSession } from "@/lib/server/data";
 import { extractDetails } from "@/lib/server/extract";
 import { fetchPage } from "@/lib/server/fetch-page";
 import { fail, handleError, json, readBody } from "@/lib/server/http";
 import { placeDetails } from "@/lib/server/places";
 import { getSessionId } from "@/lib/server/session";
-import { scheduleStarters } from "@/lib/server/starters";
-import { getStore } from "@/lib/store";
 
 // =============================================================================
 // Module Overview
@@ -74,13 +72,8 @@ export async function POST(request: Request) {
         placeRaw = { ...placeRaw, website: { url: page.url, title: page.title, text: page.text } };
       }
     }
-    const session = await getSessionId();
-    const store = getStore();
-    await store.saveBusiness(session, business, "onboarding");
-    await store.recordEvent(session, business.id, "onboarding_raw", { request: parsed.data, ...(placeRaw === undefined ? {} : { place: placeRaw }) });
-    if (parsed.data.from === "example") await seedDemoBusiness(store, session, business);
-    // The starters are written after this response, so the owner reaches the plan without waiting on the model.
-    scheduleStarters(session, business);
+    const raw = { request: parsed.data, ...(placeRaw === undefined ? {} : { place: placeRaw }) };
+    await saveNewBusiness(await getSessionId(), business, raw, { seedExample: parsed.data.from === "example" });
     return json<CreateBusinessResponse>({ id: business.id, business }, 201);
   } catch (error) {
     return handleError(error, "POST /api/businesses");
@@ -90,7 +83,7 @@ export async function POST(request: Request) {
 /** Delete this visitor's businesses, choices, cards, outbox and chat. The example business lives in code and stays. */
 export async function DELETE() {
   try {
-    await getStore().reset(await getSessionId());
+    await resetSession(await getSessionId());
     return json<DeleteBusinessesResponse>({ ok: true });
   } catch (error) {
     return handleError(error, "DELETE /api/businesses");

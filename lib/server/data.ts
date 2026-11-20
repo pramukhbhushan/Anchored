@@ -21,7 +21,13 @@ import { isWritingStarters, scheduleStarters } from "./starters";
 // =============================================================================
 // Server-side reads for pages and API routes. The example business comes from code; a
 // session's own businesses, choices and cards come from the `Store`. `getFeed`
-// also syncs card drafts for the agents the owner has chosen.
+// also syncs card drafts for the agents the owner has chosen, and `resetSession`
+// clears the session's rows when the owner deletes their businesses.
+
+/** Delete the session's businesses, choices, cards, outbox and chat. The example business lives in code and stays. */
+export async function resetSession(session: string): Promise<void> {
+  await getStore().reset(session);
+}
 
 // `cache` reads the list once per server render: the shell layout and the `/app` page both ask for it.
 /** Return the example business, then the session's own businesses. */

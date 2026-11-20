@@ -1,6 +1,6 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { ConnectorError, type FetchLike } from "./errors";
+import { ConnectorError, PROVIDER_TIMEOUT_MS, type FetchLike } from "./errors";
 
 // =============================================================================
 // Module Overview
@@ -69,6 +69,7 @@ export async function sendTwilioText(account: TwilioAccount, to: string, body: s
     method: "POST",
     headers: { authorization: basicAuth(account), "content-type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ To: to, From: account.from, Body: body }).toString(),
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
   });
   if (!response.ok) throw await twilioFailure(response);
   const sent = (await response.json()) as { sid?: string };
@@ -81,7 +82,7 @@ export async function checkTwilioNumber(accountSid: string, authToken: string, p
   const url = `${API}/Accounts/${encodeURIComponent(accountSid)}/IncomingPhoneNumbers.json?PhoneNumber=${encodeURIComponent(phone)}`;
   let response: Response;
   try {
-    response = await fetchImpl(url, { headers: { authorization: basicAuth({ accountSid, authToken }) } });
+    response = await fetchImpl(url, { headers: { authorization: basicAuth({ accountSid, authToken }) }, signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS) });
   } catch {
     return "Anchored couldn't reach Twilio. Try again in a minute.";
   }

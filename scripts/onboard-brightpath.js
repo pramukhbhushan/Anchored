@@ -3,16 +3,16 @@
 // How to use:
 //   1. Open http://localhost:3102/app in your browser.
 //   2. Open DevTools (Cmd+Option+J in Chrome), go to the Console tab.
-//   3. Paste this whole file and press Enter.
+//   3. Paste this whole file, with your own sheet in place of YOUR_SHEET_ID, and press Enter.
 //
 // It starts an onboarding chat in your own browser session, answers every
-// question from bookkeeping/coaching-persona.md, logs each question and answer,
+// question from docs/testing/brightpath-persona.md, logs each question and answer,
 // and opens the new business's Workflows map when it's done. Questions it has no
 // answer for are skipped. Only for local testing.
 
 (async () => {
   const SHEET =
-    "https://docs.google.com/spreadsheets/d/1jYg4Sn7znhd57XYKdPfj53reorhkliVlOoTEEQsIKiw/edit";
+    "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit";
 
   // One answer per question. `picks` are used when the question offers those chips; `text` otherwise.
   const ANSWERS = {

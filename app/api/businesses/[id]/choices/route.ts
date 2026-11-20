@@ -1,11 +1,10 @@
 import type { SetChoiceResponse } from "@/lib/api/contract";
 import { setChoiceSchema } from "@/lib/api/schemas";
 import { workflowIdsOf } from "@/lib/domain/paths";
-import { checkChoice } from "@/lib/server/choice";
+import { checkChoice, saveChoice } from "@/lib/server/choice";
 import { findBusiness } from "@/lib/server/data";
 import { fail, handleError, json, readBody } from "@/lib/server/http";
 import { getSessionId } from "@/lib/server/session";
-import { getStore } from "@/lib/store";
 
 // =============================================================================
 // Module Overview
@@ -28,7 +27,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const checked = checkChoice(business, body);
     if (!checked.ok) return fail(checked.status, checked.error);
 
-    await getStore().setChoice(await getSessionId(), business.id, body.workflow, checked.choice);
+    await saveChoice(await getSessionId(), business.id, body.workflow, checked.choice);
     return json<SetChoiceResponse>({ choice: checked.choice });
   } catch (error) {
     return handleError(error, "PUT /api/businesses/[id]/choices");
