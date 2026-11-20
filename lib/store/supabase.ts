@@ -38,7 +38,8 @@ import {
 // =============================================================================
 // `SupabaseStore` persists Anchored data in the Postgres tables created by
 // `supabase/migrations`. It connects with the service role key from the server
-// only; row-level security has no policies, so the public anon key reads nothing.
+// only. Row-level security has no policies on owner tables, so the public anon
+// key reads none of them; only the shared post playbook tables allow reads.
 
 // =============================================================================
 // Row shapes, as Postgres returns them
@@ -171,6 +172,34 @@ function toOutbox(row: OutboxRow): OutboxEntry {
   };
 }
 
+/** The `cards` columns a decision or rewrite writes: `patch` laid over the stored card. */
+function cardUpdate(current: CardRecord, patch: CardPatch) {
+  const { id: _id, key: _key, businessId: _business, status, edited, createdAt: _created, decidedAt, ...draft } = current;
+  return {
+    draft: patch.body === undefined ? draft : { ...draft, body: patch.body },
+    status: patch.status ?? status,
+    edited: patch.edited ?? edited,
+    decided_at: patch.decidedAt === undefined ? decidedAt : patch.decidedAt,
+  };
+}
+
+/** A new `outbox` row; `sent_at` is left to the database default when the entry has none. */
+function outboxRow(session: string, entry: NewOutboxEntry) {
+  return {
+    session_id: session,
+    business_id: entry.businessId,
+    card_id: entry.cardId,
+    channel: entry.channel,
+    recipient: entry.to,
+    body: entry.body,
+    delivery: entry.delivery ?? "yours",
+    delivery_note: entry.note ?? null,
+    rule: entry.rule ?? null,
+    contact_id: entry.contactId ?? null,
+    ...(entry.sentAt ? { sent_at: entry.sentAt } : {}),
+  };
+}
+
 function toContact(row: ContactRow): Contact {
   return {
     id: row.id,
@@ -232,7 +261,10 @@ function toMessage(row: ChatMessageRow): ChatMessage {
 }
 
 /** The private Storage bucket that holds post photos, at `<session>/<business>/<photo id>`. */
-export const PHOTO_BUCKET = "post-photos";
+const PHOTO_BUCKET = "post-photos";
+
+// The most entries one Storage `list` call returns.
+const PHOTO_PAGE = 1000;
 
 /** A photo's path in `PHOTO_BUCKET`. Every part is a session id, a business id or a UUID, so none holds a slash. */
 function photoPath(session: string, businessId: string, photoId: string): string {
@@ -377,14 +409,7 @@ export class SupabaseStore implements Store {
   async updateCard(session: string, cardId: string, patch: CardPatch): Promise<CardRecord> {
     const current = await this.getCard(session, cardId);
     if (!current) throw new NotFoundError(`Card ${cardId} not found in this session.`);
-    const { id, key, businessId, status, edited, createdAt, decidedAt, ...draft } = current;
-    const update = {
-      draft: patch.body === undefined ? draft : { ...draft, body: patch.body },
-      status: patch.status ?? status,
-      edited: patch.edited ?? edited,
-      decided_at: patch.decidedAt === undefined ? decidedAt : patch.decidedAt,
-    };
-    const { data, error } = await this.db.from("cards").update(update).eq("session_id", session).eq("id", id).select(CARD_COLUMNS).single();
+    const { data, error } = await this.db.from("cards").update(cardUpdate(current, patch)).eq("session_id", session).eq("id", current.id).select(CARD_COLUMNS).single();
     if (error) fail("updateCard", error);
     return toCard(data as CardRow);
   }
@@ -392,15 +417,8 @@ export class SupabaseStore implements Store {
   async updatePendingCard(session: string, cardId: string, patch: CardPatch): Promise<CardRecord | null> {
     const current = await this.getCard(session, cardId);
     if (!current || current.status !== "pending") return null;
-    const { id, key, businessId, status, edited, createdAt, decidedAt, ...draft } = current;
-    const update = {
-      draft: patch.body === undefined ? draft : { ...draft, body: patch.body },
-      status: patch.status ?? status,
-      edited: patch.edited ?? edited,
-      decided_at: patch.decidedAt === undefined ? decidedAt : patch.decidedAt,
-    };
     // `status = pending` in the filter makes the check and the write one statement: a second request matches no row.
-    const { data, error } = await this.db.from("cards").update(update).eq("session_id", session).eq("id", id).eq("status", "pending").select(CARD_COLUMNS).maybeSingle();
+    const { data, error } = await this.db.from("cards").update(cardUpdate(current, patch)).eq("session_id", session).eq("id", current.id).eq("status", "pending").select(CARD_COLUMNS).maybeSingle();
     if (error) fail("updatePendingCard", error);
     return data ? toCard(data as CardRow) : null;
   }
@@ -469,40 +487,13 @@ export class SupabaseStore implements Store {
   }
 
   async addOutbox(session: string, entry: NewOutboxEntry): Promise<OutboxEntry> {
-    const row = {
-      session_id: session,
-      business_id: entry.businessId,
-      card_id: entry.cardId,
-      channel: entry.channel,
-      recipient: entry.to,
-      body: entry.body,
-      delivery: entry.delivery ?? "yours",
-      delivery_note: entry.note ?? null,
-      rule: entry.rule ?? null,
-      contact_id: entry.contactId ?? null,
-      ...(entry.sentAt ? { sent_at: entry.sentAt } : {}),
-    };
-    const { data, error } = await this.db.from("outbox").insert(row).select(OUTBOX_COLUMNS).single();
+    const { data, error } = await this.db.from("outbox").insert(outboxRow(session, entry)).select(OUTBOX_COLUMNS).single();
     if (error) fail("addOutbox", error);
     return toOutbox(data as OutboxRow);
   }
 
   async addRuleOutbox(session: string, entry: NewOutboxEntry & { readonly rule: OutboxRule; readonly ruleKey: string }): Promise<OutboxEntry | null> {
-    const row = {
-      session_id: session,
-      business_id: entry.businessId,
-      card_id: entry.cardId,
-      channel: entry.channel,
-      recipient: entry.to,
-      body: entry.body,
-      delivery: entry.delivery ?? "yours",
-      delivery_note: entry.note ?? null,
-      rule: entry.rule,
-      rule_key: entry.ruleKey,
-      contact_id: entry.contactId ?? null,
-      ...(entry.sentAt ? { sent_at: entry.sentAt } : {}),
-    };
-    const { data, error } = await this.db.from("outbox").insert(row).select(OUTBOX_COLUMNS).single();
+    const { data, error } = await this.db.from("outbox").insert({ ...outboxRow(session, entry), rule_key: entry.ruleKey }).select(OUTBOX_COLUMNS).single();
     // `outbox_rule_key_unique` refused a second entry with this key: one is already queued or sent.
     if (error?.code === "23505") return null;
     if (error) fail("addRuleOutbox", error);
@@ -885,19 +876,24 @@ export class SupabaseStore implements Store {
     }
   }
 
-  /** Delete every photo under the session's folder, one business folder at a time. */
+  /** Delete every photo under the session's folder, one business folder and one page of files at a time. */
   private async removeSessionPhotos(session: string): Promise<void> {
     const bucket = this.db.storage.from(PHOTO_BUCKET);
-    const { data: folders, error } = await bucket.list(session, { limit: 1000 });
+    const { data: folders, error } = await bucket.list(session, { limit: PHOTO_PAGE });
     if (error) fail("reset photos", error);
+    // A session has far fewer than a page of businesses, but one business can hold more than a page of photos.
     for (const folder of folders ?? []) {
       const prefix = `${session}/${folder.name}`;
-      const { data: files, error: listError } = await bucket.list(prefix, { limit: 1000 });
-      if (listError) fail("reset photos", listError);
-      const paths = (files ?? []).map((file) => `${prefix}/${file.name}`);
-      if (paths.length === 0) continue;
-      const { error: removeError } = await bucket.remove(paths);
-      if (removeError) fail("reset photos", removeError);
+      // Each pass deletes the page it read, so the next read from the start finds the files after it.
+      for (;;) {
+        const { data: files, error: listError } = await bucket.list(prefix, { limit: PHOTO_PAGE });
+        if (listError) fail("reset photos", listError);
+        const paths = (files ?? []).map((file) => `${prefix}/${file.name}`);
+        if (paths.length === 0) break;
+        const { error: removeError } = await bucket.remove(paths);
+        if (removeError) fail("reset photos", removeError);
+        if (paths.length < PHOTO_PAGE) break;
+      }
     }
   }
 }

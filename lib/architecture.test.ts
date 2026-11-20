@@ -73,6 +73,11 @@ const RULES: readonly LayerRule[] = [
     why: "`middleware.ts` is an entry point. Code that routes share with it lives in `lib/server` or `lib/auth`.",
   },
   {
+    files: ["app"],
+    never: ["lib/store"],
+    why: "Routes and pages parse, call `lib/server` and answer. `lib/server` gets the store and runs every multi-step flow against it, so a route never touches a table.",
+  },
+  {
     files: ["components"],
     never: ["app"],
     why: "Pages compose components, never the other way round.",

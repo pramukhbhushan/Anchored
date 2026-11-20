@@ -40,7 +40,7 @@ Alternates, by section:
 
 ## Color palette
 
-Chosen direction: **Harbor Chart**, made more vibrant. It keeps the app's navy and signal yellow so the landing page and product feel like one place, and brightens the water.
+Chosen direction: Harbor Chart, with brighter water. It keeps the app's navy and signal yellow, so the landing page and the product share one palette.
 
 ### Core (light)
 
@@ -94,9 +94,12 @@ The page has a light/dark toggle in the nav. It follows the system setting until
 
 | Role | Face | Notes |
 | --- | --- | --- |
-| Display | Archivo, expanded (`font-stretch: 112%`), weight 800 to 850 | Already the app's display face. Wide letters read like hull lettering |
-| Body | Public Sans, 400 and 600 | Already the app's body face |
-| Data and labels | IBM Plex Mono, 400 and 500 | Coordinates, knots, skill names, small uppercase labels with 0.08em tracking |
+| Display | Archivo, expanded (`font-stretch: 112%`), weight 800 to 850 | The app's display face, on the landing page too. Wide letters read like hull lettering |
+| Body, in the app | Public Sans, 400 and 600 | The app's body face |
+| Body, on the landing page | Schibsted Grotesk | Set as `--h-body` in `components/site/harbor/harbor.module.css` |
+| Data and labels, on the landing page | Courier Prime, 400 and 700 | The ship's-log labels: coordinates, knots, skill names, small uppercase labels with 0.08em tracking |
+
+`app/layout.tsx` loads all four faces.
 
 Scale: 13 / 14 / 16 / 18 / 22 / 32 / 58px, matching `--fs-*` in the app, plus a hero size of clamp(48px, 9vw, 120px) for the landing page only.
 

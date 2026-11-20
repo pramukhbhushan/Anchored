@@ -3,7 +3,6 @@ import { findBusiness } from "@/lib/server/data";
 import { deleteDispatchedTelegram } from "@/lib/server/dispatch";
 import { fail, handleError, json, readBody } from "@/lib/server/http";
 import { getSessionId } from "@/lib/server/session";
-import { getStore } from "@/lib/store";
 
 // =============================================================================
 // Module Overview
@@ -19,7 +18,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { id, entry } = await params;
     const business = await findBusiness(id);
     if (business === null || business.kind !== "custom") return fail(404, "Business not found.");
-    const result = await deleteDispatchedTelegram(getStore(), await getSessionId(), business.id, entry);
+    const result = await deleteDispatchedTelegram(await getSessionId(), business.id, entry);
     return result.deleted ? json({ deleted: true, message: result.message }) : fail(result.status, result.message);
   } catch (error) {
     return handleError(error, "POST /api/businesses/[id]/outbox/[entry]/delete");
