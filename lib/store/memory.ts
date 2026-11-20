@@ -357,7 +357,8 @@ export class MemoryStore implements Store {
   }
 
   async listOutbox(session: string, businessId: string): Promise<OutboxEntry[]> {
-    return (this.peek(session)?.outbox ?? []).filter((entry) => entry.businessId === businessId);
+    // Newest first, as `SupabaseStore` orders it.
+    return (this.peek(session)?.outbox ?? []).filter((entry) => entry.businessId === businessId).sort((a, b) => b.sentAt.localeCompare(a.sentAt));
   }
 
   async recordEvent(session: string, businessId: string, source: string, payload: Readonly<Record<string, unknown>>): Promise<void> {

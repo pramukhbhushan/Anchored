@@ -438,4 +438,4 @@ Pages were opened on Nov 6 or 7, 2026, per the research notes. Vendor sources (T
 - [NRS Uber Eats release](https://www.globenewswire.com/news-release/2026/08/11/3342839/33173/en/index.html): delivery link (vendor)
 - [DOL wage cases](https://www.dol.gov/newsroom/releases/whd/whd20251219): $61,568 to $200,137, exact release per case unconfirmed
 
-Keep-out legal sources are linked in their table. The architecture and names come from the [Backroom blueprint](https://claude.ai/artifact/8VZ8E3qvz5QYAcW947DUV5), read as a PDF.
+Keep-out legal sources are linked in their table. The architecture and names come from the Backroom blueprint, the team's internal design document, read as a PDF.

@@ -1,7 +1,7 @@
 import "server-only";
 import { createSign } from "node:crypto";
 import { z } from "zod";
-import { ConnectorError, type FetchLike } from "./errors";
+import { ConnectorError, PROVIDER_TIMEOUT_MS, type FetchLike } from "./errors";
 
 // =============================================================================
 // Module Overview
@@ -40,7 +40,7 @@ const TOKEN_URL = "https://oauth2.googleapis.com/token";
 let cached: { readonly email: string; readonly token: string; readonly until: number } | null = null;
 
 /** A read-only Sheets access token for `account`, reused until shortly before it expires. */
-export async function sheetsToken(account: ServiceAccount, fetchImpl: FetchLike = fetch, nowMs = Date.now()): Promise<string> {
+async function sheetsToken(account: ServiceAccount, fetchImpl: FetchLike = fetch, nowMs = Date.now()): Promise<string> {
   if (cached && cached.email === account.clientEmail && cached.until > nowMs) return cached.token;
   const now = Math.floor(nowMs / 1000);
   const part = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
@@ -50,6 +50,7 @@ export async function sheetsToken(account: ServiceAccount, fetchImpl: FetchLike 
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: `${unsigned}.${signature}` }).toString(),
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
   });
   const body = (await response.json().catch(() => ({}))) as { access_token?: string; expires_in?: number };
   if (!response.ok || typeof body.access_token !== "string") {
@@ -72,7 +73,7 @@ export async function readSheetValues(account: ServiceAccount, sheetId: string, 
   const token = await sheetsToken(account, fetchImpl);
   // A range without a tab name reads the first tab, whatever the owner named it.
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/A1:Z1000?valueRenderOption=FORMATTED_VALUE`;
-  const response = await fetchImpl(url, { headers: { authorization: `Bearer ${token}` } });
+  const response = await fetchImpl(url, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS) });
   const body: unknown = await response.json().catch(() => ({}));
   if (!response.ok) throw sheetError(response.status, errorReply.safeParse(body).data?.error, account.clientEmail);
   const values = valuesReply.safeParse(body).data?.values ?? [];

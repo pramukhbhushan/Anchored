@@ -7,7 +7,7 @@ import type { Store } from "./types";
 // Module Overview
 // =============================================================================
 // `getStore` picks the persistence backend once per server process: Supabase
-// when `isDatabaseConfigured` finds a project URL and `SUPABASE_SERVICE_ROLE_KEY`,
+// when the environment has a project URL and `SUPABASE_SERVICE_ROLE_KEY`,
 // memory otherwise. In production, missing settings throw on first use instead
 // of falling back, unless `ANCHORED_ALLOW_MEMORY_STORE=1` asks for memory on purpose.
 
@@ -22,11 +22,6 @@ const holder = globalThis as typeof globalThis & { __anchoredStore?: Store };
 export function getStore(): Store {
   holder.__anchoredStore ??= createStore();
   return holder.__anchoredStore;
-}
-
-/** Report whether a Supabase database is configured, so data is saved there rather than in memory. */
-export function isDatabaseConfigured(): boolean {
-  return databaseSettings() !== null;
 }
 
 /** Return the Supabase project URL and service key, or `null` when either is unset. */

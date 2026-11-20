@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { ConnectorError, type FetchLike } from "./errors";
+import { ConnectorError, PROVIDER_TIMEOUT_MS, type FetchLike } from "./errors";
 
 // =============================================================================
 // Module Overview
@@ -51,6 +51,7 @@ export async function sendEmail(account: EmailAccount, email: OutgoingEmail, fet
       subject: email.subject.replace(/[\r\n]+/g, " ").slice(0, 200),
       text: email.text,
     }),
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
   });
   if (!response.ok) {
     let message = `HTTP ${response.status}`;

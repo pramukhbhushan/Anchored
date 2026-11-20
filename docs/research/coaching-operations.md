@@ -265,4 +265,4 @@ All pages opened on November 7, 2026. Vendor sources (upcoach, Paperbell, Agiled
 - [r/lifecoaching, How do your clients find you?](https://redlib.cypherpunktools.com/r/lifecoaching/comments/1jswers/curious_how_do_your_clients_find_you): channels in coaches' own words
 - [Ainora, Lead response time: every study](https://ainora.lt/blog/lead-response-time-statistics-every-study-2026): MIT/InsideSales, Velocify, Drift, LeadSync figures
 - [HBR, The Short Life of Online Sales Leads (2011)](https://hbr.org/2011/03/the-short-life-of-online-sales-leads): 1-hour response finding
-- [Backroom blueprint](https://claude.ai/artifact/8VZ8E3qvz5QYAcW947DUV5): architecture this plan builds on
+- Backroom blueprint, the team's internal design document: architecture this plan builds on

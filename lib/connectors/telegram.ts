@@ -1,7 +1,7 @@
 import "server-only";
 import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { ConnectorError, type FetchLike } from "./errors";
+import { ConnectorError, PROVIDER_TIMEOUT_MS, type FetchLike } from "./errors";
 
 // =============================================================================
 // Module Overview
@@ -39,7 +39,7 @@ export interface TelegramButton {
 const API = "https://api.telegram.org";
 
 /** The longest text one Telegram message carries. */
-export const TELEGRAM_TEXT_MAX = 4096;
+const TELEGRAM_TEXT_MAX = 4096;
 
 // Telegram's documented limits: a start parameter is 1 to 64 of these characters, and a bot username 5 to 32.
 const START_PARAM = /^[A-Za-z0-9_-]{1,64}$/;
@@ -177,6 +177,7 @@ async function call(bot: TelegramBot, method: string, payload: Readonly<Record<s
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
     });
   } catch {
     // A lost response, an abort and a connection reset can all follow a successful remote send.
@@ -238,7 +239,7 @@ export interface TelegramWebhookInfo {
 }
 
 /** The update kinds the webhook handles: messages, and a customer blocking or unblocking the bot. */
-export const TELEGRAM_ALLOWED_UPDATES = ["message", "my_chat_member"] as const;
+const TELEGRAM_ALLOWED_UPDATES = ["message", "my_chat_member"] as const;
 
 /** Point the bot's webhook at `url`, with `secret` sent on every call, dropping updates that queued up meanwhile. */
 export async function setTelegramWebhook(bot: TelegramBot, url: string, secret: string, fetchImpl: FetchLike = fetch): Promise<void> {
