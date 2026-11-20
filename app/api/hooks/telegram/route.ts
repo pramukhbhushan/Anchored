@@ -1,8 +1,7 @@
 import { ConnectorError } from "@/lib/connectors/errors";
 import { readTelegramUpdate, TELEGRAM_SECRET_HEADER, verifyTelegramSecret } from "@/lib/connectors/telegram";
 import { handleError, json } from "@/lib/server/http";
-import { handleTelegramUpdate } from "@/lib/server/telegram-hooks";
-import { getStore } from "@/lib/store";
+import { receiveTelegramUpdate } from "@/lib/server/telegram-hooks";
 
 // =============================================================================
 // Module Overview
@@ -13,9 +12,6 @@ import { getStore } from "@/lib/store";
 // the request waits, and answered 200 only once its work is saved. A failure
 // answers 500, which makes Telegram retry, and the failed claim can be taken
 // again. Nothing here sends a message by itself.
-
-// An update claimed this long ago and never finished is treated as crashed, so a retry may take it.
-const RETAKE_AFTER_MS = 2 * 60 * 1000;
 
 /** Receive one update from Telegram. */
 export async function POST(request: Request) {
@@ -29,24 +25,12 @@ export async function POST(request: Request) {
     if (error instanceof ConnectorError || error instanceof SyntaxError) return json({ error: "This isn't a Telegram update." }, 400);
     return handleError(error, "POST /api/hooks/telegram");
   }
-  const store = getStore();
-  const now = new Date();
   try {
-    if (!(await store.claimTelegramUpdate(update.updateId, now.toISOString(), RETAKE_AFTER_MS))) {
-      if (await store.telegramUpdateDone(update.updateId)) return json({ received: true, duplicate: true });
-      // Another worker may still fail or crash. Keep Telegram retrying until durable completion.
-      return json({ error: "This update is still being processed. Retry shortly." }, 503);
-    }
+    const receipt = await receiveTelegramUpdate(update, new Date());
+    if (receipt.status === "duplicate") return json({ received: true, duplicate: true });
+    if (receipt.status === "busy") return json({ error: "This update is still being processed. Retry shortly." }, 503);
+    return json({ received: true, outcome: receipt.outcome });
   } catch (error) {
-    return handleError(error, "POST /api/hooks/telegram");
-  }
-  try {
-    const outcome = await handleTelegramUpdate(update, now);
-    await store.finishTelegramUpdate(update.updateId, "done");
-    return json({ received: true, outcome });
-  } catch (error) {
-    // Free the claim so Telegram's retry runs the update again.
-    await store.finishTelegramUpdate(update.updateId, "failed").catch(() => undefined);
     return handleError(error, "POST /api/hooks/telegram");
   }
 }
