@@ -1,9 +1,8 @@
 import { saveLicensesSchema } from "@/lib/api/schemas";
-import { runBusinessAgentWork } from "@/lib/server/agent-work";
 import { findBusiness } from "@/lib/server/data";
 import { fail, handleError, json, readBody } from "@/lib/server/http";
+import { saveLicenses } from "@/lib/server/licenses";
 import { getSessionId } from "@/lib/server/session";
-import { getStore } from "@/lib/store";
 
 // =============================================================================
 // Module Overview
@@ -30,10 +29,7 @@ export async function PUT(request: Request, { params }: Params) {
     if (!body.ok) return body.response;
     const business = await findBusiness((await params).id);
     if (business === null || business.kind !== "custom") return fail(404, "Business not found.");
-    const session = await getSessionId();
-    const store = getStore();
-    const saved = await store.saveBusiness(session, { ...business, details: { ...business.details, licenses: body.data.licenses } });
-    await runBusinessAgentWork(store, session, saved);
+    const saved = await saveLicenses(await getSessionId(), business, body.data.licenses);
     return json({ licenses: saved.details?.licenses ?? [] });
   } catch (error) { return handleError(error, "PUT /api/businesses/[id]/licenses"); }
 }

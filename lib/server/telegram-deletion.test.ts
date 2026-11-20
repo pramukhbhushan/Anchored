@@ -32,32 +32,32 @@ describe("Telegram removal", () => {
   it("removes once and preserves the original body and sent outcome", async () => {
     const { store, entry } = await setup();
     const fetch = vi.fn(success);
-    const results = await Promise.all([1, 2].map(() => deleteDispatchedTelegram(store, "owner", "shop", entry.id, now, { env, fetch })));
+    const results = await Promise.all([1, 2].map(() => deleteDispatchedTelegram("owner", "shop", entry.id, now, { env, fetch }, store)));
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(results.map((r) => r.status).sort()).toEqual([200, 409]);
     expect(JSON.parse(fetch.mock.calls[0]![1]!.body as string)).toEqual({ chat_id: "123", message_id: 42 });
     expect((await store.listOutbox("owner", "shop"))[0]).toMatchObject({ body: "Hello", delivery: "sent", deletionState: "deleted", providerId: "42" });
-    expect((await deleteDispatchedTelegram(store, "owner", "shop", entry.id, now, { env, fetch })).deleted).toBe(true);
+    expect((await deleteDispatchedTelegram("owner", "shop", entry.id, now, { env, fetch }, store)).deleted).toBe(true);
     expect(fetch).toHaveBeenCalledTimes(1);
   });
   it("does not reveal another session's or business's entry", async () => {
     const { store, entry } = await setup();
     const fetch = vi.fn(success);
-    expect((await deleteDispatchedTelegram(store, "other", "shop", entry.id, now, { env, fetch })).status).toBe(404);
-    expect((await deleteDispatchedTelegram(store, "owner", "other", entry.id, now, { env, fetch })).status).toBe(404);
+    expect((await deleteDispatchedTelegram("other", "shop", entry.id, now, { env, fetch }, store)).status).toBe(404);
+    expect((await deleteDispatchedTelegram("owner", "other", entry.id, now, { env, fetch }, store)).status).toBe(404);
     expect(await store.claimTelegramDeletion("other", "shop", entry.id)).toBeNull();
     expect(fetch).not.toHaveBeenCalled();
   });
   it("reports provider failure without changing the sent delivery", async () => {
     const { store, entry } = await setup();
     const fetch = vi.fn(async () => new Response(JSON.stringify({ ok: false, description: "Bad Request: message can't be deleted" }), { status: 400 }));
-    expect((await deleteDispatchedTelegram(store, "owner", "shop", entry.id, now, { env, fetch })).status).toBe(502);
+    expect((await deleteDispatchedTelegram("owner", "shop", entry.id, now, { env, fetch }, store)).status).toBe(502);
     expect((await store.listOutbox("owner", "shop"))[0]).toMatchObject({ delivery: "sent", deletionState: "failed" });
   });
   it("treats an already absent message as removed without claiming it was unread", async () => {
     const { store, entry } = await setup();
     const fetch = vi.fn(async () => new Response(JSON.stringify({ ok: false, description: "Bad Request: message to delete not found" }), { status: 400 }));
-    const result = await deleteDispatchedTelegram(store, "owner", "shop", entry.id, now, { env, fetch });
+    const result = await deleteDispatchedTelegram("owner", "shop", entry.id, now, { env, fetch }, store);
     expect(result.deleted).toBe(true);
     expect(result.message).toContain("already have read");
   });

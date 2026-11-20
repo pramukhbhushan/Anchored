@@ -40,7 +40,7 @@ const TOKEN_URL = "https://oauth2.googleapis.com/token";
 let cached: { readonly email: string; readonly token: string; readonly until: number } | null = null;
 
 /** A read-only Sheets access token for `account`, reused until shortly before it expires. */
-export async function sheetsToken(account: ServiceAccount, fetchImpl: FetchLike = fetch, nowMs = Date.now()): Promise<string> {
+async function sheetsToken(account: ServiceAccount, fetchImpl: FetchLike = fetch, nowMs = Date.now()): Promise<string> {
   if (cached && cached.email === account.clientEmail && cached.until > nowMs) return cached.token;
   const now = Math.floor(nowMs / 1000);
   const part = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
