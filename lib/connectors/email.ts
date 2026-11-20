@@ -92,10 +92,11 @@ export interface InboundEmail {
 /** Read Postmark's inbound JSON, or `null` when it isn't one or has no mailbox hash. */
 export function readInboundEmail(json: unknown): InboundEmail | null {
   const parsed = inboundSchema.safeParse(json);
-  if (!parsed.success || !parsed.data.MailboxHash) return null;
+  if (!parsed.success) return null;
   const mail = parsed.data;
+  if (!mail.MailboxHash) return null;
   return {
-    mailbox: mail.MailboxHash ?? "",
+    mailbox: mail.MailboxHash,
     from: mail.From.trim().slice(0, 120),
     fromName: mail.FromName?.trim().slice(0, 80) || null,
     subject: (mail.Subject ?? "").trim().slice(0, 200) || "(no subject)",

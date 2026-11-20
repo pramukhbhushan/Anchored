@@ -38,7 +38,8 @@ import {
 // =============================================================================
 // `SupabaseStore` persists Anchored data in the Postgres tables created by
 // `supabase/migrations`. It connects with the service role key from the server
-// only; row-level security has no policies, so the public anon key reads nothing.
+// only. Row-level security has no policies on owner tables, so the public anon
+// key reads none of them; only the shared post playbook tables allow reads.
 
 // =============================================================================
 // Row shapes, as Postgres returns them
