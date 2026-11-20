@@ -8,7 +8,7 @@ import type { CardDraft, SkillId } from "@/lib/domain/types";
 // Follow-up timers run from facts an owner recorded, never dates or job states
 // guessed from a customer's message. Each timer creates at most one draft for
 // that customer, skill and due day. The owner still approves every message.
-// Debrief stays an owner note. A payment alone never proves a job is complete.
+// Debrief stays an owner note. A payment alone doesn't count as a completed job.
 
 /** Customer skills with a recorded-fact timer. */
 export const FOLLOWUP_SKILLS = ["callback", "closer", "callfollow", "reactivator", "keeper", "referral", "debrief", "showup", "reviewer"] as const;
@@ -43,7 +43,7 @@ export const followupInputSchema = z.object({
 
 export type FollowupInput = z.infer<typeof followupInputSchema>;
 
-/** A persisted timer. Canceling it keeps its evidence for the owner. */
+/** A stored timer. Canceling it keeps its evidence for the owner. */
 export interface RecordedFollowup extends FollowupInput {
   readonly id: string;
   readonly businessId: string;
@@ -61,7 +61,7 @@ export interface FollowupContext {
   readonly previousTouches?: number;
 }
 
-/** A grounded draft before orchestration assigns its core or niche agent. */
+/** A draft built from recorded facts, before the server assigns its core or niche agent. */
 export interface FollowupDraft extends Omit<CardDraft, "agent"> {
   readonly key: string;
   readonly skill: FollowupSkill;

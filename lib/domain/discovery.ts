@@ -6,7 +6,7 @@ import type { DiscoveryListing, WorkflowId } from "@/lib/domain/types";
 // =============================================================================
 // The rules a discovered tool must pass before it joins the queue. The model
 // reads web pages and names tools; `vetCandidates` keeps a tool only when its
-// source is a page the search really returned, its name appears in the
+// source is a page the search returned, its name appears in the
 // research, and Anchored doesn't already list it. Code sets the workflow and
 // the date, and nothing here scores a tool: a person checks it first.
 
