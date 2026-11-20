@@ -7,6 +7,7 @@ import {
   conflictLine,
   detailText,
   gapsFor,
+  introducedName,
   mergeCandidate,
   mergeCandidates,
   NO_DETAILS,
@@ -829,6 +830,9 @@ export function applyGapAnswer(draft: IntakeDraft, key: FieldKey, picks: readonl
   if (suggestion !== null && (pick === "yes" || (pick === undefined && AFFIRM.test(reading.text)))) {
     // The owner said the guess is right, which makes it theirs.
     next = { ...state, evidence: { ...state.evidence, [key]: { ...suggestion.evidence, sourceType: "owner", confidence: "high", ownerConfirmed: true } } };
+  } else if (suggestion !== null && pick === undefined && (reading.intent === "none" || WANTS_CHANGE.test(reading.text))) {
+    // The owner said the guess is wrong without giving the right words, so it goes. Confirming the profile would otherwise make it theirs.
+    next = withoutDetail(state, key);
   } else if (pick !== undefined && choiceValue(key, pick) !== null) {
     next = mergeCandidate(state, choiceValue(key, pick) as DetailCandidate);
   } else if (reading.intent === "answer" && reading.text !== "") {
@@ -850,6 +854,12 @@ function typedCandidate(state: DetailState, key: FieldKey, text: string): Detail
   if (key !== "vocabulary" || current === undefined) return candidateFor(key, text, "owner", "high");
   const value = correctVocabulary(current, text);
   return value === undefined ? null : { key, value, sourceType: "owner", quote: clip(text.replace(/\s+/g, " ").trim(), 240), confidence: "high" };
+}
+
+function withoutDetail(state: DetailState, key: FieldKey): DetailState {
+  const { [key]: _value, ...details } = state.details;
+  const { [key]: _evidence, ...evidence } = state.evidence;
+  return { details, evidence };
 }
 
 function sameValue(a: unknown, b: unknown): boolean {
@@ -1391,7 +1401,6 @@ const RENAME_FILLER = /(?:\s+(?:now|these days|instead|going forward|from now on
 /** Read the changes an owner describes, such as "we started doing catering" or "we switched from Clover to Square". */
 // Detail statements a chat message can make. Each captures the words that hold the value.
 const HOURS_SAID = /\b(?:our )?(?:hours are|hours now|we're open|we are open|open)\s+(.{3,120}?)(?=[.!?]|$)/i;
-const NAME_SAID = /\b(?:my name is|i'm|i am)\s+([A-Z][a-zA-Z'-]{1,29})\b/;
 const PRICE_SAID = /\b(?:charge|charges|price|prices|costs?|is now|are now|now)\b/i;
 const MINIMUM_SAID = /\bminimum\b[^.!?,;]*/i;
 
@@ -1419,11 +1428,8 @@ export function readDetailChanges(text: string): DetailCandidate[] {
     const candidate = candidateFor("reviewLink", clean, "owner", "high");
     if (candidate) found.push(candidate);
   }
-  const name = NAME_SAID.exec(clean)?.[1];
-  if (name) {
-    const candidate = candidateFor("ownerName", name, "owner", "high");
-    if (candidate) found.push(candidate);
-  }
+  const name = introducedName(clean);
+  if (name) found.push({ key: "ownerName", value: name, sourceType: "owner", quote: clip(clean, 240), confidence: "high" });
   return found;
 }
 

@@ -129,6 +129,9 @@ describe("parseDetail", () => {
     expect(parseDetail("ownerName", "My name is dana")).toBe("Dana");
     expect(parseDetail("ownerName", "Dana")).toBe("Dana");
     expect(parseDetail("ownerName", "we are a family shop")).toBeUndefined();
+    expect(parseDetail("ownerName", "I'm Dana")).toBe("Dana");
+    expect(parseDetail("ownerName", "i'm not sure")).toBeUndefined();
+    expect(parseDetail("ownerName", "I am the owner")).toBeUndefined();
   });
 
   it("reads pricing from an answer about what the business sells", () => {
