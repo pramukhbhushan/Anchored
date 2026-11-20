@@ -3,9 +3,9 @@ import { LlmRefusalError, LlmResponseError } from "@/lib/llm";
 import { isAiConfigured, rewriteInVoice } from "@/lib/server/ai";
 import { AiBudgetError } from "@/lib/server/ai-budget";
 import { findBusiness, isCardId, isCardLive, materializeCard } from "@/lib/server/data";
+import { saveRewrite } from "@/lib/server/decide";
 import { fail, handleError, json } from "@/lib/server/http";
 import { getSessionId } from "@/lib/server/session";
-import { getStore } from "@/lib/store";
 
 // =============================================================================
 // Module Overview
@@ -29,10 +29,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     if (!business) return fail(404, "Business not found. It may have been reset.");
 
     const body = await rewriteInVoice(business, card.body);
-    const session = await getSessionId();
-    const store = getStore();
     // The model call takes seconds; if the owner decided the card meanwhile, its sent text must not change.
-    const updated = await store.updatePendingCard(session, card.id, { body, edited: true });
+    const updated = await saveRewrite(await getSessionId(), card.id, body);
     if (!updated) return fail(409, "This card was decided while it was being rewritten. Nothing changed.");
     return json<RewriteResponse>({ card: updated });
   } catch (error) {

@@ -9,6 +9,7 @@ import { deliveryFor, type Delivery, type PlannedMessage, type SendingSetup } fr
 import { checkProtocolNotice, checkSend, OWNER_TIME_ZONE, sendTimeText } from "@/lib/domain/executor";
 import { ruleEnabled } from "@/lib/domain/rules";
 import type { CardDraft } from "@/lib/domain/types";
+import { getStore } from "@/lib/store";
 import type { Store, StoredConnection } from "@/lib/store/types";
 import { canStoreSecrets, decryptSecret } from "@/lib/server/secrets";
 
@@ -224,7 +225,7 @@ function nextDaytimeHour(card: CardDraft, body: string, now: Date): Date {
 }
 
 /** Send every queued entry due by `now`, across all sessions, and count the outcomes. */
-export async function dispatchDue(store: Store, now: Date, limit = 50, deps: Parameters<typeof dispatchEntry>[4] = {}): Promise<Record<DispatchOutcome, number>> {
+export async function dispatchDue(now: Date, limit = 50, deps: Parameters<typeof dispatchEntry>[4] = {}, store: Store = getStore()): Promise<Record<DispatchOutcome, number>> {
   const counts: Record<DispatchOutcome, number> = { sent: 0, failed: 0, yours: 0, requeued: 0, skipped: 0 };
   for (const { session, entry } of await store.listDueOutbox(now.toISOString(), limit)) {
     counts[await dispatchEntry(store, session, entry.id, now, deps)] += 1;
@@ -240,7 +241,7 @@ export function canDeleteTelegram(entry: OutboxEntry, now: Date, env: Readonly<R
 }
 
 /** Remove an owned, previously sent Telegram message, retaining its original text and send audit. */
-export async function deleteDispatchedTelegram(store: Store, session: string, businessId: string, entryId: string, now = new Date(), deps: Parameters<typeof dispatchEntry>[4] = {}): Promise<{ status: number; deleted: boolean; message: string }> {
+export async function deleteDispatchedTelegram(session: string, businessId: string, entryId: string, now = new Date(), deps: Parameters<typeof dispatchEntry>[4] = {}, store: Store = getStore()): Promise<{ status: number; deleted: boolean; message: string }> {
   const entry = (await store.listOutbox(session, businessId)).find((item) => item.id === entryId);
   if (entry === undefined) return { status: 404, deleted: false, message: "Message not found in this business." };
   if (entry.deletionState === "deleted") return { status: 200, deleted: true, message: "Removed from Telegram. Someone may already have read it." };
