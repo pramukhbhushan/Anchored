@@ -234,6 +234,9 @@ function toMessage(row: ChatMessageRow): ChatMessage {
 /** The private Storage bucket that holds post photos, at `<session>/<business>/<photo id>`. */
 export const PHOTO_BUCKET = "post-photos";
 
+// The most entries one Storage `list` call returns.
+const PHOTO_PAGE = 1000;
+
 /** A photo's path in `PHOTO_BUCKET`. Every part is a session id, a business id or a UUID, so none holds a slash. */
 function photoPath(session: string, businessId: string, photoId: string): string {
   return `${session}/${businessId}/${photoId}`;
@@ -885,19 +888,24 @@ export class SupabaseStore implements Store {
     }
   }
 
-  /** Delete every photo under the session's folder, one business folder at a time. */
+  /** Delete every photo under the session's folder, one business folder and one page of files at a time. */
   private async removeSessionPhotos(session: string): Promise<void> {
     const bucket = this.db.storage.from(PHOTO_BUCKET);
-    const { data: folders, error } = await bucket.list(session, { limit: 1000 });
+    const { data: folders, error } = await bucket.list(session, { limit: PHOTO_PAGE });
     if (error) fail("reset photos", error);
+    // A session has far fewer than a page of businesses, but one business can hold more than a page of photos.
     for (const folder of folders ?? []) {
       const prefix = `${session}/${folder.name}`;
-      const { data: files, error: listError } = await bucket.list(prefix, { limit: 1000 });
-      if (listError) fail("reset photos", listError);
-      const paths = (files ?? []).map((file) => `${prefix}/${file.name}`);
-      if (paths.length === 0) continue;
-      const { error: removeError } = await bucket.remove(paths);
-      if (removeError) fail("reset photos", removeError);
+      // Each pass deletes the page it read, so the next read from the start finds the files after it.
+      for (;;) {
+        const { data: files, error: listError } = await bucket.list(prefix, { limit: PHOTO_PAGE });
+        if (listError) fail("reset photos", listError);
+        const paths = (files ?? []).map((file) => `${prefix}/${file.name}`);
+        if (paths.length === 0) break;
+        const { error: removeError } = await bucket.remove(paths);
+        if (removeError) fail("reset photos", removeError);
+        if (paths.length < PHOTO_PAGE) break;
+      }
     }
   }
 }
