@@ -16,7 +16,7 @@ import styles from "./connections.module.css";
 // Remove button. Anchored texts only a customer with an OK on file.
 
 /** Props for `ContactsList`. */
-export interface ContactsListProps {
+interface ContactsListProps {
   readonly businessId: string;
   /** False when the visitor can't change the list, such as a guest or a visitor to the example. */
   readonly canChange: boolean;

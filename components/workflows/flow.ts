@@ -229,7 +229,7 @@ function whoDecides(tool: Tool): string {
 }
 
 /** Lower-case the first letter, so "Sends booking reminders" reads inside a sentence. */
-function lowerFirst(text: string): string {
+export function lowerFirst(text: string): string {
   return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
