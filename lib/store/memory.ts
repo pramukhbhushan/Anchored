@@ -323,10 +323,17 @@ export class MemoryStore implements Store {
     const samePhone = contact.phone === null ? undefined : [...contacts.values()].find((c) => c.businessId === contact.businessId && c.phone === contact.phone);
     const sameChat = contact.telegramChatId === undefined ? undefined : [...contacts.values()].find((c) => c.businessId === contact.businessId && c.telegramChatId === contact.telegramChatId);
     const id = contact.id ?? samePhone?.id ?? sameChat?.id ?? randomUUID();
-    for (const duplicate of [samePhone, sameChat]) {
-      if (duplicate !== undefined && duplicate.id !== id) contacts.delete(duplicate.id);
-    }
-    const saved: Contact = { ...contact, id };
+    // The database allows one contact per phone number, so a phone another contact holds is refused, as Supabase refuses it.
+    if (samePhone !== undefined && samePhone.id !== id) throw new Error(`Another contact in this business already has ${contact.phone}.`);
+    // Contacts never merge: a chat another contact holds stays with it, and this one keeps whatever chat it had.
+    const { telegramChatId: _chat, telegramName: _name, ...rest } = contact;
+    const chat = sameChat !== undefined && sameChat.id !== id ? contacts.get(id) : contact;
+    const saved: Contact = {
+      ...rest,
+      id,
+      ...(chat?.telegramChatId === undefined ? {} : { telegramChatId: chat.telegramChatId }),
+      ...(chat?.telegramName === undefined ? {} : { telegramName: chat.telegramName }),
+    };
     contacts.set(id, saved);
     return saved;
   }

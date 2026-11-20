@@ -25,7 +25,7 @@ import { NOT_GIVEN, TOOL_OPTIONS, WORKFLOW_IDS } from "@/lib/domain/workflows";
 // are suggestions for the onboarding form only; no function here applies them.
 
 /** Who built an engine profile: the rules alone, or the rules refined by Claude. */
-export type EngineAuthor = Exclude<BusinessProfile["builtBy"], "case">;
+type EngineAuthor = Exclude<BusinessProfile["builtBy"], "case">;
 
 /** A workflow the rules matched, before a path is recommended. */
 interface MatchedWorkflow {

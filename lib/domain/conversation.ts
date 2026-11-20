@@ -8,7 +8,7 @@ import type { ConversationOwner } from "@/lib/domain/types";
 // backward jump is rejected by code rather than invented by a model.
 
 /** Conversation owners each state may hand work to. */
-export const ALLOWED_HANDOFFS: Readonly<Record<ConversationOwner, readonly ConversationOwner[]>> = {
+const ALLOWED_HANDOFFS: Readonly<Record<ConversationOwner, readonly ConversationOwner[]>> = {
   frontdesk: ["followup", "books", "closed"],
   followup: ["frontdesk", "books", "closed"],
   books: ["frontdesk", "closed"],
@@ -17,7 +17,7 @@ export const ALLOWED_HANDOFFS: Readonly<Record<ConversationOwner, readonly Conve
 
 /** Whether an agent id can own a customer conversation. */
 export function isConversationOwner(value: string): value is ConversationOwner {
-  return value === "frontdesk" || value === "followup" || value === "books" || value === "closed";
+  return Object.hasOwn(ALLOWED_HANDOFFS, value);
 }
 
 /** Whether a conversation may move from `from` to `to`. Staying put is always valid. */

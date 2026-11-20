@@ -1,4 +1,4 @@
-import { CORE_AGENTS, SKILLS } from "@/lib/domain/agents";
+import { SKILLS } from "@/lib/domain/agents";
 import { fieldsFor } from "@/lib/domain/fields";
 import { activeAgents } from "@/lib/domain/paths";
 import type { BusinessProfile, ChoiceMap, CoreAgentId, ModelTier, OwnerExample, ProfileDetails, SkillId } from "@/lib/domain/types";
@@ -12,7 +12,7 @@ import type { BusinessProfile, ChoiceMap, CoreAgentId, ModelTier, OwnerExample, 
 // tier so deployments choose their own provider and exact model id.
 
 /** The runtime inputs assembled for one core agent. */
-export interface AgentConfig {
+interface AgentConfig {
   readonly agent: CoreAgentId;
   readonly skillVersion: string;
   readonly skills: readonly SkillId[];
@@ -55,7 +55,7 @@ export function assembleAgentConfigs(business: BusinessProfile, choices: ChoiceM
   return activeAgents(business, choices).flatMap((active): AgentConfig[] => {
     if (active.id.startsWith("niche:")) return [];
     const agent = active.id as CoreAgentId;
-    const skills = active.skills.length > 0 ? active.skills : CORE_AGENTS[agent].skills.filter((skill) => skill === "brief" || skill === "triage");
+    const { skills } = active;
     return [{
       agent,
       skillVersion: SKILL_VERSION,
