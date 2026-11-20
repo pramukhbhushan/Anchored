@@ -245,7 +245,7 @@ describe("Bookkeeping in an owner's chat", () => {
 describe("connecting an invoice sheet in chat", () => {
   const shop = hvacShop();
   const store = () => stores.current!;
-  const LINK = "https://docs.google.com/spreadsheets/d/1jYg4Sn7znhd57XYKdPfj53reorhkliVlOoTEEQsIKiw/edit";
+  const LINK = "https://docs.google.com/spreadsheets/d/1KDNvHILs3ENgxrsMhGjdjjzpMbH6DR5sBFcFEYXAmUM/edit";
   const say = async (text: string) => (await sendBusinessChat(SESSION, (await store().getBusiness(SESSION, shop.id)) ?? shop, text)).messages.at(-1)?.text;
 
   beforeEach(async () => {
@@ -265,7 +265,7 @@ describe("connecting an invoice sheet in chat", () => {
     expect(await say(`here's my invoice sheet ${LINK}`)).toBe(
       'Connected your invoice sheet. I checked your invoice sheet: 2 invoices. I drafted 1 reminder for overdue invoices. It\'s waiting in Approvals. Say "check my invoice sheet" any time to read it again.',
     );
-    expect((await store().getBusiness(SESSION, shop.id))?.invoiceSheet?.id).toBe("1jYg4Sn7znhd57XYKdPfj53reorhkliVlOoTEEQsIKiw");
+    expect((await store().getBusiness(SESSION, shop.id))?.invoiceSheet?.id).toBe("1KDNvHILs3ENgxrsMhGjdjjzpMbH6DR5sBFcFEYXAmUM");
     expect((await store().listCards(SESSION, shop.id)).filter((card) => card.skill === "nudger")).toHaveLength(1);
   });
 
@@ -288,7 +288,7 @@ describe("connecting an invoice sheet in chat", () => {
   it("keeps the sheet connected when the owner later changes the profile", async () => {
     await say(`here's my invoice sheet ${LINK}`);
     await say("We started doing catering");
-    expect((await store().getBusiness(SESSION, shop.id))?.invoiceSheet?.id).toBe("1jYg4Sn7znhd57XYKdPfj53reorhkliVlOoTEEQsIKiw");
+    expect((await store().getBusiness(SESSION, shop.id))?.invoiceSheet?.id).toBe("1KDNvHILs3ENgxrsMhGjdjjzpMbH6DR5sBFcFEYXAmUM");
   });
 });
 
