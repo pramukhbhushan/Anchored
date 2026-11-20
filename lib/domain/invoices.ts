@@ -11,8 +11,8 @@ import type { InvoiceRef } from "@/lib/domain/types";
 // and `canRemind` stops a third one. `checkReminderDraft` refuses a reminder
 // whose numbers didn't come from the invoice or that adds a fee or a threat.
 // `matchPaidInvoice` finds the invoice a payment settles, and asks when a
-// customer has two open. `priceChange` compares a supplier's old and new price. Every value here comes
-// from the owner's words or the invoice; nothing is guessed.
+// customer has two open. Every value here comes from the owner's words or the
+// invoice; nothing is guessed.
 
 /** The most reminders one invoice ever gets. */
 export const MAX_REMINDERS = 2;
@@ -202,28 +202,6 @@ export function matchPaidInvoice(cards: readonly InvoiceCard[], paid: { readonly
   if (refs.length === 0) return { kind: "none" };
   if (refs.length === 1) return { kind: "match", key: refs[0]?.key ?? "" };
   return { kind: "ambiguous", options: refs.map((ref) => (ref.number ? `invoice ${ref.number}` : `the ${money(ref.amount)} invoice`)) };
-}
-
-/** How a supplier's price moved. */
-export interface PriceChange {
-  readonly direction: "up" | "down" | "same";
-  /** New price minus old, in dollars, rounded to cents. */
-  readonly difference: number;
-  /** The change as a percent of the old price, to one decimal. */
-  readonly percent: number;
-}
-
-/** Compare a supplier's old and new price, or `null` when either is missing or not a real price. */
-export function priceChange(oldPrice: number | null | undefined, newPrice: number | null | undefined): PriceChange | null {
-  if (oldPrice == null || newPrice == null || !Number.isFinite(oldPrice) || !Number.isFinite(newPrice) || oldPrice <= 0 || newPrice < 0) return null;
-  const difference = Math.round((newPrice - oldPrice) * 100) / 100;
-  const percent = Math.round((difference / oldPrice) * 1000) / 10;
-  return { direction: difference > 0 ? "up" : difference < 0 ? "down" : "same", difference, percent };
-}
-
-/** Whether a supplier raised its price. */
-export function isPriceIncrease(oldPrice: number | null | undefined, newPrice: number | null | undefined): boolean {
-  return priceChange(oldPrice, newPrice)?.direction === "up";
 }
 
 function readName(text: string): string | null {

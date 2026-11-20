@@ -476,7 +476,7 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
 };
 
 /** Whether `skill` drafts cards, so it has a template. */
-export function hasTemplate(skill: SkillId): skill is CardSkill {
+function hasTemplate(skill: SkillId): skill is CardSkill {
   return skill !== "brief";
 }
 

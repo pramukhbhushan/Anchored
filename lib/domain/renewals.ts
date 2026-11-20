@@ -11,10 +11,10 @@ import { z } from "zod";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** The default business time zone until the owner records another one. */
-export const DEFAULT_RENEWAL_TIME_ZONE = "America/New_York";
+const DEFAULT_RENEWAL_TIME_ZONE = "America/New_York";
 
 /** A real Gregorian date, written without a time or an assumed time zone. */
-export const renewalDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date such as 2027-03-15.").refine((value) => {
+const renewalDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date such as 2027-03-15.").refine((value) => {
   const parsed = new Date(`${value}T00:00:00.000Z`);
   return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }, "Add a real expiry date.");
