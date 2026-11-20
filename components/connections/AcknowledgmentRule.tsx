@@ -25,10 +25,14 @@ interface AcknowledgmentRuleProps {
   readonly unavailableReason?: string;
 }
 
+/** Say which saved state `state` is, so a page refresh that brings back the state just saved changes nothing. */
+function stateKey(state: AcknowledgmentRuleState | null): string {
+  return state === null ? "unknown" : `${state.enabled}:${state.approvedAt ?? ""}`;
+}
+
 /** Present explicit approval for the fixed acknowledgment, using only returned saved state. */
 export function AcknowledgmentRule(props: AcknowledgmentRuleProps) {
-  const stateKey = props.state === null ? "unknown" : `${props.state.enabled}:${props.state.approvedAt ?? ""}`;
-  return <RuleControl key={`${props.businessId}:${stateKey}`} {...props} />;
+  return <RuleControl key={props.businessId} {...props} />;
 }
 
 function RuleControl({ businessName, state, save, unavailableReason }: AcknowledgmentRuleProps) {
@@ -38,6 +42,18 @@ function RuleControl({ businessName, state, save, unavailableReason }: Acknowled
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  // A save refreshes the page, which passes back the state just saved; the "Saved" notice must survive that.
+  // A state saved somewhere else replaces what this control shows.
+  const [givenKey, setGivenKey] = useState(stateKey(state));
+  if (stateKey(state) !== givenKey) {
+    setGivenKey(stateKey(state));
+    if (stateKey(state) !== stateKey(saved)) {
+      setSaved(state);
+      setDraft(state?.enabled ?? false);
+      setError(null);
+      setNotice("");
+    }
+  }
   const active = useRef(true);
   const sending = useRef(false);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);

@@ -38,6 +38,25 @@ describe("AcknowledgmentRule", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Saved. The acknowledgment rule is on.");
   });
 
+  it("keeps the saved notice when the refreshed page passes back the state just saved", async () => {
+    const saved = { enabled: true, approvedAt: "2026-11-08T15:00:00Z" };
+    const user = userEvent.setup();
+    const { rerender } = render(<AcknowledgmentRule businessId="shop" businessName="Greenfield Lawn" state={OFF} save={vi.fn().mockResolvedValue(saved)} />);
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Saved. The acknowledgment rule is on.")).toBeInTheDocument();
+    rerender(<AcknowledgmentRule businessId="shop" businessName="Greenfield Lawn" state={{ ...saved }} save={vi.fn()} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Saved. The acknowledgment rule is on.");
+    expect(screen.getByText("Right now: On")).toBeInTheDocument();
+  });
+
+  it("shows a state saved somewhere else", () => {
+    const { rerender } = render(<AcknowledgmentRule businessId="shop" businessName="Greenfield Lawn" state={OFF} save={vi.fn()} />);
+    rerender(<AcknowledgmentRule businessId="shop" businessName="Greenfield Lawn" state={{ enabled: true, approvedAt: "2026-11-08T15:00:00Z" }} save={vi.fn()} />);
+    expect(screen.getByText("Right now: On")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox")).toBeChecked();
+  });
+
   it("keeps the saved state and attempted choice on failure, then allows retry", async () => {
     const user = userEvent.setup();
     const save = vi.fn().mockRejectedValueOnce(new Error("Check your connection.")).mockResolvedValueOnce({ enabled: true });
