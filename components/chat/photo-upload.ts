@@ -29,7 +29,7 @@ const UNREADABLE = "This photo couldn't be opened here. Try a JPEG or PNG, or ta
 const OFFLINE = "Couldn't reach Anchored. Check your connection and try again.";
 
 /** Redraw `file` as a JPEG no larger than `PHOTO_MAX_SIDE` on its longest side, without its hidden metadata. */
-export async function shrinkPhoto(file: Blob): Promise<Blob> {
+async function shrinkPhoto(file: Blob): Promise<Blob> {
   // A browser without image decoding sends the original; the server still checks it's a real photo under the limit.
   if (typeof createImageBitmap !== "function") return file;
   let bitmap: ImageBitmap;
@@ -52,7 +52,7 @@ export async function shrinkPhoto(file: Blob): Promise<Blob> {
 }
 
 /** Upload one shrunk photo for `businessId` and return its id, or throw an error safe to show the owner. */
-export async function uploadPhoto(businessId: string, photo: Blob): Promise<string> {
+async function uploadPhoto(businessId: string, photo: Blob): Promise<string> {
   let response: Response;
   try {
     response = await fetch(`/api/businesses/${encodeURIComponent(businessId)}/photos`, { method: "POST", headers: { "content-type": "image/jpeg" }, body: photo });
@@ -78,11 +78,12 @@ export interface PhotoPicker {
   readonly notice: string | null;
   add(files: readonly File[]): void;
   remove(key: string): void;
-  clear(): void;
+  /** Take out the photos with these server ids, once the message they went with is sent. */
+  release(ids: readonly string[]): void;
 }
 
 /** Hold the photos picked for one post in `businessId`'s chat, shrinking and uploading each as it's added. */
-export function usePhotoPicker(businessId: string, shrink = shrinkPhoto, upload = uploadPhoto): PhotoPicker {
+export function usePhotoPicker(businessId: string): PhotoPicker {
   const [photos, setPhotos] = useState<readonly PickedPhoto[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const counter = useRef(0);
@@ -111,24 +112,27 @@ export function usePhotoPicker(businessId: string, shrink = shrinkPhoto, upload 
     const fresh = taken.map((file) => ({ file, photo: { key: `photo-${counter.current++}`, name: file.name, preview: URL.createObjectURL(file), status: "uploading" as const } }));
     setPhotos((all) => [...all, ...fresh.map((f) => f.photo)]);
     for (const { file, photo } of fresh) {
-      void shrink(file)
-        .then((small) => upload(businessId, small))
+      void shrinkPhoto(file)
+        .then((small) => uploadPhoto(businessId, small))
         .then((id) => update(photo.key, { status: "ready", id }))
         .catch((error: unknown) => update(photo.key, { status: "failed", error: errorText(error) }));
     }
   }
 
-  function remove(key: string): void {
-    const gone = live.current.find((p) => p.key === key);
-    if (gone) URL.revokeObjectURL(gone.preview);
-    setPhotos((all) => all.filter((p) => p.key !== key));
+  /** Take every photo `match` picks out of the tray and release its preview. */
+  function drop(match: (photo: PickedPhoto) => boolean): void {
+    live.current.filter(match).forEach((p) => URL.revokeObjectURL(p.preview));
+    setPhotos((all) => all.filter((p) => !match(p)));
     setNotice(null);
   }
 
-  function clear(): void {
-    live.current.forEach((p) => URL.revokeObjectURL(p.preview));
-    setPhotos([]);
-    setNotice(null);
+  function remove(key: string): void {
+    drop((p) => p.key === key);
+  }
+
+  function release(ids: readonly string[]): void {
+    // Photos added while the message was sending weren't part of it, so they stay for the next one.
+    drop((p) => p.id !== undefined && ids.includes(p.id));
   }
 
   return {
@@ -139,6 +143,6 @@ export function usePhotoPicker(businessId: string, shrink = shrinkPhoto, upload 
     notice,
     add,
     remove,
-    clear,
+    release,
   };
 }

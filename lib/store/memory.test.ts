@@ -300,6 +300,31 @@ describe("Telegram contacts", () => {
   });
 });
 
+describe("contacts that share a phone number or a chat", () => {
+  const base = { businessId: BUSINESS, email: null, consent: null, optedOutAt: null };
+
+  it("never merges or deletes them: a chat another contact holds stays with it", async () => {
+    const store = new MemoryStore();
+    const byPhone = await store.saveContact("s1", { ...base, name: "Dana", phone: "+12025550100" });
+    const byChat = await store.saveContact("s1", { ...base, name: "Dana on Telegram", phone: null, telegramChatId: "42" });
+
+    const saved = await store.saveContact("s1", { ...base, name: "Dana Ruiz", phone: "+12025550100", telegramChatId: "42" });
+
+    expect(saved.id).toBe(byPhone.id);
+    expect(saved.telegramChatId).toBeUndefined();
+    expect(await store.listContacts("s1", BUSINESS)).toEqual([saved, byChat]);
+  });
+
+  it("refuses a phone number another contact holds", async () => {
+    const store = new MemoryStore();
+    await store.saveContact("s1", { ...base, name: "Dana", phone: "+12025550100" });
+    const other = await store.saveContact("s1", { ...base, name: "Lee", phone: "+12025550111" });
+
+    await expect(store.saveContact("s1", { ...base, id: other.id, name: "Lee", phone: "+12025550100" })).rejects.toThrow("already has");
+    expect(await store.listContacts("s1", BUSINESS)).toHaveLength(2);
+  });
+});
+
 describe("outbox entries a rule authorized", () => {
   it("keep their rule and need no card", async () => {
     const store = new MemoryStore();
@@ -351,6 +376,23 @@ describe("cancelInvoiceReminders", () => {
     await store.ensureCards("s1", BUSINESS, [reminder(1, "n:1042")]);
     expect(await store.cancelInvoiceReminders("s2", BUSINESS, "n:1042", "paid")).toEqual({ cards: 0, outbox: 0 });
     expect((await store.listCards("s1", BUSINESS))[0]?.status).toBe("pending");
+  });
+});
+
+describe("an id another session owns", () => {
+  it("refuses to save that business or intake, and leaves the owner's copy alone", async () => {
+    const store = new MemoryStore();
+    const business = profileFromFacts({ name: "Apex Heating", trade: "HVAC", tradeKey: "home", reach: [], tools: [], signals: [] });
+    const draft = { facts: { reach: [], tools: [], signals: [], languages: [] }, settled: [], followUp: null, followUps: 0, review: { stage: "confirmed" as const } };
+    await store.saveBusiness("s1", business);
+    await store.saveIntake("s1", { id: "intake-1", draft, businessId: null });
+
+    await expect(store.saveBusiness("s2", { ...business, name: "Taken" })).rejects.toMatchObject({ name: "NotFoundError" });
+    await expect(store.saveIntake("s2", { id: "intake-1", draft, businessId: business.id })).rejects.toMatchObject({ name: "NotFoundError" });
+
+    expect((await store.getBusiness("s1", business.id))?.name).toBe("Apex Heating");
+    expect((await store.getIntake("s1", "intake-1"))?.businessId).toBeNull();
+    expect(await store.listBusinesses("s2")).toEqual([]);
   });
 });
 

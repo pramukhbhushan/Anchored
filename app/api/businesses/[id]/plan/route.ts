@@ -1,10 +1,9 @@
 import type { ApprovePlanResponse } from "@/lib/api/contract";
 import { approvePlanSchema } from "@/lib/api/schemas";
 import { isSampleBusinessId } from "@/lib/domain/cases";
-import { approvePlan } from "@/lib/domain/plan";
 import { fail, handleError, json, readBody } from "@/lib/server/http";
+import { approveBusinessPlan } from "@/lib/server/plan";
 import { getSessionId } from "@/lib/server/session";
-import { getStore } from "@/lib/store";
 
 // =============================================================================
 // Module Overview
@@ -23,13 +22,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (isSampleBusinessId(id)) {
       return fail(409, "This example's plan is already approved. Set up your own business to approve a plan of your own.");
     }
-    const session = await getSessionId();
-    const store = getStore();
-    const business = await store.getBusiness(session, id);
-    if (!business) return fail(404, "Business not found. It may have been reset.");
-
-    const planApproval = approvePlan(business, await store.getChoices(session, id), new Date());
-    await store.saveBusiness(session, { ...business, planApproval }, "owner");
+    const planApproval = await approveBusinessPlan(await getSessionId(), id, new Date());
+    if (!planApproval) return fail(404, "Business not found. It may have been deleted. Reload the page to see your businesses.");
     return json<ApprovePlanResponse>({ planApproval });
   } catch (error) {
     return handleError(error, "PUT /api/businesses/[id]/plan");

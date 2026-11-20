@@ -23,7 +23,7 @@ import { WORKFLOW_IDS } from "@/lib/domain/workflows";
 // and cards, plus a path `override` only where the research's `why` gives a reason.
 
 /** An example business: onboarding facts plus a picker label, and the details its research supports. */
-export type Example = BusinessFacts & { readonly id: string; readonly label: string; readonly details?: ProfileDetails };
+type Example = BusinessFacts & { readonly id: string; readonly label: string; readonly details?: ProfileDetails };
 
 /** Researched text for one workflow, and a researched path when it differs from the rules. */
 interface ResearchedPlan {
@@ -412,7 +412,7 @@ export const EXAMPLES: readonly [Example, ...Example[]] = [
 // Lookups
 // =============================================================================
 
-/** The rules engine's profile for one example, with id `ex-<id>`. An unknown id falls back to the first example, as the prototype's picker did. */
+/** The rules engine's profile for one example, with id `ex-<id>`. An unknown id falls back to the first example. */
 export function exampleProfile(id: string): BusinessProfile {
   const example = EXAMPLES.find((candidate) => candidate.id === id) ?? EXAMPLES[0];
   const profile = profileFromFacts({ ...example, id: `ex-${example.id}` });

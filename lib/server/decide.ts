@@ -6,8 +6,8 @@ import { candidateFor, confirmAll, mergeCandidate } from "@/lib/domain/details";
 import { checkProtocolNotice, checkSend, OWNER_TIME_ZONE, ensureOptOut, sendTimeText } from "@/lib/domain/executor";
 import { acknowledgmentKey, acknowledgmentText, ruleEnabled } from "@/lib/domain/rules";
 import type { BusinessProfile, CardDraft } from "@/lib/domain/types";
-import type { Store } from "@/lib/store";
-import { planDelivery } from "@/lib/server/dispatch";
+import { getStore, type Store } from "@/lib/store";
+import { dispatchEntry, planDelivery } from "@/lib/server/dispatch";
 
 // =============================================================================
 // Module Overview
@@ -20,12 +20,14 @@ import { planDelivery } from "@/lib/server/dispatch";
 // Two kinds of entry need no card: `queueProtocolNotice`, the bot's fixed
 // answer to a customer's own /start or /stop, and `queueAcknowledgment`, the
 // fixed "got your message" reply the owner approved once as a standing rule.
-// Turning that rule off fails every acknowledgment still queued.
+// Turning that rule off fails every acknowledgment still queued. The card route
+// calls `decideAndSend`, which also sends a message that is due now, and the
+// rewrite route saves the model's redraft through `saveRewrite`.
 
 const HOUR_MS = 60 * 60 * 1000;
 
 /** Result of a decision: the response to send, or a conflict to report. */
-export type DecisionResult = { ok: true; response: DecideCardResponse } | { ok: false; status: number; error: string };
+type DecisionResult = { ok: true; response: DecideCardResponse } | { ok: false; status: number; error: string };
 
 /** Return the first whole hour within a day when `checkSend` allows the card, or `null`. */
 function nextAllowedHour(card: CardDraft, now: Date): Date | null {
@@ -99,6 +101,24 @@ export async function queueProtocolNotice(
 }
 
 const ALREADY_DECIDED: DecisionResult = { ok: false, status: 409, error: "This card was already decided." };
+
+/** Apply the owner's decision on the deployment's store, and send a message that is due now before returning. */
+export async function decideAndSend(session: string, card: CardRecord, request: DecideCardRequest, now: Date): Promise<DecisionResult> {
+  const store = getStore();
+  const result = await decideCard(store, session, card, request, now);
+  if (!result.ok) return result;
+  const queued = result.response.outbox;
+  // A message due now goes out at once; one held for quiet hours waits for the scheduled sender.
+  if (queued?.delivery !== "queued" || queued.sentAt > now.toISOString()) return result;
+  await dispatchEntry(store, session, queued.id, now);
+  const outbox = (await store.listOutbox(session, card.businessId)).find((entry) => entry.id === queued.id) ?? queued;
+  return { ok: true, response: { ...result.response, outbox } };
+}
+
+/** Save a rewritten body on a card that is still pending and mark it edited, or return `null` when the owner decided it meanwhile. */
+export async function saveRewrite(session: string, cardId: string, body: string): Promise<CardRecord | null> {
+  return getStore().updatePendingCard(session, cardId, { body, edited: true });
+}
 
 /** Apply `request` to a pending `card` and return what changed. */
 export async function decideCard(store: Store, session: string, card: CardRecord, request: DecideCardRequest, now = new Date()): Promise<DecisionResult> {

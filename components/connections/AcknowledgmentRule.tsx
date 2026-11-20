@@ -8,9 +8,11 @@ import styles from "./rule.module.css";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The owner's switch for the fixed acknowledgment, which starts on. The view keeps
-// attempted changes separate from the last saved state and accepts a save
-// callback only when the server contract and permission are available.
+// The owner's switch for the acknowledgment, the one fixed text Anchored sends
+// a customer without waiting for an OK. It starts on. "Right now" shows the
+// state the server saved, and the checkbox the owner's unsaved choice. A
+// caller that can't save, such as a guest, passes no `save`, and the control
+// says why instead of offering the button.
 
 export interface AcknowledgmentRuleState {
   readonly enabled: boolean;
@@ -25,10 +27,14 @@ interface AcknowledgmentRuleProps {
   readonly unavailableReason?: string;
 }
 
-/** Present explicit approval for the fixed acknowledgment, using only returned saved state. */
+/** Say which saved state `state` is, so a page refresh that brings back the state just saved changes nothing. */
+function stateKey(state: AcknowledgmentRuleState | null): string {
+  return state === null ? "unknown" : `${state.enabled}:${state.approvedAt ?? ""}`;
+}
+
+/** Render the acknowledgment switch for one business, showing only state the server saved. */
 export function AcknowledgmentRule(props: AcknowledgmentRuleProps) {
-  const stateKey = props.state === null ? "unknown" : `${props.state.enabled}:${props.state.approvedAt ?? ""}`;
-  return <RuleControl key={`${props.businessId}:${stateKey}`} {...props} />;
+  return <RuleControl key={props.businessId} {...props} />;
 }
 
 function RuleControl({ businessName, state, save, unavailableReason }: AcknowledgmentRuleProps) {
@@ -38,6 +44,18 @@ function RuleControl({ businessName, state, save, unavailableReason }: Acknowled
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  // A save refreshes the page, which passes back the state just saved; the "Saved" notice must survive that.
+  // A state saved somewhere else replaces what this control shows.
+  const [givenKey, setGivenKey] = useState(stateKey(state));
+  if (stateKey(state) !== givenKey) {
+    setGivenKey(stateKey(state));
+    if (stateKey(state) !== stateKey(saved)) {
+      setSaved(state);
+      setDraft(state?.enabled ?? false);
+      setError(null);
+      setNotice("");
+    }
+  }
   const active = useRef(true);
   const sending = useRef(false);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);

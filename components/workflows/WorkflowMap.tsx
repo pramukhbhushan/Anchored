@@ -31,7 +31,7 @@ import type { WorkflowId } from "@/lib/domain/types";
 // settle. Reduced motion places them still.
 
 /** One automation inside a job, told in the owner's words. */
-export interface MapAutomation {
+interface MapAutomation {
   readonly key: string;
   readonly name: string;
   readonly summary: string;
@@ -458,7 +458,7 @@ export function WorkflowMap({
         if (!drag.moved) activateRef.current(drag.id);
         b.ox = 0; b.oy = 0; drag = null;
       }
-      // A tap on the open sea closes the panel.
+      // A tap on the empty chart, away from every circle, closes the panel.
       if (pan && !pan.moved) setSel(null);
       pan = null;
     };
@@ -477,7 +477,7 @@ export function WorkflowMap({
       e.preventDefault();
       zoomTo(cam.ts * Math.exp(-Math.max(-30, Math.min(30, e.deltaY)) * 0.01), e.clientX, e.clientY);
     };
-    // Double-clicking the open sea zooms in there.
+    // Double-clicking the empty chart zooms in there.
     const dbl = (e: MouseEvent) => {
       if (column || (e.target as Element).closest("[role=button]")) return;
       zoomTo(cam.ts * 1.6, e.clientX, e.clientY);
@@ -753,7 +753,8 @@ export function WorkflowMap({
               </ul>
             </>
           )}
-          {selJob && <JobDetails businessId={businessId} stageName={selJob.stage.name} job={selJob.job} />}
+          {/* Keyed per job, so "Change who handles this" starts closed on each one */}
+          {selJob && <JobDetails key={selJob.job.id} businessId={businessId} stageName={selJob.stage.name} job={selJob.job} />}
         </aside>
       </div>
     </section>

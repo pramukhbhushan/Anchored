@@ -4,15 +4,12 @@
 // The few messages Anchored may send without a tap on each one. A standing rule
 // is one the owner can turn off; v1 has only `acknowledge`, a fixed "got your
 // message" reply that starts on, since customers expect to hear that their
-// message landed. A protocol notice is the bot's
-// fixed answer to a customer's own /start or /stop. Both are fixed text, never
-// written by the model, and both still pass `checkSend` before they go out.
+// message landed. A protocol notice is the bot's fixed answer to a customer's
+// own /start or /stop. Both are fixed text, never written by the model, and
+// both still pass `checkSend` before they go out.
 
-/** A standing rule the owner can turn on. */
+/** A standing rule the owner can turn on or off. */
 export type StandingRuleId = "acknowledge";
-
-/** Every standing rule, in the order the owner sees them. */
-export const STANDING_RULES: readonly StandingRuleId[] = ["acknowledge"];
 
 /** What authorized an outbox entry that no card tap approved: an owner's standing rule, or a protocol notice. */
 export type OutboxRule = StandingRuleId | "protocol";
@@ -51,7 +48,7 @@ export function acknowledgmentText(businessName: string): string {
 }
 
 /** How long one acknowledgment covers a customer: later messages in the window get none. */
-export const ACKNOWLEDGMENT_WINDOW_HOURS = 12;
+const ACKNOWLEDGMENT_WINDOW_HOURS = 12;
 
 /** The key that allows one acknowledgment per contact per window, so a retry or a burst of messages sends one. */
 export function acknowledgmentKey(contactId: string, at: Date): string {

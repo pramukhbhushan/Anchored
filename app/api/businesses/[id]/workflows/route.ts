@@ -1,13 +1,11 @@
 import type { AddJobResponse } from "@/lib/api/contract";
 import { addJobSchema } from "@/lib/api/schemas";
 import { isSampleBusinessId } from "@/lib/domain/cases";
-import { withJob } from "@/lib/domain/new-jobs";
 import { workflowIdsOf } from "@/lib/domain/paths";
-import { checkChoice } from "@/lib/server/choice";
+import { addJob, checkChoice } from "@/lib/server/choice";
 import { findBusiness } from "@/lib/server/data";
 import { fail, handleError, json, readBody } from "@/lib/server/http";
 import { getSessionId } from "@/lib/server/session";
-import { getStore } from "@/lib/store";
 
 // =============================================================================
 // Module Overview
@@ -29,7 +27,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { id } = await params;
     if (isSampleBusinessId(id)) return fail(409, "This example's jobs are set. Set up your own business to add jobs to it.");
     const business = await findBusiness(id);
-    if (!business) return fail(404, "Business not found. It may have been reset.");
+    if (!business) return fail(404, "Business not found. It may have been deleted. Reload the page to see your businesses.");
     const body = parsed.data;
     if (workflowIdsOf(business).includes(body.workflow)) {
       return fail(409, "That job is already in your workflows. Change who handles it on the Workflows page.");
@@ -38,12 +36,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const checked = checkChoice(business, body);
     if (!checked.ok) return fail(checked.status, checked.error);
 
-    const session = await getSessionId();
-    const store = getStore();
-    // The choice goes first: a choice for a job the profile lacks is ignored, so if the profile save then fails, a
-    // retry starts clean. In the other order, a choice left from when the business last had this job would win.
-    await store.setChoice(session, business.id, body.workflow, checked.choice);
-    await store.saveBusiness(session, withJob(business, body.workflow, checked.choice), "owner");
+    await addJob(await getSessionId(), business, body.workflow, checked.choice);
     return json<AddJobResponse>({ workflow: body.workflow, choice: checked.choice });
   } catch (error) {
     return handleError(error, "POST /api/businesses/[id]/workflows");

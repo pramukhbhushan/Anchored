@@ -20,7 +20,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ sou
   try {
     const { source } = await params;
     const business = await findBusiness(parsed.data.businessId);
-    if (!business) return fail(404, "Business not found. It may have been reset.");
+    if (!business) return fail(404, "Business not found. It may have been deleted. Reload the page to see your businesses.");
     const result = await ingestEvent(await getSessionId(), business, source, parsed.data.payload, "simulated");
     if (!result.ok) return fail(result.status, result.error);
     const feed = await getFeed(business);

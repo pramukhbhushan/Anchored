@@ -21,7 +21,13 @@ import { isWritingStarters, scheduleStarters } from "./starters";
 // =============================================================================
 // Server-side reads for pages and API routes. The example business comes from code; a
 // session's own businesses, choices and cards come from the `Store`. `getFeed`
-// also syncs card drafts for the agents the owner has chosen.
+// also syncs card drafts for the agents the owner has chosen, and `resetSession`
+// clears the session's rows when the owner deletes their businesses.
+
+/** Delete the session's businesses, choices, cards, outbox and chat. The example business lives in code and stays. */
+export async function resetSession(session: string): Promise<void> {
+  await getStore().reset(session);
+}
 
 // `cache` reads the list once per server render: the shell layout and the `/app` page both ask for it.
 /** Return the example business, then the session's own businesses. */
@@ -74,23 +80,27 @@ export function choicesForSkill(business: BusinessProfile, choices: Record<Workf
   return narrowed;
 }
 
-/** Return the next simulation number for a business, which picks the template variant and agent rotation. */
-export async function nextSimulationTurn(businessId: string): Promise<number> {
-  const cards = await getStore().listCards(await getSessionId(), businessId);
+/** The next simulation number after `cards`, which picks the template variant and agent rotation. */
+export function simulationTurn(cards: readonly Pick<CardRecord, "key">[]): number {
   return cards.filter((card) => card.key.includes(":sim:")).length + 1;
 }
 
-/** Give a new event card a key no other request can share, so two events arriving together both land. */
-function uniqueEventKey(card: KeyedCard): KeyedCard {
+/** Return the next simulation number for a business. */
+export async function nextSimulationTurn(businessId: string): Promise<number> {
+  return simulationTurn(await getStore().listCards(await getSessionId(), businessId));
+}
+
+/** `key` with a random suffix, so two events arriving together never share a card key. */
+export function uniqueEventKey(key: string): string {
   // The turn number alone can collide when a simulate and an ingest race; the random suffix can't.
-  return { ...card, key: `${card.key}-${randomUUID().slice(0, 8)}` };
+  return `${key}-${randomUUID().slice(0, 8)}`;
 }
 
 /** Store a new event card and return the feed along with the stored card. */
 export async function addEventCard(business: BusinessProfile, card: KeyedCard): Promise<EventCardResponse> {
   const session = await getSessionId();
   const store = getStore();
-  const unique = uniqueEventKey(card);
+  const unique = { ...card, key: uniqueEventKey(card.key) };
   await store.ensureCards(session, business.id, [unique]);
   const feed = await getFeed(business);
   return { ...feed, added: feed.cards.find((stored) => stored.key === unique.key) ?? null };
@@ -145,7 +155,7 @@ export async function materializeCard(id: string): Promise<CardRecord | null> {
 }
 
 /** A business's feed, and whether its example cards are still the ones to show. */
-export interface Feed {
+interface Feed {
   readonly cards: CardRecord[];
   readonly outbox: OutboxEntry[];
   /** Whether the business has connected a texting number, email or Stripe. */

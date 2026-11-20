@@ -8,11 +8,14 @@ import type { CardDraft, SkillId } from "@/lib/domain/types";
 // Follow-up timers run from facts an owner recorded, never dates or job states
 // guessed from a customer's message. Each timer creates at most one draft for
 // that customer, skill and due day. The owner still approves every message.
-// Debrief stays an owner note. A payment alone never proves a job is complete.
+// Debrief stays an owner note. A payment alone doesn't count as a completed job.
 
 /** Customer skills with a recorded-fact timer. */
 export const FOLLOWUP_SKILLS = ["callback", "closer", "callfollow", "reactivator", "keeper", "referral", "debrief", "showup", "reviewer"] as const;
 export type FollowupSkill = (typeof FOLLOWUP_SKILLS)[number];
+
+/** The job or customer states a timer can rest on. */
+const RECORDED_STATES = ["missed-call", "open-quote", "completed-call", "inactive-customer", "membership-due", "completed-job", "booking"] as const;
 
 /** The state a timer must have on record before its skill may draft work. */
 export const FOLLOWUP_STATES = {
@@ -25,14 +28,14 @@ export const FOLLOWUP_STATES = {
   debrief: "completed-call",
   showup: "booking",
   reviewer: "completed-job",
-} as const satisfies Readonly<Record<FollowupSkill, string>>;
+} as const satisfies Readonly<Record<FollowupSkill, (typeof RECORDED_STATES)[number]>>;
 
 /** An owner's scheduling input. An explicit offset avoids guessing a local time during a DST transition. */
 export const followupInputSchema = z.object({
   contactId: z.string().trim().min(1).max(100),
   skill: z.enum(FOLLOWUP_SKILLS),
   dueAt: z.iso.datetime({ offset: true }),
-  state: z.enum(["missed-call", "open-quote", "completed-call", "inactive-customer", "membership-due", "completed-job", "booking"]),
+  state: z.enum(RECORDED_STATES),
   sourceId: z.string().trim().min(1).max(80).regex(/^[A-Za-z0-9_.:-]+$/, "Use the recorded quote, call or job reference."),
   evidence: z.string().trim().min(1, "Record where this fact came from.").max(1000),
 }).strict().superRefine((value, context) => {
@@ -43,7 +46,7 @@ export const followupInputSchema = z.object({
 
 export type FollowupInput = z.infer<typeof followupInputSchema>;
 
-/** A persisted timer. Canceling it keeps its evidence for the owner. */
+/** A stored timer. Canceling it keeps its evidence for the owner. */
 export interface RecordedFollowup extends FollowupInput {
   readonly id: string;
   readonly businessId: string;
@@ -61,7 +64,7 @@ export interface FollowupContext {
   readonly previousTouches?: number;
 }
 
-/** A grounded draft before orchestration assigns its core or niche agent. */
+/** A draft built from recorded facts, before the server assigns its core or niche agent. */
 export interface FollowupDraft extends Omit<CardDraft, "agent"> {
   readonly key: string;
   readonly skill: FollowupSkill;

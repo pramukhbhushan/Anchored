@@ -14,9 +14,6 @@ import type { SkillId } from "@/lib/domain/types";
 /** What a forwarded email is about. */
 export type EmailKind = "customer" | "billing" | "supplier" | "review" | "unknown";
 
-/** Every kind, in the order the rules test them. */
-export const EMAIL_KINDS: readonly EmailKind[] = ["review", "supplier", "billing", "customer", "unknown"];
-
 /** The forwarded email as triage reads it. */
 export interface ForwardedEmail {
   readonly from: string;
@@ -43,7 +40,7 @@ export function classifyEmail(email: ForwardedEmail): EmailKind {
 }
 
 /** The skill that handles each kind of email, or `null` for an email only the owner can sort. */
-export const EMAIL_SKILL: Readonly<Record<EmailKind, SkillId | null>> = {
+const EMAIL_SKILL: Readonly<Record<EmailKind, SkillId | null>> = {
   customer: "inquiry",
   billing: "nudger",
   supplier: "pricewatch",

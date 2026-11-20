@@ -148,7 +148,7 @@ export interface Store {
   /** Return the session's own businesses, oldest first. The example business lives in code and is not stored. */
   listBusinesses(session: string): Promise<BusinessProfile[]>;
   getBusiness(session: string, id: string): Promise<BusinessProfile | null>;
-  /** Save `business`, bump its `version`, keep a copy in its history, and return it as saved. */
+  /** Save `business`, bump its `version`, keep a copy in its history, and return it as saved. Throws `NotFoundError` when another session owns its id. */
   saveBusiness(session: string, business: BusinessProfile, changedBy?: ProfileChangeSource): Promise<BusinessProfile>;
   /** Return a business's saved versions, newest first. */
   listProfileVersions(session: string, businessId: string): Promise<ProfileVersion[]>;
@@ -183,14 +183,15 @@ export interface Store {
   /** Append messages to a thread in order, and return them as stored. */
   addMessages(session: string, thread: ChatThread, messages: readonly NewChatMessage[]): Promise<ChatMessage[]>;
   getIntake(session: string, id: string): Promise<IntakeRecord | null>;
+  /** Save the onboarding chat. Throws `NotFoundError` when another session owns its id. */
   saveIntake(session: string, intake: IntakeRecord): Promise<void>;
   /** The onboarding chat that built `businessId`, or `null` when the business came from the form or an example. */
   findIntakeByBusiness(session: string, businessId: string): Promise<IntakeRecord | null>;
   /** Count one model call against the day's cap for every visitor together; `false` once the cap is reached. Deployment-wide. */
   useAiCall(day: string, cap: number): Promise<boolean>;
-  /** Mark a queued entry as sending and return it; `null` when it isn't queued, so two senders can't both send it. */
   /** Claim deletion of a sent Telegram message once, scoped to its business and session. */
   claimTelegramDeletion(session: string, businessId: string, entryId: string): Promise<OutboxEntry | null>;
+  /** Mark a queued entry as sending and return it; `null` when it isn't queued, so two senders can't both send it. */
   claimOutbox(session: string, entryId: string): Promise<OutboxEntry | null>;
   settleOutbox(session: string, entryId: string, patch: OutboxPatch): Promise<void>;
   /** Queued entries due by `now`, oldest first, from every session, for the scheduled sender. Deployment-wide. */
@@ -226,12 +227,12 @@ export interface Store {
   bindTelegramChat(session: string, chat: NewTelegramChat): Promise<TelegramChat>;
   /** Record that the customer blocked the bot, or `null` once they unblock it. Deployment-wide. */
   setTelegramChatBlocked(chatId: string, at: string | null): Promise<void>;
+  /** Report whether an update finished, so a delivery that arrives while another is still processing it is retried. Deployment-wide. */
+  telegramUpdateDone(updateId: number): Promise<boolean>;
   /**
    * Claim a Telegram update so it is processed once: `true` for the caller that should process it. A failed update, or
    * one claimed more than `retakeAfterMs` ago and never finished, can be claimed again. Deployment-wide.
    */
-  /** Deployment-wide status only: distinguish a finished update from a worker still processing it. */
-  telegramUpdateDone(updateId: number): Promise<boolean>;
   claimTelegramUpdate(updateId: number, now: string, retakeAfterMs: number): Promise<boolean>;
   /** Record how processing a claimed update ended. Deployment-wide. */
   finishTelegramUpdate(updateId: number, status: "done" | "failed"): Promise<void>;

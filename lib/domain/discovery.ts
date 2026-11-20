@@ -6,7 +6,7 @@ import type { DiscoveryListing, WorkflowId } from "@/lib/domain/types";
 // =============================================================================
 // The rules a discovered tool must pass before it joins the queue. The model
 // reads web pages and names tools; `vetCandidates` keeps a tool only when its
-// source is a page the search really returned, its name appears in the
+// source is a page the search returned, its name appears in the
 // research, and Anchored doesn't already list it. Code sets the workflow and
 // the date, and nothing here scores a tool: a person checks it first.
 
@@ -85,11 +85,18 @@ function cleanPrice(value: string): string {
   return /\$(?!\s*\d)/.test(price) ? NOT_STATED : price;
 }
 
+/** The research as one normalized run of text, for whole names, and as its normalized words. */
+interface Research {
+  readonly text: string;
+  readonly words: ReadonlySet<string>;
+}
+
 /** Whether the research names `product`: the whole name, or each of its words, so "Podium AI Employee" passes a page that says "Podium" and "AI employee" apart. */
-function mentioned(product: string, research: string): boolean {
-  if (research.includes(normalizeName(product))) return true;
+function mentioned(product: string, research: Research): boolean {
+  if (research.text.includes(normalizeName(product))) return true;
+  // Whole words only, so a short word such as "AI" can't pass by sitting inside "maintain".
   const words = product.split(/\s+/).map(normalizeName).filter((word) => word !== "");
-  return words.length > 0 && words.every((word) => research.includes(word));
+  return words.length > 0 && words.every((word) => research.words.has(word));
 }
 
 /** A short label for a page: its address without the scheme, "www.", query or trailing slash. */
@@ -115,7 +122,7 @@ function pageFor(source: number, pages: readonly SearchedPage[]): SearchedPage |
 /** Keep the candidates that pass every rule, up to `MAX_LISTINGS_PER_RUN`, and say why each other one was skipped. */
 export function vetCandidates(input: DiscoveryInput): DiscoveryResult {
   const seen = new Set((input.known ?? knownToolNames()).map(normalizeName).filter((name) => name !== ""));
-  const research = normalizeName(input.findings);
+  const research: Research = { text: normalizeName(input.findings), words: new Set(input.findings.toLowerCase().split(/[^a-z0-9]+/)) };
   const listings: DiscoveryListing[] = [];
   const skipped: SkippedCandidate[] = [];
 

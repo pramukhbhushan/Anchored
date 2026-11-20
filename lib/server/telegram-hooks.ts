@@ -24,13 +24,15 @@ import type { TelegramChat } from "@/lib/store/types";
 // for the owner. The webhook never sends by itself: the only messages that go
 // out here are fixed texts, the /start and /stop notices and, when the owner
 // turned the rule on, the acknowledgment, each written to the outbox by
-// `lib/server/decide.ts` and sent by the one dispatcher.
+// `lib/server/decide.ts` and sent by the one dispatcher. `receiveTelegramUpdate`
+// wraps it for the webhook: each update is claimed by its id so a retry runs it
+// once, and a failed run frees its claim so Telegram's retry can take it again.
 
 /** What one update did, for the route's answer and the logs. Never includes customer text. */
-export type TelegramOutcome = "started" | "stopped" | "blocked" | "unblocked" | "drafted" | "limited" | "unbound" | "ignored";
+type TelegramOutcome = "started" | "stopped" | "blocked" | "unblocked" | "drafted" | "limited" | "unbound" | "ignored";
 
 /** What sending needs, passed through to the dispatcher so tests can hand it a fake `fetch`. */
-export interface TelegramDeps {
+interface TelegramDeps {
   readonly fetch?: FetchLike;
   readonly env?: Readonly<Record<string, string | undefined>>;
 }
@@ -39,6 +41,33 @@ export interface TelegramDeps {
 const limiter = createRateLimiter();
 const PER_CHAT = { limit: 20, windowMs: 10 * 60 * 1000 };
 const PER_BUSINESS = { limit: 200, windowMs: 10 * 60 * 1000 };
+
+/** What the webhook answers for one update: handled now, handled before, or still running elsewhere. */
+export type TelegramReceipt =
+  | { readonly status: "done"; readonly outcome: TelegramOutcome }
+  | { readonly status: "duplicate" }
+  | { readonly status: "busy" };
+
+// An update claimed this long ago and never finished is treated as crashed, so a retry may take it.
+const RETAKE_AFTER_MS = 2 * 60 * 1000;
+
+/** Claim one verified update by its id, handle it, and mark it done. Throws when a write fails, so Telegram retries the update. */
+export async function receiveTelegramUpdate(update: TelegramUpdate, now: Date): Promise<TelegramReceipt> {
+  const store = getStore();
+  if (!(await store.claimTelegramUpdate(update.updateId, now.toISOString(), RETAKE_AFTER_MS))) {
+    // Another worker may still fail or crash. Keep Telegram retrying until durable completion.
+    return (await store.telegramUpdateDone(update.updateId)) ? { status: "duplicate" } : { status: "busy" };
+  }
+  try {
+    const outcome = await handleTelegramUpdate(update, now);
+    await store.finishTelegramUpdate(update.updateId, "done");
+    return { status: "done", outcome };
+  } catch (error) {
+    // Free the claim so Telegram's retry runs the update again.
+    await store.finishTelegramUpdate(update.updateId, "failed").catch(() => undefined);
+    throw error;
+  }
+}
 
 /** Handle one update the route has verified and claimed. Throws when a write fails, so Telegram retries the update. */
 export async function handleTelegramUpdate(update: TelegramUpdate, now: Date, deps: TelegramDeps = {}): Promise<TelegramOutcome> {

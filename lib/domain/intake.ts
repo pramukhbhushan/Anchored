@@ -7,6 +7,7 @@ import {
   conflictLine,
   detailText,
   gapsFor,
+  introducedName,
   mergeCandidate,
   mergeCandidates,
   NO_DETAILS,
@@ -56,10 +57,10 @@ export type IntakeField = "name" | "kind" | "what" | "reach" | "tools" | "signal
 export type GapStep = `gap:${FieldKey}`;
 
 /**
- * Where an intake stands: a planned question, picking a Google listing, a gap question, the closing confirm step,
- * or choosing what to change.
+ * Where an intake stands: a planned question, picking a Google listing, a gap question, the invoice sheet, the
+ * closing confirm step, or choosing what to change. `sheet` comes only when the owner uses Google Sheets and
+ * Bookkeeping is in the plan.
  */
-/** `sheet` asks for the invoice spreadsheet, only when the owner uses Google Sheets and Bookkeeping is in the plan. */
 export type IntakeStep = IntakeField | "listing" | GapStep | "sheet" | "confirm" | "change";
 
 /** One "Is this you?" match from Google Places. */
@@ -74,7 +75,7 @@ export interface ListingChoice {
 export type ListKey = "reach" | "tools" | "signals" | "languages";
 
 /** A free-text fact. `place` has no question of its own; it rides on the name answer. */
-export type TextKey = "name" | "place" | "kind" | "what" | "week" | "voice";
+type TextKey = "name" | "place" | "kind" | "what" | "week" | "voice";
 
 /** The four multiple-choice facts. */
 export interface FactLists {
@@ -187,7 +188,7 @@ export const INTAKE_FIELDS: readonly IntakeField[] = ["name", "kind", "what", "r
 export const MAX_FOLLOW_UPS = 2;
 
 /** Most gap questions one intake asks. Anything still missing shows on the profile instead. */
-export const MAX_GAPS = 3;
+const MAX_GAPS = 3;
 
 const LIST_KEYS: readonly ListKey[] = ["reach", "tools", "signals", "languages"];
 const TEXT_KEYS: readonly TextKey[] = ["name", "place", "kind", "what", "week", "voice"];
@@ -574,7 +575,7 @@ const FIELD_LABELS: Readonly<Record<IntakeField, { readonly change: string; read
   voice: { change: "Your voice", summary: "Your voice" },
 };
 
-/** Keep only values that name a real option for `key`, spelled as the option list spells it. Signals match by id, label or short label. */
+/** Keep only values that name a real option for `key`, spelled as the option list spells it. */
 function allowedValues(key: Exclude<ListKey, "signals">, values: readonly string[]): string[] {
   const wanted = values.map((value) => value.trim().toLowerCase());
   const options = key === "reach" ? REACH_OPTIONS : key === "tools" ? TOOL_OPTIONS : LANGUAGE_OPTIONS;
@@ -683,7 +684,7 @@ function isListStep(step: IntakeStep): step is ListKey {
 // =============================================================================
 
 /** The gap step for a profile detail. */
-export function gapStep(key: FieldKey): GapStep {
+function gapStep(key: FieldKey): GapStep {
   return `gap:${key}`;
 }
 
@@ -739,7 +740,7 @@ function plannedAgents(draft: IntakeDraft): CoreAgentId[] {
 }
 
 /** The gap questions still to ask: must fields of the agents the plan turns on, once every planned question is done. */
-export function pendingGaps(draft: IntakeDraft): FieldKey[] {
+function pendingGaps(draft: IntakeDraft): FieldKey[] {
   if (INTAKE_FIELDS.some((field) => needsAsking(draft, field)) || listingOpen(draft)) return [];
   const asked = draft.gaps ?? [];
   if (asked.length >= MAX_GAPS) return [];
@@ -829,6 +830,9 @@ export function applyGapAnswer(draft: IntakeDraft, key: FieldKey, picks: readonl
   if (suggestion !== null && (pick === "yes" || (pick === undefined && AFFIRM.test(reading.text)))) {
     // The owner said the guess is right, which makes it theirs.
     next = { ...state, evidence: { ...state.evidence, [key]: { ...suggestion.evidence, sourceType: "owner", confidence: "high", ownerConfirmed: true } } };
+  } else if (suggestion !== null && pick === undefined && (reading.intent === "none" || WANTS_CHANGE.test(reading.text))) {
+    // The owner said the guess is wrong without giving the right words, so it goes. Confirming the profile would otherwise make it theirs.
+    next = withoutDetail(state, key);
   } else if (pick !== undefined && choiceValue(key, pick) !== null) {
     next = mergeCandidate(state, choiceValue(key, pick) as DetailCandidate);
   } else if (reading.intent === "answer" && reading.text !== "") {
@@ -850,6 +854,12 @@ function typedCandidate(state: DetailState, key: FieldKey, text: string): Detail
   if (key !== "vocabulary" || current === undefined) return candidateFor(key, text, "owner", "high");
   const value = correctVocabulary(current, text);
   return value === undefined ? null : { key, value, sourceType: "owner", quote: clip(text.replace(/\s+/g, " ").trim(), 240), confidence: "high" };
+}
+
+function withoutDetail(state: DetailState, key: FieldKey): DetailState {
+  const { [key]: _value, ...details } = state.details;
+  const { [key]: _evidence, ...evidence } = state.evidence;
+  return { details, evidence };
 }
 
 function sameValue(a: unknown, b: unknown): boolean {
@@ -1046,7 +1056,7 @@ const VAGUE = /\b(?:the usual|you know|stuff|things|whatever|all sorts|a bit of 
 const VAGUE_WHAT_TEXT = "Name two or three things you sell most, like drain cleaning or water heater installs, and roughly what they cost.";
 
 /** Whether an answer about what the business sells names nothing: vague words and nothing else of substance. */
-export function isVagueWhat(text: string): boolean {
+function isVagueWhat(text: string): boolean {
   if (!VAGUE.test(text)) return false;
   const rest = text.replace(new RegExp(VAGUE.source, "gi"), " ").replace(/\b(?:oh|um|uh|well|just|really|like|we|do|sell|offer|i|the|a|and|of|all|kinds?|sorts?)\b/gi, " ").replace(/[^a-z]/gi, "");
   return rest.length < 4;
@@ -1388,10 +1398,8 @@ const NOW_A = /\b(?:we're|we are|now we're|we became)\s+(?:now\s+)?(?:a|an)\s+/i
 // Words that end a rename sentence without being part of the name: "we're called Brightpath now".
 const RENAME_FILLER = /(?:\s+(?:now|these days|instead|going forward|from now on|anymore|officially))+["']?$/i;
 
-/** Read the changes an owner describes, such as "we started doing catering" or "we switched from Clover to Square". */
 // Detail statements a chat message can make. Each captures the words that hold the value.
 const HOURS_SAID = /\b(?:our )?(?:hours are|hours now|we're open|we are open|open)\s+(.{3,120}?)(?=[.!?]|$)/i;
-const NAME_SAID = /\b(?:my name is|i'm|i am)\s+([A-Z][a-zA-Z'-]{1,29})\b/;
 const PRICE_SAID = /\b(?:charge|charges|price|prices|costs?|is now|are now|now)\b/i;
 const MINIMUM_SAID = /\bminimum\b[^.!?,;]*/i;
 
@@ -1419,14 +1427,12 @@ export function readDetailChanges(text: string): DetailCandidate[] {
     const candidate = candidateFor("reviewLink", clean, "owner", "high");
     if (candidate) found.push(candidate);
   }
-  const name = NAME_SAID.exec(clean)?.[1];
-  if (name) {
-    const candidate = candidateFor("ownerName", name, "owner", "high");
-    if (candidate) found.push(candidate);
-  }
+  const name = introducedName(clean);
+  if (name) found.push({ key: "ownerName", value: name, sourceType: "owner", quote: clip(clean, 240), confidence: "high" });
   return found;
 }
 
+/** Read the changes an owner describes, such as "we started doing catering" or "we switched from Clover to Square". */
 export function readChanges(text: string): FactChanges {
   const clean = normalize(text);
   if (clean === "") return NO_CHANGES;
@@ -1492,8 +1498,9 @@ function samePlan(a: WorkflowPlan | undefined, b: WorkflowPlan | undefined): boo
 }
 
 /**
- * Rebuild `business` from its facts with `changes` applied. The id, `builtBy`, researched cards, the
- * owner's plan approval and the jobs they added from the tools page carry over, and a workflow whose rules reasoning didn't change keeps its written text, which may be the model's.
+ * Rebuild `business` from its facts with `changes` applied. The id, `builtBy`, researched cards, the owner's plan
+ * approval and the jobs they added from the tools page carry over. A workflow whose rules reasoning didn't change
+ * keeps its written text, which may be the model's.
  */
 export function applyChanges(business: BusinessProfile, changes: FactChanges): { profile: BusinessProfile; changes: ProfileChange[] } {
   const before = factsFromProfile(business);

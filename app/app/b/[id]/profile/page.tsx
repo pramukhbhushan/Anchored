@@ -37,10 +37,12 @@ export default async function ProfilePage({ params }: { readonly params: Promise
   const business = await getBusinessOrNotFound(id);
   const isSample = business.kind === "case";
   // The example's chat never changes anything, so it has no changes to list.
-  const chat = isSample ? null : await listBusinessChat(await getSessionId(), business);
-  const choices = await getChoices(business);
+  const [chat, choices, versions] = await Promise.all([
+    isSample ? null : getSessionId().then((session) => listBusinessChat(session, business)),
+    getChoices(business),
+    getProfileVersions(business),
+  ]);
   const agents = activeAgents(business, choices).flatMap((agent) => (agent.id.startsWith("niche:") ? [] : [agent.id as CoreAgentId]));
-  const versions = await getProfileVersions(business);
 
   return (
     <div className="prof-page">

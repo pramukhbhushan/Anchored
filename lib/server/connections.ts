@@ -38,10 +38,7 @@ export class ConnectError extends Error {
 }
 
 /** Checks a Twilio Account SID, auth token and number before they are saved: an owner-facing problem, or `null` when they work. */
-export type TwilioCheck = (accountSid: string, authToken: string, phone: string) => Promise<string | null>;
-
-/** The live Twilio check: the credentials work and the number is in that account. */
-export const TWILIO_CHECK: TwilioCheck = (accountSid, authToken, phone) => checkTwilioNumber(accountSid, authToken, phone);
+type TwilioCheck = (accountSid: string, authToken: string, phone: string) => Promise<string | null>;
 
 const EXAMPLE_REFUSAL = "The example business can't connect services. Set up your business first.";
 const GUEST_REFUSAL = "Save your work with an email or Google account first, so the services you connect stay yours.";
@@ -80,7 +77,7 @@ export function appBaseUrl(from?: Request | Headers): string {
 }
 
 /** The forwarding address for `hookId` on the inbound address `inbound`, such as "abc123+hook@inbound.postmarkapp.com", or `null` when `inbound` isn't one address. */
-export function forwardingAddress(hookId: string, inbound: string): string | null {
+function forwardingAddress(hookId: string, inbound: string): string | null {
   const trimmed = inbound.trim();
   const at = trimmed.lastIndexOf("@");
   if (at <= 0 || !isEmailAddress(trimmed)) return null;
@@ -161,7 +158,7 @@ export async function connectionViews(session: string, business: BusinessProfile
 // =============================================================================
 
 /** Save the service `request` names for `business`, replacing any earlier connection of that kind. Throws `ConnectError` for a problem the owner can fix. */
-export async function connect(session: string, business: BusinessProfile, request: ConnectRequest, verifyTexting: TwilioCheck = TWILIO_CHECK): Promise<void> {
+export async function connect(session: string, business: BusinessProfile, request: ConnectRequest, verifyTexting: TwilioCheck = checkTwilioNumber): Promise<void> {
   const unavailable = unavailableReason(request.kind, process.env);
   if (unavailable !== null) throw new ConnectError(409, unavailable);
   const base = { businessId: business.id, kind: request.kind, hookId: newHookId() };
@@ -252,7 +249,7 @@ export async function connectionsResponse(session: string, business: BusinessPro
 }
 
 /** What a connections route asks of `answerConnections`. */
-export interface ConnectionsCall {
+interface ConnectionsCall {
   readonly request: Request;
   readonly businessId: string;
   /** The route's name for the server log, such as "PUT /api/businesses/[id]/connections". */

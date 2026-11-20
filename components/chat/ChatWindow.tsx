@@ -32,7 +32,7 @@ import styles from "./chat.module.css";
  * `ask` is words to start the text box with, carried from an automation page. Supply optional agent context only when
  * the server supports scoped requests.
  */
-export type ChatWindowProps =
+type ChatWindowProps =
   | { readonly mode: "intake" }
   | { readonly mode: "business"; readonly businessId: string; readonly readOnly?: boolean; readonly starters?: readonly string[]; readonly ask?: string; readonly agent?: string; readonly agentName?: string };
 
@@ -386,7 +386,7 @@ function BusinessChat({
       if (!mounted.current) return;
       // Anchored didn't act on it, such as photos sent before post drafts are on: the words and photos stay to resend.
       if (chat.keepComposer) setRefill((last) => ({ text, n: (last?.n ?? 0) + 1 }));
-      else if (photos.length > 0) picker.clear();
+      else if (photos.length > 0) picker.release(photos);
       setMessages(chat.messages);
       // Changed facts can add or drop workflows, and a new draft raises the approvals count in the sidebar,
       // so the page around the chat re-renders from the server.

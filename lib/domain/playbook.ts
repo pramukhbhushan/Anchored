@@ -110,7 +110,7 @@ export function playbookForNiche(playbook: PostPlaybook, niche: PlaybookNiche): 
 }
 
 /** Report whether a format can hold `photoCount` photos. */
-export function fitsPhotoCount(format: PostFormat, photoCount: number): boolean {
+function fitsPhotoCount(format: PostFormat, photoCount: number): boolean {
   return photoCount >= format.minPhotos && photoCount <= format.maxPhotos;
 }
 

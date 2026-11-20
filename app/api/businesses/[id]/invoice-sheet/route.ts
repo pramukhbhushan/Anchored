@@ -22,7 +22,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!parsed.ok) return parsed.response;
   try {
     const business = await findBusiness((await params).id);
-    if (!business) return fail(404, "Business not found. It may have been deleted.");
+    if (!business) return fail(404, "Business not found. It may have been deleted. Reload the page to see your businesses.");
     if (business.kind === "case") return fail(409, "The example business has no invoice sheet. Set up your own business to connect one.");
     if (!business.invoiceSheet) return fail(409, "No invoice sheet is connected yet. Paste your sheet's link in Chat to connect it.");
     const account = sheetsServiceAccount();

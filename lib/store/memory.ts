@@ -33,9 +33,10 @@ import {
 // =============================================================================
 // Module Overview
 // =============================================================================
-// `MemoryStore` keeps every session's data in process memory. It lets local
-// development and CI run with no Supabase keys. Data lives only as long as the server process, and
-// each serverless instance has its own copy, so production uses `SupabaseStore`.
+// `MemoryStore` keeps every session's data in process memory, so local
+// development and CI run with no Supabase keys. Data lives only as long as the
+// server process, and each serverless instance has its own copy, so production
+// uses `SupabaseStore`.
 
 interface SessionData {
   readonly followups: Map<string, RecordedFollowup>;
@@ -126,6 +127,13 @@ export class MemoryStore implements Store {
     return found;
   }
 
+  /** Throw `NotFoundError` when another session holds `id`, as the database's id-only key refuses it. */
+  private refuseForeignId(session: string, id: string, rows: (data: SessionData) => ReadonlyMap<string, unknown>): void {
+    for (const [other, data] of this.sessions) {
+      if (other !== session && rows(data).has(id)) throw new NotFoundError(`${id} belongs to another session.`);
+    }
+  }
+
   /** Return the session's data for a read, without creating an entry for a visitor who has stored nothing. */
   private peek(session: string): SessionData | undefined {
     return this.sessions.get(session);
@@ -151,6 +159,7 @@ export class MemoryStore implements Store {
   }
 
   async saveBusiness(session: string, business: BusinessProfile, changedBy: ProfileChangeSource = "owner"): Promise<BusinessProfile> {
+    this.refuseForeignId(session, business.id, (data) => data.businesses);
     const data = this.data(session);
     // The store owns the count, so a caller holding an older copy can't reuse a version number.
     const history = data.versions.get(business.id) ?? [];
@@ -314,10 +323,17 @@ export class MemoryStore implements Store {
     const samePhone = contact.phone === null ? undefined : [...contacts.values()].find((c) => c.businessId === contact.businessId && c.phone === contact.phone);
     const sameChat = contact.telegramChatId === undefined ? undefined : [...contacts.values()].find((c) => c.businessId === contact.businessId && c.telegramChatId === contact.telegramChatId);
     const id = contact.id ?? samePhone?.id ?? sameChat?.id ?? randomUUID();
-    for (const duplicate of [samePhone, sameChat]) {
-      if (duplicate !== undefined && duplicate.id !== id) contacts.delete(duplicate.id);
-    }
-    const saved: Contact = { ...contact, id };
+    // The database allows one contact per phone number, so a phone another contact holds is refused, as Supabase refuses it.
+    if (samePhone !== undefined && samePhone.id !== id) throw new Error(`Another contact in this business already has ${contact.phone}.`);
+    // Contacts never merge: a chat another contact holds stays with it, and this one keeps whatever chat it had.
+    const { telegramChatId: _chat, telegramName: _name, ...rest } = contact;
+    const chat = sameChat !== undefined && sameChat.id !== id ? contacts.get(id) : contact;
+    const saved: Contact = {
+      ...rest,
+      id,
+      ...(chat?.telegramChatId === undefined ? {} : { telegramChatId: chat.telegramChatId }),
+      ...(chat?.telegramName === undefined ? {} : { telegramName: chat.telegramName }),
+    };
     contacts.set(id, saved);
     return saved;
   }
@@ -356,7 +372,8 @@ export class MemoryStore implements Store {
   }
 
   async listOutbox(session: string, businessId: string): Promise<OutboxEntry[]> {
-    return (this.peek(session)?.outbox ?? []).filter((entry) => entry.businessId === businessId);
+    // Newest first, as `SupabaseStore` orders it.
+    return (this.peek(session)?.outbox ?? []).filter((entry) => entry.businessId === businessId).sort((a, b) => b.sentAt.localeCompare(a.sentAt));
   }
 
   async recordEvent(session: string, businessId: string, source: string, payload: Readonly<Record<string, unknown>>): Promise<void> {
@@ -384,6 +401,7 @@ export class MemoryStore implements Store {
   }
 
   async saveIntake(session: string, intake: IntakeRecord): Promise<void> {
+    this.refuseForeignId(session, intake.id, (data) => data.intakes);
     this.data(session).intakes.set(intake.id, intake);
   }
 

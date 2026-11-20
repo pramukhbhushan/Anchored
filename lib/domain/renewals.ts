@@ -11,10 +11,10 @@ import { z } from "zod";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** The default business time zone until the owner records another one. */
-export const DEFAULT_RENEWAL_TIME_ZONE = "America/New_York";
+const DEFAULT_RENEWAL_TIME_ZONE = "America/New_York";
 
 /** A real Gregorian date, written without a time or an assumed time zone. */
-export const renewalDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date such as 2027-03-15.").refine((value) => {
+const renewalDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date such as 2027-03-15.").refine((value) => {
   const parsed = new Date(`${value}T00:00:00.000Z`);
   return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }, "Add a real expiry date.");
@@ -28,16 +28,16 @@ export const licenseSchema = z.object({
   completed: z.boolean().optional(),
 }).strict();
 
-/** The bounded license list cannot give two licenses the same identity. */
+/** Up to 100 licenses, each with its own id. */
 export const licensesSchema = z.array(licenseSchema).max(100).refine((licenses) => new Set(licenses.map((license) => license.id)).size === licenses.length, "Each license needs its own id.");
 
 /** One evidenced license whose renewal the owner handles. */
 export type License = z.infer<typeof licenseSchema>;
 
-/** The current warning window, used as part of the persisted reminder key. */
+/** How close the expiry is. Part of the stored reminder key, so each window warns once. */
 export type RenewalWindow = "30-days" | "7-days" | "expiry-day" | "overdue";
 
-/** A deterministic owner notice, before the server writes its flag card. */
+/** A notice for the owner, before the server writes it as a flag card. */
 export interface RenewalNotice {
   readonly key: string;
   readonly licenseId: string;

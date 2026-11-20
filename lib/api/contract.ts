@@ -11,10 +11,10 @@ import type { BusinessProfile, CardDraft, Choice, OnboardingAnswers, PlanApprova
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Request and response shapes for Anchored's API routes. The pages call these
-// routes with `fetch`; ingest webhooks use the same `/api/ingest/*` path. Every
-// route reads the visitor from their Supabase session, or from the anonymous
-// `anchored_session` cookie when accounts are off.
+// Request and response shapes for Anchored's API routes, which the pages call
+// with `fetch`. Provider webhooks under `/api/hooks/` take each provider's own
+// format instead. Every route reads the visitor from their Supabase session, or
+// from the anonymous `anchored_session` cookie when accounts are off.
 
 // =============================================================================
 // Stored records

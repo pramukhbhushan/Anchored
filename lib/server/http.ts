@@ -25,7 +25,6 @@ export function fail(status: number, message: string): NextResponse<ApiError> {
 /** Largest body a route reads. Matches the middleware's cap on declared lengths. */
 const MAX_BODY_BYTES = 64 * 1024;
 
-/** Read the body as text, stopping at `MAX_BODY_BYTES`, or return `null` when it is larger. */
 /** Read the body's bytes, or `null` once it passes `max`. A chunked body declares no length, so count bytes as they arrive. */
 export async function readBytesCapped(request: Request, max: number): Promise<Uint8Array | null> {
   if (!request.body) return new Uint8Array();
@@ -45,6 +44,7 @@ export async function readBytesCapped(request: Request, max: number): Promise<Ui
   return new Uint8Array(Buffer.concat(chunks));
 }
 
+/** Read the body as text, stopping at `MAX_BODY_BYTES`, or return `null` when it is larger. */
 async function readCapped(request: Request): Promise<string | null> {
   const bytes = await readBytesCapped(request, MAX_BODY_BYTES);
   return bytes === null ? null : new TextDecoder().decode(bytes);

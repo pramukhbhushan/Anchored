@@ -11,8 +11,8 @@ import type { InvoiceRef } from "@/lib/domain/types";
 // and `canRemind` stops a third one. `checkReminderDraft` refuses a reminder
 // whose numbers didn't come from the invoice or that adds a fee or a threat.
 // `matchPaidInvoice` finds the invoice a payment settles, and asks when a
-// customer has two open. `priceChange` compares a supplier's old and new price. Every value here comes
-// from the owner's words or the invoice; nothing is guessed.
+// customer has two open. Every value here comes from the owner's words or the
+// invoice; nothing is guessed.
 
 /** The most reminders one invoice ever gets. */
 export const MAX_REMINDERS = 2;
@@ -185,45 +185,29 @@ export type PaidMatch =
   | { readonly kind: "ambiguous"; readonly options: readonly string[] };
 
 /**
- * Find the invoice a payment settles. A number, or an email or name with the amount, names it directly. A name
- * alone matches the customer's one open reminder; two open invoices for that customer make the owner choose.
+ * Find the invoice a payment settles. A number, or an email or name with the amount, names it directly when an open
+ * reminder carries that key. Otherwise a name matches the customer's one open reminder, and two open invoices for
+ * that customer make the owner choose. With no open reminder to match, a direct key still comes back as the match.
  */
 export function matchPaidInvoice(cards: readonly InvoiceCard[], paid: { readonly number?: string | null; readonly email?: string | null; readonly name?: string | null; readonly amount?: number | null }): PaidMatch {
+  const open = cards.flatMap((card) => (card.skill === "nudger" && card.invoice && (card.status === "pending" || card.status === "approved") ? [card.invoice] : []));
   const direct = invoiceKey(paid);
-  if (direct !== null) return { kind: "match", key: direct };
-  const name = paid.name?.trim().toLowerCase().replace(/\s+/g, " ");
+  if (direct !== null && open.some((ref) => ref.key === direct)) return { kind: "match", key: direct };
+  // A reminder keyed by its number, and a payment the owner named by customer and amount, give different keys.
+  const byName = matchByName(open, paid.name);
+  if (byName.kind !== "none" || direct === null) return byName;
+  return { kind: "match", key: direct };
+}
+
+/** The open reminders for the customer called `rawName`: one is the match, two or more make the owner choose. */
+function matchByName(open: readonly InvoiceRef[], rawName: string | null | undefined): PaidMatch {
+  const name = rawName?.trim().toLowerCase().replace(/\s+/g, " ");
   if (!name) return { kind: "none" };
-  const open = new Map<string, InvoiceRef>();
-  for (const card of cards) {
-    if (card.skill !== "nudger" || !card.invoice || card.invoice.customer !== name) continue;
-    if (card.status === "pending" || card.status === "approved") open.set(card.invoice.key, card.invoice);
-  }
-  const refs = [...open.values()];
-  if (refs.length === 0) return { kind: "none" };
-  if (refs.length === 1) return { kind: "match", key: refs[0]?.key ?? "" };
+  const refs = [...new Map(open.filter((ref) => ref.customer === name).map((ref) => [ref.key, ref])).values()];
+  const [only] = refs;
+  if (only === undefined) return { kind: "none" };
+  if (refs.length === 1) return { kind: "match", key: only.key };
   return { kind: "ambiguous", options: refs.map((ref) => (ref.number ? `invoice ${ref.number}` : `the ${money(ref.amount)} invoice`)) };
-}
-
-/** How a supplier's price moved. */
-export interface PriceChange {
-  readonly direction: "up" | "down" | "same";
-  /** New price minus old, in dollars, rounded to cents. */
-  readonly difference: number;
-  /** The change as a percent of the old price, to one decimal. */
-  readonly percent: number;
-}
-
-/** Compare a supplier's old and new price, or `null` when either is missing or not a real price. */
-export function priceChange(oldPrice: number | null | undefined, newPrice: number | null | undefined): PriceChange | null {
-  if (oldPrice == null || newPrice == null || !Number.isFinite(oldPrice) || !Number.isFinite(newPrice) || oldPrice <= 0 || newPrice < 0) return null;
-  const difference = Math.round((newPrice - oldPrice) * 100) / 100;
-  const percent = Math.round((difference / oldPrice) * 1000) / 10;
-  return { direction: difference > 0 ? "up" : difference < 0 ? "down" : "same", difference, percent };
-}
-
-/** Whether a supplier raised its price. */
-export function isPriceIncrease(oldPrice: number | null | undefined, newPrice: number | null | undefined): boolean {
-  return priceChange(oldPrice, newPrice)?.direction === "up";
 }
 
 function readName(text: string): string | null {

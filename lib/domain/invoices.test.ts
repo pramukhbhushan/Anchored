@@ -5,9 +5,7 @@ import {
   checkReminderDraft,
   followUpQuestion,
   invoiceKey,
-  isPriceIncrease,
   matchPaidInvoice,
-  priceChange,
   readInvoiceMessage,
   reminderRecords,
   remindersFor,
@@ -223,29 +221,6 @@ describe("checkReminderDraft", () => {
   });
 });
 
-describe("priceChange", () => {
-  it("reports a rise in dollars and percent", () => {
-    expect(priceChange(2.1, 2.5)).toEqual({ direction: "up", difference: 0.4, percent: 19 });
-    expect(priceChange(119, 149)).toEqual({ direction: "up", difference: 30, percent: 25.2 });
-    expect(isPriceIncrease(119, 149)).toBe(true);
-  });
-
-  it("reports a drop and no change", () => {
-    expect(priceChange(50, 45)).toEqual({ direction: "down", difference: -5, percent: -10 });
-    expect(priceChange(50, 50)).toEqual({ direction: "same", difference: 0, percent: 0 });
-    expect(isPriceIncrease(50, 45)).toBe(false);
-  });
-
-  it("returns null when a price is missing or not real", () => {
-    expect(priceChange(null, 10)).toBeNull();
-    expect(priceChange(10, undefined)).toBeNull();
-    expect(priceChange(0, 10)).toBeNull();
-    expect(priceChange(10, -1)).toBeNull();
-    expect(priceChange(Number.NaN, 10)).toBeNull();
-    expect(isPriceIncrease(null, 10)).toBe(false);
-  });
-});
-
 describe("matchPaidInvoice", () => {
   const reminder = (key: string, status: InvoiceCard["status"], extra: Partial<InvoiceCard["invoice"]> = {}): InvoiceCard => ({
     skill: "nudger",
@@ -265,6 +240,20 @@ describe("matchPaidInvoice", () => {
 
   it("asks which one when the customer has two open invoices", () => {
     expect(matchPaidInvoice(cards, { name: "maya  Chen" })).toEqual({ kind: "ambiguous", options: ["invoice 1042", "invoice 1046"] });
+  });
+
+  it("finds a number-keyed reminder from a message that names the customer and amount", () => {
+    const sheet = [reminder("n:1042", "pending", { number: "1042" })];
+    expect(matchPaidInvoice(sheet, { name: "Maya Chen", amount: 450 })).toEqual({ kind: "match", key: "n:1042" });
+  });
+
+  it("keeps a direct key that an open reminder carries", () => {
+    const byEmail = [reminder("e:maya.chen@example.com:450.00", "pending"), reminder("n:1046", "pending", { number: "1046", amount: 90 })];
+    expect(matchPaidInvoice(byEmail, { email: "maya.chen@example.com", name: "Maya Chen", amount: 450 })).toEqual({ kind: "match", key: "e:maya.chen@example.com:450.00" });
+  });
+
+  it("still asks which one when a name and amount match no key and the customer has two open invoices", () => {
+    expect(matchPaidInvoice(cards, { name: "Maya Chen", amount: 300 })).toEqual({ kind: "ambiguous", options: ["invoice 1042", "invoice 1046"] });
   });
 
   it("ignores closed reminders and finds nothing for an unknown customer", () => {

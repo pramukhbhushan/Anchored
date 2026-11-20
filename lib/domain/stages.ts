@@ -19,7 +19,7 @@ export interface Stage {
 export type StageId = "customers" | "serving" | "running";
 
 /** A stage and the business's workflows in it, in workflow order. */
-export interface StageGroup {
+interface StageGroup {
   readonly stage: Stage;
   readonly workflows: readonly WorkflowId[];
 }

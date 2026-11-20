@@ -29,12 +29,13 @@ function supabaseOrigin(): string | null {
 
 // Next's inline hydration scripts and inline styles need 'unsafe-inline'.
 // `next/font/google` self-hosts the fonts at build time, so `font-src 'self'` covers them.
+// Photo previews in the chat are `blob:` URLs from `URL.createObjectURL`, so `img-src` allows them.
 // The browser talks to Supabase directly for magic links, guest sign-in and "Save your work".
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data:",
+  "img-src 'self' data: blob:",
   "font-src 'self'",
   ["connect-src 'self'", supabaseOrigin()].filter(Boolean).join(" "),
   "frame-ancestors 'none'",

@@ -6,7 +6,7 @@ import type { BusinessProfile, CoreAgentId, FieldEvidence, FieldKey, NextStep, P
 // Module Overview
 // =============================================================================
 // Profile details as pure functions. `parseDetail` reads one field from words,
-// the owner's or a source's, and `candidatesFrom` reads every field it can.
+// the owner's or a source's, and `candidateFor` wraps it with its evidence.
 // `mergeCandidate` folds a candidate in by source precedence (owner, then a
 // document, then the listing or website, then reviews, then confidence) and
 // keeps a disagreeing source as a conflict instead of dropping it.
@@ -42,7 +42,7 @@ const SOURCE_RANK: Readonly<Record<SourceType, number>> = { owner: 0, document: 
 const CONFIDENCE_RANK: Readonly<Record<Confidence, number>> = { high: 0, medium: 1, low: 2 };
 
 /** Where a value came from, as the owner reads it in a sentence: "Your website says ...". */
-export const SOURCE_LABEL: Readonly<Record<SourceType, string>> = {
+const SOURCE_LABEL: Readonly<Record<SourceType, string>> = {
   owner: "You said",
   document: "Your document says",
   listing: "Your Google listing says",
@@ -136,7 +136,7 @@ export function gapsFor(state: Partial<DetailState>, agents: readonly CoreAgentI
 }
 
 /** How ready one agent is: must fields filled over required, and the first one still missing. */
-export interface Readiness {
+interface Readiness {
   readonly filled: number;
   readonly required: number;
   readonly next: FieldKey | null;
@@ -183,7 +183,7 @@ export function money(amount: number): string {
 }
 
 /** One price line: "Tune-up $129" or "Install $1,200 to $1,800". */
-export function priceText(item: PriceItem): string {
+function priceText(item: PriceItem): string {
   const amount = item.high === undefined || item.high === item.low ? money(item.low) : `${money(item.low)} to ${money(item.high)}`;
   return item.item === "" ? amount : `${item.item} ${amount}`;
 }
@@ -238,7 +238,7 @@ function toNumber(text: string): number {
 }
 
 /** Split a list the owner typed: commas, semicolons, "and", "or" and new lines all separate items. */
-export function splitList(text: string): string[] {
+function splitList(text: string): string[] {
   return text
     .split(/[,;\n]|\s+(?:and|or)\s+/i)
     .map((part) => part.replace(/^\s*(?:and|or|like|such as|e\.g\.)\s+/i, "").replace(/[.!]+$/, "").trim())
@@ -352,6 +352,21 @@ export function correctVocabulary(current: Vocabulary, text: string): Vocabulary
   return changed ? next : undefined;
 }
 
+// "My name is" and "call me" always introduce a name, in any case. "I'm" and "I am" introduce one only before a
+// capital, so "I'm not sure" and "I am the owner" name nobody.
+const NAME_INTRO = /\b(?:[Mm]y name is|[Cc]all me)\s+([A-Za-z][a-zA-Z'-]{1,29})\b|\b(?:I'm|i'm|I am|i am)\s+([A-Z][a-zA-Z'-]{1,29})\b/;
+
+/** The first name `text` introduces, such as "Dana" from "my name is dana", or `undefined`. */
+export function introducedName(text: string): string | undefined {
+  const match = NAME_INTRO.exec(text);
+  const name = match?.[1] ?? match?.[2];
+  return name === undefined ? undefined : capitalized(name);
+}
+
+function capitalized(word: string): string {
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
 /** Read one field's value from words, or `undefined` when the words don't give one. */
 export function parseDetail<K extends FieldKey>(key: K, text: string): ProfileDetails[K] | undefined {
   const clean = text.replace(/\s+/g, " ").trim();
@@ -362,8 +377,7 @@ export function parseDetail<K extends FieldKey>(key: K, text: string): ProfileDe
         // Dates and their evidence must come through the structured owner form.
         return undefined;
       case "ownerName": {
-        const name = /(?:my name is|i'm|i am|this is|call me)\s+([A-Z][a-zA-Z'-]{1,29})/i.exec(clean)?.[1] ?? /^([A-Z][a-zA-Z'-]{1,29})$/.exec(clean)?.[1];
-        return name === undefined ? undefined : name[0]?.toUpperCase() + name.slice(1);
+        return introducedName(clean) ?? /^([A-Z][a-zA-Z'-]{1,29})$/.exec(clean)?.[1];
       }
       case "vocabulary":
         return readVocabulary(clean);
@@ -488,7 +502,7 @@ const SESSION_NOTE_PATTERNS: readonly RegExp[] = [
 
 /** Whether `text` reads like notes from a session or a call transcript, so extraction skips it. */
 export function looksLikeSessionNotes(text: string): boolean {
-  return SESSION_NOTE_PATTERNS.filter((pattern) => pattern.test(text)).length >= 1;
+  return SESSION_NOTE_PATTERNS.some((pattern) => pattern.test(text));
 }
 
 /** Field keys a source may fill, in registry order. Owner writing and structured license dates are excluded. */

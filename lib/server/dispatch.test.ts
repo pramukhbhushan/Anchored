@@ -136,9 +136,9 @@ describe("sending a text", () => {
     expect(held.delivery).toBe("queued");
     expect(held.sentAt).toBe("2026-11-10T13:00:00.000Z");
 
-    expect(await dispatchDue(store, NIGHT, 50, { env: ENV })).toMatchObject({ sent: 0 });
+    expect(await dispatchDue(NIGHT, 50, { env: ENV }, store)).toMatchObject({ sent: 0 });
     const twilio = provider(201, { sid: "SM9" });
-    expect(await dispatchDue(store, new Date("2026-11-10T13:05:00Z"), 50, { fetch: twilio.fetchImpl, env: ENV })).toMatchObject({ sent: 1 });
+    expect(await dispatchDue(new Date("2026-11-10T13:05:00Z"), 50, { fetch: twilio.fetchImpl, env: ENV }, store)).toMatchObject({ sent: 1 });
     expect(await onlyEntry()).toMatchObject({ delivery: "sent" });
   });
 

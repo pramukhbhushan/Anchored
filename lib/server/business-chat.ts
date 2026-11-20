@@ -68,6 +68,12 @@ function welcomeText(business: BusinessProfile, chosen: readonly SkillId[]): str
   return takesRequests(chosen) ? `${changes} You can also ask your agents for work here, like "${askExample(chosen)}".` : changes;
 }
 
+/** The first line of a chat: the business welcome, or which agent this chat talks to. */
+function openingLine(business: BusinessProfile, chosen: readonly SkillId[], role: string, agent: string | undefined): string {
+  if (agent === undefined) return welcomeText(business, chosen);
+  return `You are chatting with ${role} for ${business.name}. Ask a question or request work for this agent. Any draft waits in Approvals for your OK.`;
+}
+
 /** A message that is shown but not stored, such as the welcome line before the first exchange. */
 function unsaved(id: string, role: ChatMessage["role"], text: string): ChatMessage {
   return { id, role, text, at: new Date().toISOString() };
@@ -97,7 +103,7 @@ async function readThread(session: string, business: BusinessProfile, agent?: st
 /** Return the business's chat, or its welcome line when nothing has been said yet. */
 export async function listBusinessChat(session: string, business: BusinessProfile, agent?: string): Promise<BusinessChatResponse> {
   const { stored, cards, chosen, role } = await readThread(session, business, agent);
-  return { messages: stored.length > 0 ? linkCards(business, stored, cards) : [unsaved("welcome", "anchored", (agent === undefined ? welcomeText(business, chosen) : `You are chatting with ${role} for ${business.name}. Ask a question or request work for this agent. Any draft waits in Approvals for your OK.`))], changes: [] };
+  return { messages: stored.length > 0 ? linkCards(business, stored, cards) : [unsaved("welcome", "anchored", openingLine(business, chosen, role, agent))], changes: [] };
 }
 
 /** Put Anchored's `text` in the business chat on its own, such as the first question for an automation the owner just turned on. */
@@ -116,7 +122,7 @@ export async function sendBusinessChat(session: string, business: BusinessProfil
   const thread = threadOf(business, agent);
   const { stored, cards, chosen, role, adviceSkills } = await readThread(session, business, agent);
   // The welcome line is stored with the first exchange so the thread reads the same after a reload.
-  const opening: NewChatMessage[] = stored.length === 0 ? [{ role: "anchored", text: (agent === undefined ? welcomeText(business, chosen) : `You are chatting with ${role} for ${business.name}. Ask a question or request work for this agent. Any draft waits in Approvals for your OK.`) }] : [];
+  const opening: NewChatMessage[] = stored.length === 0 ? [{ role: "anchored", text: openingLine(business, chosen, role, agent) }] : [];
   if (business.kind === "case") {
     const reply = await answerQuestion(business, role, adviceSkills, text, stored, `You can ask about ${business.name}, its tools and its agents. This example can't change or send messages.`, cards);
     const saved = await store.addMessages(session, thread, [...opening, { role: "owner", text }, { role: "anchored", text: reply }]);
@@ -313,10 +319,13 @@ async function answerInvoice(session: string, business: BusinessProfile, text: s
   if (replyMessage === undefined) throw new Error("The store saved the chat but returned no reply.");
   const key = chatCardKey(business.id, replyMessage.id);
   const result = await ingestEvent(session, business, "invoice-late", payload, "live", { key });
-  if (!result.ok) console.warn(`[Business chat] The reminder passed its check but wasn't drafted: ${result.error}`);
+  if (!result.ok) {
+    // Something changed between the check and the draft, such as another reminder landing first, so the chat corrects itself.
+    const note = await store.addMessages(session, thread.thread, [{ role: "anchored", text: `That reminder wasn't drafted after all. ${result.error}` }]);
+    return { messages: linkCards(business, [...thread.stored, ...saved, ...note], thread.cards), changes: [] };
+  }
   const title = `${name} owes ${money(amount)}${number ? ` on invoice ${number}` : ""}`;
-  const linked = result.ok ? [...thread.cards, { key, title, status: "pending" as const }] : thread.cards;
-  return { messages: linkCards(business, [...thread.stored, ...saved], linked), changes: [] };
+  return { messages: linkCards(business, [...thread.stored, ...saved], [...thread.cards, { key, title, status: "pending" }]), changes: [] };
 }
 
 /**

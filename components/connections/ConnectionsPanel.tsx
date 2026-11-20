@@ -19,7 +19,7 @@ import styles from "./connections.module.css";
 // as a guest, sees the reason once at the top and no forms at all.
 
 /** Props for `ConnectionsPanel`. */
-export interface ConnectionsPanelProps {
+interface ConnectionsPanelProps {
   readonly businessId: string;
   /** Why this visitor can't connect services, or `null` when they can. */
   readonly blocked: string | null;
@@ -64,12 +64,13 @@ function requestFrom(kind: ConnectionKind, data: FormData): ConnectRequest {
 /** Render the services, each with its status, its form and its setup addresses. */
 export function ConnectionsPanel({ businessId, blocked, blockedLink, connections }: ConnectionsPanelProps) {
   const [views, setViews] = useState(connections);
-  const [busy, setBusy] = useState<ConnectionKind | null>(null);
+  // Each service waits on its own change, so one finishing never frees another's buttons early.
+  const [busy, setBusy] = useState<Partial<Record<ConnectionKind, boolean>>>({});
   const [errors, setErrors] = useState<Partial<Record<ConnectionKind, string>>>({});
 
   /** Send one change for `kind` and show the services the route answers with, or its error. */
   async function change(kind: ConnectionKind, send: () => Promise<ConnectionsResponse>): Promise<boolean> {
-    setBusy(kind);
+    setBusy((current) => ({ ...current, [kind]: true }));
     setErrors((current) => ({ ...current, [kind]: undefined }));
     try {
       setViews((await send()).connections);
@@ -78,7 +79,7 @@ export function ConnectionsPanel({ businessId, blocked, blockedLink, connections
       setErrors((current) => ({ ...current, [kind]: errorText(error) }));
       return false;
     } finally {
-      setBusy(null);
+      setBusy((current) => ({ ...current, [kind]: false }));
     }
   }
 
@@ -112,7 +113,7 @@ export function ConnectionsPanel({ businessId, blocked, blockedLink, connections
             key={view.kind}
             view={view}
             canChange={blocked === null}
-            busy={busy === view.kind}
+            busy={busy[view.kind] ?? false}
             error={errors[view.kind] ?? null}
             onConnect={(event) => onConnect(view.kind, event)}
             onDisconnect={() => onDisconnect(view.kind)}

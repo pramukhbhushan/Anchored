@@ -35,7 +35,7 @@ export type WritableSkill = (typeof WRITABLE_SKILLS)[number];
 export const STARTER_LIMIT = 4;
 
 /** Who a starter goes to: one customer by name, or nobody, for a post or reply the owner copies. */
-export type Recipient = "person" | "none";
+type Recipient = "person" | "none";
 
 /** Who each writable skill's card goes to. Code decides it; the model's name becomes the recipient of a `person` card only. */
 export const STARTER_RECIPIENT: Readonly<Record<WritableSkill, Recipient>> = {

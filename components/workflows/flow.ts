@@ -198,7 +198,7 @@ function ownedTool(choice: Choice, planned: string | undefined, owned: readonly 
   return chosen ?? owned.find((t) => t.id === planned) ?? owned[0];
 }
 
-/** The new tool the owner picked, else Anchored's pick unless they own it, else the best-rated one. */
+/** The new tool the owner picked, else Anchored's pick, else the best-rated one. `pathOptions` already leaves out tools they own. */
 function newTool(choice: Choice, planned: string | undefined, options: PathOptions): Tool | undefined {
   if (choice.path === "buy") return toolById(choice.toolId);
   const pick = options.buy.find((entry) => entry.tool.id === planned)?.tool;
@@ -229,7 +229,7 @@ function whoDecides(tool: Tool): string {
 }
 
 /** Lower-case the first letter, so "Sends booking reminders" reads inside a sentence. */
-function lowerFirst(text: string): string {
+export function lowerFirst(text: string): string {
   return text.charAt(0).toLowerCase() + text.slice(1);
 }
 

@@ -80,10 +80,10 @@ For the same requests, `middleware.ts` compares the host in the `Origin` header 
 | `Content-Security-Policy` | The policy below | Production |
 
 ```
-default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' <supabase origin>; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' <supabase origin>; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
 ```
 
-`connect-src` adds the origin of `NEXT_PUBLIC_SUPABASE_URL` when accounts are on, because the browser calls Supabase Auth directly for sign-in. `script-src` and `style-src` allow `'unsafe-inline'` because Next.js renders inline hydration scripts and styles. `next/font/google` downloads the fonts at build time and serves them from the app, so `font-src 'self'` covers them. Development builds send no CSP and no HSTS, because the Next.js dev server runs code with `eval`. `poweredByHeader: false` drops the `X-Powered-By` header.
+`connect-src` adds the origin of `NEXT_PUBLIC_SUPABASE_URL` when accounts are on, because the browser calls Supabase Auth directly for sign-in. `script-src` and `style-src` allow `'unsafe-inline'` because Next.js renders inline hydration scripts and styles. `img-src` allows `blob:` because chat photo previews are `blob:` URLs from `URL.createObjectURL`. `next/font/google` downloads the fonts at build time and serves them from the app, so `font-src 'self'` covers them. Development builds send no CSP and no HSTS, because the Next.js dev server runs code with `eval`. `poweredByHeader: false` drops the `X-Powered-By` header.
 
 ## Data retention
 
@@ -104,6 +104,8 @@ Secrets come only from environment variables:
 - `SUPABASE_SERVICE_ROLE_KEY`, read in `lib/store/index.ts`.
 - `AI_API_KEY`, the key for the configured `AI_PROVIDER`, read in `lib/llm/config.ts`.
 - `CONNECTOR_SECRET_KEY`, `RESEND_API_KEY`, `INBOUND_EMAIL_SECRET` and `CRON_SECRET`, which [Connected services](#connected-services) covers.
+- `GOOGLE_SERVICE_ACCOUNT_JSON`, the service account that reads invoice sheets, and `GOOGLE_PLACES_API_KEY`, for the business lookup.
+- `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET`, when the optional Telegram bot is on.
 
 None of these names has the `NEXT_PUBLIC_` prefix, so Next.js never puts them in the browser bundle. `NEXT_PUBLIC_SUPABASE_ANON_KEY` is public by design, and row-level security limits what it reaches. `.gitignore` excludes `.env` and `.env*.local`, and `.env.example` lists the names with empty values. Each module in `lib/server/`, `lib/llm/` and `lib/connectors/` that reads a secret or calls the store or a provider imports `server-only`, so a client component that imports one fails the build. The helpers that the edge middleware shares with the server and the browser import nothing, `server-only` included: `lib/server/origin.ts`, `lib/server/rate-limit.ts`, `lib/session-cookie.ts`, and `config.ts`, `paths.ts`, `session-id.ts` and `viewer.ts` in `lib/auth/`. `lib/architecture.test.ts` enforces that list, and also fails any `"use client"` file that imports `lib/server`, `lib/store`, `lib/llm`, `lib/connectors` or `server-only`.
 
@@ -160,13 +162,15 @@ An owner can connect a Twilio number for texts and missed calls, email in and ou
 - **Calls are never recorded.** Maryland requires every party's consent to record a call, so the voice webhook answers with `twimlSayAndHangUp`, which at most says a short message before it hangs up, and nothing records or transcribes the call.
 - **The scheduled sender needs a secret.** `GET /api/cron/dispatch` sends due rows only for a request with `Authorization: Bearer <CRON_SECRET>`.
 
-## Recorded work and Telegram recovery
+## Recorded work and Telegram
 
-- Customer follow-up and license routes derive session ownership on the server, validate bodies with Zod and `readBody`, and have a dedicated mutation rate limit. Contact and timer identities must belong to the current business. Saved dates and sources create approval cards only.
-- `customer_followups` has owner RLS, session/business filters in both stores, explicit reset coverage and a cascading business foreign key for retention. Licenses are part of the existing versioned profile and share its retention.
-- `listBriefTargets` is a documented deployment-wide lookup for the brief and recorded-work schedulers. It returns business/session pairs; every subsequent read and write uses that session. `telegramUpdateDone` is another narrow global read, returning only completion status for one update id. Busy updates answer 503 so Telegram retries until work is durably finished.
-- Every non-protocol Telegram send rechecks persistent allergy locks. A timeout, transport exception or unreadable success reply is an uncertain send, fails without blind retry, and asks the owner to check the conversation. Explicit 429 or server-error responses may be retried once. A database failure after provider acceptance also reports uncertainty.
-- Telegram removal accepts only stored outbox identity and explicit confirmation. Session/business ownership, sent status, the 48-hour window and current server settings are checked before the atomic removal claim. Chat and provider identities are read from storage, never request input. Sent text is retained for audit; confirmed removal does not claim it was unread. A crashed removal claim stays in progress for operator review rather than claiming success.
+Telegram is optional. It stays off unless the server sets `TELEGRAM_BOT_TOKEN`, and it has not been verified in production.
+
+- **Recorded work stays in its session.** The follow-up and license routes take the session from the server, read their bodies through `readBody` with a Zod schema, and share the `agentWork` rate limit in `middleware.ts`. A contact or follow-up must belong to the current business. A saved date or source creates approval cards only.
+- **Follow-ups are stored like the other owner data.** `customer_followups` has row-level security, both stores filter it by session and business, `reset` clears it, and deleting a business deletes its follow-ups. License dates live in the versioned profile and follow its retention.
+- **Two lookups read across sessions, on purpose.** `listBriefTargets` returns business and session pairs for the brief and recorded-work schedulers, and every later read and write uses that session. `telegramUpdateDone` returns only whether one update id is finished. An update still in progress gets a 503, so Telegram retries it until the work is saved.
+- **An uncertain Telegram send is never repeated blindly.** Every Telegram send except a protocol notice checks the allergy lock again. A timeout, a transport error or an unreadable success reply marks the send uncertain. It fails, and the owner is asked to check the conversation. A 429 or a server error may be retried once. A database failure after Telegram accepted the message also reports the send as uncertain.
+- **Removing a message checks the stored record.** The delete route takes only an outbox id and an explicit confirmation. It checks the session and business, the sent status, the 48-hour window and the server settings before it claims the removal. The chat and message ids come from storage, never from the request. The sent text stays for the record, and a removed message may already have been read. A removal that crashes midway stays marked in progress for someone to check, and never reports success.
 
 ## Known limits
 
