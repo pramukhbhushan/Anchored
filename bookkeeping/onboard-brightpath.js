@@ -12,7 +12,7 @@
 
 (async () => {
   const SHEET =
-    "https://docs.google.com/spreadsheets/d/1jYg4Sn7znhd57XYKdPfj53reorhkliVlOoTEEQsIKiw/edit";
+    "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit";
 
   // One answer per question. `picks` are used when the question offers those chips; `text` otherwise.
   const ANSWERS = {

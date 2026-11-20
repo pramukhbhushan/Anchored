@@ -4,7 +4,7 @@ Nov 7, 2026 · @Eric
 
 Merged Nov 8, 2026 with the existing implementation plan and teammate V2. Updated ownership for Eric and Pramukh. Revised later on Nov 8: Eric owns the dashboard, the Customer agent and Internal Communications; Pramukh owns Bookkeeping, Marketing and the shared agent groundwork.
 
-This document specifies how Anchored builds and integrates its four agents: Customer, Bookkeeping, Marketing and Internal Communications. It starts from `origin/main` after PR #40 and the decisions recorded in [Anchored: Agents and Dashboard Direction](https://claude.ai/artifact/GjTfXtEhN5vqeTYGh9QYF4):
+This document specifies how Anchored builds and integrates its four agents: Customer, Bookkeeping, Marketing and Internal Communications. It starts from `origin/main` after PR #40 and the decisions recorded in Anchored: Agents and Dashboard Direction:
 
 - Telegram replaces Twilio for every customer message, through one shared Anchored bot.
 - Front Desk and Follow-up merge into one Customer agent, with a thread per customer.
