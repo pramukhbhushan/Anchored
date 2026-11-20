@@ -16,7 +16,11 @@ import { getStore, type Store } from "@/lib/store";
 
 /** Check a contact's persisted allergy locks, including older cards linked through its thread. */
 export async function customerLocked(store: Store, session: string, businessId: string, contactId: string): Promise<boolean> {
-  const cards = await store.listCards(session, businessId);
+  return lockedAmong(await store.listCards(session, businessId), store, session, businessId, contactId);
+}
+
+/** `customerLocked` over cards the caller already read, so a loop over many customers reads them once. */
+async function lockedAmong(cards: readonly CardRecord[], store: Store, session: string, businessId: string, contactId: string): Promise<boolean> {
   const locked = cards.filter((card) => card.channel === "locked" && card.status === "pending");
   if (locked.some((card) => (card.contact === contactId || card.lockedContact === contactId))) return true;
   if (locked.length === 0) return false;
@@ -34,7 +38,8 @@ export async function followupStillAllowed(store: Store, session: string, busine
   if (card.recordedFollowup === undefined) return true;
   const record = (await store.listFollowups(session, business.id)).find((item) => item.id === card.recordedFollowup!.id);
   if (record === undefined || record.contactId !== card.contact || record.skill !== card.skill || record.dueAt !== card.recordedFollowup.dueAt || record.sourceId !== card.recordedFollowup.sourceId) return false;
-  const [contacts, saved, cards, locked] = await Promise.all([store.listContacts(session, business.id), store.getChoices(session, business.id), store.listCards(session, business.id), customerLocked(store, session, business.id, record.contactId)]);
+  const [contacts, saved, cards] = await Promise.all([store.listContacts(session, business.id), store.getChoices(session, business.id), store.listCards(session, business.id)]);
+  const locked = await lockedAmong(cards, store, session, business.id, record.contactId);
   return dueFollowup(record, { now, chosen: new Set(chosenSkills(business, resolveChoices(business, saved))), contact: contacts.find((c) => c.id === record.contactId) ?? null, locked, businessName: business.name, previousTouches: touches(cards, record, card.id) }) !== null;
 }
 
@@ -45,7 +50,7 @@ export async function runBusinessAgentWork(store: Store, session: string, busine
   const chosen = new Set<SkillId>(chosenSkills(business, resolveChoices(business, saved)));
   const drafts: KeyedCard[] = [];
   for (const record of records) {
-    const draft = dueFollowup(record, { now, chosen, contact: contacts.find((c) => c.id === record.contactId) ?? null, locked: await customerLocked(store, session, business.id, record.contactId), businessName: business.name, previousTouches: touches(cards, record) });
+    const draft = dueFollowup(record, { now, chosen, contact: contacts.find((c) => c.id === record.contactId) ?? null, locked: await lockedAmong(cards, store, session, business.id, record.contactId), businessName: business.name, previousTouches: touches(cards, record) });
     if (draft !== null) {
       const { contactId: _contact, ...words } = draft;
       drafts.push({ ...words, contact: record.contactId, agent: agentForSkill(business, record.skill), recordedFollowup: { id: record.id, dueAt: record.dueAt, sourceId: record.sourceId } });
@@ -74,7 +79,9 @@ export async function runDueAgentWork(now = new Date(), store: Store = getStore(
     try {
       const business = await store.getBusiness(target.session, target.businessId);
       if (business !== null) result.drafted += await runBusinessAgentWork(store, target.session, business, now);
-    } catch {
+    } catch (error) {
+      // One business's failure must not stop the others' work.
+      console.error(`[Agent work] The scheduled run for business ${target.businessId} failed.`, error);
       result.failed += 1;
     }
   }

@@ -85,10 +85,12 @@ export async function receiveUnpaidInvoice(
   target: HookTarget,
   invoice: { readonly kind: "overdue" | "failed"; readonly customerName: string | null; readonly customerEmail: string | null; readonly amountDue: number; readonly number: string | null },
 ): Promise<boolean> {
+  // Stripe allows longer names than a reminder event takes, and a name over the limit would drop the whole reminder.
+  const name = invoice.customerName?.trim().slice(0, 80).trim();
   const payload = {
     kind: invoice.kind,
     amount: invoice.amountDue,
-    ...(invoice.customerName ? { name: invoice.customerName } : {}),
+    ...(name ? { name } : {}),
     ...(invoice.customerEmail ? { email: invoice.customerEmail } : {}),
     ...(invoice.number ? { number: invoice.number } : {}),
   };
