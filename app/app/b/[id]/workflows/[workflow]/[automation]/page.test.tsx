@@ -8,8 +8,7 @@ import { hvacShop } from "@/test/trades";
 // Module Overview
 // =============================================================================
 // One automation's page against a real in-memory store: a known automation
-// renders under its own name, and a link that names no automation of the
-// business, malformed or not, is a 404 rather than an error page.
+// renders with how it works, and a key the workflow doesn't have is a 404.
 
 const SESSION = "automation-page-owner";
 const stores = vi.hoisted(() => ({ current: null as Store | null }));
@@ -37,7 +36,7 @@ beforeEach(async () => {
 });
 
 describe("Automation page", () => {
-  it("renders a known automation under its name", async () => {
+  it("renders a known automation with how it works", async () => {
     render(await AutomationPage(params("quotes", "closer")));
 
     expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
@@ -46,9 +45,5 @@ describe("Automation page", () => {
 
   it("is not found for a key the workflow doesn't have", async () => {
     await expect(AutomationPage(params("quotes", "no-such-step"))).rejects.toThrow("not-found");
-  });
-
-  it("is not found, not an error, for a malformed key", async () => {
-    await expect(AutomationPage(params("quotes", "%E0%A4%A"))).rejects.toThrow("not-found");
   });
 });

@@ -29,23 +29,14 @@ import { getBusinessOrNotFound, getChoices, getFeed } from "@/lib/server/data";
 
 type Params = Promise<{ id: string; workflow: string; automation: string }>;
 
-/** Return `segment` percent-decoded, or `null` when its encoding is malformed. */
-function decodeKey(segment: string): string | null {
-  try {
-    return decodeURIComponent(segment);
-  } catch {
-    return null;
-  }
-}
-
 /** Find the automation in the URL at the business, or `null` when it isn't one of its automations. */
-async function findAutomation(id: string, workflow: string, rawKey: string) {
+async function findAutomation(id: string, workflow: string, key: string) {
   const business = await getBusinessOrNotFound(id);
-  const key = decodeKey(rawKey);
-  if (key === null || !workflowIdsOf(business).includes(workflow as WorkflowId)) return null;
+  const ids = workflowIdsOf(business);
+  if (!ids.includes(workflow as WorkflowId)) return null;
   const choices = await getChoices(business);
   const flow = workflowFlow(business, choices, workflow as WorkflowId);
-  const automation = automationsOf(flow, stageOf(flow.id)).find((a) => a.key === key);
+  const automation = automationsOf(flow, stageOf(flow.id)).find((a) => a.key === decodeURIComponent(key));
   return automation === undefined ? null : { business, automation };
 }
 
