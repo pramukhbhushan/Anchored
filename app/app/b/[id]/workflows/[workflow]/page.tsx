@@ -7,7 +7,6 @@ import { AgentWorkspace } from "@/components/business/agents/AgentWorkspace";
 import { BriefRun } from "@/components/business/agents/BriefRun";
 import { FollowupSchedule } from "@/components/business/agents/FollowupSchedule";
 import { LicenseDates } from "@/components/business/agents/LicenseDates";
-import { getStore } from "@/lib/store";
 import { CustomerThreads } from "@/components/business/agents/CustomerThreads";
 import { cardsForAgent, presentAgents } from "@/components/business/agents/view-model";
 import { AcknowledgmentRuleControl } from "@/components/connections/AcknowledgmentRuleControl";
@@ -17,6 +16,7 @@ import { activeAgents, chosenSkills } from "@/lib/domain/paths";
 import { readBrief } from "@/lib/server/brief";
 import { customerThreads } from "@/lib/server/customer-threads";
 import { getBusinessOrNotFound, getChoices, getFeed } from "@/lib/server/data";
+import { followupSchedule } from "@/lib/server/followups";
 import { getSessionId } from "@/lib/server/session";
 import { readStandingRules } from "@/lib/server/standing-rules";
 import { telegramSetup } from "@/lib/server/telegram-setup";
@@ -55,13 +55,12 @@ export default async function AgentPage({ params, searchParams }: { readonly par
   const [feed, session] = await Promise.all([getFeed(business), getSessionId()]);
   const contact = (await searchParams).contact;
   const selected = typeof contact === "string" && contact !== "" ? contact.slice(0, 64) : null;
-  const [threads, telegram, rules, brief, followups, contacts] = await Promise.all([
+  const [threads, telegram, rules, brief, schedule] = await Promise.all([
     agent.id === "customer" ? customerThreads(session, business, selected) : null,
     agent.id === "customer" ? telegramSetup(session, business) : null,
     agent.id === "customer" ? readStandingRules(session, business) : null,
     agent.id === "internal" ? readBrief(session, business) : null,
-    agent.id === "customer" && business.kind === "custom" ? getStore().listFollowups(session, business.id) : null,
-    agent.id === "customer" && business.kind === "custom" ? getStore().listContacts(session, business.id) : [],
+    agent.id === "customer" && business.kind === "custom" ? followupSchedule(session, business) : null,
   ]);
   return (
     <AgentWorkspace businessId={business.id} agent={agent} cards={cardsForAgent(feed.cards, agent.id)} outbox={feed.outbox} ask={<><p className="fine">{isAiConfigured() ? "AI replies are on. Drafts still wait for your OK." : "AI replies are off. Supported draft requests still work."}</p><ChatWindow mode="business" businessId={business.id} agent={agent.id} agentName={agent.name} starters={["What can you help me with?", "What should I focus on next?"]} /></>}>
@@ -75,7 +74,7 @@ export default async function AgentPage({ params, searchParams }: { readonly par
           </div>
         </details>
       )}
-      {followups !== null && <FollowupSchedule businessId={business.id} records={followups} contacts={contacts.filter((contact) => contact.telegramChatId !== undefined)} skills={chosenSkills(business, choices)} />}
+      {schedule !== null && <FollowupSchedule businessId={business.id} records={schedule.records} contacts={schedule.contacts} skills={chosenSkills(business, choices)} />}
       {brief !== null && <BriefRun businessId={business.id} brief={brief} />}
       {agent.id === "internal" && business.kind === "custom" && <LicenseDates businessId={business.id} licenses={business.details?.licenses ?? []} enabled={chosenSkills(business, choices).includes("license")} />}
     </AgentWorkspace>

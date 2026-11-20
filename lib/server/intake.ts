@@ -3,10 +3,9 @@ import { randomUUID } from "node:crypto";
 import type { IntakeResponse, StartIntakeResponse } from "@/lib/api/contract";
 import { withCrewDecisions } from "@/lib/domain/crew";
 import { answerText, draftDetails, draftToAnswers, newDraft, nextQuestion, openingMessages, planReadyText, type IntakeAnswer } from "@/lib/domain/intake";
-import { buildProfileFromAnswers } from "@/lib/server/create-business";
+import { buildProfileFromAnswers, saveNewBusiness } from "@/lib/server/create-business";
 import { intakeState, intakeThread, takeIntakeTurn } from "@/lib/server/intake-ai";
 import { connectInvoiceSheet } from "@/lib/server/invoice-sheet";
-import { scheduleStarters } from "@/lib/server/starters";
 import { getStore } from "@/lib/store";
 import type { IntakeRecord, NewChatMessage } from "@/lib/store/types";
 
@@ -60,14 +59,8 @@ export async function answerIntake(session: string, id: string, answer: IntakeAn
   if (reply === null) {
     // The owner confirmed the details at the review, so they arrive as theirs.
     const business = withCrewDecisions({ ...(await buildProfileFromAnswers(draftToAnswers(turn.draft))), ...draftDetails(turn.draft) });
-    await store.saveBusiness(session, business, "onboarding");
-    await store.recordEvent(session, business.id, "onboarding_raw", {
-      intakeId: id,
-      messages: transcript.map(({ role, text, at }) => ({ role, text, at })),
-      draft: turn.draft,
-    });
-    // The starters are written after this response, so the plan appears without waiting on the model.
-    scheduleStarters(session, business);
+    const raw = { intakeId: id, messages: transcript.map(({ role, text, at }) => ({ role, text, at })), draft: turn.draft };
+    await saveNewBusiness(session, business, raw, { seedExample: false });
     businessId = business.id;
     reply = planReadyText(business);
     // An invoice sheet pasted during onboarding is read now, so its reminders wait in Approvals with the plan.

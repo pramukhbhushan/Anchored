@@ -2,7 +2,6 @@ import { runDueAgentWork } from "@/lib/server/agent-work";
 import { handleError, json } from "@/lib/server/http";
 import { dispatchDue } from "@/lib/server/dispatch";
 import { sameSecret } from "@/lib/server/secrets";
-import { getStore } from "@/lib/store";
 
 // =============================================================================
 // Module Overview
@@ -21,7 +20,7 @@ export async function GET(request: Request) {
     const given = request.headers.get("authorization") ?? "";
     if (!secret || !sameSecret(given, `Bearer ${secret}`)) return new Response("Not found", { status: 404 });
     const work = await runDueAgentWork();
-    return json({ work, ok: true, ...(await dispatchDue(getStore(), new Date())) });
+    return json({ work, ok: true, ...(await dispatchDue(new Date())) });
   } catch (error) {
     return handleError(error, "GET /api/cron/dispatch");
   }

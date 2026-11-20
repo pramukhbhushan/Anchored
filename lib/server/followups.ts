@@ -1,5 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
+import type { Contact } from "@/lib/domain/contacts";
 import type { FollowupInput, RecordedFollowup } from "@/lib/domain/followups";
 import { chosenSkills, resolveChoices } from "@/lib/domain/paths";
 import type { BusinessProfile } from "@/lib/domain/types";
@@ -14,6 +15,7 @@ import { getStore } from "@/lib/store";
 // business's agent work at once, so a timer already due becomes a card for
 // approval and a cancelled one invalidates its old drafts. The caller passes a
 // business it already found for this session; the request never names one.
+// `followupSchedule` reads what the Customer workspace's schedule shows.
 
 const FOLLOWUP_LIMIT = 200;
 
@@ -25,6 +27,13 @@ export type FollowupResult =
 /** Return the business's recorded timers. */
 export async function listFollowups(session: string, business: BusinessProfile): Promise<RecordedFollowup[]> {
   return getStore().listFollowups(session, business.id);
+}
+
+/** Return the business's timers and the customers who started its Telegram chat, for the follow-up schedule. */
+export async function followupSchedule(session: string, business: BusinessProfile): Promise<{ readonly records: RecordedFollowup[]; readonly contacts: Contact[] }> {
+  const store = getStore();
+  const [records, contacts] = await Promise.all([store.listFollowups(session, business.id), store.listContacts(session, business.id)]);
+  return { records, contacts: contacts.filter((contact) => contact.telegramChatId !== undefined) };
 }
 
 /** Record explicit facts and a due time for one customer, then check whether an approval draft is due. */

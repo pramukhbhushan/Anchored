@@ -2,8 +2,8 @@ import type { PhotoUploadResponse } from "@/lib/api/contract";
 import { MAX_PHOTO_BYTES, checkPhoto, sniffPhotoType } from "@/lib/domain/photos";
 import { findBusiness } from "@/lib/server/data";
 import { fail, handleError, json, readBytesCapped } from "@/lib/server/http";
+import { savePhoto } from "@/lib/server/photos";
 import { getSessionId } from "@/lib/server/session";
-import { getStore } from "@/lib/store";
 
 // =============================================================================
 // Module Overview
@@ -30,7 +30,7 @@ export async function POST(request: Request, { params }: Context) {
     const problem = checkPhoto(bytes);
     const type = sniffPhotoType(bytes);
     if (problem !== null || type === null) return fail(400, problem ?? "That file isn't a photo.");
-    const photo = await getStore().savePhoto(await getSessionId(), business.id, bytes, type);
+    const photo = await savePhoto(await getSessionId(), business.id, bytes, type);
     return json<PhotoUploadResponse>({ photo: { id: photo.id, url: `/api/businesses/${business.id}/photos/${photo.id}` } }, 201);
   } catch (error) {
     return handleError(error, "POST /api/businesses/[id]/photos");
