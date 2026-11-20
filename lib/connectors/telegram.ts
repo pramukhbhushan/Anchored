@@ -1,7 +1,7 @@
 import "server-only";
 import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { ConnectorError, type FetchLike } from "./errors";
+import { ConnectorError, PROVIDER_TIMEOUT_MS, type FetchLike } from "./errors";
 
 // =============================================================================
 // Module Overview
@@ -177,6 +177,7 @@ async function call(bot: TelegramBot, method: string, payload: Readonly<Record<s
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
     });
   } catch {
     // A lost response, an abort and a connection reset can all follow a successful remote send.
