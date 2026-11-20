@@ -354,6 +354,23 @@ describe("cancelInvoiceReminders", () => {
   });
 });
 
+describe("an id another session owns", () => {
+  it("refuses to save that business or intake, and leaves the owner's copy alone", async () => {
+    const store = new MemoryStore();
+    const business = profileFromFacts({ name: "Apex Heating", trade: "HVAC", tradeKey: "home", reach: [], tools: [], signals: [] });
+    const draft = { facts: { reach: [], tools: [], signals: [], languages: [] }, settled: [], followUp: null, followUps: 0, review: { stage: "confirmed" as const } };
+    await store.saveBusiness("s1", business);
+    await store.saveIntake("s1", { id: "intake-1", draft, businessId: null });
+
+    await expect(store.saveBusiness("s2", { ...business, name: "Taken" })).rejects.toMatchObject({ name: "NotFoundError" });
+    await expect(store.saveIntake("s2", { id: "intake-1", draft, businessId: business.id })).rejects.toMatchObject({ name: "NotFoundError" });
+
+    expect((await store.getBusiness("s1", business.id))?.name).toBe("Apex Heating");
+    expect((await store.getIntake("s1", "intake-1"))?.businessId).toBeNull();
+    expect(await store.listBusinesses("s2")).toEqual([]);
+  });
+});
+
 describe("findIntakeByBusiness", () => {
   it("finds the onboarding chat that built a business, in this session only", async () => {
     const store = new MemoryStore();

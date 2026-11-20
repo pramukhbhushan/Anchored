@@ -127,6 +127,13 @@ export class MemoryStore implements Store {
     return found;
   }
 
+  /** Throw `NotFoundError` when another session holds `id`, as the database's id-only key refuses it. */
+  private refuseForeignId(session: string, id: string, rows: (data: SessionData) => ReadonlyMap<string, unknown>): void {
+    for (const [other, data] of this.sessions) {
+      if (other !== session && rows(data).has(id)) throw new NotFoundError(`${id} belongs to another session.`);
+    }
+  }
+
   /** Return the session's data for a read, without creating an entry for a visitor who has stored nothing. */
   private peek(session: string): SessionData | undefined {
     return this.sessions.get(session);
@@ -152,6 +159,7 @@ export class MemoryStore implements Store {
   }
 
   async saveBusiness(session: string, business: BusinessProfile, changedBy: ProfileChangeSource = "owner"): Promise<BusinessProfile> {
+    this.refuseForeignId(session, business.id, (data) => data.businesses);
     const data = this.data(session);
     // The store owns the count, so a caller holding an older copy can't reuse a version number.
     const history = data.versions.get(business.id) ?? [];
@@ -386,6 +394,7 @@ export class MemoryStore implements Store {
   }
 
   async saveIntake(session: string, intake: IntakeRecord): Promise<void> {
+    this.refuseForeignId(session, intake.id, (data) => data.intakes);
     this.data(session).intakes.set(intake.id, intake);
   }
 

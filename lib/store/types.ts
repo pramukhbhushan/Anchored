@@ -148,7 +148,7 @@ export interface Store {
   /** Return the session's own businesses, oldest first. The example business lives in code and is not stored. */
   listBusinesses(session: string): Promise<BusinessProfile[]>;
   getBusiness(session: string, id: string): Promise<BusinessProfile | null>;
-  /** Save `business`, bump its `version`, keep a copy in its history, and return it as saved. */
+  /** Save `business`, bump its `version`, keep a copy in its history, and return it as saved. Throws `NotFoundError` when another session owns its id. */
   saveBusiness(session: string, business: BusinessProfile, changedBy?: ProfileChangeSource): Promise<BusinessProfile>;
   /** Return a business's saved versions, newest first. */
   listProfileVersions(session: string, businessId: string): Promise<ProfileVersion[]>;
@@ -183,6 +183,7 @@ export interface Store {
   /** Append messages to a thread in order, and return them as stored. */
   addMessages(session: string, thread: ChatThread, messages: readonly NewChatMessage[]): Promise<ChatMessage[]>;
   getIntake(session: string, id: string): Promise<IntakeRecord | null>;
+  /** Save the onboarding chat. Throws `NotFoundError` when another session owns its id. */
   saveIntake(session: string, intake: IntakeRecord): Promise<void>;
   /** The onboarding chat that built `businessId`, or `null` when the business came from the form or an example. */
   findIntakeByBusiness(session: string, businessId: string): Promise<IntakeRecord | null>;
