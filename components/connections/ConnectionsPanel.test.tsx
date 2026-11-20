@@ -1,9 +1,9 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { ConnectionsPanel } from "@/components/connections/ConnectionsPanel";
 import type { ConnectionsResponse, ConnectionView } from "@/lib/api/contract";
-import { json, sentJson, stubFetch } from "@/test/http";
+import { deferred, json, sentJson, stubFetch } from "@/test/http";
 
 // =============================================================================
 // Module Overview
@@ -12,7 +12,8 @@ import { json, sentJson, stubFetch } from "@/test/http";
 // texting sends the credentials and shows the number it connected with the
 // addresses to paste into Twilio, a service the server can't offer says why
 // with no form, a guest sees why they can't connect and no forms, and a
-// refused request shows the route's reason.
+// refused request shows the route's reason. Each service waits on its own
+// change, so one answering never frees another's buttons early.
 
 const SID = `AC${"a".repeat(32)}`;
 
@@ -103,6 +104,21 @@ describe("ConnectionsPanel", () => {
 
     expect(await block.findByRole("alert")).toHaveTextContent("Enter the Twilio number in a form like +1 301 555 0192.");
     expect(block.getByText("Not connected")).toBeInTheDocument();
+  });
+
+  it("keeps a service's button off while its own change is still saving", async () => {
+    const forwarding = deferred<Response>();
+    const stripe = deferred<Response>();
+    stubFetch((_url, init) => (JSON.parse(String(init?.body)).kind === "email-in" ? forwarding.promise : stripe.promise));
+    render(<ConnectionsPanel businessId="b1" blocked={null} connections={ALL_OFF} />);
+
+    await userEvent.click(service("Forwarded email").getByRole("button", { name: "Get my forwarding address" }));
+    await userEvent.type(service("Stripe invoices").getByLabelText("Signing secret"), "whsec_123");
+    await userEvent.click(service("Stripe invoices").getByRole("button", { name: "Connect" }));
+    forwarding.resolve(json({ blocked: null, connections: ALL_OFF, contacts: [] } satisfies ConnectionsResponse));
+
+    await waitFor(() => expect(service("Forwarded email").getByRole("button", { name: "Get my forwarding address" })).toBeEnabled());
+    expect(service("Stripe invoices").getByRole("button", { name: "Connect" })).toBeDisabled();
   });
 
   it("gets a forwarding address with one tap", async () => {

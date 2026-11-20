@@ -753,7 +753,8 @@ export function WorkflowMap({
               </ul>
             </>
           )}
-          {selJob && <JobDetails businessId={businessId} stageName={selJob.stage.name} job={selJob.job} />}
+          {/* Keyed per job, so "Change who handles this" starts closed on each one */}
+          {selJob && <JobDetails key={selJob.job.id} businessId={businessId} stageName={selJob.stage.name} job={selJob.job} />}
         </aside>
       </div>
     </section>

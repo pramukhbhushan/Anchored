@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatWindow } from "@/components/chat/ChatWindow";
@@ -36,13 +36,14 @@ function jpegs(count: number): File[] {
   return Array.from({ length: count }, (_, i) => new File([new Uint8Array([0xff, 0xd8, 0xff, i])], `job-${i + 1}.jpg`, { type: "image/jpeg" }));
 }
 
-/** Play the chat and photo routes. `upload` answers each photo; the chat POST answers `sent`, `DRAFTED` by default. */
-function routes(upload: (n: number) => Response | Promise<Response> = (n) => json({ photo: { id: photoId(n), url: `${PHOTOS_URL}/${photoId(n)}` } }, 201), sent: BusinessChatResponse = DRAFTED) {
+/** Play the chat and photo routes. `upload` answers each photo; the chat POST answers `sent`, `DRAFTED` by default, or a held reply. */
+function routes(upload: (n: number) => Response | Promise<Response> = (n) => json({ photo: { id: photoId(n), url: `${PHOTOS_URL}/${photoId(n)}` } }, 201), sent: BusinessChatResponse | Promise<Response> = DRAFTED) {
   let uploads = 0;
   return stubFetch((url, init) => {
     if (url === PHOTOS_URL) return upload(++uploads);
     if (url !== CHAT_URL) throw new Error(`Unexpected request to ${url}`);
-    return (init?.method ?? "GET") === "GET" ? json(LOADED) : json(sent);
+    if ((init?.method ?? "GET") === "GET") return json(LOADED);
+    return sent instanceof Promise ? sent : json(sent);
   });
 }
 
@@ -87,6 +88,25 @@ describe("photos in the business chat", () => {
     expect(sentJson(fetchSpy, chatPost).body).toEqual({ text: "Before and after of a patio", photos: [photoId(1), photoId(2)] });
     expect(screen.queryByRole("list", { name: /Photos for your post/ })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Post: Before and after of a patio/ })).toBeInTheDocument();
+  });
+
+  it("keeps a photo dropped in while the message was sending, for the next message", async () => {
+    const user = userEvent.setup();
+    const reply = deferred<Response>();
+    routes(undefined, reply.promise);
+    await renderChat();
+
+    await user.upload(photoInput(), jpegs(1));
+    await user.type(textBox(), "Before and after of a patio");
+    await waitFor(() => expect(sendButton()).toBeEnabled());
+    await user.click(sendButton());
+    const [late] = jpegs(1);
+    fireEvent.drop(textBox().closest("form")!, { dataTransfer: { files: [late], types: ["Files"] } });
+    await waitFor(() => expect(screen.getByRole("list", { name: "Photos for your post, 2 added" })).toBeInTheDocument());
+
+    reply.resolve(json(DRAFTED));
+    await waitFor(() => expect(screen.getByRole("log")).toHaveTextContent("drafted a \"Before and after\" post"));
+    expect(screen.getByRole("list", { name: "Photos for your post, 1 added" })).toBeInTheDocument();
   });
 
   it("keeps Send off until every photo has uploaded", async () => {

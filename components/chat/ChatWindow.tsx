@@ -386,7 +386,7 @@ function BusinessChat({
       if (!mounted.current) return;
       // Anchored didn't act on it, such as photos sent before post drafts are on: the words and photos stay to resend.
       if (chat.keepComposer) setRefill((last) => ({ text, n: (last?.n ?? 0) + 1 }));
-      else if (photos.length > 0) picker.clear();
+      else if (photos.length > 0) picker.release(photos);
       setMessages(chat.messages);
       // Changed facts can add or drop workflows, and a new draft raises the approvals count in the sidebar,
       // so the page around the chat re-renders from the server.
