@@ -20,7 +20,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   try {
     const { id } = await params;
     const business = await findBusiness(id);
-    if (!business) return fail(404, "Business not found. It may have been reset.");
+    if (!business) return fail(404, "Business not found. It may have been deleted. Reload the page to see your businesses.");
     if (business.kind === "case") return fail(409, "This is an example, so its automations can't change. Set up your business to turn yours on.");
     if (!workflowIdsOf(business).includes(parsed.data.workflow)) return fail(400, "That job isn't part of this business's plan.");
     return json<SetAutomationResponse>(await setAutomation(await getSessionId(), business, parsed.data.workflow, parsed.data.on));

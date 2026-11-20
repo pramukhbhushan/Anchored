@@ -17,7 +17,7 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_request: Request, { params }: Params) {
   try {
     const business = await findBusiness((await params).id);
-    if (business === null) return fail(404, "Business not found. It may have been reset.");
+    if (business === null) return fail(404, "Business not found. It may have been deleted. Reload the page to see your businesses.");
     return json(await readStandingRules(await getSessionId(), business));
   } catch (error) {
     return handleError(error, "GET /api/businesses/[id]/standing-rules");
@@ -30,7 +30,7 @@ export async function PUT(request: Request, { params }: Params) {
   if (!parsed.ok) return parsed.response;
   try {
     const business = await findBusiness((await params).id);
-    if (business === null) return fail(404, "Business not found. It may have been reset.");
+    if (business === null) return fail(404, "Business not found. It may have been deleted. Reload the page to see your businesses.");
     return json(await setAcknowledgment(await getSessionId(), business, parsed.data.enabled));
   } catch (error) {
     if (error instanceof RuleLockedError) return fail(409, error.message);

@@ -19,14 +19,14 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   if (!isAiConfigured()) return fail(503, "No AI provider is set up on this server yet, so the draft stays as written.");
   try {
     const { id } = await params;
-    if (!isCardId(id)) return fail(404, "Card not found. It may have been reset.");
+    if (!isCardId(id)) return fail(404, "Card not found. Reload to see your current cards.");
     const card = await materializeCard(id);
-    if (!card) return fail(404, "Card not found. It may have been reset.");
+    if (!card) return fail(404, "Card not found. Reload to see your current cards.");
     if (card.status !== "pending") return fail(409, "This card was already decided.");
     if (!(await isCardLive(card))) return fail(409, "This workflow no longer uses that agent. Reload to see your current cards.");
     if (card.channel !== "sms" && card.channel !== "email") return fail(400, "Only texts and emails can be rewritten.");
     const business = await findBusiness(card.businessId);
-    if (!business) return fail(404, "Business not found. It may have been reset.");
+    if (!business) return fail(404, "Business not found. It may have been deleted. Reload the page to see your businesses.");
 
     const body = await rewriteInVoice(business, card.body);
     // The model call takes seconds; if the owner decided the card meanwhile, its sent text must not change.

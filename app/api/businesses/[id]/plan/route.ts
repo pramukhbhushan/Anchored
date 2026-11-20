@@ -23,7 +23,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return fail(409, "This example's plan is already approved. Set up your own business to approve a plan of your own.");
     }
     const planApproval = await approveBusinessPlan(await getSessionId(), id, new Date());
-    if (!planApproval) return fail(404, "Business not found. It may have been reset.");
+    if (!planApproval) return fail(404, "Business not found. It may have been deleted. Reload the page to see your businesses.");
     return json<ApprovePlanResponse>({ planApproval });
   } catch (error) {
     return handleError(error, "PUT /api/businesses/[id]/plan");

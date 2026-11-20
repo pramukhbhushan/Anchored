@@ -18,9 +18,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!parsed.ok) return parsed.response;
   try {
     const { id } = await params;
-    if (!isCardId(id)) return fail(404, "Card not found. It may have been reset.");
+    if (!isCardId(id)) return fail(404, "Card not found. Reload to see your current cards.");
     const card = await materializeCard(id);
-    if (!card) return fail(404, "Card not found. It may have been reset.");
+    if (!card) return fail(404, "Card not found. Reload to see your current cards.");
     // A stale tab can hold a card whose workflow the owner has since moved off Build; its agent isn't working.
     if (card.status === "pending" && !(await isCardLive(card))) return fail(409, "This workflow no longer uses that agent, so its card can't be sent. Reload to see your current cards.");
     const result = await decideAndSend(await getSessionId(), card, parsed.data, new Date());
