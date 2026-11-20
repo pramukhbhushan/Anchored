@@ -52,6 +52,8 @@ const LIMITS = {
   agentWork: { bucket: "agent-work", windowMs: WINDOW_MS, perSession: 30, perIp: 150 },
   telegramDelete: { bucket: "telegram-delete", windowMs: WINDOW_MS, perSession: 20, perIp: 100 },
   brief: { bucket: "brief", windowMs: WINDOW_MS, perSession: 30, perIp: 150 },
+  // Approving the plan and adding a job each save a new profile version, a full snapshot row.
+  profile: { bucket: "profile", windowMs: WINDOW_MS, perSession: 30, perIp: 150 },
   mutation: { bucket: "mutation", windowMs: WINDOW_MS, perSession: 120, perIp: 600 },
 } as const satisfies Record<string, ApiLimit>;
 
@@ -120,6 +122,7 @@ export function limitFor(method: string, pathname: string): ApiLimit {
   if (/^\/api\/businesses\/[^/]+\/automations\/?$/.test(pathname)) return LIMITS.automation;
   if (method === "POST" && /^\/api\/businesses\/[^/]+\/outbox\/[^/]+\/delete\/?$/.test(pathname)) return LIMITS.telegramDelete;
   if (/^\/api\/businesses\/[^/]+\/(?:followups|licenses)\/?$/.test(pathname)) return LIMITS.agentWork;
+  if (method === "PUT" && /^\/api\/businesses\/[^/]+\/plan\/?$/.test(pathname)) return LIMITS.profile;
   if (method !== "POST") return LIMITS.mutation;
   if (isPhotoUpload(pathname)) return LIMITS.photo;
   if (/^\/api\/businesses\/?$/.test(pathname)) return LIMITS.createBusiness;
@@ -129,6 +132,7 @@ export function limitFor(method: string, pathname: string): ApiLimit {
   // Reading the invoice sheet drafts cards the way an arriving event does, so it shares their bucket.
   if (/^\/api\/businesses\/[^/]+\/(?:cards|invoice-sheet)\/?$/.test(pathname) || /^\/api\/ingest\/[^/]+\/?$/.test(pathname)) return LIMITS.newEvent;
   if (/^\/api\/businesses\/[^/]+\/brief\/?$/.test(pathname)) return LIMITS.brief;
+  if (/^\/api\/businesses\/[^/]+\/workflows\/?$/.test(pathname)) return LIMITS.profile;
   return LIMITS.mutation;
 }
 
