@@ -14,6 +14,9 @@ import type { CardDraft, SkillId } from "@/lib/domain/types";
 export const FOLLOWUP_SKILLS = ["callback", "closer", "callfollow", "reactivator", "keeper", "referral", "debrief", "showup", "reviewer"] as const;
 export type FollowupSkill = (typeof FOLLOWUP_SKILLS)[number];
 
+/** The job or customer states a timer can rest on. */
+const RECORDED_STATES = ["missed-call", "open-quote", "completed-call", "inactive-customer", "membership-due", "completed-job", "booking"] as const;
+
 /** The state a timer must have on record before its skill may draft work. */
 export const FOLLOWUP_STATES = {
   callback: "missed-call",
@@ -25,14 +28,14 @@ export const FOLLOWUP_STATES = {
   debrief: "completed-call",
   showup: "booking",
   reviewer: "completed-job",
-} as const satisfies Readonly<Record<FollowupSkill, string>>;
+} as const satisfies Readonly<Record<FollowupSkill, (typeof RECORDED_STATES)[number]>>;
 
 /** An owner's scheduling input. An explicit offset avoids guessing a local time during a DST transition. */
 export const followupInputSchema = z.object({
   contactId: z.string().trim().min(1).max(100),
   skill: z.enum(FOLLOWUP_SKILLS),
   dueAt: z.iso.datetime({ offset: true }),
-  state: z.enum(["missed-call", "open-quote", "completed-call", "inactive-customer", "membership-due", "completed-job", "booking"]),
+  state: z.enum(RECORDED_STATES),
   sourceId: z.string().trim().min(1).max(80).regex(/^[A-Za-z0-9_.:-]+$/, "Use the recorded quote, call or job reference."),
   evidence: z.string().trim().min(1, "Record where this fact came from.").max(1000),
 }).strict().superRefine((value, context) => {

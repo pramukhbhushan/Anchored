@@ -62,6 +62,11 @@ describe("unbackedClaims", () => {
   it("allows a claim the owner made, ordinary words, and hashtags", () => {
     expect(unbackedClaims("we're licensed and insured", "Licensed and insured, as always.")).toEqual([]);
     expect(unbackedClaims("new furnace", "We did our best work here. #BestInTown")).toEqual([]);
+    expect(unbackedClaims("new furnace", "Feel free to send us a message.")).toEqual([]);
+  });
+
+  it("catches a #1 ranking, which isn't a hashtag", () => {
+    expect(unbackedClaims("new furnace", "We're #1 in College Park.")).toEqual(["a ranking"]);
   });
 });
 

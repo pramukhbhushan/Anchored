@@ -74,6 +74,7 @@ describe("parseInvoiceRows", () => {
     expect(status("Paid in full")).toBe(true);
     expect(status("Not paid")).toBe(false);
     expect(status("Unpaid")).toBe(false);
+    expect(status("Partially paid")).toBe(false);
     expect(status("")).toBe(false);
   });
 

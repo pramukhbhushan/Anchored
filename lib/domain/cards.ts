@@ -377,7 +377,7 @@ export const CARD_TEMPLATES: Readonly<Record<CardSkill, CardTemplate>> = {
   // Supplier invoices can't reach an owner's business yet, so its starter names no item, price or rise. The example
   // business shows researched invoice lines instead, a different one per example event.
   pricewatch: (b, v) => {
-    const rise = b.kind === "case" && v !== STANDING_VARIANT ? pick(v, EXAMPLE_RISES[0], ...EXAMPLE_RISES) : null;
+    const rise = b.kind === "case" && v !== STANDING_VARIANT ? EXAMPLE_RISES[(v - 1) % EXAMPLE_RISES.length] : null;
     return {
       title: rise ? `${rise.item} up $${(rise.now - rise.was).toFixed(2)} a case` : "An item on your supplier invoice went up",
       body: rise
