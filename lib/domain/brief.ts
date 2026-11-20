@@ -90,7 +90,7 @@ export interface SnapshotSend {
   readonly sentAt: string;
   /** The first confirmed clipboard copy, not an assumption from an owner-send entry. */
   readonly copiedAt?: string | null;
-  /** Set by orchestration when the entry belongs to an example draft. */
+  /** Set by the server when the entry belongs to an example draft. */
   readonly example?: true;
 }
 
@@ -123,7 +123,7 @@ export interface BriefSnapshot {
   readonly failed: number;
   /** Customers who sent STOP or /stop, or blocked the bot, in the window. */
   readonly stops: number;
-  /** The effective activity floor when orchestration caps the read, currently at 24 hours. */
+  /** The start of the activity read when the server caps it, at 24 hours. */
   readonly windowStart?: string;
   /** Drafts with a confirmed clipboard copy during the activity window. This never means sent. */
   readonly copied?: number;
@@ -182,7 +182,7 @@ export function briefSnapshot(input: SnapshotInput): BriefSnapshot {
   };
 }
 
-/** Count linked, unlinked and absent-draft events using saved identities alone. */
+/** Count events with no draft link, and events whose linked draft is missing, each event once by id or source key. */
 function eventAccounting(events: readonly SnapshotEvent[], cards: readonly SnapshotCard[], inWindow: (at: string) => boolean): { eventsWithoutCards: number; eventsUnlinked: number } {
   const realKeys = new Set(cards.filter((card) => card.example !== true).map((card) => card.key));
   const exampleKeys = new Set(cards.filter((card) => card.example === true).map((card) => card.key));

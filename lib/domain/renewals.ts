@@ -28,16 +28,16 @@ export const licenseSchema = z.object({
   completed: z.boolean().optional(),
 }).strict();
 
-/** The bounded license list cannot give two licenses the same identity. */
+/** Up to 100 licenses, each with its own id. */
 export const licensesSchema = z.array(licenseSchema).max(100).refine((licenses) => new Set(licenses.map((license) => license.id)).size === licenses.length, "Each license needs its own id.");
 
 /** One evidenced license whose renewal the owner handles. */
 export type License = z.infer<typeof licenseSchema>;
 
-/** The current warning window, used as part of the persisted reminder key. */
+/** How close the expiry is. Part of the stored reminder key, so each window warns once. */
 export type RenewalWindow = "30-days" | "7-days" | "expiry-day" | "overdue";
 
-/** A deterministic owner notice, before the server writes its flag card. */
+/** A notice for the owner, before the server writes it as a flag card. */
 export interface RenewalNotice {
   readonly key: string;
   readonly licenseId: string;
