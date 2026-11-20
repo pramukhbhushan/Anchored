@@ -83,14 +83,14 @@ export default async function OverviewPage({
     cost.onQuote.length > 0
       ? `, plus ${joinAnd(cost.onQuote.map((tool) => tool.name))} on quote`
       : "";
+  const approvalsHref = businessHref(business.id, "approvals");
+  const workflowsHref = businessHref(business.id, "workflows");
   const fresh = newForOwner(business, choices);
   const [onlyFresh] = fresh;
   const freshHref =
     fresh.length === 1 && onlyFresh !== undefined
-      ? `${businessHref(business.id, "workflows")}#wf-${onlyFresh}`
-      : businessHref(business.id, "workflows");
-  const approvalsHref = businessHref(business.id, "approvals");
-  const workflowsHref = businessHref(business.id, "workflows");
+      ? `${workflowsHref}#wf-${onlyFresh}`
+      : workflowsHref;
   const place = placeOf(business);
   // Example events show a visitor how an agent drafts; an owner's own cards come from real events.
   const canSimulate =
