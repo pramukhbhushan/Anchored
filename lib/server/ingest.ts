@@ -39,7 +39,7 @@ const SOURCE_SKILLS: Readonly<Record<string, readonly SkillId[]>> = {
 };
 
 /** Every source an event can come from. */
-export const EVENT_SOURCES = Object.keys(SOURCE_SKILLS);
+const EVENT_SOURCES = Object.keys(SOURCE_SKILLS);
 
 // Each source accepts exactly these fields, so an event can't smuggle in extra data or oversized text.
 const phone = z.string().trim().regex(/^\+?[0-9 ().-]{7,20}$/, "Use a phone number like +1 301 555 0192.");

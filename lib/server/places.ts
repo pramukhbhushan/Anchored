@@ -49,7 +49,7 @@ const detailsSchema = z.object({
 });
 
 /** What one listing gives onboarding: candidates plus short-lived source text to extract before it is discarded. */
-export interface PlaceFacts {
+interface PlaceFacts {
   readonly candidates: readonly DetailCandidate[];
   readonly website: string | null;
   readonly listingText: string;

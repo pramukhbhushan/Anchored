@@ -14,13 +14,13 @@ export interface RateLimitRule {
 }
 
 /** Whether a request may proceed, and whole seconds until its key's window resets. */
-export interface RateLimitDecision {
+interface RateLimitDecision {
   readonly allowed: boolean;
   readonly retryAfterSeconds: number;
 }
 
 /** Counts requests per key in fixed windows. */
-export interface RateLimiter {
+interface RateLimiter {
   /** Count one request for `key` under `rule` at `now` (ms since epoch) and say whether it may proceed. */
   check(key: string, rule: RateLimitRule, now?: number): RateLimitDecision;
   /** Return how many keys hold a window right now, expired or not. */
@@ -28,7 +28,7 @@ export interface RateLimiter {
 }
 
 /** Settings for `createRateLimiter`. */
-export interface RateLimiterOptions {
+interface RateLimiterOptions {
   /** Most keys held at once; past it the oldest window is dropped. Default 10,000. */
   readonly maxKeys?: number;
 }

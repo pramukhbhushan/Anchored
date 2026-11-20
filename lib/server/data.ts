@@ -151,7 +151,7 @@ export async function materializeCard(id: string): Promise<CardRecord | null> {
 }
 
 /** A business's feed, and whether its example cards are still the ones to show. */
-export interface Feed {
+interface Feed {
   readonly cards: CardRecord[];
   readonly outbox: OutboxEntry[];
   /** Whether the business has connected a texting number, email or Stripe. */
