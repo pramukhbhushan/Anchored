@@ -48,7 +48,7 @@ const KIND_TITLE: Readonly<Record<EmailKind, string>> = {
   unknown: "Forwarded email",
 };
 
-// What the receiving agent does with each kind, while the handoffs to Bookkeeping and Marketing are still to come.
+// What the owner does next with each kind. Nothing hands an email on to Bookkeeping or Marketing yet.
 const KIND_NEXT: Readonly<Record<EmailKind, string>> = {
   customer: "Forwarded emails stay one card each, so reply to them from your own email.",
   billing: "Anchored states no amount it didn't read from Stripe, so check this against your invoices before you reply.",

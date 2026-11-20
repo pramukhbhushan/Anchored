@@ -1,14 +1,15 @@
 import { SearchX } from "lucide-react";
 import type { Metadata } from "next";
-import { NEW_BUSINESS_HREF } from "@/components/routes";
+import { NEW_BUSINESS_HREF, businessHref } from "@/components/routes";
 import { ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { SAMPLE_BUSINESS } from "@/lib/domain/cases";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The site's 404: what probably happened and two ways forward, starting over
-// with a new business or exploring the example.
+// The site's 404: what probably happened and two ways forward, setting up a
+// business or exploring the example.
 
 export const metadata: Metadata = { title: "Page not found" };
 
@@ -21,8 +22,8 @@ export default function NotFound() {
         title="We couldn't find that page"
         actions={
           <>
-            <ButtonLink href={NEW_BUSINESS_HREF}>Start over</ButtonLink>
-            <ButtonLink href="/app/b/restaurant" variant="secondary">
+            <ButtonLink href={NEW_BUSINESS_HREF}>Set up your business</ButtonLink>
+            <ButtonLink href={businessHref(SAMPLE_BUSINESS.id)} variant="secondary">
               Explore the example
             </ButtonLink>
           </>

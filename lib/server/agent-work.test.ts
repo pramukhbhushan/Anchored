@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CardRecord } from "@/lib/api/contract";
 import type { Contact } from "@/lib/domain/contacts";
 import type { RecordedFollowup } from "@/lib/domain/followups";
@@ -122,6 +122,19 @@ describe("recorded agent work", () => {
     expect(outcome).toEqual({ drafted: 1, failed: 0 });
     expect(await store.listCards("other-owner", SHOP.id)).toEqual([]);
     expect(await store.listCards(SESSION, other.id)).toEqual([]);
+  });
+  it("logs a business whose scheduled run fails, and still runs the others", async () => {
+    await store.saveBusiness("other-owner", { ...SHOP, id: "second-shop" });
+    const getBusiness = store.getBusiness.bind(store);
+    vi.spyOn(store, "getBusiness").mockImplementation(async (session, id) => {
+      if (id === SHOP.id) throw new Error("database is down");
+      return getBusiness(session, id);
+    });
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    expect(await runDueAgentWork(NOW, store)).toEqual({ drafted: 0, failed: 1 });
+    expect(logged).toHaveBeenCalledWith(`[Agent work] The scheduled run for business ${SHOP.id} failed.`, expect.any(Error));
+    logged.mockRestore();
   });
 });
 

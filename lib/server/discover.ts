@@ -35,7 +35,7 @@ export class DiscoveryUnavailableError extends Error {
 }
 
 /** One discovery run: the workflow to cover and the kind of business, in plain words. */
-export interface DiscoveryRequest {
+interface DiscoveryRequest {
   readonly workflow: WorkflowId;
   readonly business: string;
   /** Names to skip besides the catalog and the queue, such as ones an earlier run added this session. */
@@ -48,10 +48,10 @@ export interface DiscoveryRequest {
 }
 
 /** How a run found its pages: the provider's web search, or vendor sites the model named and code loaded. */
-export type DiscoveryMethod = "search" | "sites";
+type DiscoveryMethod = "search" | "sites";
 
 /** A run's result, with how it found pages and how many it read. */
-export interface DiscoveryRun extends DiscoveryResult {
+interface DiscoveryRun extends DiscoveryResult {
   readonly method: DiscoveryMethod;
   readonly pagesRead: number;
 }

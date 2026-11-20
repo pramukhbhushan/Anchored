@@ -60,16 +60,16 @@ describe("customerThreads", () => {
   it("shows each sent message's outcome, and keeps the provider's id out", async () => {
     const dana = await customer("Dana", "1");
     const entry = await store().addOutbox(SESSION, { businessId: SHOP.id, cardId: null, channel: "telegram", to: "Dana", contactId: dana, body: "Thanks!", rule: "acknowledge", delivery: "queued" });
-    await store().settleOutbox(SESSION, entry.id, { delivery: "sent", providerId: "555" });
+    await store().settleOutbox(SESSION, entry.id, { delivery: "sent", providerId: "tg-msg-quokka" });
     await say(dana, "Hi", "2026-11-08T09:00:00Z", { cardKey: "k1" });
-    await say(dana, "Thanks!", "2026-11-08T09:00:01Z", { direction: "out", outboxId: entry.id, providerId: "555" });
+    await say(dana, "Thanks!", "2026-11-08T09:00:01Z", { direction: "out", outboxId: entry.id, providerId: "tg-msg-quokka" });
 
     const { messages } = await customerThreads(SESSION, SHOP, dana);
     expect(messages.map(({ id: _id, ...message }) => message)).toEqual([
       { direction: "in", text: "Hi", at: "2026-11-08T09:00:00Z", cardKey: "k1" },
       { direction: "out", text: "Thanks!", at: "2026-11-08T09:00:01Z", delivery: "sent", rule: "acknowledge" },
     ]);
-    expect(JSON.stringify(messages)).not.toContain("555");
+    expect(JSON.stringify(messages)).not.toContain("tg-msg-quokka");
   });
 
   it("marks a customer whose allergy question waits for the owner", async () => {

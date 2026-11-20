@@ -29,10 +29,10 @@ import type { TelegramChat } from "@/lib/store/types";
 // once, and a failed run frees its claim so Telegram's retry can take it again.
 
 /** What one update did, for the route's answer and the logs. Never includes customer text. */
-export type TelegramOutcome = "started" | "stopped" | "blocked" | "unblocked" | "drafted" | "limited" | "unbound" | "ignored";
+type TelegramOutcome = "started" | "stopped" | "blocked" | "unblocked" | "drafted" | "limited" | "unbound" | "ignored";
 
 /** What sending needs, passed through to the dispatcher so tests can hand it a fake `fetch`. */
-export interface TelegramDeps {
+interface TelegramDeps {
   readonly fetch?: FetchLike;
   readonly env?: Readonly<Record<string, string | undefined>>;
 }

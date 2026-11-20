@@ -44,7 +44,7 @@ function OwnRow({ business, pending }: { readonly business: BusinessProfile; rea
           <b>{business.name}</b>
           <span>
             {business.trade}
-            {place !== null && ` in ${place}`}. {workflowCount} workflows.
+            {place !== null && ` in ${place}`}. {workflowCount === 1 ? "1 workflow" : `${workflowCount} workflows`}.
           </span>
         </span>
         <Badge tone={pending !== null && pending > 0 ? "new" : "neutral"}>{waitingText(pending)}</Badge>

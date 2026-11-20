@@ -20,7 +20,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   try {
     const { id } = await params;
     const business = await findBusiness(id);
-    if (!business) return fail(404, "Business not found. It may have been reset.");
+    if (!business) return fail(404, "Business not found. It may have been deleted. Reload the page to see your businesses.");
     const body = parsed.data;
     if (!workflowIdsOf(business).includes(body.workflow)) return fail(400, "That workflow isn't part of this business's plan.");
 

@@ -15,7 +15,7 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_request: Request, { params }: Params) {
   try {
     const business = await findBusiness((await params).id);
-    if (business === null) return fail(404, "Business not found. It may have been reset.");
+    if (business === null) return fail(404, "Business not found. It may have been deleted. Reload the page to see your businesses.");
     return json(await readBrief(await getSessionId(), business));
   } catch (error) {
     return handleError(error, "GET /api/businesses/[id]/brief");
@@ -26,7 +26,7 @@ export async function GET(_request: Request, { params }: Params) {
 export async function POST(_request: Request, { params }: Params) {
   try {
     const business = await findBusiness((await params).id);
-    if (business === null) return fail(404, "Business not found. It may have been reset.");
+    if (business === null) return fail(404, "Business not found. It may have been deleted. Reload the page to see your businesses.");
     return json(await runBrief(await getSessionId(), business));
   } catch (error) {
     return handleError(error, "POST /api/businesses/[id]/brief");

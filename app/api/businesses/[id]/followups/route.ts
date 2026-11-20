@@ -7,9 +7,11 @@ import { getSessionId } from "@/lib/server/session";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Session-scoped owner records for Customer timers. A due timer creates a card
-// for approval only. Cancellation keeps its facts and invalidates old drafts.
-// Incoming requests never supply business or session ownership.
+// /api/businesses/[id]/followups: GET lists the Customer agent's follow-up
+// timers, POST records one, and PUT cancels one. A timer that comes due drafts
+// a card for the owner's OK and sends nothing. A cancelled timer keeps its
+// record, and its old drafts stop counting. The business and session come from
+// the URL and the cookie, never the body.
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -17,30 +19,30 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_request: Request, { params }: Params) {
   try {
     const business = await findBusiness((await params).id);
-    if (business === null || business.kind !== "custom") return fail(404, "Business not found.");
+    if (business === null || business.kind !== "custom") return fail(404, "Business not found. It may have been deleted. Reload the page to see your businesses.");
     return json({ records: await listFollowups(await getSessionId(), business) });
   } catch (error) { return handleError(error, "GET /api/businesses/[id]/followups"); }
 }
 
-/** Record explicit facts and a due time, then check whether an approval draft is due. */
+/** Record a timer, then draft its card if it is already due. */
 export async function POST(request: Request, { params }: Params) {
   try {
     const body = await readBody(request, scheduleFollowupSchema);
     if (!body.ok) return body.response;
     const business = await findBusiness((await params).id);
-    if (business === null || business.kind !== "custom") return fail(404, "Business not found.");
+    if (business === null || business.kind !== "custom") return fail(404, "Business not found. It may have been deleted. Reload the page to see your businesses.");
     const result = await recordFollowup(await getSessionId(), business, body.data);
     return result.ok ? json({ records: result.records }) : fail(result.status, result.error);
   } catch (error) { return handleError(error, "POST /api/businesses/[id]/followups"); }
 }
 
-/** Cancel only an existing timer owned by this business. */
+/** Cancel one of this business's timers. */
 export async function PUT(request: Request, { params }: Params) {
   try {
     const body = await readBody(request, cancelFollowupSchema);
     if (!body.ok) return body.response;
     const business = await findBusiness((await params).id);
-    if (business === null || business.kind !== "custom") return fail(404, "Business not found.");
+    if (business === null || business.kind !== "custom") return fail(404, "Business not found. It may have been deleted. Reload the page to see your businesses.");
     const result = await cancelFollowup(await getSessionId(), business, body.data.id);
     return result.ok ? json({ records: result.records }) : fail(result.status, result.error);
   } catch (error) { return handleError(error, "PUT /api/businesses/[id]/followups"); }

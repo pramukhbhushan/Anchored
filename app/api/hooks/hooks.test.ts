@@ -243,6 +243,12 @@ describe("forwarded email", () => {
     expect(await (await forward("inbound-key", "n".repeat(24))).json()).toEqual({ received: true, drafted: false });
     expect(await cardTitles()).toEqual([]);
   });
+
+  it("answers 400 to a body that isn't JSON, so Postmark stops retrying it", async () => {
+    const request = new Request("http://localhost/api/hooks/email?key=inbound-key", { method: "POST", headers: { "content-type": "application/json" }, body: "not json" });
+    expect((await email.POST(request)).status).toBe(400);
+    expect(await cardTitles()).toEqual([]);
+  });
 });
 
 describe("the scheduled sender", () => {
