@@ -65,7 +65,7 @@ Following up on late invoices, replying to new leads faster, and reminding clien
 
 ## The invoice sheet
 
-[Brightpath Coaching invoices (Anchored test)](https://docs.google.com/spreadsheets/d/1jYg4Sn7znhd57XYKdPfj53reorhkliVlOoTEEQsIKiw/edit), shared with `anchored-reader@western-oarlock-514103-q8.iam.gserviceaccount.com` as a Viewer.
+Make a Google Sheet named "Brightpath Coaching invoices" with the rows below, and share it as a Viewer with the `client_email` of the service account in `GOOGLE_SERVICE_ACCOUNT_JSON`.
 
 | Invoice # | Customer | Email | Amount | Due date | Status | What it tests (as of Nov 8, 2026) |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -82,7 +82,6 @@ Following up on late invoices, replying to new leads faster, and reminding clien
 ### 1. Start the app with sign-in off
 
 ```bash
-cd /Users/pramukhb/Downloads/AI4SB/Anchored/Anchored
 NEXT_PUBLIC_SUPABASE_URL= NEXT_PUBLIC_SUPABASE_ANON_KEY= npm run dev -- -p 3102
 ```
 
@@ -114,7 +113,7 @@ Restart the server first if you want a clean slate, then onboard again.
 
 | Do | Expected |
 | --- | --- |
-| Paste `here's my invoice sheet https://docs.google.com/spreadsheets/d/1jYg4Sn7znhd57XYKdPfj53reorhkliVlOoTEEQsIKiw/edit` | "Connected your invoice sheet. I checked your invoice sheet: 7 invoices. I drafted 5 reminders for overdue invoices. They're waiting in Approvals. 1 isn't due yet." |
+| Paste `here's my invoice sheet https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit` | "Connected your invoice sheet. I checked your invoice sheet: 7 invoices. I drafted 5 reminders for overdue invoices. They're waiting in Approvals. 1 isn't due yet." |
 | Type `check my invoice sheet` | "5 overdue invoices already have a reminder." Nothing drafted twice |
 | In the sheet, change 1043's Status to `Paid`, then type `check my invoice sheet` | "I stopped 1 reminder for invoices now marked paid." |
 | Change 1043 back to `Unpaid` afterward | Resets the sheet for the next test |
