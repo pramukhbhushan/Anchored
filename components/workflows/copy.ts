@@ -9,7 +9,7 @@ import type { SkillId, TradeKey, WorkflowId } from "@/lib/domain/types";
 // path or model names appear here; those stay under the hood.
 
 /** One kind of work from start to finish, as an owner would tell it. */
-export interface WorkSteps {
+interface WorkSteps {
   /** What sets the work off, as a full sentence with its subject: "A customer calls and nobody picks up". */
   readonly trigger: string;
   /** What lands in front of the owner: the draft an agent writes. */
@@ -19,7 +19,7 @@ export interface WorkSteps {
 }
 
 /** What a tool does for the owner, plus what starts the work and what comes of it. */
-export interface ToolSteps {
+interface ToolSteps {
   readonly trigger: string;
   /** What the tool does, as a verb phrase: "Answers the phone for you". */
   readonly does: string;

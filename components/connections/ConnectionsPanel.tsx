@@ -19,7 +19,7 @@ import styles from "./connections.module.css";
 // as a guest, sees the reason once at the top and no forms at all.
 
 /** Props for `ConnectionsPanel`. */
-export interface ConnectionsPanelProps {
+interface ConnectionsPanelProps {
   readonly businessId: string;
   /** Why this visitor can't connect services, or `null` when they can. */
   readonly blocked: string | null;

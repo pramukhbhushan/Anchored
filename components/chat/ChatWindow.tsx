@@ -32,7 +32,7 @@ import styles from "./chat.module.css";
  * `ask` is words to start the text box with, carried from an automation page. Supply optional agent context only when
  * the server supports scoped requests.
  */
-export type ChatWindowProps =
+type ChatWindowProps =
   | { readonly mode: "intake" }
   | { readonly mode: "business"; readonly businessId: string; readonly readOnly?: boolean; readonly starters?: readonly string[]; readonly ask?: string; readonly agent?: string; readonly agentName?: string };
 

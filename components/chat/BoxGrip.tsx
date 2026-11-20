@@ -13,7 +13,7 @@ import styles from "./chat.module.css";
 // floor and the cap. `useBoxHeight` keeps the owner's pick across visits.
 
 /** The text box's one-line height, the floor a drag stops at. Matches `.input`'s `min-height`. */
-export const BOX_MIN = 46;
+const BOX_MIN = 46;
 /** The tallest the text box gets on a tall window; on a short one, half the window. */
 const BOX_CAP = 480;
 const STEP = 16;
@@ -31,7 +31,7 @@ function clampBox(px: number, max: number): number {
 }
 
 /** The owner's text box height: `null` while it sizes to the words, else the pixels they dragged it to. */
-export interface BoxHeight {
+interface BoxHeight {
   readonly height: number | null;
   /** Show `px` without saving it, for each frame of a drag. */
   readonly preview: (px: number | null) => void;

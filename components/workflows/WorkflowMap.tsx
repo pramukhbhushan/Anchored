@@ -31,7 +31,7 @@ import type { WorkflowId } from "@/lib/domain/types";
 // settle. Reduced motion places them still.
 
 /** One automation inside a job, told in the owner's words. */
-export interface MapAutomation {
+interface MapAutomation {
   readonly key: string;
   readonly name: string;
   readonly summary: string;

@@ -29,7 +29,7 @@ const UNREADABLE = "This photo couldn't be opened here. Try a JPEG or PNG, or ta
 const OFFLINE = "Couldn't reach Anchored. Check your connection and try again.";
 
 /** Redraw `file` as a JPEG no larger than `PHOTO_MAX_SIDE` on its longest side, without its hidden metadata. */
-export async function shrinkPhoto(file: Blob): Promise<Blob> {
+async function shrinkPhoto(file: Blob): Promise<Blob> {
   // A browser without image decoding sends the original; the server still checks it's a real photo under the limit.
   if (typeof createImageBitmap !== "function") return file;
   let bitmap: ImageBitmap;
@@ -52,7 +52,7 @@ export async function shrinkPhoto(file: Blob): Promise<Blob> {
 }
 
 /** Upload one shrunk photo for `businessId` and return its id, or throw an error safe to show the owner. */
-export async function uploadPhoto(businessId: string, photo: Blob): Promise<string> {
+async function uploadPhoto(businessId: string, photo: Blob): Promise<string> {
   let response: Response;
   try {
     response = await fetch(`/api/businesses/${encodeURIComponent(businessId)}/photos`, { method: "POST", headers: { "content-type": "image/jpeg" }, body: photo });
@@ -83,7 +83,7 @@ export interface PhotoPicker {
 }
 
 /** Hold the photos picked for one post in `businessId`'s chat, shrinking and uploading each as it's added. */
-export function usePhotoPicker(businessId: string, shrink = shrinkPhoto, upload = uploadPhoto): PhotoPicker {
+export function usePhotoPicker(businessId: string): PhotoPicker {
   const [photos, setPhotos] = useState<readonly PickedPhoto[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const counter = useRef(0);
@@ -112,8 +112,8 @@ export function usePhotoPicker(businessId: string, shrink = shrinkPhoto, upload 
     const fresh = taken.map((file) => ({ file, photo: { key: `photo-${counter.current++}`, name: file.name, preview: URL.createObjectURL(file), status: "uploading" as const } }));
     setPhotos((all) => [...all, ...fresh.map((f) => f.photo)]);
     for (const { file, photo } of fresh) {
-      void shrink(file)
-        .then((small) => upload(businessId, small))
+      void shrinkPhoto(file)
+        .then((small) => uploadPhoto(businessId, small))
         .then((id) => update(photo.key, { status: "ready", id }))
         .catch((error: unknown) => update(photo.key, { status: "failed", error: errorText(error) }));
     }

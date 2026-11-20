@@ -1,5 +1,5 @@
 import { AUTOMATION_NAMES } from "@/components/workflows/copy";
-import type { HandlerKind, WorkflowFlow } from "@/components/workflows/flow";
+import { lowerFirst, type HandlerKind, type WorkflowFlow } from "@/components/workflows/flow";
 import type { Stage } from "@/lib/domain/stages";
 import type { SkillId, WorkflowId } from "@/lib/domain/types";
 
@@ -62,8 +62,4 @@ export function automationSummary(a: Automation): string {
   if (a.draft !== null) return `When ${when}, Anchored writes ${lowerFirst(a.draft)}. Nothing is sent until you approve it.`;
   if (a.kind === "none") return `Nobody does this yet. When ${when}, you handle it yourself for now.`;
   return `When ${when}, ${a.handler} does the work${a.rule === null ? "" : `. ${a.rule.replace(/\.$/, "")}`}.`;
-}
-
-function lowerFirst(text: string): string {
-  return text.charAt(0).toLowerCase() + text.slice(1);
 }
