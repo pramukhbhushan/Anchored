@@ -17,7 +17,7 @@ import type { ListingChoice } from "@/lib/domain/intake";
 const SEARCH_URL = "https://places.googleapis.com/v1/places:searchText";
 const DETAILS_URL = "https://places.googleapis.com/v1/places/";
 const SEARCH_FIELDS = "places.id,places.displayName,places.formattedAddress,places.rating";
-// Reviews are left out: no profile field keeps them, and their text may not be stored.
+// Up to five reviews come back for the extraction step to read once. No profile field keeps their text.
 const DETAIL_FIELDS = "id,displayName,formattedAddress,nationalPhoneNumber,regularOpeningHours,websiteUri,types,editorialSummary,rating,userRatingCount,reviews";
 const TIMEOUT_MS = 6000;
 

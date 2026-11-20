@@ -9,10 +9,12 @@ import { getStore, type Store } from "@/lib/store";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Owner-recorded facts produce approval cards, never sends. The dispatch cron
-// checks due facts and the same checks run again at approval and delivery.
-// Cancellations, STOP, allergy locks, changed dates and disabled skills prevent
-// old work from going out. Stable card keys dedupe concurrent scheduled runs.
+// Turns what the owner recorded, such as a quote to follow up on or a license
+// expiry date, into cards for approval. It never sends. The scheduled run drafts
+// each card once its time comes, and `followupStillAllowed` runs the same checks
+// again when the owner approves and when the message goes out, so a cancelled
+// follow-up, a STOP, an allergy question, a changed date or a job the owner
+// turned off stops it. Each card's key is fixed, so two runs at once draft it once.
 
 /** Check a contact's persisted allergy locks, including older cards linked through its thread. */
 export async function customerLocked(store: Store, session: string, businessId: string, contactId: string): Promise<boolean> {
@@ -33,7 +35,7 @@ function touches(cards: readonly CardRecord[], record: RecordedFollowup, except?
   return cards.filter((card) => card.id !== except && card.status === "approved" && card.contact === record.contactId && card.skill === record.skill && card.recordedFollowup?.sourceId === record.sourceId).length;
 }
 
-/** Revalidate a recorded timer against current scoped facts before an old card can send. */
+/** Whether a follow-up card may still go out: its record is unchanged and the follow-up is still due under today's facts. */
 export async function followupStillAllowed(store: Store, session: string, business: BusinessProfile, card: CardRecord, now: Date): Promise<boolean> {
   if (card.recordedFollowup === undefined) return true;
   const record = (await store.listFollowups(session, business.id)).find((item) => item.id === card.recordedFollowup!.id);
@@ -43,7 +45,7 @@ export async function followupStillAllowed(store: Store, session: string, busine
   return dueFollowup(record, { now, chosen: new Set(chosenSkills(business, resolveChoices(business, saved))), contact: contacts.find((c) => c.id === record.contactId) ?? null, locked, businessName: business.name, previousTouches: touches(cards, record, card.id) }) !== null;
 }
 
-/** Build due owner cards from current recorded facts and replace stale pending reminders. */
+/** Draft the cards that are due from what the owner recorded, supersede pending ones no longer due, and return how many are new. */
 export async function runBusinessAgentWork(store: Store, session: string, business: BusinessProfile, now = new Date()): Promise<number> {
   if (business.kind !== "custom") return 0;
   const [records, contacts, saved, cards] = await Promise.all([store.listFollowups(session, business.id), store.listContacts(session, business.id), store.getChoices(session, business.id), store.listCards(session, business.id)]);
@@ -72,7 +74,7 @@ export async function runBusinessAgentWork(store: Store, session: string, busine
   return unique.filter((draft) => !existing.has(draft.key)).length;
 }
 
-/** Check the same bounded business targets as the brief scheduler, preserving each row's owning session. */
+/** Run every business's agent work for the scheduler, each under its own session, and count drafts and failures. */
 export async function runDueAgentWork(now = new Date(), store: Store = getStore(), limit = 200): Promise<{ drafted: number; failed: number }> {
   const result = { drafted: 0, failed: 0 };
   for (const target of await store.listBriefTargets(limit)) {
