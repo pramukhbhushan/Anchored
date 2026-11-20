@@ -21,7 +21,7 @@ import type {
 // lists the rules every agent here works under.
 
 /** Why a tier fits the work. Which model runs it depends on the server's AI settings, read as an `AiSetup`. */
-export interface ModelTierDef {
+interface ModelTierDef {
   readonly why: string;
 }
 

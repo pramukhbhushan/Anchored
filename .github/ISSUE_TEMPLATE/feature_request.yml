@@ -1,0 +1,28 @@
+name: Feature request
+description: A job Anchored could take on, or a change to one it does.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: Anchored is a finished hackathon project. Ideas are welcome, with no promise that anyone builds them.
+  - type: textarea
+    id: owner
+    attributes:
+      label: Who it helps
+      description: The kind of business and the job, such as "an HVAC contractor chasing quotes that went quiet".
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: What they do today
+      description: How the owner handles this job now, and what it costs them.
+    validations:
+      required: true
+  - type: textarea
+    id: change
+    attributes:
+      label: What Anchored would do
+      description: Remember that Anchored sends nothing to a customer until the owner approves it.
+    validations:
+      required: true

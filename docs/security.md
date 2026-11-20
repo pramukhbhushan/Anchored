@@ -80,10 +80,10 @@ For the same requests, `middleware.ts` compares the host in the `Origin` header 
 | `Content-Security-Policy` | The policy below | Production |
 
 ```
-default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' <supabase origin>; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' <supabase origin>; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
 ```
 
-`connect-src` adds the origin of `NEXT_PUBLIC_SUPABASE_URL` when accounts are on, because the browser calls Supabase Auth directly for sign-in. `script-src` and `style-src` allow `'unsafe-inline'` because Next.js renders inline hydration scripts and styles. `next/font/google` downloads the fonts at build time and serves them from the app, so `font-src 'self'` covers them. Development builds send no CSP and no HSTS, because the Next.js dev server runs code with `eval`. `poweredByHeader: false` drops the `X-Powered-By` header.
+`connect-src` adds the origin of `NEXT_PUBLIC_SUPABASE_URL` when accounts are on, because the browser calls Supabase Auth directly for sign-in. `script-src` and `style-src` allow `'unsafe-inline'` because Next.js renders inline hydration scripts and styles. `img-src` allows `blob:` because chat photo previews are `blob:` URLs from `URL.createObjectURL`. `next/font/google` downloads the fonts at build time and serves them from the app, so `font-src 'self'` covers them. Development builds send no CSP and no HSTS, because the Next.js dev server runs code with `eval`. `poweredByHeader: false` drops the `X-Powered-By` header.
 
 ## Data retention
 

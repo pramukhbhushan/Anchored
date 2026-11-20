@@ -37,8 +37,9 @@ function workflowsFor(business: BusinessProfile, agent: CoreAgentId): WorkflowId
 export function crewDecisions(business: BusinessProfile): CrewDecision[] {
   return Object.values(CORE_AGENTS).map((agent) => {
     const workflows = workflowsFor(business, agent.id);
-    const active = agent.alwaysOn || workflows.some((workflow) => defaultChoice(business, workflow).path === "build");
-    const reasonWorkflow = workflows.find((workflow) => defaultChoice(business, workflow).path === "build") ?? workflows[0];
+    const built = workflows.find((workflow) => defaultChoice(business, workflow).path === "build");
+    const active = agent.alwaysOn || built !== undefined;
+    const reasonWorkflow = built ?? workflows[0];
     const plan = reasonWorkflow === undefined ? undefined : business.workflows[reasonWorkflow];
     const reason = agent.alwaysOn
       ? "Keeps your daily brief and owner-only work in one place."
@@ -54,9 +55,6 @@ export function withCrewDecisions(business: BusinessProfile): BusinessProfile {
 
 /** The first workflow that can turn `agent` on. */
 export function turnOnChoice(business: BusinessProfile, agent: CoreAgentId): { readonly workflow: WorkflowId } | null {
-  for (const workflow of workflowsFor(business, agent)) {
-    const build = pathOptions(business, workflow).build;
-    if (build !== null) return { workflow };
-  }
-  return null;
+  const [workflow] = workflowsFor(business, agent);
+  return workflow === undefined ? null : { workflow };
 }

@@ -1,0 +1,49 @@
+name: Bug report
+description: Something in Anchored does the wrong thing.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Anchored is a finished hackathon project. Issues are welcome, with no promise of a quick reply.
+        Report a security problem through SECURITY.md, not here. Leave out real customer data, keys and tokens.
+  - type: textarea
+    id: steps
+    attributes:
+      label: What you did
+      description: The steps, starting from a fresh page load.
+      placeholder: |
+        1. Open /app/new
+        2. Describe a bakery
+        3. Approve the first card
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+      description: Include any error message, the API response, or a screenshot.
+    validations:
+      required: true
+  - type: dropdown
+    id: setup
+    attributes:
+      label: How you ran it
+      options:
+        - Local, accounts and AI off
+        - Local, with AI on
+        - Local, with Supabase accounts
+        - A deployment
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Commit
+      description: The output of `git rev-parse --short HEAD`, if you ran it from a clone.

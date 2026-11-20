@@ -8,14 +8,14 @@ import type { PathKind, SignalId, WorkflowId } from "@/lib/domain/types";
 // every business, and onboarding facts (`SIGNALS`) add the rest.
 
 /** One workflow: its id, display name, and whether every business gets it. */
-export interface WorkflowDef {
+interface WorkflowDef {
   readonly id: WorkflowId;
   readonly name: string;
   readonly base: boolean;
 }
 
 /** One onboarding fact: the checkbox label and the short form shown on a profile. */
-export interface SignalDef {
+interface SignalDef {
   readonly id: SignalId;
   readonly label: string;
   readonly short: string;
@@ -69,14 +69,6 @@ export const PATH_OUTCOME: Readonly<Record<PathKind, string>> = {
   buy: "a new tool",
   build: "Anchored's drafts",
   skip: "no help yet",
-};
-
-/** One-line explanation of each path. */
-export const PATH_DESCRIPTION: Readonly<Record<PathKind, string>> = {
-  turnon: "A tool you already pay for",
-  buy: "A tool from the catalog",
-  build: "An approve-first agent from Anchored",
-  skip: "Small for your business today",
 };
 
 // =============================================================================

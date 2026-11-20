@@ -65,7 +65,7 @@ export type ChatRequest =
   | { readonly kind: "unclear"; readonly offers: readonly AskableSkill[] };
 
 /** What the request reader needs to know about the business. */
-export type RequestBusiness = Pick<BusinessProfile, "workflows">;
+type RequestBusiness = Pick<BusinessProfile, "workflows">;
 
 // =============================================================================
 // Spotting a request
@@ -198,7 +198,7 @@ export function readRequest(text: string, business: RequestBusiness, chosen: rea
   if (skill !== undefined) return { kind: "draft", skill, details };
   // Name a workflow the owner already has in their plan before one they would have to add.
   const homes = candidates.map((candidate) => ({ skill: candidate, ...workflowFor(business, candidate) }));
-  const best = homes.find((home) => home.planned) ?? homes[0] ?? { skill: first, ...workflowFor(business, first) };
+  const best = homes.find((home) => home.planned) ?? { skill: first, ...workflowFor(business, first) };
   return { kind: "unstaffed", ...best };
 }
 
@@ -334,7 +334,7 @@ function tidy(text: string): string {
 // =============================================================================
 
 /** A drafted card before Anchored stamps it with its agent, skill and key. */
-export type RequestCardBody = Omit<CardDraft, "agent" | "skill">;
+type RequestCardBody = Omit<CardDraft, "agent" | "skill">;
 
 // The card's own channel for each skill when the owner didn't say text or email.
 const SKILL_CHANNEL: Readonly<Record<AskableSkill, Channel>> = {
@@ -464,7 +464,7 @@ function toYou(text: string, group: boolean): string {
 // =============================================================================
 
 /** What the draft is, for the reply: "a text to Dana", "a post". */
-export function draftNoun(request: DraftRequest): string {
+function draftNoun(request: DraftRequest): string {
   const { recipient } = request.details;
   if (request.skill === "posts") return "a post";
   if (request.skill === "reviewdrafter") return recipient === null ? "a reply to the review" : `a reply to ${recipient}'s review`;

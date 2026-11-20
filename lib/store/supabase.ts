@@ -352,8 +352,7 @@ export class SupabaseStore implements Store {
     if (latest.error) fail("saveBusiness", latest.error);
     const version = ((latest.data as { version: number } | null)?.version ?? 0) + 1;
     const saved: BusinessProfile = { ...business, version };
-    const { error } = await this.db.from("businesses").upsert({ id: business.id, session_id: session, profile: saved });
-    if (error) fail("saveBusiness", error);
+    await this.updateOrInsert("businesses", session, business.id, { profile: saved }, "saveBusiness");
     // Two saves racing for one number keep the first copy; the profile itself is still saved.
     const history = await this.db
       .from("profile_versions")
@@ -546,14 +545,16 @@ export class SupabaseStore implements Store {
 
   async saveContact(session: string, contact: NewContact): Promise<Contact> {
     // One contact per phone number and per Telegram chat: a save for either already on file updates that contact.
-    let id = contact.id;
-    for (const [column, value] of [["phone", contact.phone], ["telegram_chat_id", contact.telegramChatId ?? null]] as const) {
-      if (id !== undefined || value === null) continue;
+    const holder = async (column: "phone" | "telegram_chat_id", value: string): Promise<string | undefined> => {
       const { data, error } = await this.db.from("contacts").select("id").eq("session_id", session).eq("business_id", contact.businessId).eq(column, value).maybeSingle();
       if (error) fail("saveContact", error);
-      id = (data as { id: string } | null)?.id;
-    }
-    const row = contactRow(session, contact);
+      return (data as { id: string } | null)?.id;
+    };
+    const chatHolder = contact.telegramChatId === undefined ? undefined : await holder("telegram_chat_id", contact.telegramChatId);
+    const id = contact.id ?? (contact.phone === null ? undefined : await holder("phone", contact.phone)) ?? chatHolder;
+    // Contacts never merge: a chat another contact holds stays with it, and this one keeps whatever chat it had.
+    const { telegram_chat_id, telegram_name, ...rest } = contactRow(session, contact);
+    const row = chatHolder === undefined || chatHolder === id ? { ...rest, telegram_chat_id, telegram_name } : rest;
     const query = id === undefined ? this.db.from("contacts").insert(row) : this.db.from("contacts").update(row).eq("session_id", session).eq("id", id);
     const { data, error } = await query.select(CONTACT_COLUMNS).single();
     if (error) fail("saveContact", error);
@@ -645,10 +646,20 @@ export class SupabaseStore implements Store {
   }
 
   async saveIntake(session: string, intake: IntakeRecord): Promise<void> {
-    const { error } = await this.db
-      .from("intake_drafts")
-      .upsert({ id: intake.id, session_id: session, draft: intake.draft, business_id: intake.businessId, updated_at: new Date().toISOString() });
-    if (error) fail("saveIntake", error);
+    await this.updateOrInsert("intake_drafts", session, intake.id, { draft: intake.draft, business_id: intake.businessId, updated_at: new Date().toISOString() }, "saveIntake");
+  }
+
+  /**
+   * Update the session's row with this id, or insert it when the session has none. The key is the id alone, so an
+   * insert that collides means another session owns the id: that is `NotFoundError`, never a takeover of its row.
+   */
+  private async updateOrInsert(table: "businesses" | "intake_drafts", session: string, id: string, fields: Record<string, unknown>, operation: string): Promise<void> {
+    const updated = await this.db.from(table).update(fields).eq("session_id", session).eq("id", id).select("id");
+    if (updated.error) fail(operation, updated.error);
+    if ((updated.data ?? []).length > 0) return;
+    const { error } = await this.db.from(table).insert({ id, session_id: session, ...fields });
+    if (error?.code === "23505") throw new NotFoundError(`${id} belongs to another session.`);
+    if (error) fail(operation, error);
   }
 
   async telegramHook(session: string, businessId: string, candidate: string): Promise<string> {

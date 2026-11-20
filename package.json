@@ -14,7 +14,7 @@
     "playbook:sql": "node --import tsx scripts/playbook-sql.ts"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=26"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",
