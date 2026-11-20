@@ -217,6 +217,14 @@ describe("a customer's message", () => {
 describe("approving a reply", () => {
   // The acknowledgment has its own tests below; off here, each test sees only what it covers.
   beforeEach(() => store().setStandingRule(SESSION, SHOP.id, "acknowledge", false, DAYTIME.toISOString()));
+  // The customer writes a minute before the owner approves at DAYTIME, whatever today's date is.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(DAYTIME.getTime() - 60_000));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   it("queues it for the customer and sends it into their chat, then adds it to the thread", async () => {
     await post(message(1010, `/start ${HOOK}`));
