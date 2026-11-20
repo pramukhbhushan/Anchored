@@ -40,7 +40,7 @@ export async function followupSchedule(session: string, business: BusinessProfil
 export async function recordFollowup(session: string, business: BusinessProfile, input: FollowupInput): Promise<FollowupResult> {
   const store = getStore();
   const records = await store.listFollowups(session, business.id);
-  if (records.length >= FOLLOWUP_LIMIT) return { ok: false, status: 409, error: "This business already has 200 recorded follow-ups." };
+  if (records.length >= FOLLOWUP_LIMIT) return { ok: false, status: 409, error: "This business already has 200 follow-ups. Cancel one you no longer need, then record this one." };
   const contacts = await store.listContacts(session, business.id);
   const contact = contacts.find((candidate) => candidate.id === input.contactId);
   if (contact === undefined) return { ok: false, status: 404, error: "Customer not found in this business." };

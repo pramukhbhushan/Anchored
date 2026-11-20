@@ -8,7 +8,7 @@ import { getStore } from "@/lib/store";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The owner's standing rules, read and changed. v1 has one, `acknowledge`: a
+// The owner's standing rules, read and changed. There is one, `acknowledge`: a
 // fixed "got your message" reply to every Telegram message, which starts on
 // until the owner turns it off for this business. Turning it off fails every
 // acknowledgment still queued. The shared example can't change.

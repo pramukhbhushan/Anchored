@@ -9,7 +9,7 @@ import { ensureOptOut, mentionsAllergen } from "@/lib/domain/executor";
 import { canRemind, checkReminderDraft, invoiceKey, matchPaidInvoice, reminderRecords } from "@/lib/domain/invoices";
 import { activeAgents, chosenSkills, resolveChoices } from "@/lib/domain/paths";
 import type { BusinessProfile, InvoiceRef, KeyedCard, SkillId } from "@/lib/domain/types";
-import { choicesForSkill } from "@/lib/server/data";
+import { choicesForSkill, simulationTurn, uniqueEventKey } from "@/lib/server/data";
 import { getStore } from "@/lib/store";
 
 // =============================================================================
@@ -314,7 +314,7 @@ export async function ingestEvent(
   const store = getStore();
   // Store the event only once it is valid and some skill will act on it.
   await store.recordEvent(session, business.id, source, payload);
-  const turn = stored.filter((card) => card.key.includes(":sim:")).length + 1;
+  const turn = simulationTurn(stored);
 
   // A payment stops the invoice's waiting reminders before its note is drafted, so the note can say how many.
   let canceled: { readonly cards: number; readonly outbox: number } | null = null;
@@ -332,8 +332,7 @@ export async function ingestEvent(
   // An allergy question gets no drafted answer at all: the thread is locked for the owner to reply.
   const message = text(payload, "message", 2000) ?? text(payload, "text", 2000) ?? "";
   const drafted = canceled !== null ? paidCard(card, payload, canceled) : mentionsAllergen(message) ? allergyLock(card, payload) : personalize(card, source, business, payload);
-  // The random suffix keeps two events arriving together from sharing a key.
-  const key = options.key ?? (origin === "simulated" ? `${card.key}-${randomUUID().slice(0, 8)}` : liveEventKey(business.id, randomUUID()));
+  const key = options.key ?? (origin === "simulated" ? uniqueEventKey(card.key) : liveEventKey(business.id, randomUUID()));
   const from = text(payload, "from", 40);
   const phone = from === undefined ? null : normalizePhone(from);
   const contact = phone === null ? undefined : contactByPhone(await store.listContacts(session, business.id), phone);
