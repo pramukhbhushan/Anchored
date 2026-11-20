@@ -33,8 +33,6 @@
   --pad:var(--s-5);
   /* Type: seven sizes. Archivo sets lg and up, Public Sans the rest */
   --fs-fine:13px; --fs-sm:14px; --fs-md:16px; --fs-lg:18px; --fs-xl:22px; --fs-page:clamp(26px,3vw,32px); --fs-num:40px;
-  /* Reading column for pages that are one document: overview, approvals feed, profile */
-  --read-w:760px; --page-w:1120px;
 }
 @media (max-width:640px){:root{--gutter:16px;--pad:var(--s-4)}}
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
@@ -90,7 +88,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;border:1.5px solid var(--ink);background:var(--ink);color:var(--paper);padding:8px 16px;border-radius:var(--r);font-weight:600;font-size:var(--fs-md);line-height:1.2;text-align:center;cursor:pointer;text-decoration:none}
 .btn:hover{filter:brightness(1.18);color:var(--paper)}
 .btn svg{flex:none}
-/* `.ghost`, `.sm` and `.linkbtn` are the older names; the sign-in page and account menu still use them */
+/* `.ghost`, `.sm` and `.linkbtn` are the older names; the sign-in page, the account menu and the automation page still use them */
 .btn-secondary,.btn.ghost{background:transparent;color:var(--ink)}
 .btn-secondary:hover,.btn.ghost:hover{background:var(--sheet);filter:none;color:var(--ink)}
 .btn-quiet{background:transparent;border-color:transparent;color:var(--link);text-decoration:underline;padding:6px 8px;min-height:32px}
@@ -113,7 +111,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 /* ---------- interaction: quick transitions and a press state on everything clickable ---------- */
 @media (prefers-reduced-motion:no-preference){
   .btn,.linkbtn,.icon-btn,.tab,.side-link,.side-foot-link,.biz-row,.case,.switcher-btn,.switcher-item,.toggle,
-  .palette-item,.explainer summary,.tool-checks summary,.nav a,a{transition:background-color var(--ease),border-color var(--ease),color var(--ease),filter var(--ease),box-shadow var(--ease),transform var(--ease)}
+  .palette-item,.explainer summary,.nav a,a{transition:background-color var(--ease),border-color var(--ease),color var(--ease),filter var(--ease),box-shadow var(--ease),transform var(--ease)}
   .btn:active:not([disabled]),.tab:active,.icon-btn:active,.side-link:active,.biz-row:active{transform:translateY(1px)}
 }
 
@@ -123,14 +121,12 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .badge-good{background:var(--good-soft);color:var(--good)}
 .badge-warn{background:var(--warn-soft);color:var(--warn)}
 .badge-info{background:var(--buy-soft);color:var(--buy)}
-.badges{display:flex;flex-wrap:wrap;gap:6px}
 
 /* ---------- Card ---------- */
 .panel{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:var(--pad);min-width:0}
 .panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--s-3);margin-bottom:var(--s-4)}
 .panel-title{font-size:var(--fs-lg);font-weight:800;font-stretch:106%}
 .panel-desc{color:var(--muted);font-size:var(--fs-sm);margin-top:4px;max-width:65ch}
-.panel-text{color:var(--ink-2);font-size:var(--fs-md);max-width:65ch}
 /* Independent cards: a column per 380px of width */
 .grid-cards{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(min(100%,380px),1fr));align-items:stretch}
 
@@ -218,7 +214,7 @@ body:has(.compare-tray) .toast{bottom:calc(88px + env(safe-area-inset-bottom,0px
 .top-cta{flex:none}
 @media (max-width:640px){:root{--gutter:16px}}
 
-/* The landing page's own layout lives in components/site/landing.module.css */
+/* The landing page's own layout lives in components/site/harbor/harbor.module.css */
 .try{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .try input{flex:1 1 220px;min-width:0;min-height:40px;border:1.5px solid var(--line);border-radius:var(--r);padding:9px 12px;background:var(--sheet);font-size:16px}
 .try input:hover{border-color:var(--ink-2)}
@@ -438,7 +434,6 @@ html[data-dev] .side-foot{padding-bottom:64px}
 .palette-search input{flex:1;min-width:0;min-height:40px;border:0;background:transparent;font-size:var(--fs-lg);color:var(--ink)}
 .palette-search input:focus{outline:none;box-shadow:none}
 .palette-list{flex:1;list-style:none;margin:0;padding:var(--s-2);overflow-y:auto}
-.palette-group{padding:var(--s-3) var(--s-3) var(--s-1);font-size:var(--fs-fine);font-weight:600;color:var(--muted)}
 .palette-item{display:flex;align-items:center;gap:var(--s-3);width:100%;min-height:48px;padding:var(--s-2) var(--s-3);border:0;border-radius:var(--r);background:none;color:var(--ink);font-size:var(--fs-md);text-align:left;cursor:pointer}
 .palette-item svg{flex:none;color:var(--muted)}
 .palette-item[aria-selected="true"],.palette-item:hover{background:var(--hover)}
@@ -488,8 +483,8 @@ html[data-dev] .side-foot{padding-bottom:64px}
 @container app (min-width:900px){.form-layout{grid-template-columns:minmax(0,820px) minmax(260px,var(--rail-w))}}
 .steps-list{margin:0;padding-left:20px;color:var(--ink-2);display:flex;flex-direction:column;gap:6px;font-size:var(--fs-md)}
 
-/* ---------- overview: one reading column, the morning brief its one loud object ---------- */
-/* The overview uses the whole width: at wide sizes the brief splits into what waits and today's numbers. */
+/* ---------- overview: the whole width, the morning brief its one loud object ---------- */
+/* At wide sizes the brief splits into what waits and today's numbers */
 .ov{min-width:0}
 /* The example's four stops: numbered ledger cells, no box, since nothing here is the owner's to decide */
 .tour{margin-bottom:var(--s-5)}
@@ -716,21 +711,10 @@ fieldset.field{border:0;padding:0;margin:0}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 /* =============================================================================
-   Workflows: the open business's automations in the sidebar, the list under
-   the map, and one automation's page. Brought over from the Harbor Chart
-   theme on feat/workflow-map without the rest of that theme; its colors fall
-   back to this file's tokens.
+   Workflows: the list under the map and one automation's page. Colors fall
+   back to this file's tokens where the Harbor Chart ones are missing.
    ============================================================================= */
 
-/* The open business's automations under Workflows, like threads under a project */
-.side-sub{list-style:none;margin:2px 0 6px 19px;padding:0}
-/* Each part of the day is a header, larger than its automations, which sit indented beneath it on a guide line */
-.side-sub ul{list-style:none;margin:2px 0 4px 10px;padding:0 0 0 8px;border-left:1.5px solid var(--line)}
-.side-sub-stage{padding:10px 8px 2px;font:800 15px/1.25 var(--display);font-stretch:100%;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.side-sub-link{display:flex;align-items:center;gap:8px;min-height:32px;padding:5px 8px;border-radius:var(--r);color:var(--ink-2);font-size:13.5px;font-weight:500;text-decoration:none}
-.side-sub-link:hover{background:var(--hover);color:var(--ink)}
-.side-sub-link[aria-current="page"]{background:var(--foam,var(--hover));color:var(--ink);font-weight:700}
-.side-sub-wait{flex:none;display:inline-grid;place-items:center;min-width:20px;height:18px;padding:0 5px;background:var(--carbon);color:var(--on-carbon);font:700 11.5px/1 var(--mono,"Courier New",ui-monospace,monospace)}
 
 .wf-list{margin-top:var(--s-6);border-top:1px solid var(--line);padding-top:var(--s-4)}
 .wf-list>summary{font:700 var(--fs-md)/1.3 var(--body);color:var(--link);padding:var(--s-2) 0}
