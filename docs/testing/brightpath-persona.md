@@ -1,6 +1,6 @@
 # Test persona: Brightpath Coaching
 
-A made-up career coaching agency for testing the Bookkeeping agent. Every customer email ends in `@example.com`, so nothing reaches a real person.
+A made-up career coaching agency for testing the Bookkeeping agent by hand. Every customer email ends in `@example.com`, so nothing reaches a real person.
 
 ## The business
 
@@ -65,9 +65,9 @@ Following up on late invoices, replying to new leads faster, and reminding clien
 
 ## The invoice sheet
 
-Make a Google Sheet named "Brightpath Coaching invoices" with the rows below, and share it as a Viewer with the `client_email` of the service account in `GOOGLE_SERVICE_ACCOUNT_JSON`.
+Make a Google Sheet named "Brightpath Coaching invoices" with the rows below, and share it as a Viewer with the `client_email` of the service account in `GOOGLE_SERVICE_ACCOUNT_JSON`. The due dates suit a test run in early November 2026. Move them so invoice 1044 is still in the future and the others are past due.
 
-| Invoice # | Customer | Email | Amount | Due date | Status | What it tests (as of Nov 8, 2026) |
+| Invoice # | Customer | Email | Amount | Due date | Status | What it tests |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1042 | Maya Chen | maya.chen@example.com | $450 | 2026-10-20 | Unpaid | Overdue, gets a reminder |
 | 1043 | Jordan Ellis | jordan.ellis@example.com | $1,200 | 2026-10-28 | Unpaid | Overdue. Change to "Paid" during the test to show the cancel |
@@ -89,7 +89,7 @@ Open http://localhost:3102. Data is kept in memory and resets when the server re
 
 ### 2. Onboard
 
-Use the onboarding answers above.
+Use the onboarding answers above. To answer them for you, open the browser console on the app and paste [`scripts/onboard-brightpath.js`](../../scripts/onboard-brightpath.js), with your sheet's link in place of `YOUR_SHEET_ID`.
 
 ### 3. Turn on Bookkeeping
 

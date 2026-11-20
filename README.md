@@ -44,21 +44,7 @@ For how the code fits together, see [`docs/architecture.md`](docs/architecture.m
 
 ## Agent workspaces
 
-Active agents appear under Workflows in the sidebar, the command palette and Overview. Each workspace shows its existing drafts, recent decisions and jobs. Approvals remains the single review queue. Main's workflow map, setup chat, automation pages and existing URLs are preserved.
-
-The core workspace route tokens under `/app/b/<id>/workflows/` are `customer`, `books`, `content` and `internal`. A workspace opens only when that agent is active in the business's plan. Active niche agents also get workspaces. Customer groups the stored Front Desk and Follow-up records for display; the canonical agent migration remains Pramukh's work.
-
-Customer now reads real, session-scoped Telegram conversations and their delivery results. Customer and Connections show the business's Telegram link and a locally generated QR when the server has a bot configured. Guest-owned businesses can use this link; the shared example cannot. The acknowledgment switch saves to the server. Its fixed reply starts on and is limited to once per contact per 12-hour window. Switching it off cancels queued acknowledgments. Free-text replies still wait in Approvals.
-
-Internal Communications reads forwarded email, sorts it with checked rules, and creates owner cards without sending an email reply. Its daily brief and Run now are connected to persisted brief runs; Overview shows the latest completed brief. The scheduled brief runs once per day from 7 a.m. Eastern when a scheduler calls its route. All brief numbers and wording currently come from code.
-
-Each agent workspace has its own Ask chat. The server validates the selected active agent, keeps its history separate and limits draft requests to its chosen skills. General questions use the configured AI provider and daily budget; missing or failed AI is reported explicitly. AI chat advice cannot send messages or perform actions. Visitors can chat with the example business without onboarding; its conversations are private to their session and never change the shared example or create real work. Billing, supplier and review handoffs currently become owner notes. Specialized Bookkeeping/Marketing feeds, cross-agent handoff helpers, and a job-completion contract for review follow-ons remain integration work. Main's existing invoice-sheet and paid-invoice behavior is retained; a paid invoice alone is not proof of a completed job.
-
-Customer's recorded follow-ups accept an explicit due time, state, source id and evidence. They draft Telegram messages only for chosen skills and eligible contacts; Debrief creates an owner-only note. STOP, allergy locks, touch limits and saved cancellation are checked again at approval and dispatch. Timers never authorize automatic customer sends. Internal's license-date control stores evidenced expiry dates in the versioned profile. License Clerk creates owner-only warnings at 30 days, 7 days, expiry and overdue, using Eastern civil dates across clock changes; completing, removing or changing a date replaces stale pending notices.
-
-The outbox offers Telegram removal only when the server confirms a sent message is eligible within 48 hours. Its authorized route uses stored message identity, preserves sent text and delivery history, and reports the provider's actual result. Someone may already have read a removed message. These features are implemented and covered by the combined tests, but their new database migrations and controlled live verification remain release prerequisites. See [Remaining deployment prerequisites](#remaining-deployment-prerequisites).
-
-The [integration notes](components/business/agents/integration.md) identify the connected routes and remaining contracts. The [demo runbook](docs/agent-demo.md) separates implemented behavior, reported phone testing, automated tests and live checks still to run. Eric's earlier local phone test covered start, an incoming message, the acknowledgment and an approved reply. It did not verify the deployed Supabase-backed flow or real Postmark delivery. No recorded demo video is claimed here.
+Active agents appear under Workflows in the sidebar, the command palette and Overview: Customer, Bookkeeping, Marketing and Internal Communications. Each workspace shows its drafts, recent decisions and its own chat, and Approvals stays the one review queue. [`docs/agents.md`](docs/agents.md) explains what each agent drafts and what starts it.
 
 ## Run it locally
 
@@ -260,7 +246,7 @@ These are operator steps for an authorized test or deployment. Registering a web
 
    `set` replaces the bot's webhook and drops pending Telegram updates. A bot has one webhook, so registering a laptop tunnel takes updates away from production. The script prints the target, pending update count and Telegram's last reported error without printing credentials. A past reported error is diagnostic history; verify a new message arrives at the intended deployment.
 5. Create your own business, choose a Customer workflow for Anchored to draft, and open Connections or Customer. Scan the QR, tap Start, send a question, then review the draft in Approvals. Only an approved free-text reply sends. The fixed acknowledgment starts on; turn it off in Customer if you do not want it. `/stop` stops that business's messages, and a new `/start` from its link explicitly restarts them.
-6. Run the controlled phone checks in the [demo runbook](docs/agent-demo.md). A local tunnel test does not verify production credentials, Supabase queries or scheduling. With the in-memory store, restarting the app removes its businesses, chat bindings and history, so recreate the business and open its new link after a restart.
+6. Run the controlled phone checks in the [agent test runbook](docs/testing/agent-demo.md). A local tunnel test does not verify production credentials, Supabase queries or scheduling. With the in-memory store, restarting the app removes its businesses, chat bindings and history, so recreate the business and open its new link after a restart.
 
 ## Remaining deployment prerequisites
 
@@ -271,7 +257,7 @@ Before deploying, Pramukh must manually review and apply the two new append-only
 - `supabase/migrations/20261108000700_telegram_deletion.sql`
 - `supabase/migrations/20261108000800_customer_followups.sql`
 
-These files have not been applied to live Supabase by this implementation. Keep the existing cron schedules: dispatch every 5 minutes now also checks recorded work, and brief runs hourly. No new cron configuration is needed. Confirm production settings, matching Telegram secrets, real Supabase persistence and authorized phone delivery separately. The [demo runbook](docs/agent-demo.md) records the remaining live checks and teammate contracts. No deployment, video or new screenshot is claimed by an automated test run.
+These files have not been applied to live Supabase by this implementation. Keep the existing cron schedules: dispatch every 5 minutes now also checks recorded work, and brief runs hourly. No new cron configuration is needed. Confirm production settings, matching Telegram secrets, real Supabase persistence and authorized phone delivery separately. The [agent test runbook](docs/testing/agent-demo.md) lists the live checks. No deployment, video or new screenshot is claimed by an automated test run.
 
 ## Project layout
 
@@ -312,11 +298,3 @@ CI runs the same steps on every pull request and on every push to `main`.
 ## Contribute
 
 Read [`AGENTS.md`](AGENTS.md) before you change anything, whether you or a coding agent writes the code. It covers the layout, the rules that protect owners' customers, how several people work in parallel worktrees, and the commit conventions. Land every change through a pull request by following [`.claude/skills/land-a-pr/SKILL.md`](.claude/skills/land-a-pr/SKILL.md). Claude Code loads both on its own through `CLAUDE.md` and the skill.
-
-### Agent implementation screenshots
-
-These show the November 8 local preview with demonstration facts and the in-memory store. They do not prove live Telegram delivery.
-
-![Internal Communications with a recorded license and its renewal card](docs/screenshots/agent-license-desktop.png)
-
-[Phone view of the same controls](docs/screenshots/agent-license-phone.png). See [Eric's remaining-work checkpoint](Agent%20System%20Implementation/Eric%20Remaining%20Implementation.md) for completed stages and deployment dependencies.
