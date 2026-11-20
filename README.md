@@ -160,7 +160,7 @@ Each service stays off until its variables are set. [Connect real services](#con
 | `INBOUND_EMAIL_ADDRESS` | The Postmark inbound address. Each business forwards to it with its own hook id after a `+` |
 | `INBOUND_EMAIL_SECRET` | A random string that Postmark's webhook URL carries as `?key=`, so only Postmark can post inbound email |
 | `TELEGRAM_BOT_TOKEN` | The shared bot token from BotFather, used only on the server |
-| `TELEGRAM_BOT_USERNAME` | The bot username without `@`. The current test bot is `AnchorMesageBot`, with one "s" in "Mesage" |
+| `TELEGRAM_BOT_USERNAME` | The bot username without `@` |
 | `TELEGRAM_WEBHOOK_SECRET` | The private secret Telegram sends with webhook updates. The registration script and deployed app must use the same value |
 | `CRON_SECRET` | The bearer token required by scheduled dispatch and brief routes. Missing or incorrect authorization returns 404 |
 | `PUBLIC_APP_URL` | This deployment's public https address. The webhook URLs on the Connections page start with it |
@@ -248,7 +248,7 @@ An owner connects credential-bearing services on a business's Connections page, 
 
 These are operator steps for an authorized test or deployment. Registering a webhook changes where the shared bot sends updates; it is not part of a normal local app start.
 
-1. In Telegram, open the official BotFather chat. Create a bot with `/newbot`, or use the existing test bot. Keep its token private. The current test bot's username is `AnchorMesageBot`, with one "s" in "Mesage"; use the actual username rather than its display name.
+1. In Telegram, open the official BotFather chat. Create a bot with `/newbot`. Keep its token private. Use the bot's username, not its display name.
 2. Set `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` and `TELEGRAM_WEBHOOK_SECRET` on the server and in the ignored local environment used for registration. Set `CRON_SECRET` for scheduled work. Share secret values privately, never in issues, screenshots, browser props or source control. The local registration secret must exactly match the receiving deployment's secret, or every update is rejected with 404.
 3. Confirm the database owner has applied the Telegram and brief migrations, plus any later migrations required by the code being deployed. The original Telegram and brief files are `20261108000300_telegram_threads.sql` and `20261108000600_internal_briefs.sql`; the handoff reports both were applied. `20261108000700_telegram_deletion.sql` and `20261108000800_customer_followups.sql` are new local migrations that Pramukh must review and apply before this version deploys.
 4. Once the intended deployment is running and its operator has approved moving the shared bot, register its public HTTPS address and inspect the result under Node 26:
