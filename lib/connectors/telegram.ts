@@ -190,7 +190,7 @@ async function call(bot: TelegramBot, method: string, payload: Readonly<Record<s
     throw uncertainResponse(method);
   }
   if (answer === null || typeof answer !== "object") throw uncertainResponse(method);
-  if (answer.ok !== true) throw new ConnectorError("Telegram answered without confirming it.", false);
+  if (answer.ok !== true) throw new ConnectorError("Telegram answered without confirming it. Check the conversation before trying again.", false);
   return answer.result;
 }
 

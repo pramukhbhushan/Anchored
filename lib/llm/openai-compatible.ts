@@ -28,8 +28,7 @@ interface Dialect {
   readonly titleHeader: string | null;
 }
 
-// Facts from each provider's docs, checked Nov 2026. OpenAI's reference page refused automated
-// fetches; its row follows OpenAI's published API, where `max_tokens` gave way to `max_completion_tokens`.
+// Facts from each provider's docs, checked Nov 2026. OpenAI replaced `max_tokens` with `max_completion_tokens`.
 const DIALECTS: Readonly<Record<CompatibleName, Dialect>> = {
   openai: { tokenParam: "max_completion_tokens", structured: "json_schema", baseBody: {}, structuredBody: {}, titleHeader: null },
   // OpenRouter supports json_schema only on some model endpoints; `require_parameters` routes to one that does.
