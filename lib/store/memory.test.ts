@@ -300,6 +300,31 @@ describe("Telegram contacts", () => {
   });
 });
 
+describe("contacts that share a phone number or a chat", () => {
+  const base = { businessId: BUSINESS, email: null, consent: null, optedOutAt: null };
+
+  it("never merges or deletes them: a chat another contact holds stays with it", async () => {
+    const store = new MemoryStore();
+    const byPhone = await store.saveContact("s1", { ...base, name: "Dana", phone: "+12025550100" });
+    const byChat = await store.saveContact("s1", { ...base, name: "Dana on Telegram", phone: null, telegramChatId: "42" });
+
+    const saved = await store.saveContact("s1", { ...base, name: "Dana Ruiz", phone: "+12025550100", telegramChatId: "42" });
+
+    expect(saved.id).toBe(byPhone.id);
+    expect(saved.telegramChatId).toBeUndefined();
+    expect(await store.listContacts("s1", BUSINESS)).toEqual([saved, byChat]);
+  });
+
+  it("refuses a phone number another contact holds", async () => {
+    const store = new MemoryStore();
+    await store.saveContact("s1", { ...base, name: "Dana", phone: "+12025550100" });
+    const other = await store.saveContact("s1", { ...base, name: "Lee", phone: "+12025550111" });
+
+    await expect(store.saveContact("s1", { ...base, id: other.id, name: "Lee", phone: "+12025550100" })).rejects.toThrow("already has");
+    expect(await store.listContacts("s1", BUSINESS)).toHaveLength(2);
+  });
+});
+
 describe("outbox entries a rule authorized", () => {
   it("keep their rule and need no card", async () => {
     const store = new MemoryStore();
