@@ -412,7 +412,7 @@ export const EXAMPLES: readonly [Example, ...Example[]] = [
 // Lookups
 // =============================================================================
 
-/** The rules engine's profile for one example, with id `ex-<id>`. An unknown id falls back to the first example, as the prototype's picker did. */
+/** The rules engine's profile for one example, with id `ex-<id>`. An unknown id falls back to the first example. */
 export function exampleProfile(id: string): BusinessProfile {
   const example = EXAMPLES.find((candidate) => candidate.id === id) ?? EXAMPLES[0];
   const profile = profileFromFacts({ ...example, id: `ex-${example.id}` });

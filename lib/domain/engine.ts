@@ -24,7 +24,7 @@ import { NOT_GIVEN, TOOL_OPTIONS, WORKFLOW_IDS } from "@/lib/domain/workflows";
 // and `profileFromSentence` wrap that into a `BusinessProfile`. `TRADE_HINTS`
 // are suggestions for the onboarding form only; no function here applies them.
 
-/** Who built an engine profile: the rules alone, or the rules refined by Claude. */
+/** Who built an engine profile: the rules alone, or the rules refined by a model. The stored value stays `claude`. */
 export type EngineAuthor = Exclude<BusinessProfile["builtBy"], "case">;
 
 /** A workflow the rules matched, before a path is recommended. */

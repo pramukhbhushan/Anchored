@@ -61,7 +61,7 @@ export function agentForSkill(business: Pick<BusinessProfile, "nicheAgents">, sk
   return agent;
 }
 
-/** Display name for a core or niche agent; an unknown niche id reads as "Anchored", as the prototype showed agentless cards. */
+/** Display name for a core or niche agent. An unknown niche id reads as "Anchored". */
 export function agentName(business: Pick<BusinessProfile, "nicheAgents">, ref: AgentRef): string {
   if (!isNicheRef(ref)) return CORE_AGENTS[ref].name;
   return business.nicheAgents.find((agent) => agent.id === ref)?.name ?? "Anchored";

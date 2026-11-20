@@ -6,7 +6,7 @@ import type { BusinessProfile, CoreAgentId, FieldEvidence, FieldKey, NextStep, P
 // Module Overview
 // =============================================================================
 // Profile details as pure functions. `parseDetail` reads one field from words,
-// the owner's or a source's, and `candidatesFrom` reads every field it can.
+// the owner's or a source's, and `candidateFor` wraps it with its evidence.
 // `mergeCandidate` folds a candidate in by source precedence (owner, then a
 // document, then the listing or website, then reviews, then confidence) and
 // keeps a disagreeing source as a conflict instead of dropping it.
@@ -488,7 +488,7 @@ const SESSION_NOTE_PATTERNS: readonly RegExp[] = [
 
 /** Whether `text` reads like notes from a session or a call transcript, so extraction skips it. */
 export function looksLikeSessionNotes(text: string): boolean {
-  return SESSION_NOTE_PATTERNS.filter((pattern) => pattern.test(text)).length >= 1;
+  return SESSION_NOTE_PATTERNS.some((pattern) => pattern.test(text));
 }
 
 /** Field keys a source may fill, in registry order. Owner writing and structured license dates are excluded. */

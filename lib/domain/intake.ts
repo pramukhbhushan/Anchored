@@ -56,10 +56,10 @@ export type IntakeField = "name" | "kind" | "what" | "reach" | "tools" | "signal
 export type GapStep = `gap:${FieldKey}`;
 
 /**
- * Where an intake stands: a planned question, picking a Google listing, a gap question, the closing confirm step,
- * or choosing what to change.
+ * Where an intake stands: a planned question, picking a Google listing, a gap question, the invoice sheet, the
+ * closing confirm step, or choosing what to change. `sheet` comes only when the owner uses Google Sheets and
+ * Bookkeeping is in the plan.
  */
-/** `sheet` asks for the invoice spreadsheet, only when the owner uses Google Sheets and Bookkeeping is in the plan. */
 export type IntakeStep = IntakeField | "listing" | GapStep | "sheet" | "confirm" | "change";
 
 /** One "Is this you?" match from Google Places. */
@@ -574,7 +574,7 @@ const FIELD_LABELS: Readonly<Record<IntakeField, { readonly change: string; read
   voice: { change: "Your voice", summary: "Your voice" },
 };
 
-/** Keep only values that name a real option for `key`, spelled as the option list spells it. Signals match by id, label or short label. */
+/** Keep only values that name a real option for `key`, spelled as the option list spells it. */
 function allowedValues(key: Exclude<ListKey, "signals">, values: readonly string[]): string[] {
   const wanted = values.map((value) => value.trim().toLowerCase());
   const options = key === "reach" ? REACH_OPTIONS : key === "tools" ? TOOL_OPTIONS : LANGUAGE_OPTIONS;
@@ -1388,7 +1388,6 @@ const NOW_A = /\b(?:we're|we are|now we're|we became)\s+(?:now\s+)?(?:a|an)\s+/i
 // Words that end a rename sentence without being part of the name: "we're called Brightpath now".
 const RENAME_FILLER = /(?:\s+(?:now|these days|instead|going forward|from now on|anymore|officially))+["']?$/i;
 
-/** Read the changes an owner describes, such as "we started doing catering" or "we switched from Clover to Square". */
 // Detail statements a chat message can make. Each captures the words that hold the value.
 const HOURS_SAID = /\b(?:our )?(?:hours are|hours now|we're open|we are open|open)\s+(.{3,120}?)(?=[.!?]|$)/i;
 const NAME_SAID = /\b(?:my name is|i'm|i am)\s+([A-Z][a-zA-Z'-]{1,29})\b/;
@@ -1427,6 +1426,7 @@ export function readDetailChanges(text: string): DetailCandidate[] {
   return found;
 }
 
+/** Read the changes an owner describes, such as "we started doing catering" or "we switched from Clover to Square". */
 export function readChanges(text: string): FactChanges {
   const clean = normalize(text);
   if (clean === "") return NO_CHANGES;
@@ -1492,8 +1492,9 @@ function samePlan(a: WorkflowPlan | undefined, b: WorkflowPlan | undefined): boo
 }
 
 /**
- * Rebuild `business` from its facts with `changes` applied. The id, `builtBy`, researched cards, the
- * owner's plan approval and the jobs they added from the tools page carry over, and a workflow whose rules reasoning didn't change keeps its written text, which may be the model's.
+ * Rebuild `business` from its facts with `changes` applied. The id, `builtBy`, researched cards, the owner's plan
+ * approval and the jobs they added from the tools page carry over. A workflow whose rules reasoning didn't change
+ * keeps its written text, which may be the model's.
  */
 export function applyChanges(business: BusinessProfile, changes: FactChanges): { profile: BusinessProfile; changes: ProfileChange[] } {
   const before = factsFromProfile(business);

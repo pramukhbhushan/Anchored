@@ -4,11 +4,11 @@
 // The few messages Anchored may send without a tap on each one. A standing rule
 // is one the owner can turn off; v1 has only `acknowledge`, a fixed "got your
 // message" reply that starts on, since customers expect to hear that their
-// message landed. A protocol notice is the bot's
-// fixed answer to a customer's own /start or /stop. Both are fixed text, never
-// written by the model, and both still pass `checkSend` before they go out.
+// message landed. A protocol notice is the bot's fixed answer to a customer's
+// own /start or /stop. Both are fixed text, never written by the model, and
+// both still pass `checkSend` before they go out.
 
-/** A standing rule the owner can turn on. */
+/** A standing rule the owner can turn on or off. */
 export type StandingRuleId = "acknowledge";
 
 /** Every standing rule, in the order the owner sees them. */

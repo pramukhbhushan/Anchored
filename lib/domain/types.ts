@@ -5,7 +5,7 @@ import type { License } from "@/lib/domain/renewals";
 // Module Overview
 // =============================================================================
 // Shared domain types for Anchored. Workflows are the "what" (`WorkflowId`),
-// each has three paths (`PathKind`), tools are rated on seven checks (`Rating`),
+// each has three paths plus skip (`PathKind`), tools are rated on seven checks (`Rating`),
 // five core agents run skills on the build path (`CoreAgentId`, `SkillId`),
 // onboarding can spawn `NicheAgent`s, and a `BusinessProfile` is the context.
 // `ProfileDetails` are the facts agents need beyond onboarding's answers, each
@@ -42,7 +42,7 @@ export type TradeKey = "home" | "restaurant" | "store" | "coach" | "any";
 /** The five core agents every business gets. Each one runs a set of skills. */
 export type CoreAgentId = "frontdesk" | "followup" | "books" | "content" | "internal";
 
-/** What an agent can do. The prototype's 17 agents became these skills, plus `brief` and `triage`. */
+/** What an agent can do. Each skill names the core agent that runs it in `SKILLS`. */
 export type SkillId =
   | "callback"
   | "inquiry"
@@ -79,7 +79,7 @@ export type SignalId =
   | "memberships"
   | "marketing";
 
-/** Claude model tier an agent runs on, picked by task complexity. */
+/** The model tier an agent runs on, picked by task complexity. The server's AI settings map each tier to a model. */
 export type ModelTier = "quick" | "default" | "complex";
 
 /**
