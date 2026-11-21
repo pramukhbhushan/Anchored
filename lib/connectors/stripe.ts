@@ -8,7 +8,8 @@ import { z } from "zod";
 // Stripe tells Anchored when an invoice goes unpaid. `verifyStripeSignature`
 // checks the `Stripe-Signature` header against the endpoint's signing secret,
 // and `readUnpaidInvoice` reads an `invoice.overdue` or `invoice.payment_failed`
-// event into what Payment Nudger needs. Anchored never charges a card.
+// event into what Payment Nudger needs, with the event id that keeps a replayed
+// event from drafting a second card. Anchored never charges a card.
 
 // Stripe's default: an event signed more than five minutes ago is refused, so a captured one can't be replayed.
 const TOLERANCE_SECONDS = 300;
@@ -28,6 +29,7 @@ export function verifyStripeSignature(secret: string, payload: string, header: s
 }
 
 const invoiceEvent = z.object({
+  id: z.string().optional(),
   type: z.string(),
   data: z.object({
     object: z.object({
@@ -42,6 +44,8 @@ const invoiceEvent = z.object({
 
 /** An unpaid invoice, as Payment Nudger reads it. */
 export interface UnpaidInvoice {
+  /** Stripe's event id, such as `evt_1A2b`, or `null` when the event has none of the expected shape. */
+  readonly eventId: string | null;
   readonly kind: "overdue" | "failed";
   readonly customerName: string | null;
   readonly customerEmail: string | null;
@@ -54,10 +58,12 @@ export interface UnpaidInvoice {
 export function readUnpaidInvoice(event: unknown): UnpaidInvoice | null {
   const parsed = invoiceEvent.safeParse(event);
   if (!parsed.success) return null;
-  const { type, data } = parsed.data;
+  const { id, type, data } = parsed.data;
   const kind = type === "invoice.overdue" ? "overdue" : type === "invoice.payment_failed" ? "failed" : null;
   if (kind === null || data.object.currency.toLowerCase() !== "usd") return null;
   return {
+    // The id becomes part of a card key, so only Stripe's own shape is kept.
+    eventId: id !== undefined && /^evt_\w{1,120}$/.test(id) ? id : null,
     kind,
     customerName: data.object.customer_name?.trim().slice(0, 80) || null,
     customerEmail: data.object.customer_email?.trim().slice(0, 200) || null,

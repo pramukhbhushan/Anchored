@@ -174,7 +174,7 @@ function ownerNote(business: BusinessProfile, name: string, skill: SkillId, titl
 
 /** Write the reply with the business's AI key or the server's when either is set up, and from the template otherwise or when its reply fails a check. */
 async function replyWords(session: string, business: BusinessProfile, contact: Contact, skill: ThreadSkill, text: string, thread: readonly ThreadMessage[]): Promise<{ body: string; byModel: boolean }> {
-  const llm = await getBudgetedLlm({ session, businessId: business.id });
+  const llm = await getBudgetedLlm(session, business.id);
   if (llm !== null) {
     try {
       return { body: await wordsFromModel(llm, business, contact, skill, text, thread), byModel: true };

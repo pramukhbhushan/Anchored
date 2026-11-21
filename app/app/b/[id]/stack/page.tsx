@@ -26,7 +26,7 @@ export default async function StackPage({ params }: { readonly params: Promise<{
   const { id } = await params;
   const business = await getBusinessOrNotFound(id);
   const session = await getSessionId();
-  const [choices, ai] = await Promise.all([getChoices(business), aiSetup({ session, businessId: business.id })]);
+  const [choices, ai] = await Promise.all([getChoices(business), aiSetup(session, business.id)]);
   // A tool chosen for two workflows gets one panel; the first pick wins, as on the bill.
   const tools = chosenTools(business, choices).filter((x, i, all) => all.findIndex((y) => y.tool.id === x.tool.id) === i);
 

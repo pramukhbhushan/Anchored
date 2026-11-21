@@ -7,7 +7,7 @@ import type { BusinessProfile, OnboardingAnswers, WorkflowId, WorkflowPlan } fro
 import { PATH_LABEL, SIGNALS, WORKFLOWS } from "@/lib/domain/workflows";
 import { LlmConfigError, LlmResponseError } from "@/lib/llm";
 import { tierForTask } from "@/lib/llm/task-tier";
-import { getBudgetedLlm, type AiScope } from "@/lib/server/ai-budget";
+import { getBudgetedLlm } from "@/lib/server/ai-budget";
 
 // =============================================================================
 // Module Overview
@@ -19,9 +19,9 @@ import { getBudgetedLlm, type AiScope } from "@/lib/server/ai-budget";
 
 export { aiLabel, aiSetup, isAiConfigured } from "@/lib/server/ai-budget";
 
-/** Return the provider for `scope`, or throw when it has none. */
-async function requireLlm(scope: AiScope | null) {
-  const llm = await getBudgetedLlm(scope);
+/** Return the provider for `session`'s work on `businessId`, or before a business exists, or throw when it has none. */
+async function requireLlm(session: string, businessId?: string) {
+  const llm = await getBudgetedLlm(session, businessId);
   if (!llm) throw new LlmConfigError("No AI key: the business has none on Connections, and the server sets no `AI_PROVIDER` and `AI_API_KEY`.");
   return llm;
 }
@@ -46,7 +46,7 @@ const enrichmentSchema = z.object({
 });
 
 /** Return `base` with its trade, customers, tasks, voice and workflow reasons written by the model. */
-export async function enrichProfile(answers: OnboardingAnswers, base: BusinessProfile): Promise<BusinessProfile> {
+export async function enrichProfile(session: string, answers: OnboardingAnswers, base: BusinessProfile): Promise<BusinessProfile> {
   const workflows = workflowIdsOf(base);
   const workflowLines = workflows.map((id) => `- ${id}: ${WORKFLOWS[id].name}. Anchored's pick: ${PATH_LABEL[base.workflows[id]?.rec ?? "skip"]}.`).join("\n");
   const facts = answers.signals.map((id) => SIGNALS.find((signal) => signal.id === id)?.label).filter(Boolean).join("; ");
@@ -69,7 +69,7 @@ A reply in their voice: ${answers.voice}
 </owner_answers>`;
 
   // The business doesn't exist yet, so only the server's key can write it.
-  const out = await (await requireLlm(null)).generateObject({ tier: tierForTask("draft"), schema: enrichmentSchema, schemaName: "profile_text", prompt, maxTokens: 4000 });
+  const out = await (await requireLlm(session)).generateObject({ tier: tierForTask("draft"), schema: enrichmentSchema, schemaName: "profile_text", prompt, maxTokens: 4000 });
 
   const reasons = new Map(out.reasons.map((reason) => [reason.workflow, reason.why]));
   const merged: Partial<Record<WorkflowId, WorkflowPlan>> = {};
@@ -104,7 +104,7 @@ export async function rewriteInVoice(session: string, business: BusinessProfile,
 
 <message>${body}</message>`;
 
-  const text = plainPunctuation(await (await requireLlm({ session, businessId: business.id })).generateText({ tier: tierForTask("short_reword"), prompt, maxTokens: 1000 })).slice(0, 600);
+  const text = plainPunctuation(await (await requireLlm(session, business.id)).generateText({ tier: tierForTask("short_reword"), prompt, maxTokens: 1000 })).slice(0, 600);
   const added = newFacts(body, text);
   if (added.length > 0) throw new LlmResponseError(`The rewrite added details that weren't in the draft: ${added.join(", ")}.`);
   // The opt-out line is a texting rule, so code restores it if the rewrite dropped it.

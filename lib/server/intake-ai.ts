@@ -80,16 +80,16 @@ export function intakeState(intake: IntakeRecord, messages: readonly ChatMessage
 // =============================================================================
 
 /** Apply one answer to the current question and write the reply, using the model when it is set up. */
-export async function takeIntakeTurn(draft: IntakeDraft, question: IntakeQuestion, answer: IntakeAnswer, transcript: readonly ChatMessage[]): Promise<IntakeTurn> {
+export async function takeIntakeTurn(session: string, draft: IntakeDraft, question: IntakeQuestion, answer: IntakeAnswer, transcript: readonly ChatMessage[]): Promise<IntakeTurn> {
   const step = question.field;
   const rules = readAnswer(answer.text ?? "", step);
-  if (step === "listing") return listingTurn(draft, answer, rules);
-  if (isGapStep(step)) return gapTurn(draft, step, answer, rules);
+  if (step === "listing") return listingTurn(session, draft, answer, rules);
+  if (isGapStep(step)) return gapTurn(session, draft, step, answer, rules);
   // Onboarding runs before the business exists, so only the server's key can read answers.
-  const llm = await getBudgetedLlm(null);
+  const llm = await getBudgetedLlm(session);
   // Chips, skips and the review are exact already; a voice sample is kept whole, so there is nothing to read.
   if (llm === null || !isPlanField(step) || step === "voice" || rules.intent !== "answer" || rules.text === "") {
-    return rulesTurn(draft, step, answer, rules);
+    return rulesTurn(session, draft, step, answer, rules);
   }
 
   let read: ModelReading;
@@ -97,19 +97,19 @@ export async function takeIntakeTurn(draft: IntakeDraft, question: IntakeQuestio
     read = await readWithModel(llm, draft, question, rules.text, transcript);
   } catch (error) {
     console.warn(`[Intake AI] The model could not read this answer; using the rules for this turn. Reason: ${error instanceof Error ? error.message : String(error)}`);
-    return rulesTurn(draft, step, answer, rules);
+    return rulesTurn(session, draft, step, answer, rules);
   }
 
   const reading = mergeReadings(rules, { facts: read.facts, dropped: NO_LISTS });
   const answered = applyReading(draft, step, answer.picks, reading);
   // A follow-up from the model waits behind any the rules asked, and never follows another follow-up.
   const followed = read.followUp && answered.followUp === null && draft.followUp === null ? withFollowUp(answered, read.followUp.field, read.followUp.text) : null;
-  const after = await lookUp(draft, followed ?? answered, step, reading);
+  const after = await lookUp(session, draft, followed ?? answered, step, reading);
   return { draft: after, reply: composeReply(draft, after, step, reading, read.ack) };
 }
 
-async function rulesTurn(draft: IntakeDraft, step: IntakeStep, answer: IntakeAnswer, reading: AnswerReading): Promise<IntakeTurn> {
-  const after = await lookUp(draft, applyReading(draft, step, answer.picks, reading), step, reading);
+async function rulesTurn(session: string, draft: IntakeDraft, step: IntakeStep, answer: IntakeAnswer, reading: AnswerReading): Promise<IntakeTurn> {
+  const after = await lookUp(session, draft, applyReading(draft, step, answer.picks, reading), step, reading);
   return { draft: after, reply: composeReply(draft, after, step, reading) };
 }
 
@@ -117,7 +117,7 @@ async function rulesTurn(draft: IntakeDraft, step: IntakeStep, answer: IntakeAns
 const SALES_FIELDS = ["pricingMethod", "prices", "minimumCharge", "priceDrivers"] as const;
 
 /** Work an answer sets off before the reply is written, so the reply asks the right next question. */
-async function lookUp(before: IntakeDraft, after: IntakeDraft, step: IntakeStep, reading: AnswerReading): Promise<IntakeDraft> {
+async function lookUp(session: string, before: IntakeDraft, after: IntakeDraft, step: IntakeStep, reading: AnswerReading): Promise<IntakeDraft> {
   let next = after;
   const { name, place } = next.facts;
   // Once the name and town are known, look the business up on Google, once per intake.
@@ -125,33 +125,33 @@ async function lookUp(before: IntakeDraft, after: IntakeDraft, step: IntakeStep,
     next = withListingChoices(next, await searchPlaces(name, place));
   }
   if (step === "what" && reading.intent === "answer" && reading.text !== "" && before.facts.what !== next.facts.what) {
-    next = withCandidates(next, await extractDetails("owner", reading.text, SALES_FIELDS));
+    next = withCandidates(next, await extractDetails(session, "owner", reading.text, SALES_FIELDS));
   }
   return next;
 }
 
 /** The owner picked their Google listing, or said it isn't there. A pick reads the listing, then its website. */
-async function listingTurn(draft: IntakeDraft, answer: IntakeAnswer, reading: AnswerReading): Promise<IntakeTurn> {
+async function listingTurn(session: string, draft: IntakeDraft, answer: IntakeAnswer, reading: AnswerReading): Promise<IntakeTurn> {
   const placeId = pickedListing(draft, answer.picks);
   const facts = placeId === null ? null : await placeDetails(placeId);
   let after = applyListing(draft, placeId, facts?.candidates ?? []);
-  if (facts?.listingText) after = withCandidates(after, await extractDetails("listing", facts.listingText));
-  if (facts?.reviewText) after = withCandidates(after, await extractDetails("reviews", facts.reviewText));
+  if (facts?.listingText) after = withCandidates(after, await extractDetails(session, "listing", facts.listingText));
+  if (facts?.reviewText) after = withCandidates(after, await extractDetails(session, "reviews", facts.reviewText));
   // Only a model can read a website for facts, so without one the page isn't fetched at all.
-  if (facts?.website && (await getBudgetedLlm(null)) !== null) {
+  if (facts?.website && (await getBudgetedLlm(session)) !== null) {
     const page = await fetchPage(facts.website);
-    if (page) after = withCandidates(after, await extractDetails("website", page.text));
+    if (page) after = withCandidates(after, await extractDetails(session, "website", page.text));
   }
   return { draft: after, reply: composeReply(draft, after, "listing", reading) };
 }
 
 /** A gap answer: the rules read it, and the model tries only when the rules found nothing in typed words. */
-async function gapTurn(draft: IntakeDraft, step: GapStep, answer: IntakeAnswer, reading: AnswerReading): Promise<IntakeTurn> {
+async function gapTurn(session: string, draft: IntakeDraft, step: GapStep, answer: IntakeAnswer, reading: AnswerReading): Promise<IntakeTurn> {
   const key = gapKeyOf(step);
   let after = applyGapAnswer(draft, key, answer.picks, reading);
   const unread = JSON.stringify(after.details?.[key]) === JSON.stringify(draft.details?.[key]);
   if (unread && answer.picks === undefined && reading.intent === "answer" && reading.text !== "") {
-    const extra = await extractDetails("owner", reading.text, [key]);
+    const extra = await extractDetails(session, "owner", reading.text, [key]);
     if (extra.length > 0) after = applyGapAnswer(draft, key, answer.picks, reading, extra);
   }
   return { draft: after, reply: composeReply(draft, after, step, reading) };

@@ -137,7 +137,7 @@ export default async function ApprovalsPage({ params }: { readonly params: Promi
   const { id } = await params;
   const business = await getBusinessOrNotFound(id);
   const session = await getSessionId();
-  const [choices, feed, canRewrite] = await Promise.all([getChoices(business), getFeed(business), isAiConfigured({ session, businessId: business.id })]);
+  const [choices, feed, canRewrite] = await Promise.all([getChoices(business), getFeed(business), isAiConfigured(session, business.id)]);
   const agents = activeAgents(business, choices);
   const agentNames = Object.fromEntries(agents.map((a) => [a.id, a.name]));
   // Example events show a visitor how an agent drafts; an owner's own cards come from real events.

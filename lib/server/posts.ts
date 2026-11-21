@@ -76,7 +76,7 @@ function checkedSlides(slides: readonly string[], photoCount: number, source: st
 
 /** Draft a post from the owner's photos and description, with the business's AI key or the server's when either is set up. */
 export async function draftPhotoPost(session: string, business: BusinessProfile, description: string, photos: readonly PostPhoto[]): Promise<PostDraft> {
-  const [playbook, llm] = await Promise.all([getStore().listPostPlaybook(business.tradeKey), getBudgetedLlm({ session, businessId: business.id })]);
+  const [playbook, llm] = await Promise.all([getStore().listPostPlaybook(business.tradeKey), getBudgetedLlm(session, business.id)]);
   return writePost(llm, playbook, business, description, photos);
 }
 

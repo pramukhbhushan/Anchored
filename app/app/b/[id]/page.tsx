@@ -73,7 +73,7 @@ export default async function OverviewPage({
     getChoices(business),
     getFeed(business),
     readBrief(session, business),
-    isAiConfigured({ session, businessId: business.id }),
+    isAiConfigured(session, business.id),
   ]);
   const stats = feedStats(feed.cards);
   const waiting = feed.cards.filter((card) => card.status === "pending");

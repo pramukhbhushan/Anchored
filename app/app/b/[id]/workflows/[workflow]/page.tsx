@@ -60,7 +60,7 @@ export default async function AgentPage({ params, searchParams }: { readonly par
   const { id, workflow: agentSegment } = await params;
   const { business, agent, choices } = await findWorkspace(id, agentSegment);
   const [feed, session] = await Promise.all([getFeed(business), getSessionId()]);
-  const aiOn = await isAiConfigured({ session, businessId: business.id });
+  const aiOn = await isAiConfigured(session, business.id);
   const contact = (await searchParams).contact;
   const selected = typeof contact === "string" && contact !== "" ? contact.slice(0, 64) : null;
   const [threads, telegram, rules, brief, schedule] = await Promise.all([

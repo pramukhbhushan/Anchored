@@ -15,12 +15,12 @@ import { getStore } from "@/lib/store";
 // `saveNewBusiness` saves the result for both, with the raw onboarding input.
 
 /** Build a profile from onboarding answers, with the AI provider's rewrite when one is set up. */
-export async function buildProfileFromAnswers(answers: OnboardingAnswers): Promise<BusinessProfile> {
+export async function buildProfileFromAnswers(session: string, answers: OnboardingAnswers): Promise<BusinessProfile> {
   const base = profileFromAnswers(answers);
   // The business doesn't exist yet, so only the server's key can rewrite it.
-  if (!(await isAiConfigured(null))) return base;
+  if (!(await isAiConfigured(session))) return base;
   try {
-    return await enrichProfile(answers, base);
+    return await enrichProfile(session, answers, base);
   } catch (error) {
     console.warn(`[Onboarding] AI enrichment failed; keeping the rules-built profile. Reason: ${error instanceof Error ? error.message : String(error)}`);
     return base;

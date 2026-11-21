@@ -24,25 +24,36 @@ import { decryptSecret } from "./secrets";
 // The one way to get a model. `getBudgetedLlm` picks whose key pays for a call:
 // the business's own key from the Connections page when it has one, else the
 // server's key from the environment, else `null`, and the rules write instead.
-// Calls on the server's key count against a daily cap shared by every visitor
-// and server instance, through `Store.useAiCall`, so a public deployment can't
-// run up its bill. Calls on an owner's key spend the owner's money and skip the
-// cap. An owner's provider error never carries the provider's own text, which
+// Calls on the server's key count against two daily caps, first the session's
+// own (`Store.useSessionAiCall`), then the one every visitor shares
+// (`Store.useAiCall`), so one visitor can't spend a public deployment's budget
+// and the deployment can't run up its bill. Calls on an owner's key spend the
+// owner's money and skip both caps. An owner's provider error never carries the provider's own text, which
 // can quote part of the key; the owner gets plain words instead, and a refused
 // key raises `AiKeyError`.
 
-/** Calls allowed per UTC day when `AI_DAILY_CALL_CAP` is unset. */
+/** Calls allowed per UTC day across every visitor when `AI_DAILY_CALL_CAP` is unset. */
 export const DEFAULT_DAILY_CALL_CAP = 2000;
 
-/** The business a model call works for. */
-export interface AiScope {
-  readonly session: string;
-  readonly businessId: string;
-}
+/** Calls allowed per UTC day for one session when `AI_SESSION_DAILY_CALL_CAP` is unset. */
+export const DEFAULT_SESSION_DAILY_CALL_CAP = 150;
 
-/** Raised instead of calling the model once today's cap is spent. */
+/** Which cap a refused call ran into: the session's own, or the one every visitor shares. */
+export type BudgetScope = "session" | "deployment";
+
+const BUDGET_MESSAGES: Readonly<Record<BudgetScope, string>> = {
+  session: "You've used today's AI drafts. Drafts stay as written until tomorrow.",
+  deployment: "Anchored has used today's AI calls. Drafts stay as written until tomorrow.",
+};
+
+type Env = Readonly<Record<string, string | undefined>>;
+
+/** Raised instead of calling the model once today's cap for the session or the deployment is spent. */
 export class AiBudgetError extends Error {
   override readonly name = "AiBudgetError";
+  constructor(readonly scope: BudgetScope) {
+    super(BUDGET_MESSAGES[scope]);
+  }
 }
 
 /** Raised when an owner's provider refuses their key, or their account has no credit. The message is for the owner. */
@@ -56,14 +67,23 @@ export class AiKeyError extends Error {
   }
 }
 
-/** Read the daily cap from `AI_DAILY_CALL_CAP`, falling back to the default when it is unset or invalid. */
-export function dailyCallCap(env: Readonly<Record<string, string | undefined>> = process.env): number {
-  const raw = env.AI_DAILY_CALL_CAP?.trim();
-  if (!raw) return DEFAULT_DAILY_CALL_CAP;
+function readCap(env: Env, name: string, fallback: number): number {
+  const raw = env[name]?.trim();
+  if (!raw) return fallback;
   const cap = Number(raw);
   if (Number.isInteger(cap) && cap >= 0) return cap;
-  console.error(`[AI budget] \`AI_DAILY_CALL_CAP\` must be a whole number of 0 or more, not "${raw}"; using ${DEFAULT_DAILY_CALL_CAP}.`);
-  return DEFAULT_DAILY_CALL_CAP;
+  console.error(`[AI budget] \`${name}\` must be a whole number of 0 or more, not "${raw}"; using ${fallback}.`);
+  return fallback;
+}
+
+/** Read the daily cap from `AI_DAILY_CALL_CAP`, falling back to the default when it is unset or invalid. */
+export function dailyCallCap(env: Env = process.env): number {
+  return readCap(env, "AI_DAILY_CALL_CAP", DEFAULT_DAILY_CALL_CAP);
+}
+
+/** Read the per-session daily cap from `AI_SESSION_DAILY_CALL_CAP`, falling back to the default when it is unset or invalid. */
+export function sessionDailyCallCap(env: Env = process.env): number {
+  return readCap(env, "AI_SESSION_DAILY_CALL_CAP", DEFAULT_SESSION_DAILY_CALL_CAP);
 }
 
 /** Return `llm` with every call passed through `guard`, keeping `searchWeb` only where `llm` has it. */
@@ -80,12 +100,22 @@ function wrap(llm: LlmProvider, guard: <T>(call: () => Promise<T>) => Promise<T>
   };
 }
 
-/** Return `llm` with every call counted by `spend` first; a `false` from `spend` throws `AiBudgetError` and skips the call. */
-export function withDailyBudget(llm: LlmProvider, spend: () => Promise<boolean>): LlmProvider {
+/** Return `llm` with every call counted by `spend` first; a scope from `spend` throws `AiBudgetError` and skips the call. */
+export function withDailyBudget(llm: LlmProvider, spend: () => Promise<BudgetScope | null>): LlmProvider {
   return wrap(llm, async (call) => {
-    if (!(await spend())) throw new AiBudgetError("Anchored has used today's AI calls. Drafts stay as written until tomorrow.");
+    const spent = await spend();
+    if (spent !== null) throw new AiBudgetError(spent);
     return call();
   });
+}
+
+/** Count one call for `session`, then for the deployment, and return the cap it ran into, or `null` when it fits both. */
+export async function spendDailyBudget(session: string, day: string, env: Env = process.env): Promise<BudgetScope | null> {
+  const store = getStore();
+  // The session's cap goes first, so one visitor past their own cap never eats into everyone's.
+  if (!(await store.useSessionAiCall(session, day, sessionDailyCallCap(env)))) return "session";
+  if (!(await store.useAiCall(day, dailyCallCap(env)))) return "deployment";
+  return null;
 }
 
 /** Turn a failed call on an owner's key into an error that says, in the owner's words, what to do, with none of the provider's text. */
@@ -128,12 +158,12 @@ export function ownerKeyFrom(connections: readonly StoredConnection[]): OwnerAiS
   }
 }
 
-/** The server's provider from the environment under today's call cap, or `null` when it has none. */
-function serverLlm(): LlmProvider | null {
+/** The server's provider from the environment under today's caps for `session` and the deployment, or `null` when it has none. */
+function serverLlm(session: string): LlmProvider | null {
   const llm = getLlm();
   if (!llm) return null;
-  // The day is UTC so every server instance counts against the same row.
-  return withDailyBudget(llm, () => getStore().useAiCall(new Date().toISOString().slice(0, 10), dailyCallCap()));
+  // The day is UTC so every server instance counts against the same rows.
+  return withDailyBudget(llm, () => spendDailyBudget(session, new Date().toISOString().slice(0, 10)));
 }
 
 /** Report whether this server has its own key in the environment, which businesses without a key fall back to. */
@@ -152,34 +182,35 @@ function fromOwnerKey(owner: OwnerAiSettings): LlmProvider | null {
 }
 
 /**
- * Return the provider for model calls made for `scope`: the business's own key, else the server's key under
- * the daily cap, else `null`, and the rules write instead. Pass `null` before a business exists, such as
- * during onboarding, and only the server's key is used.
+ * Return the provider for model calls `session` makes for `businessId`: the business's own key, else the
+ * server's key under today's caps, else `null`, and the rules write instead. Leave out `businessId` before a
+ * business exists, such as during onboarding, and only the server's key is used. Pass the session the work
+ * belongs to: a route's from `getSessionId`, a webhook's or scheduler's from its store lookup.
  */
-export async function getBudgetedLlm(scope: AiScope | null): Promise<LlmProvider | null> {
-  if (scope === null) return serverLlm();
-  return llmFromConnections(await getStore().listConnections(scope.session, scope.businessId));
+export async function getBudgetedLlm(session: string, businessId?: string): Promise<LlmProvider | null> {
+  if (businessId === undefined) return serverLlm(session);
+  return llmFromConnections(session, await getStore().listConnections(session, businessId));
 }
 
 /** `getBudgetedLlm` for a caller that already read the business's connections. */
-export function llmFromConnections(connections: readonly StoredConnection[]): LlmProvider | null {
+export function llmFromConnections(session: string, connections: readonly StoredConnection[]): LlmProvider | null {
   const owner = ownerKeyFrom(connections);
-  return (owner === null ? null : fromOwnerKey(owner)) ?? serverLlm();
+  return (owner === null ? null : fromOwnerKey(owner)) ?? serverLlm(session);
 }
 
-/** Report whether model calls for `scope` have a provider, the owner's or the server's. */
-export async function isAiConfigured(scope: AiScope | null): Promise<boolean> {
-  return (await getBudgetedLlm(scope)) !== null;
+/** Report whether model calls for the business, or before one exists, have a provider, the owner's or the server's. */
+export async function isAiConfigured(session: string, businessId?: string): Promise<boolean> {
+  return (await getBudgetedLlm(session, businessId)) !== null;
 }
 
-/** The name owners see for the provider that runs `scope`'s model calls, such as "Claude", or `null` when AI is off. */
-export async function aiLabel(scope: AiScope | null): Promise<string | null> {
-  return (await getBudgetedLlm(scope))?.label ?? null;
+/** The name owners see for the provider that runs these model calls, such as "Claude", or `null` when AI is off. */
+export async function aiLabel(session: string, businessId?: string): Promise<string | null> {
+  return (await getBudgetedLlm(session, businessId))?.label ?? null;
 }
 
-/** The provider that runs `scope`'s model calls and its model for each tier, or `null` when AI is off. */
-export async function aiSetup(scope: AiScope | null): Promise<AiSetup | null> {
-  const llm = await getBudgetedLlm(scope);
+/** The provider that runs these model calls and its model for each tier, or `null` when AI is off. */
+export async function aiSetup(session: string, businessId?: string): Promise<AiSetup | null> {
+  const llm = await getBudgetedLlm(session, businessId);
   if (llm === null) return null;
   return { label: llm.label, models: { quick: llm.modelFor("quick"), default: llm.modelFor("default"), complex: llm.modelFor("complex") } };
 }

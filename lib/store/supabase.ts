@@ -492,6 +492,13 @@ export class SupabaseStore implements Store {
     return data === true;
   }
 
+  async useSessionAiCall(session: string, day: string, cap: number): Promise<boolean> {
+    // `use_session_ai_call` increments and compares in one statement, as `use_ai_call` does.
+    const { data, error } = await this.db.rpc("use_session_ai_call", { p_session_id: session, p_day: day, p_cap: cap });
+    if (error) fail("useSessionAiCall", error);
+    return data === true;
+  }
+
   async addOutbox(session: string, entry: NewOutboxEntry): Promise<OutboxEntry> {
     const { data, error } = await this.db.from("outbox").insert(outboxRow(session, entry)).select(OUTBOX_COLUMNS).single();
     if (error) fail("addOutbox", error);
@@ -903,6 +910,9 @@ export class SupabaseStore implements Store {
       const { error } = await this.db.from(table).delete().eq("session_id", session);
       if (error) fail(`reset ${table}`, error);
     }
+    // Today's AI call count stays, so deleting businesses can't refill the day's budget; older days go.
+    const { error } = await this.db.from("ai_session_usage").delete().eq("session_id", session).lt("day", new Date().toISOString().slice(0, 10));
+    if (error) fail("reset ai_session_usage", error);
   }
 
   /** Delete every photo under the session's folder, one business folder and one page of files at a time. */
