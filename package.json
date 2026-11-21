@@ -2,6 +2,7 @@
   "name": "anchored",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Anchored helps any small business discover, compare and adopt AI tools, with approve-first agents where no tool fits.",
   "scripts": {
     "dev": "next dev",
