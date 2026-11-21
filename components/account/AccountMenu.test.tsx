@@ -1,18 +1,22 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { AccountMenu } from "@/components/account/AccountMenu";
 import { ToastProvider } from "@/components/ui/Toast";
 import type { Viewer } from "@/lib/auth/viewer";
 import { router } from "@/test/next";
 import { deferred, json, sentJson, stubFetch } from "@/test/http";
 
+const updateUser = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/auth/browser", () => ({ createBrowserSupabase: () => ({ auth: { updateUser } }) }));
+
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The account menu: who is signed in, "Sign out" when accounts are on, and
-// "Delete my businesses", which asks first and then clears everything the
-// visitor saved. With accounts off it names the browser and has no sign-out.
+// The account menu: who is signed in, "Sign out" when accounts are on, "Save
+// your work" for a guest, and "Start fresh" and "Delete my businesses", which
+// ask first and then clear everything the visitor saved. With accounts off it
+// names the browser and has no sign-out.
 
 const SIGNED_IN: Viewer = { id: "u_1", email: "rosa@linden.example", isGuest: false, authEnabled: true };
 const GUEST: Viewer = { id: "u_2", email: null, isGuest: true, authEnabled: true };
@@ -76,7 +80,7 @@ describe("AccountMenu", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("clears demo data and opens a fresh onboarding", async () => {
+  it("starts fresh once confirmed: clears everything and opens a new onboarding", async () => {
     const fetchSpy = stubFetch(() => json({ ok: true }));
     renderMenu(SIGNED_IN);
     await openMenu(/rosa@linden\.example/);
@@ -134,5 +138,32 @@ describe("AccountMenu", () => {
     expect(await screen.findByText("Too many requests. Wait 2 minutes and try again.")).toBeInTheDocument();
     await waitFor(() => expect(within(confirmation()).getByRole("button", { name: "Delete everything" })).toBeEnabled());
     expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it("says a guest's work is saved when the email change applies at once, whatever its case", async () => {
+    // Supabase stores the address lower-cased and, with email confirmation off, sends no link.
+    updateUser.mockResolvedValueOnce({ data: { user: { email: "rosa@linden.example" } }, error: null });
+    renderMenu(GUEST);
+    await openMenu(/Guest/);
+
+    await userEvent.click(screen.getByRole("button", { name: "Save your work" }));
+    await userEvent.type(screen.getByLabelText("Email to save your work to"), "Rosa@Linden.example");
+    await userEvent.click(screen.getByRole("button", { name: "Send link" }));
+
+    expect(await screen.findByText(/Saved\. Your work is now kept under/)).toHaveRole("status");
+    expect(screen.queryByText(/Check your email/)).not.toBeInTheDocument();
+    expect(updateUser).toHaveBeenCalledWith({ email: "Rosa@Linden.example" }, expect.anything());
+  });
+
+  it("tells a guest to check their email while the change waits on a link", async () => {
+    updateUser.mockResolvedValueOnce({ data: { user: { email: null, new_email: "rosa@linden.example" } }, error: null });
+    renderMenu(GUEST);
+    await openMenu(/Guest/);
+
+    await userEvent.click(screen.getByRole("button", { name: "Save your work" }));
+    await userEvent.type(screen.getByLabelText("Email to save your work to"), "rosa@linden.example");
+    await userEvent.click(screen.getByRole("button", { name: "Send link" }));
+
+    expect(await screen.findByText(/Check your email/)).toBeInTheDocument();
   });
 });

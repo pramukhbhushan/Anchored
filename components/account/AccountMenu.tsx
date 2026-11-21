@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, LogOut, Mail, RotateCcw, Trash2, UserRound } from "lucide-react";
+import { ChevronDown, LogOut, Mail, RotateCcw, Trash2, UserRound, type LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { callApi, errorText } from "@/components/api";
@@ -18,7 +18,7 @@ import styles from "./AccountMenu.module.css";
 // =============================================================================
 // The account control in the app's top bar and the site header. `AccountMenu`
 // shows who is signed in and opens a panel with "Save your work" for guests,
-// "Delete my businesses" and "Sign out". The panel is a disclosure, not an ARIA
+// "Start fresh", "Delete my businesses" and "Sign out". The panel is a disclosure, not an ARIA
 // menu, because it holds forms; Escape, a click outside, or tabbing away closes
 // it. With accounts off it names the browser and has no sign-out.
 
@@ -31,7 +31,7 @@ type SaveState =
   | { readonly step: "saved"; readonly email: string };
 
 /** Props for `AccountMenu`. */
-export interface AccountMenuProps {
+interface AccountMenuProps {
   readonly viewer: Viewer;
 }
 
@@ -113,8 +113,8 @@ export function AccountMenu({ viewer }: AccountMenuProps) {
           </div>
         )}
         {canSaveWork && <SaveWork />}
-        <StartFresh />
-        <DeleteBusinesses />
+        <DeleteAll action={START_FRESH} />
+        <DeleteAll action={DELETE_BUSINESSES} />
         {viewer.authEnabled && (
           <form className={styles.signOut} method="post" action={SIGN_OUT_PATH}>
             <button type="submit" className={styles.item}>
@@ -132,67 +132,52 @@ export function AccountMenu({ viewer }: AccountMenuProps) {
 // Panel sections
 // =============================================================================
 
-/** Clear demo data after confirmation, then open a new onboarding. */
-function StartFresh() {
-  const router = useRouter();
-  const toast = useToast();
-  const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function reset() {
-    setBusy(true);
-    setError(null);
-    try {
-      await callApi<DeleteBusinessesResponse>("/api/businesses", "DELETE");
-      toast("Ready for a fresh business");
-      setConfirming(false);
-      router.push(NEW_BUSINESS_HREF);
-      router.refresh();
-    } catch (failure) {
-      setError(errorText(failure));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (!confirming) {
-    return (
-      <div className={styles.section}>
-        <button type="button" className={styles.item} onClick={() => setConfirming(true)}>
-          <RotateCcw aria-hidden="true" />
-          Start fresh
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className={styles.section}>
-      <div className={styles.confirm} role="group" aria-label="Confirm starting fresh">
-        <p>This clears this account&apos;s businesses, approvals and messages, then starts a new onboarding. It can&apos;t be undone.</p>
-        <div className={styles.actions}>
-          <button type="button" className="btn sm" onClick={reset} disabled={busy} autoFocus>
-            {busy ? "Clearing..." : "Clear and start"}
-          </button>
-          <button type="button" className="btn sm ghost" onClick={() => setConfirming(false)} disabled={busy}>
-            Cancel
-          </button>
-        </div>
-        {error !== null && <p role="alert" className={styles.error}>{error}</p>}
-      </div>
-    </div>
-  );
+/** What one of the panel's delete actions says and where it goes after the delete. */
+interface DeleteAction {
+  readonly icon: LucideIcon;
+  readonly label: string;
+  readonly confirmLabel: string;
+  readonly warning: string;
+  readonly goLabel: string;
+  readonly busyLabel: string;
+  readonly toast: string;
+  readonly then: string;
 }
 
-/** Render "Delete my businesses": a confirmation that names what goes, then the delete and a return to the list. */
-function DeleteBusinesses() {
+/** "Start fresh": delete everything, then open a new onboarding. */
+const START_FRESH: DeleteAction = {
+  icon: RotateCcw,
+  label: "Start fresh",
+  confirmLabel: "Confirm starting fresh",
+  warning: "This clears this account's businesses, approvals and messages, then starts a new onboarding. It can't be undone.",
+  goLabel: "Clear and start",
+  busyLabel: "Clearing...",
+  toast: "Ready for a fresh business",
+  then: NEW_BUSINESS_HREF,
+};
+
+/** "Delete my businesses": delete everything, then return to the business list. */
+const DELETE_BUSINESSES: DeleteAction = {
+  icon: Trash2,
+  label: "Delete my businesses",
+  confirmLabel: "Confirm deleting your businesses",
+  warning:
+    "This deletes your businesses, every path you chose, and all approvals and outbox messages, including what you changed on the example. It can't be undone.",
+  goLabel: "Delete everything",
+  busyLabel: "Deleting...",
+  toast: "Your businesses are deleted",
+  then: APP_HREF,
+};
+
+/** Render one delete action: a button, then a confirmation that names what goes, then the delete and the move to `then`. */
+function DeleteAll({ action }: { readonly action: DeleteAction }) {
   const router = useRouter();
   const toast = useToast();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
+  const Icon = action.icon;
 
   useEffect(() => {
     if (confirming) confirmRef.current?.focus();
@@ -203,10 +188,10 @@ function DeleteBusinesses() {
     setError(null);
     try {
       await callApi<DeleteBusinessesResponse>("/api/businesses", "DELETE");
-      toast("Your businesses are deleted");
+      toast(action.toast);
       setConfirming(false);
       // `refresh` re-renders the shell so its business list and counts drop what was deleted.
-      router.push(APP_HREF);
+      router.push(action.then);
       router.refresh();
     } catch (failure) {
       setError(errorText(failure));
@@ -219,8 +204,8 @@ function DeleteBusinesses() {
     return (
       <div className={styles.section}>
         <button type="button" className={styles.item} onClick={() => setConfirming(true)}>
-          <Trash2 aria-hidden="true" />
-          Delete my businesses
+          <Icon aria-hidden="true" />
+          {action.label}
         </button>
       </div>
     );
@@ -228,14 +213,11 @@ function DeleteBusinesses() {
 
   return (
     <div className={styles.section}>
-      <div className={styles.confirm} role="group" aria-label="Confirm deleting your businesses">
-        <p>
-          This deletes your businesses, every path you chose, and all approvals and outbox messages, including what you
-          changed on the example. It can&apos;t be undone.
-        </p>
+      <div className={styles.confirm} role="group" aria-label={action.confirmLabel}>
+        <p>{action.warning}</p>
         <div className={styles.actions}>
           <button ref={confirmRef} type="button" className="btn sm" onClick={remove} disabled={busy}>
-            {busy ? "Deleting..." : "Delete everything"}
+            {busy ? action.busyLabel : action.goLabel}
           </button>
           <button type="button" className="btn sm ghost" onClick={() => setConfirming(false)} disabled={busy}>
             Cancel
@@ -277,8 +259,8 @@ function SaveWork() {
         { emailRedirectTo: callbackUrl(window.location.origin, here) },
       );
       // A project that doesn't confirm email changes applies the address at once and sends nothing,
-      // so only a pending `new_email` means a link is on its way.
-      const appliedNow = data.user?.email === address && !data.user?.new_email;
+      // so only a pending `new_email` means a link is on its way. Supabase stores the address lower-cased.
+      const appliedNow = !data.user?.new_email && data.user?.email?.toLowerCase() === address.toLowerCase();
       setState(error ? { step: "editing", error: authErrorText(error) } : appliedNow ? { step: "saved", email: address } : { step: "sent", email: address });
     } catch (error) {
       // `createBrowserSupabase` throws when the public keys were missing at build time, and `fetch` throws offline.
