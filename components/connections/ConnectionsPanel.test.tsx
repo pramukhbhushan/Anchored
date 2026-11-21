@@ -65,8 +65,8 @@ describe("ConnectionsPanel", () => {
   });
 
   it("connects email sending with the owner's own Resend key and from address", async () => {
-    const fetchSpy = stubFetch(() => json({ blocked: null, connections: ALL_OFF, contacts: [] } satisfies ConnectionsResponse));
-    render(<ConnectionsPanel businessId="b1" blocked={null} connections={ALL_OFF} />);
+    const fetchSpy = stubFetch(() => json({ blocked: null, ai: NO_AI, connections: ALL_OFF, contacts: [] } satisfies ConnectionsResponse));
+    render(<ConnectionsPanel businessId="b1" ai={NO_AI} blocked={null} connections={ALL_OFF} />);
 
     const block = service("Sending email");
     await userEvent.type(block.getByLabelText("Resend API key"), "re_owner_key_123");
