@@ -178,6 +178,16 @@ describe("Stripe", () => {
     expect(card?.body).toContain("invoice 1042 from College Park Heating & Air for $240.50 is now past due");
   });
 
+  it("drafts one card for an event Stripe retries or someone replays", async () => {
+    const event = { id: "evt_1QxYzReplay", ...OVERDUE };
+    expect(await (await fromStripe(event)).json()).toEqual({ received: true, drafted: true });
+    expect(await (await fromStripe(event)).json()).toEqual({ received: true, drafted: false });
+    expect(await cardTitles()).toEqual(["Jordan Kim owes $240.50 on invoice 1042"]);
+
+    expect(await (await fromStripe({ ...event, id: "evt_1QxYzOther" })).json()).toEqual({ received: true, drafted: true });
+    expect(await cardTitles()).toHaveLength(2);
+  });
+
   it("refuses a stale or wrongly signed event, and ignores other events", async () => {
     expect((await fromStripe(OVERDUE, Math.floor(Date.now() / 1000) - 3600)).status).toBe(400);
     expect((await fromStripe(OVERDUE, undefined, "whsec_wrongsecret")).status).toBe(400);

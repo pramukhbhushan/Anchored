@@ -28,7 +28,7 @@ describe("receiveUnpaidInvoice", () => {
     const longName = `Riverside Property Management Holdings and Maintenance Services of Montgomery County LLC`;
     const target = { session: SESSION, business: SHOP, connection: { id: "c1", businessId: SHOP.id, kind: "stripe" as const, hookId: "a".repeat(24), settings: {}, secret: null, createdAt: "2026-11-01T00:00:00Z" } };
 
-    const drafted = await receiveUnpaidInvoice(target, { kind: "overdue", customerName: longName, customerEmail: "ap@example.com", amountDue: 1200, number: "INV-7" });
+    const drafted = await receiveUnpaidInvoice(target, { eventId: null, kind: "overdue", customerName: longName, customerEmail: "ap@example.com", amountDue: 1200, number: "INV-7" });
 
     expect(drafted).toBe(true);
     const [card] = await state.store!.listCards(SESSION, SHOP.id);
