@@ -137,6 +137,18 @@ describe("FollowupSchedule", () => {
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
+  it("keeps the saved notice when the refreshed page brings the new record", async () => {
+    stubFetch(() => json({ records: [record] }));
+    const { rerender } = render(<FollowupSchedule businessId="shop" records={[]} contacts={contacts} skills={["closer"]} />);
+    const user = await openSchedule();
+    await fillSchedule(user);
+    await user.click(screen.getByRole("button", { name: "Record follow-up" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Follow-up recorded");
+    rerender(<FollowupSchedule businessId="shop" records={[record]} contacts={contacts} skills={["closer"]} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Follow-up recorded");
+    expect(screen.getByRole("button", { name: "Cancel Closer for Sam" })).toBeVisible();
+  });
+
   it("keeps the disclosure open when refreshed saved records replace its contents", async () => {
     const { rerender } = render(<FollowupSchedule businessId="shop" records={[]} contacts={contacts} skills={["closer"]} />);
     await openSchedule();

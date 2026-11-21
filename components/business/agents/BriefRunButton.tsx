@@ -23,14 +23,24 @@ interface BriefRunButtonProps {
   readonly unavailableReason?: string;
 }
 
-/** Show the last brief and an available Run now action without assuming a server endpoint. */
+/** Show the latest brief and, when `run` is given, a Run now button that writes a new one. */
 export function BriefRunButton(props: BriefRunButtonProps) {
-  return <BriefControl key={`${props.businessId}:${props.brief?.generatedAt ?? "none"}`} {...props} />;
+  // Another business remounts the control, so a late run for the last one never lands here.
+  return <BriefControl key={props.businessId} {...props} />;
 }
 
+/** Return whichever brief is newer: the page's or this button's last run. */
+function newer(brief: BriefRunResult | null, ran: BriefRunResult | null): BriefRunResult | null {
+  if (ran === null) return brief;
+  return brief === null || Date.parse(ran.generatedAt) > Date.parse(brief.generatedAt) ? ran : brief;
+}
+
+/** Render the brief, its Run now button and what happened on the last run. */
 function BriefControl({ brief, run, unavailableReason }: BriefRunButtonProps) {
   const id = useId();
-  const [latest, setLatest] = useState(brief);
+  // A run shows at once; the refreshed page or the scheduled brief takes over once it is as new or newer.
+  const [ran, setRan] = useState<BriefRunResult | null>(null);
+  const latest = newer(brief, ran);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
@@ -47,7 +57,7 @@ function BriefControl({ brief, run, unavailableReason }: BriefRunButtonProps) {
     try {
       const result = await run();
       if (!active.current) return;
-      setLatest(result);
+      setRan(result);
       setNotice("Your brief is up to date.");
     } catch (failure) {
       if (active.current) setError(errorText(failure));

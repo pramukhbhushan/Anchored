@@ -34,6 +34,23 @@ describe("BriefRunButton", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Your brief is up to date.");
   });
 
+  it("keeps the up-to-date notice when the refreshed page brings the new brief", async () => {
+    const user = userEvent.setup();
+    const fresh = { text: "All drafts have been reviewed.", generatedAt: "2026-11-08T16:00:00Z" };
+    const { rerender } = render(<BriefRunButton businessId="shop" brief={PREVIOUS} run={async () => fresh} />);
+    await user.click(screen.getByRole("button", { name: "Run now" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Your brief is up to date.");
+    rerender(<BriefRunButton businessId="shop" brief={fresh} run={async () => fresh} />);
+    expect(screen.getByText(fresh.text)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Your brief is up to date.");
+  });
+
+  it("shows a newer brief the page brings without a run", () => {
+    const { rerender } = render(<BriefRunButton businessId="shop" brief={PREVIOUS} run={vi.fn()} />);
+    rerender(<BriefRunButton businessId="shop" brief={{ text: "The scheduled brief ran.", generatedAt: "2026-11-09T12:00:00Z" }} run={vi.fn()} />);
+    expect(screen.getByText("The scheduled brief ran.")).toBeInTheDocument();
+  });
+
   it("keeps the last successful brief after failure and allows retry", async () => {
     const user = userEvent.setup();
     const run = vi.fn().mockRejectedValueOnce(new Error("Check your connection.")).mockResolvedValueOnce({ text: "One new draft waits.", generatedAt: "2026-11-08T16:00:00Z" });

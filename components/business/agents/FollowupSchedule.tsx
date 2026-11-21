@@ -42,13 +42,12 @@ export function FollowupSchedule(props: FollowupScheduleProps) {
   return <SchedulePanel key={props.businessId} {...props} />;
 }
 
+/** Keep the disclosure in place and start the form over when the jobs or customers it offers change. */
 function SchedulePanel(props: FollowupScheduleProps) {
-  const savedKey = JSON.stringify(props.records);
-  // Refresh saved facts inside the disclosure, leaving the owner's open panel in place.
   return (
     <details className={styles.schedule}>
       <summary>Scheduled follow-ups</summary>
-      <ScheduleControl key={`${savedKey}:${props.skills.join(",")}:${props.contacts.map((contact) => contact.id).join(",")}`} {...props} />
+      <ScheduleControl key={`${props.skills.join(",")}:${props.contacts.map((contact) => contact.id).join(",")}`} {...props} />
     </details>
   );
 }
@@ -68,6 +67,7 @@ function dueInstant(value: string): Date | null {
   return date;
 }
 
+/** Render the follow-up form and the saved list, writing through the follow-ups route. */
 function ScheduleControl({ businessId, records, contacts, skills }: FollowupScheduleProps) {
   const id = useId();
   const router = useRouter();
@@ -87,6 +87,8 @@ function ScheduleControl({ businessId, records, contacts, skills }: FollowupSche
   const pending = useRef(false);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone); return () => { mounted.current = false; }; }, []);
+  // The refreshed page's records replace the list without remounting, so the form and the saved notice stay.
+  useEffect(() => { setSaved(records); }, [records]);
   const instant = dueInstant(dueAt);
   const endpoint = `/api/businesses/${encodeURIComponent(businessId)}/followups`;
 
