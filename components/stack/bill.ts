@@ -35,7 +35,7 @@ export interface BillGroup {
 }
 
 /** One paid piece in the stacked bar, sized by `share` of the priced total. */
-export interface BillSegment {
+interface BillSegment {
   readonly key: string;
   readonly group: "buy" | "build";
   readonly name: string;

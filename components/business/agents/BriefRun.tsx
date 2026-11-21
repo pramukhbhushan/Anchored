@@ -13,7 +13,7 @@ import { BriefRunButton, type BriefRunResult } from "./BriefRunButton";
 // another returns the last finished brief, so the owner never sees a blank one.
 
 /** Turn the server's brief into what the button shows, or `null` before the first one. */
-export function briefResult(brief: BriefResponse): BriefRunResult | null {
+function briefResult(brief: BriefResponse): BriefRunResult | null {
   return brief.lastRunAt === null ? null : { text: brief.lines.join("\n"), generatedAt: brief.lastRunAt };
 }
 

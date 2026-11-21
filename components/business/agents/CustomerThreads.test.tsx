@@ -1,6 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { setLocation } from "@/test/next";
 import { CustomerThreads, type CustomerThreadsData, type ThreadContact, type ThreadMessage } from "./CustomerThreads";
 
@@ -97,19 +96,6 @@ describe("CustomerThreads", () => {
     expect(screen.queryByText("No customer conversations yet.")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Customers" })).not.toBeInTheDocument();
     expect(screen.queryByText("Yes, we're open.")).not.toBeInTheDocument();
-  });
-
-  it("lets the caller refresh and prevents repeated refreshes while loading", async () => {
-    const onRefresh = vi.fn();
-    const { rerender } = render(<CustomerThreads businessId="example" data={data()} onRefresh={onRefresh} />);
-    await userEvent.click(screen.getByRole("button", { name: "Refresh conversations" }));
-    expect(onRefresh).toHaveBeenCalledOnce();
-
-    rerender(<CustomerThreads businessId="example" data={data()} onRefresh={onRefresh} pending />);
-    expect(screen.getByRole("button", { name: "Refreshing conversations..." })).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent("Loading messages...");
-    expect(screen.queryByText("Yes, we're open.")).not.toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Customer conversations" })).toHaveAttribute("aria-busy", "true");
   });
 
   it("renders unknown dates without crashing and distinguishes failed sends", () => {

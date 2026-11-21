@@ -92,17 +92,11 @@ function LicenseDatesForm({ businessId, licenses, enabled }: LicenseDatesProps) 
                 <strong>{license.name}</strong>
                 <p>Recorded expiry: <time dateTime={license.expiresOn}>{license.expiresOn}</time></p>
                 <details><summary>Date source</summary><p>{license.evidence}</p></details>
-                {license.completed === true ? <p>Handled. Renewal reminders are stopped.</p> : (
-                  <div className="row">
-                    <Button variant="quiet" size="sm" disabled={busy} aria-label={`Mark ${license.name} handled`} onClick={() => void save(saved.map((item) => item.id === license.id ? { ...item, completed: true } : item))}>Mark handled</Button>
-                    <Button variant="quiet" size="sm" disabled={busy} aria-label={`Remove ${license.name} date`} onClick={() => void save(saved.filter((item) => item.id !== license.id))}>Remove date</Button>
-                  </div>
-                )}
-                {license.completed === true && (
-                  <div className="row">
-                    <Button variant="quiet" size="sm" disabled={busy} aria-label={`Remove ${license.name} date`} onClick={() => void save(saved.filter((item) => item.id !== license.id))}>Remove date</Button>
-                  </div>
-                )}
+                {license.completed === true && <p>Handled. Renewal reminders are stopped.</p>}
+                <div className="row">
+                  {license.completed !== true && <Button variant="quiet" size="sm" disabled={busy} aria-label={`Mark ${license.name} handled`} onClick={() => void save(saved.map((item) => item.id === license.id ? { ...item, completed: true } : item))}>Mark handled</Button>}
+                  <Button variant="quiet" size="sm" disabled={busy} aria-label={`Remove ${license.name} date`} onClick={() => void save(saved.filter((item) => item.id !== license.id))}>Remove date</Button>
+                </div>
               </li>
             ))}
           </ul>
