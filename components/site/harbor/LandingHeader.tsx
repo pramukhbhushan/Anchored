@@ -11,14 +11,16 @@ import type { Viewer } from "@/lib/auth/viewer";
 // Module Overview
 // =============================================================================
 // The landing page's header: links to How it works, What it does, Pricing
-// and Questions, a light and dark toggle, Log in
-// and Get started. Get started opens chat onboarding at `/app/new`; with
-// accounts on, the middleware sends signed-out visitors to sign in first.
-// The toggle sets `data-theme` on <html> and remembers it in localStorage
-// under `THEME_KEY`; the root layout applies it before the first paint.
+// and Questions, a light and dark toggle, Log in and Get started. Get started
+// opens chat onboarding at `/app/new`; with accounts on, the middleware sends
+// signed-out visitors to sign in first. The toggle sets `data-theme` on <html>
+// and saves it under `THEME_KEY`, which the inline script in `app/layout.tsx`
+// reads to apply it before the first paint.
 
-export const THEME_KEY = "anchored-theme";
+/** The `localStorage` key for the chosen theme; `app/layout.tsx` repeats it in its inline script. */
+const THEME_KEY = "anchored-theme";
 
+/** The two themes the toggle flips between. */
 type Mode = "light" | "dark";
 
 /** Return the mode the page shows now: the saved choice, or the system's. */

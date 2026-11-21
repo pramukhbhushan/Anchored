@@ -42,7 +42,10 @@ export const CARDS: readonly BoardCard[] = [
   { id: "lee", at: 1215, moveAt: 1235, to: "held", who: "Lee Park", about: "Catering for 15", text: "Thanks for asking about Saturday. We can do a taco bar for 15. Want a quote?", stamp: "Goes out 8:00 a.m.", actions: ["Send text", "Edit"] },
 ];
 
+/** The board's day runs from 9:00 to 21:00, in minutes after midnight. */
 export const DAY_START = 540;
+
+/** Where the board's day ends and where it rests: 21:00, in minutes after midnight. */
 export const DAY_END = 1260;
 
 /** Return the column a card sits in at `minute`, or `null` before it arrives. */
