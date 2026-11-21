@@ -19,10 +19,9 @@ import {
   type IntakeAnswer,
   type IntakeDraft,
   type IntakeQuestion,
-  applyListing,
   draftDetails,
   readDetailChanges,
-  withListingChoices,
+  withCandidates,
   wantsInvoiceSheet,
 } from "@/lib/domain/intake";
 import { PATH_OUTCOME } from "@/lib/domain/workflows";
@@ -534,7 +533,7 @@ describe("business chat changes", () => {
 
 describe("details in business chat", () => {
   const shop = profileFromFacts({ name: "Apex Heating", trade: "HVAC contractor", tradeKey: "home", reach: ["Phone calls"], tools: [], signals: ["quotes"] });
-  const withHours = { ...shop, details: { hours: "Mon to Fri 8 to 6" }, evidence: { hours: { sourceType: "listing", quote: "8 to 6", confidence: "high", ownerConfirmed: true } }, placeId: "place-1", version: 3 } as const;
+  const withHours = { ...shop, details: { hours: "Mon to Fri 8 to 6" }, evidence: { hours: { sourceType: "website", quote: "8 to 6", confidence: "high", ownerConfirmed: true } }, version: 3 } as const;
 
   it("reads a new minimum and prices as the owner's own, confirmed", () => {
     const { profile, changes } = applyChanges(withHours, readChanges("Our minimum is now $89, and a tune-up costs $129"));
@@ -545,12 +544,11 @@ describe("details in business chat", () => {
     expect(changeReply(changes, profile.name)).toContain("minimum charge to $89");
   });
 
-  it("keeps the details, listing and version when a chat message changes something else", () => {
+  it("keeps the details and version when a chat message changes something else", () => {
     const { profile } = applyChanges(withHours, readChanges("We started using QuickBooks Online"));
 
     expect(profile.tools).toContain("QuickBooks Online");
     expect(profile.details?.hours).toBe("Mon to Fri 8 to 6");
-    expect(profile.placeId).toBe("place-1");
     expect(profile.version).toBe(3);
   });
 
@@ -565,57 +563,27 @@ describe("details in business chat", () => {
   });
 });
 
-describe("the listing step", () => {
+describe("a detail from another source", () => {
   const named = applyAnswer(newDraft(), "name", text("Apex Heating, Laurel, MD"));
-  const choices = [
-    { id: "place-a", name: "Apex Heating & Air", address: "1 Main St, Laurel, MD", rating: 4.8 },
-    { id: "place-b", name: "Apex Plumbing", address: "9 Elm St, Laurel, MD" },
-  ];
 
-  it("drops a listing's value when the owner says it is wrong, so confirming never makes it theirs", () => {
-    const hours = { key: "hours", value: "9 to 5", sourceType: "listing", quote: "Open 9-5", confidence: "medium" } as const;
-    const listed = applyListing(withListingChoices(named, choices), "place-a", [hours]);
-    expect(listed.details?.hours).toBe("9 to 5");
+  it("drops the value when the owner says it is wrong, so confirming never makes it theirs", () => {
+    const hours = { key: "hours", value: "9 to 5", sourceType: "website", quote: "Open 9-5", confidence: "medium" } as const;
+    const found = withCandidates(named, [hours]);
+    expect(found.details?.hours).toBe("9 to 5");
 
     for (const reply of ["no", "wrong"]) {
-      const answered = applyAnswer(listed, "gap:hours", text(reply));
+      const answered = applyAnswer(found, "gap:hours", text(reply));
       expect(draftDetails(answered).details?.hours).toBeUndefined();
       expect(answered.gaps).toContain("hours");
     }
   });
 
-  it("asks right after the name, with each match and a way to say none", () => {
-    const draft = withListingChoices(named, choices);
-    const listing = question(draft);
-
-    expect(listing.field).toBe("listing");
-    expect(listing.options?.map((option) => option.label)).toEqual(["Apex Heating & Air, 1 Main St, Laurel, MD", "Apex Plumbing, 9 Elm St, Laurel, MD", "Not listed"]);
-  });
-
-  it("keeps the pick and its facts as listing evidence, and moves on", () => {
-    const draft = withListingChoices(named, choices);
-    const after = applyListing(draft, "place-a", [{ key: "hours", value: "Mon to Fri 8 to 5", sourceType: "listing", quote: "Mon to Fri 8 to 5", confidence: "high" }]);
-
-    expect(after.placeId).toBe("place-a");
-    expect(after.evidence?.hours?.sourceType).toBe("listing");
-    expect(question(after).field).toBe("kind");
-    expect(summarize(after)).toContainEqual(expect.objectContaining({ field: "hours", value: "Mon to Fri 8 to 5", source: "From your Google listing" }));
-  });
-
-  it("ignores an id that wasn't offered, and skips the step when Google found nothing", () => {
-    const draft = withListingChoices(named, choices);
-
-    expect(applyListing(draft, "place-z", []).placeId).toBeUndefined();
-    expect(question(withListingChoices(named, [])).field).toBe("kind");
-  });
-
-  it("hands the confirmed details and listing to the business", () => {
-    const after = applyListing(withListingChoices(named, choices), "place-a", [{ key: "hours", value: "8 to 5", sourceType: "listing", quote: "8 to 5", confidence: "high" }]);
+  it("hands the confirmed details to the business", () => {
+    const after = withCandidates(named, [{ key: "hours", value: "8 to 5", sourceType: "website", quote: "8 to 5", confidence: "high" }]);
 
     expect(draftDetails(after)).toEqual({
       details: { hours: "8 to 5" },
-      evidence: { hours: { sourceType: "listing", quote: "8 to 5", confidence: "high", ownerConfirmed: true } },
-      placeId: "place-a",
+      evidence: { hours: { sourceType: "website", quote: "8 to 5", confidence: "high", ownerConfirmed: true } },
     });
   });
 });

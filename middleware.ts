@@ -36,7 +36,6 @@ const WINDOW_MS = 10 * 60 * 1000;
 // times looser, since everyone on one office or event Wi-Fi shares a single address.
 const LIMITS = {
   createBusiness: { bucket: "create-business", windowMs: WINDOW_MS, perSession: 10, perIp: 60 },
-  places: { bucket: "places", windowMs: WINDOW_MS, perSession: 20, perIp: 120 },
   rewrite: { bucket: "rewrite", windowMs: WINDOW_MS, perSession: 20, perIp: 120 },
   // One onboarding runs 11 to 14 turns and an owner may map several businesses, so 90 fits three
   // onboardings plus chat. The daily model budget in `lib/server/ai-budget.ts` caps the spend.
@@ -136,7 +135,6 @@ export function limitFor(method: string, pathname: string): ApiLimit {
   if (method !== "POST") return LIMITS.mutation;
   if (isPhotoUpload(pathname)) return LIMITS.photo;
   if (/^\/api\/businesses\/?$/.test(pathname)) return LIMITS.createBusiness;
-  if (/^\/api\/onboarding\/(?:lookup|place)\/?$/.test(pathname)) return LIMITS.places;
   if (/^\/api\/cards\/[^/]+\/rewrite\/?$/.test(pathname)) return LIMITS.rewrite;
   if (/^\/api\/intake(\/[^/]+)?\/?$/.test(pathname) || /^\/api\/businesses\/[^/]+\/chat\/?$/.test(pathname)) return LIMITS.chat;
   // Reading the invoice sheet drafts cards the way an arriving event does, so it shares their bucket.

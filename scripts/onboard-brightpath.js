@@ -37,7 +37,6 @@
     voice: {
       text: "Hi Maya, thanks for reaching out! I'd love to help you get ready for your interviews. I have openings Tuesday at 10 a.m. or Thursday at 2 p.m. this week. Let me know which works best and I'll send a Calendly link. Looking forward to working with you! Best, Priya at Brightpath Coaching",
     },
-    listing: { picks: ["none"] },
     sheet: { text: `Here's my invoice sheet ${SHEET}` },
     confirm: { picks: ["yes"] },
     "gap:ownerName": { text: "Priya" },

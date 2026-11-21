@@ -152,7 +152,6 @@ Each service stays off until its variables are set. [Connect real services](#con
 | `CRON_SECRET` | The bearer token required by scheduled dispatch and brief routes. Missing or incorrect authorization returns 404 |
 | `PUBLIC_APP_URL` | This deployment's public https address. The webhook URLs on the Connections page start with it |
 | `ANCHORED_ALLOW_GUEST_CONNECTIONS` | Set to `1` to let a guest connect services in a local run. Leave it unset in production, where only email and Google accounts can connect |
-| `GOOGLE_PLACES_API_KEY` | Turns on the "Is this you?" step in onboarding: after the name and town, Anchored shows up to three Google listings, and the one the owner picks fills their hours and review link for them to confirm. Restrict the key to the Places API in Google Cloud and give it a daily quota. It stays on the server |
 
 ## Set up Supabase
 

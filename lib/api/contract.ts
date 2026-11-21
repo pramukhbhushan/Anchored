@@ -2,7 +2,6 @@ import type { FollowupInput, RecordedFollowup } from "@/lib/domain/followups";
 import type { License } from "@/lib/domain/renewals";
 import type { ConnectionKind } from "@/lib/domain/connections";
 import type { ConsentSource, Contact } from "@/lib/domain/contacts";
-import type { DetailCandidate } from "@/lib/domain/details";
 import type { IntakeQuestion, KnownFact, ProfileChange } from "@/lib/domain/intake";
 import type { BriefSnapshot } from "@/lib/domain/brief";
 import type { OutboxRule } from "@/lib/domain/rules";
@@ -154,24 +153,12 @@ export interface TelegramSetupResponse {
 
 /** POST /api/businesses: build a profile from onboarding answers, an example, or one sentence. */
 export type CreateBusinessRequest =
-  | { readonly from: "answers"; readonly answers: OnboardingAnswers; readonly placeId?: string }
+  | { readonly from: "answers"; readonly answers: OnboardingAnswers }
   | { readonly from: "example"; readonly exampleId: string }
   | { readonly from: "sentence"; readonly sentence: string };
 export interface CreateBusinessResponse {
   readonly id: string;
   readonly business: BusinessProfile;
-}
-
-/** POST /api/onboarding/lookup: find up to three Google listing matches. */
-export interface PlacesLookupRequest { readonly name: string; readonly city: string }
-export interface PlacesLookupResponse { readonly choices: readonly { readonly id: string; readonly name: string; readonly address: string; readonly rating?: number }[] }
-
-/** POST /api/onboarding/place: read the selected listing into profile candidates. */
-export interface PlacesDetailRequest { readonly placeId: string }
-export interface PlacesDetailResponse {
-  readonly placeId: string;
-  readonly candidates: readonly DetailCandidate[];
-  readonly website: string | null;
 }
 
 /** DELETE /api/businesses: everything the visitor saved is gone. */

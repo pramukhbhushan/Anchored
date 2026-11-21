@@ -17,8 +17,6 @@ import type {
   SetAutomationRequest,
   SetStandingRuleRequest,
   InvoiceSheetCheckRequest,
-  PlacesDetailRequest,
-  PlacesLookupRequest,
   SimulateRequest,
 } from "@/lib/api/contract";
 import { SKILLS } from "@/lib/domain/agents";
@@ -69,19 +67,10 @@ const onboardingAnswersSchema = z.object({
 });
 
 export const createBusinessSchema = z.union([
-  z.object({ from: z.literal("answers"), answers: onboardingAnswersSchema, placeId: z.string().trim().min(1).max(120).optional() }),
+  z.object({ from: z.literal("answers"), answers: onboardingAnswersSchema }),
   z.object({ from: z.literal("example"), exampleId: z.string().min(1).max(40) }),
   z.object({ from: z.literal("sentence"), sentence: z.string().trim().min(3, "Describe the business in a few words.").max(300) }),
 ]) satisfies z.ZodType<CreateBusinessRequest>;
-
-export const placesLookupSchema = z.object({
-  name: z.string().trim().min(1, "Enter the business name.").max(120),
-  city: z.string().trim().min(1, "Enter the city or town.").max(120),
-}) satisfies z.ZodType<PlacesLookupRequest>;
-
-export const placesDetailSchema = z.object({
-  placeId: z.string().trim().min(1).max(120),
-}) satisfies z.ZodType<PlacesDetailRequest>;
 
 export const setChoiceSchema = z.union([
   z.object({ workflow: workflowId, path: z.enum(["turnon", "buy"]), toolId: z.string().min(1).max(60) }),

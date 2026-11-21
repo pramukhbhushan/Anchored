@@ -185,11 +185,6 @@ describe("limitFor", () => {
     expect(limitFor("POST", "/api/cards/abc-123/rewrite")).toMatchObject({ perSession: 20, perIp: 120 });
   });
 
-  it("limits Google business lookup separately", () => {
-    expect(limitFor("POST", "/api/onboarding/lookup")).toMatchObject({ bucket: "places", perSession: 20, perIp: 120 });
-    expect(limitFor("POST", "/api/onboarding/place").bucket).toBe("places");
-  });
-
   it("shares one chat limit between onboarding turns and the business chat", () => {
     const start = limitFor("POST", "/api/intake");
     const answer = limitFor("POST", "/api/intake/abc-123");

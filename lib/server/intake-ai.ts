@@ -4,7 +4,6 @@ import type { ChatMessage, IntakeResponse } from "@/lib/api/contract";
 import {
   allowedLists,
   applyGapAnswer,
-  applyListing,
   applyReading,
   clip,
   composeReply,
@@ -14,12 +13,10 @@ import {
   MAX_FOLLOW_UPS,
   mergeReadings,
   nextQuestion,
-  pickedListing,
   readAnswer,
   summarize,
   withCandidates,
   withFollowUp,
-  withListingChoices,
   type AnswerReading,
   type FactLists,
   type GapStep,
@@ -35,8 +32,6 @@ import type { LlmProvider } from "@/lib/llm";
 import { tierForTask } from "@/lib/llm/task-tier";
 import { getBudgetedLlm } from "@/lib/server/ai-budget";
 import { extractDetails } from "@/lib/server/extract";
-import { fetchPage } from "@/lib/server/fetch-page";
-import { isPlacesConfigured, placeDetails, searchPlaces } from "@/lib/server/places";
 import type { ChatThread, IntakeRecord } from "@/lib/store/types";
 
 // =============================================================================
@@ -46,9 +41,8 @@ import type { ChatThread, IntakeRecord } from "@/lib/store/types";
 // the rules and, when an AI provider is set up, with the model too, which may find
 // more facts and ask a short follow-up. Only allowed option values survive, any
 // model failure falls back to the rules, and the model never picks workflows.
-// Around that, the turn looks the business up on Google once the name and town
-// are known, reads the listing and website the owner picks, and lets the model
-// read a gap answer the rules couldn't. Every one of those steps may fail quietly.
+// Around that, the turn reads prices out of the "what do you sell" answer and
+// lets the model read a gap answer the rules couldn't. Both may fail quietly.
 
 const NO_LISTS: FactLists = { reach: [], tools: [], signals: [], languages: [] };
 
@@ -83,7 +77,6 @@ export function intakeState(intake: IntakeRecord, messages: readonly ChatMessage
 export async function takeIntakeTurn(session: string, draft: IntakeDraft, question: IntakeQuestion, answer: IntakeAnswer, transcript: readonly ChatMessage[]): Promise<IntakeTurn> {
   const step = question.field;
   const rules = readAnswer(answer.text ?? "", step);
-  if (step === "listing") return listingTurn(session, draft, answer, rules);
   if (isGapStep(step)) return gapTurn(session, draft, step, answer, rules);
   const llm = getBudgetedLlm(session);
   // Chips, skips and the review are exact already; a voice sample is kept whole, so there is nothing to read.
@@ -117,31 +110,10 @@ const SALES_FIELDS = ["pricingMethod", "prices", "minimumCharge", "priceDrivers"
 
 /** Work an answer sets off before the reply is written, so the reply asks the right next question. */
 async function lookUp(session: string, before: IntakeDraft, after: IntakeDraft, step: IntakeStep, reading: AnswerReading): Promise<IntakeDraft> {
-  let next = after;
-  const { name, place } = next.facts;
-  // Once the name and town are known, look the business up on Google, once per intake.
-  if (next.listing === undefined && next.settled.includes("name") && name && place && isPlacesConfigured()) {
-    next = withListingChoices(next, await searchPlaces(name, place));
+  if (step === "what" && reading.intent === "answer" && reading.text !== "" && before.facts.what !== after.facts.what) {
+    return withCandidates(after, await extractDetails(session, "owner", reading.text, SALES_FIELDS));
   }
-  if (step === "what" && reading.intent === "answer" && reading.text !== "" && before.facts.what !== next.facts.what) {
-    next = withCandidates(next, await extractDetails(session, "owner", reading.text, SALES_FIELDS));
-  }
-  return next;
-}
-
-/** The owner picked their Google listing, or said it isn't there. A pick reads the listing, then its website. */
-async function listingTurn(session: string, draft: IntakeDraft, answer: IntakeAnswer, reading: AnswerReading): Promise<IntakeTurn> {
-  const placeId = pickedListing(draft, answer.picks);
-  const facts = placeId === null ? null : await placeDetails(placeId);
-  let after = applyListing(draft, placeId, facts?.candidates ?? []);
-  if (facts?.listingText) after = withCandidates(after, await extractDetails(session, "listing", facts.listingText));
-  if (facts?.reviewText) after = withCandidates(after, await extractDetails(session, "reviews", facts.reviewText));
-  // Only a model can read a website for facts, so without one the page isn't fetched at all.
-  if (facts?.website && getBudgetedLlm(session) !== null) {
-    const page = await fetchPage(facts.website);
-    if (page) after = withCandidates(after, await extractDetails(session, "website", page.text));
-  }
-  return { draft: after, reply: composeReply(draft, after, "listing", reading) };
+  return after;
 }
 
 /** A gap answer: the rules read it, and the model tries only when the rules found nothing in typed words. */
