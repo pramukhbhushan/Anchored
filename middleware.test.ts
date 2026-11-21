@@ -1,14 +1,16 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { SESSION_COOKIE } from "@/lib/session-cookie";
-import { clientIp, clientKey, isBodyTooLarge, limitFor, middleware } from "./middleware";
+import { clientIp, clientKey, isBodyTooLarge, limitChecks, limitFor, middleware } from "./middleware";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
 // Behavior of `middleware.ts`: which API mutations it refuses and why, the
 // per-session and per-IP rate limits, the anonymous session cookie when accounts
-// are off, and the `/app` sign-in redirect when they are on. Signed-in requests
+// are off, and the `/app` sign-in redirect when they are on. Most blocks run as
+// on Vercel, which sets the client IP headers; one runs with no trusted proxy,
+// where a client could write those headers itself. Signed-in requests
 // carry a token signed by a local key, so no test reaches a live Supabase project.
 
 const HOST = "anchored.example.com";
@@ -38,9 +40,11 @@ async function createBusinesses(count: number, ip: string, cookie?: string): Pro
   return statuses;
 }
 
-/** Turn accounts on or off for the tests in a block. */
-function useAccounts(enabled: boolean): void {
+/** Turn accounts on or off for the tests in a block, and say whether a proxy sets the client IP headers, as Vercel does. */
+function useAccounts(enabled: boolean, onVercel = true): void {
   beforeEach(() => {
+    vi.stubEnv("VERCEL", onVercel ? "1" : "");
+    vi.stubEnv("TRUST_PROXY_HEADERS", "");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", enabled ? SUPABASE_URL : "");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", enabled ? "test-anon-key" : "");
   });
@@ -93,14 +97,46 @@ async function sessionCookie(key: SigningKey, userId: string): Promise<string> {
 // =============================================================================
 
 describe("clientIp", () => {
+  const vercel = { VERCEL: "1" };
+
   it("prefers `x-real-ip`, which Vercel sets itself, over a client-supplied `x-forwarded-for`", () => {
-    expect(clientIp(new Headers({ "x-forwarded-for": "203.0.113.7, 10.0.0.1", "x-real-ip": "198.51.100.9" }))).toBe("198.51.100.9");
+    expect(clientIp(new Headers({ "x-forwarded-for": "203.0.113.7, 10.0.0.1", "x-real-ip": "198.51.100.9" }), vercel)).toBe("198.51.100.9");
   });
 
-  it("falls back to the first `x-forwarded-for` entry, then to one shared bucket", () => {
-    expect(clientIp(new Headers({ "x-forwarded-for": "203.0.113.7, 10.0.0.1" }))).toBe("203.0.113.7");
-    expect(clientIp(new Headers({ "x-real-ip": " " }))).toBe("unknown");
-    expect(clientIp(new Headers())).toBe("unknown");
+  it("falls back to the first `x-forwarded-for` entry, then to no IP at all", () => {
+    expect(clientIp(new Headers({ "x-forwarded-for": "203.0.113.7, 10.0.0.1" }), vercel)).toBe("203.0.113.7");
+    expect(clientIp(new Headers({ "x-real-ip": " " }), vercel)).toBeNull();
+    expect(clientIp(new Headers(), vercel)).toBeNull();
+  });
+
+  it("trusts the headers behind another proxy only with `TRUST_PROXY_HEADERS=1`", () => {
+    const headers = new Headers({ "x-real-ip": "198.51.100.9" });
+    expect(clientIp(headers, { TRUST_PROXY_HEADERS: "1" })).toBe("198.51.100.9");
+    expect(clientIp(headers, {})).toBeNull();
+    expect(clientIp(headers, { VERCEL: "0", TRUST_PROXY_HEADERS: "true" })).toBeNull();
+  });
+});
+
+describe("limitChecks", () => {
+  const rule = { bucket: "test", windowMs: 1000, perSession: 1, perIp: 5 };
+
+  it("counts a request against its session, then its IP", () => {
+    expect(limitChecks(rule, "s1", true, "203.0.113.7")).toEqual([
+      ["session:test:s1", 1],
+      ["ip:test:203.0.113.7", 5],
+    ]);
+  });
+
+  it("holds a request that brought its session to the session limit alone when the IP isn't trusted", () => {
+    expect(limitChecks(rule, "s1", true, null)).toEqual([["session:test:s1", 1]]);
+  });
+
+  it("puts every request that brought no session into one shared bucket when the IP isn't trusted", () => {
+    expect(limitChecks(rule, "minted-1", false, null)).toEqual([
+      ["session:test:minted-1", 1],
+      ["ip:test:no-session", 5],
+    ]);
+    expect(limitChecks(rule, null, false, null)).toEqual([["ip:test:no-session", 5]]);
   });
 });
 
@@ -327,6 +363,31 @@ describe("middleware with accounts off", () => {
   it("lets a visitor reach the app without signing in", async () => {
     const response = await middleware(request("/app/b/restaurant", { ip: "198.51.100.11" }));
     expect(response.status).toBe(200);
+  });
+});
+
+describe("middleware with no trusted proxy", () => {
+  useAccounts(false, false);
+
+  it("ignores client-written IP headers, so a session can't rotate them past its limit", async () => {
+    const cookie = `${SESSION_COOKIE}=${crypto.randomUUID()}`;
+    const statuses: number[] = [];
+    for (let n = 1; n <= 11; n += 1) statuses.push(await createBusiness(`203.0.113.${n}`, cookie));
+    expect(statuses).toEqual([...Array(10).fill(200), 429]);
+  });
+
+  it("doesn't let one visitor's IP headers or limit block another visitor's session", async () => {
+    const greedy = `${SESSION_COOKIE}=${crypto.randomUUID()}`;
+    await createBusinesses(11, "203.0.113.50", greedy);
+    expect(await createBusiness("203.0.113.50", `${SESSION_COOKIE}=${crypto.randomUUID()}`)).toBe(200);
+  });
+
+  it("holds clients that drop their cookie together, whatever IP headers they send", async () => {
+    const statuses: number[] = [];
+    for (let n = 1; n <= 61; n += 1) {
+      statuses.push((await middleware(request("/api/businesses", { method: "POST", ip: `203.0.113.${n}`, headers: { "x-real-ip": `198.18.0.${n}` } }))).status);
+    }
+    expect(statuses).toEqual([...Array(60).fill(200), 429]);
   });
 });
 

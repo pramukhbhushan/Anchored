@@ -1,4 +1,5 @@
 import { PHOTO_ID_PATTERN } from "@/lib/domain/photos";
+import { findBusiness } from "@/lib/server/data";
 import { fail, handleError } from "@/lib/server/http";
 import { readPhoto } from "@/lib/server/photos";
 import { getSessionId } from "@/lib/server/session";
@@ -17,7 +18,9 @@ export async function GET(_request: Request, { params }: Context) {
   try {
     const { id, photoId } = await params;
     if (!PHOTO_ID_PATTERN.test(photoId)) return fail(404, "Photo not found.");
-    const photo = await readPhoto(await getSessionId(), id, photoId);
+    const business = await findBusiness(id);
+    if (!business) return fail(404, "Photo not found.");
+    const photo = await readPhoto(await getSessionId(), business.id, photoId);
     if (photo === null) return fail(404, "Photo not found.");
     return new Response(Buffer.from(photo.data), {
       headers: {

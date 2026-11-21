@@ -75,9 +75,9 @@ function checkedSlides(slides: readonly string[], photoCount: number, source: st
 }
 
 /** Draft a post from the owner's photos and description, with the model when one is set up. */
-export async function draftPhotoPost(business: BusinessProfile, description: string, photos: readonly PostPhoto[]): Promise<PostDraft> {
+export async function draftPhotoPost(session: string, business: BusinessProfile, description: string, photos: readonly PostPhoto[]): Promise<PostDraft> {
   const playbook = await getStore().listPostPlaybook(business.tradeKey);
-  return writePost(getBudgetedLlm(), playbook, business, description, photos);
+  return writePost(getBudgetedLlm(session), playbook, business, description, photos);
 }
 
 /** Write the post with `llm`, or with the rules when it is `null`. Split out so tests can pass a fake model. */

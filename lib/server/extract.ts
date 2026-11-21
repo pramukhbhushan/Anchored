@@ -112,10 +112,10 @@ export function validFacts(raw: z.infer<typeof extractionSchema>, sourceType: So
  * Read the details `text` states for `focus`, or none when AI is off, the budget is spent, the text reads like
  * session notes, or the model fails twice. Never throws.
  */
-export async function extractDetails(sourceType: SourceType, text: string, focus: readonly FieldKey[] = EXTRACTABLE): Promise<DetailCandidate[]> {
+export async function extractDetails(session: string, sourceType: SourceType, text: string, focus: readonly FieldKey[] = EXTRACTABLE): Promise<DetailCandidate[]> {
   const fields = focus.filter((key) => EXTRACTABLE.includes(key));
   if (text.trim() === "" || fields.length === 0 || looksLikeSessionNotes(text)) return [];
-  const llm = getBudgetedLlm();
+  const llm = getBudgetedLlm(session);
   if (llm === null) return [];
   try {
     return validFacts(await ask(llm, sourceType, text, fields), sourceType, text, fields);

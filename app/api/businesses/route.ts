@@ -24,14 +24,14 @@ import { getSessionId } from "@/lib/server/session";
 // card and outbox message, including what they changed on the example business.
 
 /** Build the profile for a validated request, or return `null` for an unknown example. */
-async function buildProfile(request: ReturnType<typeof createBusinessSchema.parse>): Promise<BusinessProfile | null> {
+async function buildProfile(session: string, request: ReturnType<typeof createBusinessSchema.parse>): Promise<BusinessProfile | null> {
   if (request.from === "example") {
     if (!EXAMPLES.some((example) => example.id === request.exampleId)) return null;
     // Each visitor gets their own copy, so their choices never touch the shared example.
     return { ...exampleProfile(request.exampleId), id: `b_${randomUUID()}`, kind: "custom" };
   }
   if (request.from === "sentence") return profileFromSentence(request.sentence);
-  return buildProfileFromAnswers(request.answers);
+  return buildProfileFromAnswers(session, request.answers);
 }
 
 /** Create a business for this session. */
@@ -39,7 +39,8 @@ export async function POST(request: Request) {
   const parsed = await readBody(request, createBusinessSchema);
   if (!parsed.ok) return parsed.response;
   try {
-    const built = await buildProfile(parsed.data);
+    const session = await getSessionId();
+    const built = await buildProfile(session, parsed.data);
     if (!built) return fail(400, "That example doesn't exist. Pick one from the list.");
     let business = withCrewDecisions(built);
     let placeRaw: { readonly listingText?: string; readonly website?: { readonly url: string; readonly title: string; readonly text: string } } | undefined;
@@ -49,8 +50,8 @@ export async function POST(request: Request) {
       const facts = await placeDetails(parsed.data.placeId);
       if (facts !== null) {
         const [listingCandidates, reviewCandidates] = await Promise.all([
-          extractDetails("listing", facts.listingText ?? ""),
-          extractDetails("reviews", facts.reviewText ?? ""),
+          extractDetails(session, "listing", facts.listingText ?? ""),
+          extractDetails(session, "reviews", facts.reviewText ?? ""),
         ]);
         const merged = mergeCandidates(
           { details: business.details ?? {}, evidence: business.evidence ?? {} },
@@ -66,14 +67,14 @@ export async function POST(request: Request) {
       if (page !== null) {
         const merged = mergeCandidates(
           { details: business.details ?? {}, evidence: business.evidence ?? {} },
-          await extractDetails("website", page.text),
+          await extractDetails(session, "website", page.text),
         );
         business = { ...business, details: merged.details, evidence: merged.evidence };
         placeRaw = { ...placeRaw, website: { url: page.url, title: page.title, text: page.text } };
       }
     }
     const raw = { request: parsed.data, ...(placeRaw === undefined ? {} : { place: placeRaw }) };
-    await saveNewBusiness(await getSessionId(), business, raw, { seedExample: parsed.data.from === "example" });
+    await saveNewBusiness(session, business, raw, { seedExample: parsed.data.from === "example" });
     return json<CreateBusinessResponse>({ id: business.id, business }, 201);
   } catch (error) {
     return handleError(error, "POST /api/businesses");

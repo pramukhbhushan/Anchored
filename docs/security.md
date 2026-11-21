@@ -14,9 +14,9 @@ Either way, a visitor sees only the businesses, choices, cards, outbox entries, 
 
 ## Database access
 
-Every table has row-level security on: `businesses`, `workflow_choices`, `cards`, `outbox`, `events`, `intake_drafts`, `chat_messages`, `ai_usage`, `contacts`, `connections` and `profile_versions`. The anon key alone reaches no row.
+Every table has row-level security on. `20261120000000_read_only_browser_access.sql` revokes every table privilege from the `anon` and `authenticated` roles, and from tables made later. The browser's token, guests included, can read only its own `cards` rows, which Realtime needs, and the shared post playbook. It can write nothing.
 
-`SupabaseStore` in `lib/store/supabase.ts` connects from the server with `SUPABASE_SERVICE_ROLE_KEY`, which bypasses row-level security. The `session_id` filter in each query is what keeps one session's rows from another. As a second layer, `20261107000200_auth_policies.sql`, `20261107000500_ai_budget_and_chat_policies.sql`, `20261108000000_connectors.sql` and `20261108000100_profile_versions.sql` let a signed-in user's own token reach only rows whose `session_id` is that user's id. `ai_usage` has no policy, so only the service role reads it.
+`SupabaseStore` in `lib/store/supabase.ts` connects from the server with `SUPABASE_SERVICE_ROLE_KEY`, which bypasses row-level security. The `session_id` filter in each query is what keeps one session's rows from another. Earlier migrations let a signed-in token, guests included, write its own rows directly, which skipped approval and every other server check; the read-only migration replaced those policies. `ai_usage` and `ai_session_usage` have no policy, so only the service role reads them.
 
 With no store variables, `getStore` in `lib/store/index.ts` uses `MemoryStore`, which keeps data in process memory and holds at most 2,000 sessions, dropping the oldest. A production build throws on its first data read instead, unless `ANCHORED_ALLOW_MEMORY_STORE=1`, so a public deploy can't lose visitors' work in memory unnoticed.
 
@@ -38,7 +38,12 @@ Routes also check path parameters against data the session owns:
 
 ## Rate limits
 
-`middleware.ts` rate-limits every `/api/*` request except GET and HEAD. Each request counts against its session and its IP, and either limit refuses it. The IP is `x-real-ip`, then the first `x-forwarded-for` entry, then the shared value `unknown`. Vercel sets `x-real-ip` to the connecting address, so a client can't pick its bucket. `clientKey` counts an IPv6 address by its /64 prefix, since one subscriber usually holds a whole /64. `lib/server/rate-limit.ts` holds the fixed-window counter.
+`middleware.ts` rate-limits every `/api/*` request except GET and HEAD. Each request counts against its session and its IP, and either limit refuses it. The IP is `x-real-ip`, then the first `x-forwarded-for` entry. Vercel sets `x-real-ip` to the connecting address, so a client can't pick its bucket. `clientKey` counts an IPv6 address by its /64 prefix, since one subscriber usually holds a whole /64. `lib/server/rate-limit.ts` holds the fixed-window counter.
+
+`clientIp` reads those headers only when `VERCEL=1`, which Vercel sets, or `TRUST_PROXY_HEADERS=1`. Set `TRUST_PROXY_HEADERS` only behind a proxy that sets `x-real-ip` or replaces `x-forwarded-for`; anywhere else a client writes the headers itself and could pick a new bucket for every request. With the headers untrusted or missing, `limitChecks` keys by session alone:
+
+- A request that arrived with a valid session cookie or a signed-in account counts under its session limit only.
+- A request that arrived with no session, such as a client that drops its cookie, a signed-out visitor or a webhook, could mint a new session each time. All of these share one bucket per route at the per-IP limit, so cookie dropping can't escape the limits, at the cost of such requests from different clients limiting each other.
 
 | Request | Per session | Per IP | What the request does |
 | --- | --- | --- | --- |
@@ -54,13 +59,13 @@ Each server instance keeps its own counts in memory. On Vercel, a client whose r
 
 ## AI call budget
 
-`getBudgetedLlm` in `lib/server/ai-budget.ts` wraps the configured provider. Before each model call it runs `use_ai_call`, a SQL function from `20261107000500_ai_budget_and_chat_policies.sql` that adds one to today's row in `ai_usage` and reports whether the count is still under `AI_DAILY_CALL_CAP` (default 2,000, and 0 turns model calls off). The increment and the comparison are one statement, so concurrent calls can't overshoot, and every server instance shares the count. The day is UTC.
+`getBudgetedLlm` in `lib/server/ai-budget.ts` wraps the configured provider for one session. Before each model call it runs `use_session_ai_call`, a SQL function from `20261120000100_ai_session_budget.sql` that adds one to the session's row for today in `ai_session_usage` and reports whether the count is still under `AI_SESSION_DAILY_CALL_CAP` (default 150), so one visitor can't spend the whole day's budget. Routes pass the session from `getSessionId`; webhooks and schedulers pass the session their store lookup returned. "Delete my businesses" keeps today's count, so it can't refill the budget. A call within the session's cap then runs `use_ai_call`, a SQL function from `20261107000500_ai_budget_and_chat_policies.sql` that adds one to today's row in `ai_usage` and reports whether the count is still under `AI_DAILY_CALL_CAP` (default 2,000, and 0 turns model calls off). The increment and the comparison are one statement, so concurrent calls can't overshoot, and every server instance shares the count. The day is UTC.
 
 Past the cap, onboarding, the intake chat and the business chat fall back to the rules, and a rewrite returns 429. The provider's own spend cap stays the backstop.
 
 ## Discovery agent
 
-`npm run discover` is the only caller of `fetchPage` in `lib/server/fetch-page.ts`, and no route reaches it, so a visitor can't make the server load an address. `fetchPage` still loads only public http and https addresses on the default port. It refuses localhost, private and link-local IP ranges, IPv6 literals and single-label hosts, checks the address again after redirects, and drops replies that aren't HTML, are over 2 MB or take over 10 seconds. Page text is untrusted: the prompts mark it as data, and `vetCandidates` in `lib/domain/discovery.ts` keeps a tool only when its source is a page the run loaded and that page names it. Nothing the agent finds gets a score or reaches an owner's page until a person reviews the change to `lib/domain/discovered.json`.
+`fetchPage` in `lib/server/fetch-page.ts` loads a web page, and a visitor can choose the address. `POST /api/businesses` with `from: "answers"` loads the owner's website, the intake's listing step in `lib/server/intake-ai.ts` loads the website on the Google listing the owner picks, and `npm run discover` loads vendor sites. Before each request, `fetchPage` checks the URL text: http or https only, the default port, no user name, and no localhost, `.local`, `.internal`, single-label host, IPv6 literal or private IPv4 literal. It then resolves the host with `dns.lookup` and refuses it if any address is private, loopback, link-local, carrier-grade NAT, unspecified, multicast, documentation or reserved, in IPv4 or IPv6. `isPublicAddress` allows only IPv6 global unicast, so `::1`, `fc00::/7`, `fe80::/10`, mapped IPv4 (`::ffff:a.b.c.d`) and NAT64 (`64:ff9b::/96`) are refused. It follows redirects by hand, at most three, and runs the same checks on each hop before requesting it. It drops replies that aren't HTML, are over 2 MB or take over 10 seconds. One gap remains: `fetch` resolves the host again after the check, so a DNS server that changes its answer between the two lookups can still reach a private address. Page text is untrusted: the prompts mark it as data, and `vetCandidates` in `lib/domain/discovery.ts` keeps a tool only when its source is a page the run loaded and that page names it. Nothing the agent finds gets a score or reaches an owner's page until a person reviews the change to `lib/domain/discovered.json`.
 
 ## Cross-site request check
 
@@ -161,6 +166,9 @@ An owner can connect a Twilio number for texts and missed calls, email in and ou
 - **STOP and START replies update the contact.** A STOP reply marks the contact opted out and a START reply clears it. `deliveryFor` and the dispatcher never text an opted-out number.
 - **Calls are never recorded.** Maryland requires every party's consent to record a call, so the voice webhook answers with `twimlSayAndHangUp`, which at most says a short message before it hangs up, and nothing records or transcribes the call.
 - **The scheduled sender needs a secret.** `GET /api/cron/dispatch` sends due rows only for a request with `Authorization: Bearer <CRON_SECRET>`.
+- **The sender sends only what was approved.** `dispatchEntry` refuses an outbox row whose card isn't approved, and a row with no card unless it is a Telegram rule's fixed message.
+- **Owners send email with their own Resend key.** An owner pastes a Resend API key and a from-address on a domain they verified in Resend; the key is encrypted like other credentials. `RESEND_API_KEY` and `EMAIL_FROM_ADDRESS` set one shared sender as a fallback for a self-hosted server with one business. Leave them unset on a public deployment: with a shared sender, anyone who signs up can email any address from your domain.
+- **Photos stay in the owner's folder.** The photo route finds the business in the caller's session before it reads, `SupabaseStore` refuses any path part that isn't a plain id, and each business keeps at most 60 photos.
 
 ## Recorded work and Telegram
 

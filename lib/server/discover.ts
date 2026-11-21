@@ -15,7 +15,7 @@ import { WORKFLOWS } from "@/lib/domain/workflows";
 import type { LlmProvider } from "@/lib/llm";
 import { tierForTask } from "@/lib/llm/task-tier";
 import { getBudgetedLlm } from "@/lib/server/ai-budget";
-import { fetchPage } from "@/lib/server/fetch-page";
+import { fetchPage, type ResolveHost } from "@/lib/server/fetch-page";
 
 // =============================================================================
 // Module Overview
@@ -44,6 +44,8 @@ interface DiscoveryRequest {
   readonly llm?: LlmProvider | null;
   /** Replaces `fetch` for loading vendor sites. */
   readonly fetchImpl?: typeof fetch;
+  /** Replaces DNS for checking each vendor site's addresses. */
+  readonly resolveHost?: ResolveHost;
   readonly now?: Date;
 }
 
@@ -65,6 +67,8 @@ interface Gathered {
   readonly toolPerPage?: readonly string[];
 }
 
+// The discovery CLI runs for the team, not a visitor, so its calls count under one fixed session of their own.
+const DISCOVERY_SESSION = "operator:discover";
 // Searches per run. Each one costs a little, and six covers a job's main vendors and one or two roundups.
 const MAX_SEARCHES = 6;
 // Tools the model may name when it can't search. A few more than a run may add, since some sites won't load.
@@ -191,7 +195,7 @@ async function gatherBySites(llm: LlmProvider, request: DiscoveryRequest, known:
     return false;
   });
 
-  const loaded = await Promise.all(fresh.map((tool) => fetchPage(tool.website.trim(), { fetchImpl: request.fetchImpl, maxChars: PAGE_CHARS })));
+  const loaded = await Promise.all(fresh.map((tool) => fetchPage(tool.website.trim(), { fetchImpl: request.fetchImpl, resolveHost: request.resolveHost, maxChars: PAGE_CHARS })));
   const pages: SearchedPage[] = [];
   const notes: string[] = [];
   const toolPerPage: string[] = [];
@@ -223,7 +227,7 @@ function leftOut(gathered: Gathered, result: DiscoveryResult): SkippedCandidate[
 
 /** Find tools that do `workflow` for `business`, and return the ones that pass every rule. */
 export async function discoverTools(request: DiscoveryRequest): Promise<DiscoveryRun> {
-  const llm = request.llm === undefined ? getBudgetedLlm() : request.llm;
+  const llm = request.llm === undefined ? getBudgetedLlm(DISCOVERY_SESSION) : request.llm;
   if (!llm) throw new DiscoveryUnavailableError("AI is off. Set AI_PROVIDER and AI_API_KEY in .env.local to run discovery.");
 
   const known = [...knownToolNames(), ...(request.alsoKnown ?? [])];
