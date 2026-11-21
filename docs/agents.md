@@ -32,7 +32,7 @@ The page is `app/app/b/[id]/workflows/[workflow]/page.tsx`, and the automation p
 
 Customer answers new messages and follows up on work the owner recorded.
 
-- **Telegram, optional.** Customers message the business through a shared Telegram bot. It is off unless the server sets `TELEGRAM_BOT_TOKEN` and `TELEGRAM_BOT_USERNAME`, and it has not been verified in production. `telegramSetup` in `lib/server/telegram-setup.ts` gives each business its own link and a QR code drawn on the server. The shared example business never gets one. The README's "Set up Telegram" section registers the webhook.
+- **Telegram, optional.** Customers message the business through a shared Telegram bot. It is off unless the server sets `TELEGRAM_BOT_TOKEN` and `TELEGRAM_BOT_USERNAME`, and it has not been verified in production. `telegramSetup` in `lib/server/telegram-setup.ts` gives each business its own link and a QR code drawn on the server. The shared example business never gets one. [Set up Telegram](deploy.md#set-up-telegram) registers the webhook.
 - **The webhook.** `app/api/hooks/telegram/route.ts` checks the secret header, claims each update once, and answers 200 only after the work is saved. An update still in progress gets a 503, so Telegram retries it.
 - **Commands.** In `lib/server/telegram-hooks.ts`, `/start <link>` binds the chat to the business and records consent. `/stop`, or blocking the bot, opts the customer out.
 - **Picking the skill.** `routeCustomerMessage` in `lib/domain/customer-routing.ts` tries closer, then showup, catering and inquiry, among the skills the owner chose. A billing question, or a message no chosen skill can answer, becomes a note for the owner.

@@ -1,36 +1,38 @@
 # Anchored
 
-Anchored shows a small business owner where AI can save them time, which tools fit, and what it all costs. Where no tool fits, Anchored's own AI agents draft the work for the owner's approval. The Telegram bot also sends fixed start/stop confirmations and a fixed acknowledgment under the business's acknowledgment rule, which starts on and can be turned off.
+Anchored shows a small business owner, such as an HVAC contractor or a corner store owner, which jobs AI can take off their plate, which tools fit their business, and what the whole setup costs a month. Where no tool fits a job, an Anchored agent drafts the work as a card, and nothing reaches a customer until the owner approves it.
 
-Built for the University of Maryland AI for Small Business Hack-a-thon, Fall 2026. The research behind it is in [`docs/research/`](docs/research/).
+Anchored is a finished hackathon project, built for the University of Maryland AI for Small Business Hack-a-thon in Fall 2026. Issues and pull requests are welcome, but nobody promises a review. The research behind the product is in [`docs/research/`](docs/research/).
 
 ## How it works
 
-To look around without typing anything, open the app and explore the example business, Linden Street Kitchen, a restaurant built from our research. Then set up your own.
+The app opens with an example business, Linden Street Kitchen, a restaurant built from the team's research. Explore it first, then set up your own business.
 
 ### 1. Describe your business
 
-Anchored asks one question at a time: what you sell, how customers reach you, and what software you already use. Skip anything you don't know.
+Anchored asks one question at a time: what you sell, how customers reach you, and what software you already use. You can skip any question.
 
 ![Chat that asks about the business, with a checklist of what Anchored knows so far](docs/screenshots/1-describe.png)
 
 ### 2. See where AI can help
 
-Anchored lists the jobs AI can take off your plate, such as returning missed calls or chasing quotes. Each job has three options: turn on a tool you already pay for, buy a new one, or let an Anchored agent do it. Anchored marks its pick.
+Anchored lists the jobs AI can take on, such as returning missed calls or chasing quotes. Each job has three options: turn on a tool you already pay for, buy a new one, or let an Anchored agent do it. Anchored marks the option it recommends.
 
 ![Workflows page with the three options for each job](docs/screenshots/2-workflows.png)
 
 ### 3. Compare tools
 
-Each tool gets a score out of 100 for your business. The score comes from seven checks, such as price, setup effort and whether it works with your software.
+Each tool gets a score out of 100 for your business, from seven checks such as price, setup effort and whether it works with your software. Code computes every score. The model never picks a number.
 
 ![Tools page with scored tool cards](docs/screenshots/3-tools.png)
 
-New tools come from a discovery agent. It finds tools that do one job, and code keeps a tool only when a real web page backs it: the tool's own site, which code loads and checks for the tool's name, or a page from Claude's web search. Each find waits under "waiting for a person to check" with a link to that page and the kind of business it was found for, and gets no score until a person checks its price, contract and data terms. See [Find new tools](#find-new-tools).
+A discovery agent finds new tools, and code keeps a tool only when a real web page names it. Each find waits on the Tools page until a person checks its price, contract and data terms. [Find new tools](#find-new-tools) shows how to run it.
 
 ### 4. Approve before anything goes out
 
-Agents write each text or email as a card. You approve, edit or skip it. Anchored also holds texts during quiet hours and texts only customers who agreed to get them. Connect your Twilio number or email on the Connections page and Anchored sends each approved message itself. Without a connection, each approved message lands in the outbox with a button that opens your own texting or email app with the words typed out, and you press send there. A post or review reply comes with Copy and links to where it gets pasted.
+Agents write each text, email or reply as a card. You approve, edit or skip it. Anchored holds texts during quiet hours, from 8 p.m. to 8 a.m., and texts only customers who agreed to get them. With Twilio or email connected, Anchored sends each approved message itself. Without a connection, the approved message waits in the outbox with a button that opens your own texting or email app with the words filled in, and you press send there.
+
+Four agents draft the cards: Customer, Bookkeeping, Marketing and Internal Communications. [`docs/agents.md`](docs/agents.md) explains what each one drafts and what starts it.
 
 ![Approvals page with draft cards and the outbox](docs/screenshots/4-approve.png)
 
@@ -40,266 +42,78 @@ One page shows the monthly bill and what each piece does. Tools you already pay 
 
 ![Stack page with the monthly bill](docs/screenshots/5-stack.png)
 
-For how the code fits together, see [`docs/architecture.md`](docs/architecture.md).
+## Quick start
 
-## Agent workspaces
+You need Node.js 26, the version in `.nvmrc`. No keys and no accounts are needed.
 
-Active agents appear under Workflows in the sidebar, the command palette and Overview: Customer, Bookkeeping, Marketing and Internal Communications. Each workspace shows its drafts, recent decisions and its own chat, and Approvals stays the one review queue. [`docs/agents.md`](docs/agents.md) explains what each agent drafts and what starts it.
-
-## Run it locally
-
-You need Node.js 26, the version in `.nvmrc`.
-
-1. Install dependencies:
+1. Install the dependencies:
 
    ```bash
    npm ci
    ```
 
-2. Copy the environment file. Every key is optional for a local run:
-
-   ```bash
-   cp .env.example .env.local
-   ```
-
-3. Start the app:
+2. Start the dev server:
 
    ```bash
    npm run dev
    ```
 
-4. Open http://localhost:3000.
+3. Open http://localhost:3000/app.
+4. Under **Example business**, open **Linden Street Kitchen**.
 
-With no keys set, Anchored keeps data in memory and maps businesses with its own rules. Data resets when the server restarts.
+With no `.env.local`, accounts and AI are off, and Anchored keeps data in memory, so it resets when the server stops. Anchored's own rules draft every profile and card.
+
+To run a production build instead, build it and start it on the in-memory store:
+
+```bash
+npm run build
+ANCHORED_ALLOW_MEMORY_STORE=1 npx next start -p 3000
+```
+
+## Configuration
+
+To change a setting, copy `.env.example` to `.env.local`, fill in the values you need, and restart the server. Every value is optional for a local run.
+
+| To turn on | Set | Guide |
+| --- | --- | --- |
+| Sign-in and saved data | The Supabase variables | [Set up a Supabase project](docs/deploy.md#set-up-a-supabase-project) |
+| AI drafts on the server's key | `AI_PROVIDER` and `AI_API_KEY` | [Turn on AI](docs/deploy.md#turn-on-ai) |
+| Real texts, email and invoices | `CONNECTOR_SECRET_KEY` and the connected service variables | [Connect real services](docs/deploy.md#connect-real-services) |
+
+Each owner can also add their own Anthropic, OpenAI, OpenRouter or Featherless key on a business's **Connections** page, signed in with email or Google. Every model call for that business then runs on the owner's key. Onboarding runs before a business exists, so it uses only the server's key. If you host Anchored for others, you can leave `AI_PROVIDER` and `AI_API_KEY` unset so you pay for no model calls.
+
+[`docs/deploy.md`](docs/deploy.md) covers every variable and the steps to deploy on Vercel.
 
 ### Find new tools
 
-The discovery agent works with any AI provider set in `.env.local`. Run it for one workflow and one kind of business:
+The discovery agent needs an AI provider in `.env.local`. Run it for one workflow and one kind of business:
 
 ```bash
-AI_MODEL_COMPLEX=deepseek-ai/DeepSeek-V3-0324 npm run discover -- --workflow calls --business "dental office"
+npm run discover -- --workflow calls --business "dental office"
 ```
 
-With Featherless or another provider that can't search, the model names tools it knows and code loads each tool's own website, keeping only the tools whose page loads and names them. Naming real products tests what the model remembers, so `AI_MODEL_COMPLEX` points that step at a large model; the small default model named a music app as a phone tool. With `AI_PROVIDER=anthropic`, the agent uses Claude's web search instead, so it also finds tools released after the model was trained.
+`--workflow base` covers the five workflows every business gets, and `--dry-run` prints the finds without saving them. The agent appends each new tool to `lib/domain/discovered.json`. Review that diff before you commit it.
 
-`--workflow base` covers the five workflows every business gets, and `--dry-run` prints the finds without saving them. The agent appends each new tool to `lib/domain/discovered.json`, and the Tools page lists it as waiting for a person to check. Review the diff, then open a PR with it. Each run makes two model calls, which count against `AI_DAILY_CALL_CAP`.
+With `AI_PROVIDER=anthropic`, the agent uses Claude's web search. Other providers name tools from what the model remembers, and code loads each tool's website to check it. For those, set `AI_MODEL_COMPLEX` to a large model, since a small model names the wrong products.
 
-### Run it with accounts, the way production does
+## Documentation
 
-Sign in, sign out and saved data need Supabase. To run it on your machine with Docker running and the Supabase CLI installed (`brew install supabase/tap/supabase`):
-
-```bash
-supabase start
-```
-
-It applies every migration in `supabase/migrations/` and serves the auth email inbox at http://127.0.0.1:54324. `supabase/config.toml` already allows `http://localhost:3000` and guest sign-in. Copy the values it prints into `.env.local`: `API URL` into `NEXT_PUBLIC_SUPABASE_URL`, the anon or publishable key into `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and the service role or secret key into `SUPABASE_SERVICE_ROLE_KEY`. Then restart `npm run dev`. A sign-in link lands in that inbox; open it in the same browser. `supabase stop` shuts it down.
-
-## Environment variables
-
-Every variable is optional for `npm run dev`. `.env.example` lists the common settings. Until its Telegram entries are added, copy the Telegram variable names from the table below into your ignored `.env.local`.
-
-### Accounts and storage
-
-| Variable | What it does |
+| Doc | Covers |
 | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | The Supabase project URL. Together with `NEXT_PUBLIC_SUPABASE_ANON_KEY`, it turns on accounts: email magic links, Google, and **Continue as guest**. The store also uses it when `SUPABASE_URL` is unset |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | The project's public anon key. The browser and `middleware.ts` use it to sign visitors in. Row-level security limits what it can reach |
-| `SUPABASE_URL` | The project URL for the store. Optional when `NEXT_PUBLIC_SUPABASE_URL` names the same project |
-| `SUPABASE_SERVICE_ROLE_KEY` | The server's key for the store, which saves businesses, choices, cards, and the outbox in Supabase Postgres. It never reaches the browser |
-| `ANCHORED_ALLOW_MEMORY_STORE` | Set to `1` to let a production build run on the in-memory store, for example to test `next start` on your machine |
-
-With the two `NEXT_PUBLIC_SUPABASE_*` variables unset, accounts are off. Each visitor gets an anonymous session cookie instead, and the account menu says "This browser". Use this mode for local development and CI only.
-
-Next.js copies every `NEXT_PUBLIC_` variable into the browser bundle when it builds. After you add or change one, rebuild the app, or redeploy it on Vercel.
-
-A production build with no store settings throws on its first data read, so a public deploy can't lose visitors' work in memory without anyone noticing. `ANCHORED_ALLOW_MEMORY_STORE=1` turns that check off.
-
-### AI provider
-
-With no AI settings, Anchored maps businesses and drafts cards with its own rules. `lib/llm/config.ts` reads the variables below, `lib/llm/` holds one adapter per provider, and `lib/server/ai.ts` makes the model calls.
-
-| Variable | What it does |
-| --- | --- |
-| `AI_PROVIDER` | One of `anthropic`, `openai`, `openrouter`, `featherless`, or `openai-compatible` |
-| `AI_API_KEY` | The API key for the provider in `AI_PROVIDER`, whichever it is |
-| `AI_BASE_URL` | The endpoint root, which is the part before `/chat/completions`, such as `https://api.featherless.ai/v1`. Optional for the named providers, which each have a default; required for `openai-compatible`. It must use https, except for a model on `localhost` |
-| `AI_MODEL` | The model for every tier. Every provider except `anthropic` needs it, unless all three tier variables are set |
-| `AI_MODEL_QUICK`, `AI_MODEL_DEFAULT`, `AI_MODEL_COMPLEX` | The model for one tier. Each one overrides `AI_MODEL` |
-| `AI_DAILY_CALL_CAP` | Model calls allowed per UTC day across every visitor, counted in Supabase. Default 2000; `0` turns model calls off |
-| `AI_SESSION_DAILY_CALL_CAP` | Model calls allowed per UTC day for one visitor or account, checked before `AI_DAILY_CALL_CAP`, so one visitor can't spend the whole day's budget. Default 150; `0` turns model calls off |
-| `APP_URL` | This deployment's public URL. Anchored sends it as the `HTTP-Referer` header to providers that ask for attribution, such as OpenRouter |
-
-Each model call names a tier: `quick` for "Rewrite in my voice" and chat turns, and `default` for onboarding text. With `anthropic` and no model variables, the `quick`, `default`, and `complex` tiers run `claude-haiku-5-5`, `claude-sonnet-5-5`, and `claude-opus-5-5`.
-
-On `featherless`, set `AI_MODEL=Qwen/Qwen3.6-35B-A3B`. In tests on Nov 7, 2026, it answered a chat turn in 1.4 to 2.8 seconds for about $0.0004, where `google/gemma-4-31B-it` took 3 to 26 seconds. Anchored turns Qwen's thinking off on every Featherless request.
-
-Past `AI_DAILY_CALL_CAP`, chats and onboarding fall back to the rules and rewrites return 429. Before a public deploy, also set a hard spend cap in your AI provider's billing settings, as the backstop.
-
-### Connected services
-
-Each service stays off until its variables are set. [Connect real services](#connect-real-services) walks through the setup.
-
-| Variable | What it does |
-| --- | --- |
-| `CONNECTOR_SECRET_KEY` | 32 random bytes in base64 that encrypt every credential an owner connects. Make one with `openssl rand -base64 32`. Without it, no service that needs a secret can be connected. Changing it makes stored credentials unreadable, so owners would reconnect |
-| `RESEND_API_KEY` | Optional shared sender for a self-hosted server with one business. Owners otherwise paste their own Resend key on the Connections page. Leave it unset on a public deployment, or anyone who signs up can email from your domain |
-| `EMAIL_FROM_ADDRESS` | The shared sender's address, on a domain verified in Resend. Each email shows the business's name and sets the owner as reply-to |
-| `INBOUND_EMAIL_ADDRESS` | The Postmark inbound address. Each business forwards to it with its own hook id after a `+` |
-| `INBOUND_EMAIL_SECRET` | A random string that Postmark's webhook URL carries as `?key=`, so only Postmark can post inbound email |
-| `TELEGRAM_BOT_TOKEN` | The shared bot token from BotFather, used only on the server |
-| `TELEGRAM_BOT_USERNAME` | The bot username without `@` |
-| `TELEGRAM_WEBHOOK_SECRET` | The private secret Telegram sends with webhook updates. The registration script and deployed app must use the same value |
-| `CRON_SECRET` | The bearer token required by scheduled dispatch and brief routes. Missing or incorrect authorization returns 404 |
-| `PUBLIC_APP_URL` | This deployment's public https address. The webhook URLs on the Connections page start with it |
-| `ANCHORED_ALLOW_GUEST_CONNECTIONS` | Set to `1` to let a guest connect services in a local run. Leave it unset in production, where only email and Google accounts can connect |
-| `GOOGLE_PLACES_API_KEY` | Turns on the "Is this you?" step in onboarding: after the name and town, Anchored shows up to three Google listings, and the one the owner picks fills their hours and review link for them to confirm. Restrict the key to the Places API in Google Cloud and give it a daily quota. It stays on the server |
-
-## Set up Supabase
-
-Accounts and saved data both need a Supabase project. Do these steps in the Supabase dashboard unless a step says otherwise.
-
-1. Create a Supabase project.
-2. On a new database, run every file in `supabase/migrations/` in filename order using the SQL Editor, or the Supabase CLI with an accurate migration history. On the existing team project, Pramukh applies new migrations in the SQL Editor. Its earlier migrations were applied by hand and are not recorded in CLI history, so do not run `supabase db push` against it without first reconciling that history.
-
-3. Copy the project's keys into your environment. Newer projects call the anon key the publishable key and the service role key the secret key. Either form works.
-   - From **Project Settings > Data API**, copy the project URL into `NEXT_PUBLIC_SUPABASE_URL`.
-   - From **Project Settings > API Keys**, copy the anon key into `NEXT_PUBLIC_SUPABASE_ANON_KEY` and the service role key into `SUPABASE_SERVICE_ROLE_KEY`.
-4. Under **Authentication > Sign In / Providers**, turn on the three sign-in methods:
-   - Leave **Email** on. Magic links use it.
-   - Turn on **Allow anonymous sign-ins**. **Continue as guest** uses it.
-   - Turn on **Google**, then paste the client ID and client secret of a Google OAuth client of type **Web application**. In Google Cloud, add `https://<project-ref>.supabase.co/auth/v1/callback` to that client's authorized redirect URIs.
-5. Under **Authentication > URL Configuration**, set where Supabase may send visitors back:
-   - Set **Site URL** to the production address, such as `https://anchored.vercel.app`.
-   - Add `http://localhost:3000/**` and `https://<your-domain>/**` to **Redirect URLs**. To sign in on Vercel preview deploys, also add `https://*-<your-team>.vercel.app/**`.
-6. Before launch, set up your own SMTP server under **Authentication > Emails**. The built-in email service sends only a few emails an hour and is meant for testing.
-7. If many guests will sign in from one network, raise **Anonymous sign-ins** under **Authentication > Rate Limits**. Supabase counts that limit per IP address.
-
-A magic link works only in the browser that asked for it. That browser holds the one-time verifier that `/auth/callback` needs to finish the sign-in.
-
-A guest who adds an email under **Save your work** keeps the same user id. Their businesses, choices, and cards carry over once they confirm the address.
-
-The server reads and writes with the service role key, which bypasses row-level security. `20261120000000_read_only_browser_access.sql` leaves the browser's token able to read only its own cards, for live updates. The anon key alone reaches nothing.
-
-`purge_expired_demo_data()` deletes guests' and anonymous sessions' rows older than 30 days once you schedule it with `pg_cron`. It skips rows that belong to email and Google accounts. The name dates from the hackathon build; migrations are frozen, so it stays.
-
-## Deploy to Vercel
-
-Production runs on Vercel with Supabase for both data and sign-in. `next build` needs no secrets, so the build itself never fails for a missing key. A production server with no store settings refuses its first data read instead of keeping work in memory.
-
-1. Create a Supabase project, then do these steps in its dashboard:
-   1. On a new database, run every file in `supabase/migrations/` in filename order, oldest first, in the **SQL Editor**. Pramukh owns new migrations on the existing team project; its CLI migration history is incomplete. Apply new migrations before deploying code that queries them.
-   2. Under **Authentication > Sign In / Providers**, leave **Email** on, turn on **Allow anonymous sign-ins**, and turn on **Google** with the client ID and secret of a Google OAuth web client. In Google Cloud, add `https://<project-ref>.supabase.co/auth/v1/callback` to that client's authorized redirect URIs.
-   3. Under **Authentication > URL Configuration**, set **Site URL** to your Vercel domain, such as `https://anchored.vercel.app`. Add `https://anchored.vercel.app/**` to **Redirect URLs**, and `https://*-<your-team>.vercel.app/**` if you want sign-in on preview deploys.
-   4. Under **Authentication > Emails**, set up your own SMTP server. The built-in email service sends only a few emails an hour.
-   5. Under **Project Settings > JWT Keys**, check that the project signs with an asymmetric key, ECC or RSA, rather than the legacy shared secret. `middleware.ts` then checks each request's token itself. With the shared secret it asks Supabase Auth on every request, link prefetches included.
-2. Import the repository in Vercel. The default Next.js settings work. Under **Settings > Functions**, set **Function Region** to the region closest to your Supabase project. A click waits on one or two Supabase round trips and a full page load on three, so a server across the country adds that distance to each one.
-3. Under **Settings > Environment Variables**, add these for the Production environment:
-
-   | Variable | Value |
-   | --- | --- |
-   | `NEXT_PUBLIC_SUPABASE_URL` | The project URL, from **Project Settings > Data API** |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | The anon or publishable key, from **Project Settings > API Keys** |
-   | `SUPABASE_SERVICE_ROLE_KEY` | The service role or secret key, from the same page. Server only |
-   | `AI_PROVIDER` | Optional. One of `anthropic`, `openai`, `openrouter`, `featherless`, `openai-compatible` |
-   | `AI_API_KEY` | The key for that provider |
-   | `AI_BASE_URL` | Optional for the named providers, required for `openai-compatible` |
-   | `AI_MODEL` | The model, required for every provider except `anthropic` |
-   | `AI_DAILY_CALL_CAP` | Model calls allowed per UTC day. Default 2000 |
-   | `AI_SESSION_DAILY_CALL_CAP` | Model calls allowed per UTC day for one account. Default 150 |
-   | `APP_URL` | Your Vercel domain, such as `https://anchored.vercel.app` |
-
-   Leave `ANCHORED_ALLOW_MEMORY_STORE` unset in production.
-4. Deploy. Vercel builds with the `NEXT_PUBLIC_` values, so redeploy after you change either one.
-5. Open the domain, sign in, map a business, sign out, and sign back in to check that the business is still there.
-
-To send and receive through real services, follow [Connect real services](#connect-real-services) after the first deploy.
-
-Visitors can try Anchored without an account through **Continue as guest**, and each one sees only their own businesses and cards. **Delete my businesses** in the account menu clears everything a visitor saved.
-
-## Connect real services
-
-An owner connects credential-bearing services on a business's Connections page, signed in with email or Google. The shared Telegram bot also supports guest-owned businesses. The deployment needs the variables in [Connected services](#connected-services) and these steps.
-
-1. Have the database owner apply any missing migrations in filename order. See [Set up Supabase](#set-up-supabase) for the existing team project's migration-history restriction. Set `CONNECTOR_SECRET_KEY` and `PUBLIC_APP_URL` for credential-bearing integrations.
-2. **Texting and missed calls.** Each business uses its own Twilio account.
-   1. Buy a Twilio number and register it for A2P 10DLC texting. Twilio delivers no texts to US numbers until the registration clears, which can take days. Calls work before that.
-   2. On the Connections page, enter the Account SID, the auth token and the number.
-   3. In Twilio, paste the two webhook URLs the Connections page shows into the number's **Messaging** and **Voice** settings.
-   4. Forward the shop's own line to the Twilio number when no one answers. On Verizon dial `*71` and the number; many GSM carriers use `**61*<number>#`.
-3. **Email out.** Set `CONNECTOR_SECRET_KEY`. Each owner verifies a sending domain in their own Resend account and pastes the API key and from-address on the Connections page. For one business on your own server, you can set `RESEND_API_KEY` and `EMAIL_FROM_ADDRESS` instead.
-4. **Email in.** Create a Postmark inbound server. Set `INBOUND_EMAIL_ADDRESS` to its inbound address and `INBOUND_EMAIL_SECRET` to a random string, then set the server's inbound webhook to `<PUBLIC_APP_URL>/api/hooks/email?key=<INBOUND_EMAIL_SECRET>`.
-5. **Stripe invoices.** In Stripe, add the webhook endpoint the Connections page shows, for the `invoice.overdue` and `invoice.payment_failed` events. Paste its signing secret on the Connections page.
-6. **Scheduled work.** Pramukh owns scheduler configuration. The existing dispatch route now also checks due recorded follow-ups and license warnings; Run now checks this work before counting its brief. No additional cron entry is needed. Call `GET /api/cron/dispatch` every 5 minutes and `GET /api/cron/brief` hourly, both with `Authorization: Bearer <CRON_SECRET>`. Both routes return 404 for missing or incorrect authorization. Vercel Cron supplies that header when configured with `CRON_SECRET`; an outside scheduler can supply it too. SMS held for quiet hours needs the dispatch schedule. Telegram and email do not wait for quiet hours. The brief route writes at most once per business per local day from 7 a.m. Eastern.
-7. **Telegram.** Follow [Set up Telegram](#set-up-telegram). It is one shared bot with a separate random link and session-scoped inbox for each business.
-
-## Set up Telegram
-
-These are operator steps for an authorized test or deployment. Registering a webhook changes where the shared bot sends updates; it is not part of a normal local app start.
-
-1. In Telegram, open the official BotFather chat. Create a bot with `/newbot`. Keep its token private. Use the bot's username, not its display name.
-2. Set `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` and `TELEGRAM_WEBHOOK_SECRET` on the server and in the ignored local environment used for registration. Set `CRON_SECRET` for scheduled work. Share secret values privately, never in issues, screenshots, browser props or source control. The local registration secret must exactly match the receiving deployment's secret, or every update is rejected with 404.
-3. Confirm the database owner has applied the Telegram and brief migrations, plus any later migrations required by the code being deployed. The original Telegram and brief files are `20261108000300_telegram_threads.sql` and `20261108000600_internal_briefs.sql`; the handoff reports both were applied. `20261108000700_telegram_deletion.sql` and `20261108000800_customer_followups.sql` are new local migrations that Pramukh must review and apply before this version deploys.
-4. Once the intended deployment is running and its operator has approved moving the shared bot, register its public HTTPS address and inspect the result under Node 26:
-
-   ```bash
-   node --conditions=react-server --env-file-if-exists=.env.local --import tsx scripts/telegram-webhook.ts set https://YOUR-DEPLOYMENT
-   node --conditions=react-server --env-file-if-exists=.env.local --import tsx scripts/telegram-webhook.ts info
-   ```
-
-   `set` replaces the bot's webhook and drops pending Telegram updates. A bot has one webhook, so registering a laptop tunnel takes updates away from production. The script prints the target, pending update count and Telegram's last reported error without printing credentials. A past reported error is diagnostic history; verify a new message arrives at the intended deployment.
-5. Create your own business, choose a Customer workflow for Anchored to draft, and open Connections or Customer. Scan the QR, tap Start, send a question, then review the draft in Approvals. Only an approved free-text reply sends. The fixed acknowledgment starts on; turn it off in Customer if you do not want it. `/stop` stops that business's messages, and a new `/start` from its link explicitly restarts them.
-6. Run the controlled phone checks in the [agent test runbook](docs/testing/agent-demo.md). A local tunnel test does not verify production credentials, Supabase queries or scheduling. With the in-memory store, restarting the app removes its businesses, chat bindings and history, so recreate the business and open its new link after a restart.
-
-## Remaining deployment prerequisites
-
-The combined working tree passed Node 26 `npm run check`: type checking, 1,567 tests across 131 files and the production build. Browser checks verified license entry through its API and saved profile, the generated approval card and the refreshed brief. Internal controls fit at 1440, 1024, 768 and 390px without sideways scrolling or page errors. The resumed pass rechecked Customer, Internal, Workflows, Approvals, Stack and Tools at 390px, including the cost view and fit explanation sheet. These checks used the local in-memory store, not live Supabase or provider delivery.
-
-Before deploying, Pramukh must manually review and apply the two new append-only migrations, in order, on the existing team database:
-
-- `supabase/migrations/20261108000700_telegram_deletion.sql`
-- `supabase/migrations/20261108000800_customer_followups.sql`
-
-These files have not been applied to live Supabase by this implementation. Keep the existing cron schedules: dispatch every 5 minutes now also checks recorded work, and brief runs hourly. No new cron configuration is needed. Confirm production settings, matching Telegram secrets, real Supabase persistence and authorized phone delivery separately. The [agent test runbook](docs/testing/agent-demo.md) lists the live checks. No deployment, video or new screenshot is claimed by an automated test run.
-
-## Project layout
-
-| Path | Contents |
-| --- | --- |
-| `app/` | Pages and API routes |
-| `components/` | React components, grouped by feature: `ui/` primitives, `shell/` app chrome, and folders such as `business/` and `stack/` |
-| `lib/domain/` | Workflows, agents and skills, the catalog, ratings, the rules engine, the example business, card templates and the executor. Pure TypeScript with tests |
-| `lib/api/` | The request and response types of every API route, and the Zod schema for every request body |
-| `lib/llm/` | The model layer: the `LlmProvider` interface and one adapter per provider |
-| `lib/connectors/` | One adapter per connected service: Telegram, Twilio, Resend, Postmark and Stripe |
-| `lib/auth/` | Supabase Auth clients, the sign-in paths and the `Viewer` type |
-| `lib/server/` | Session, data access, model calls under the daily budget, and card decisions |
-| `lib/store/` | The `Store` interface with Supabase and in-memory versions |
-| `supabase/migrations/` | Database schema |
-| `docs/architecture.md` | How the layers fit together |
-| `docs/research/` | The research by trade, the design document, and where they disagree. Its `README.md` lists every file |
-| `docs/prototype/` | The single-page prototype this app was ported from |
-
-## Test
-
-You need Node.js 26, the version in `.nvmrc`. Run every check CI runs, in order: the type check, the tests and a production build.
-
-```bash
-npm run check
-```
-
-No `.env` is needed. Each step also runs alone:
-
-```bash
-npm run typecheck   # generates Next route types, then runs tsc
-npm test
-npm run build
-```
-
-CI runs the same steps on every pull request and on every push to `main`.
+| [`docs/deploy.md`](docs/deploy.md) | Supabase, Vercel, AI, connected services, Telegram and every environment variable |
+| [`docs/architecture.md`](docs/architecture.md) | The layers, the rules that keep owners' customers safe, and where to add a workflow, tool, route or connector |
+| [`docs/agents.md`](docs/agents.md) | The four agents, what each drafts and what starts it |
+| [`docs/connectors.md`](docs/connectors.md) | The connected services, the rules they follow, and the ones not built |
+| [`docs/security.md`](docs/security.md) | Each security control and the file that holds it |
+| [`docs/testing/`](docs/testing/) | A manual test runbook for the agents and a test business |
+| [`docs/research/`](docs/research/) | The research by trade that the catalog and workflows come from |
+| [`docs/brand.md`](docs/brand.md) | Colors, type and voice |
 
 ## Contribute
 
-Read [`AGENTS.md`](AGENTS.md) before you change anything, whether you or a coding agent writes the code. It covers the layout, the rules that protect owners' customers, how several people work in parallel worktrees, and the commit conventions. Land every change through a pull request by following [`.claude/skills/land-a-pr/SKILL.md`](.claude/skills/land-a-pr/SKILL.md). Claude Code loads both on its own through `CLAUDE.md` and the skill.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before you open an issue or a pull request, and [AGENTS.md](AGENTS.md) before you change code, whether you or a coding agent writes it. Everyone who takes part follows the [code of conduct](CODE_OF_CONDUCT.md). To report a security problem, follow [SECURITY.md](SECURITY.md) instead of opening an issue.
+
+`npm run check` runs the type check, the tests and the production build, the same steps as CI. It needs no keys.
 
 ## License
 
