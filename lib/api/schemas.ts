@@ -150,7 +150,16 @@ export const connectSchema = z.discriminatedUnion("kind", [
     phone: z.string().trim().min(7).max(24),
     forwardTo: z.string().trim().max(24).optional(),
   }),
-  z.object({ kind: z.literal("email-out"), replyTo: z.string().trim().email("Enter the email address replies should go to.").max(200) }),
+  z
+    .object({
+      kind: z.literal("email-out"),
+      replyTo: z.string().trim().email("Enter the email address replies should go to.").max(200),
+      apiKey: z.string().trim().regex(/^re_[A-Za-z0-9_]{8,200}$/, "A Resend API key starts with re_.").optional(),
+      fromAddress: z.string().trim().email("Enter the address emails should come from.").max(200).optional(),
+    })
+    .refine((value) => (value.apiKey === undefined) === (value.fromAddress === undefined), {
+      message: "Add both your Resend API key and the address emails come from.",
+    }),
   z.object({ kind: z.literal("email-in") }),
   z.object({ kind: z.literal("stripe"), signingSecret: z.string().trim().regex(/^whsec_[A-Za-z0-9]{8,120}$/, "A Stripe signing secret starts with whsec_.") }),
 ]) satisfies z.ZodType<ConnectRequest>;

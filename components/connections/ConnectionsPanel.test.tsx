@@ -64,6 +64,19 @@ describe("ConnectionsPanel", () => {
     expect(block.getByRole("button", { name: "Disconnect" })).toBeInTheDocument();
   });
 
+  it("connects email sending with the owner's own Resend key and from address", async () => {
+    const fetchSpy = stubFetch(() => json({ blocked: null, connections: ALL_OFF, contacts: [] } satisfies ConnectionsResponse));
+    render(<ConnectionsPanel businessId="b1" blocked={null} connections={ALL_OFF} />);
+
+    const block = service("Sending email");
+    await userEvent.type(block.getByLabelText("Resend API key"), "re_owner_key_123");
+    await userEvent.type(block.getByLabelText("Send from"), "hello@shop.com");
+    await userEvent.type(block.getByLabelText("Reply-to address"), "me@shop.com");
+    await userEvent.click(block.getByRole("button", { name: "Connect" }));
+
+    expect(sentJson(fetchSpy, 0).body).toEqual({ kind: "email-out", replyTo: "me@shop.com", apiKey: "re_owner_key_123", fromAddress: "hello@shop.com" });
+  });
+
   it("says what happens to approved messages until each service is connected, and drops it once connected", () => {
     const email: ConnectionView = { kind: "email-out", connected: true, detail: "me@shop.com", setup: [], unavailable: null };
     render(<ConnectionsPanel businessId="b1" ai={NO_AI} blocked={null} connections={[off("texting"), email, off("email-in"), off("stripe")]} />);

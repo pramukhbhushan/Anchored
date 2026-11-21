@@ -15,7 +15,7 @@ import { WORKFLOWS } from "@/lib/domain/workflows";
 import type { LlmProvider } from "@/lib/llm";
 import { tierForTask } from "@/lib/llm/task-tier";
 import { getBudgetedLlm } from "@/lib/server/ai-budget";
-import { fetchPage } from "@/lib/server/fetch-page";
+import { fetchPage, type ResolveHost } from "@/lib/server/fetch-page";
 
 // =============================================================================
 // Module Overview
@@ -44,6 +44,8 @@ interface DiscoveryRequest {
   readonly llm?: LlmProvider | null;
   /** Replaces `fetch` for loading vendor sites. */
   readonly fetchImpl?: typeof fetch;
+  /** Replaces DNS for checking each vendor site's addresses. */
+  readonly resolveHost?: ResolveHost;
   readonly now?: Date;
 }
 
@@ -191,7 +193,7 @@ async function gatherBySites(llm: LlmProvider, request: DiscoveryRequest, known:
     return false;
   });
 
-  const loaded = await Promise.all(fresh.map((tool) => fetchPage(tool.website.trim(), { fetchImpl: request.fetchImpl, maxChars: PAGE_CHARS })));
+  const loaded = await Promise.all(fresh.map((tool) => fetchPage(tool.website.trim(), { fetchImpl: request.fetchImpl, resolveHost: request.resolveHost, maxChars: PAGE_CHARS })));
   const pages: SearchedPage[] = [];
   const notes: string[] = [];
   const toolPerPage: string[] = [];

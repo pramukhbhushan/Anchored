@@ -55,8 +55,11 @@ function requestFrom(kind: ServiceKind, data: FormData): ConnectRequest {
         ...(forwardTo === "" ? {} : { forwardTo }),
       };
     }
-    case "email-out":
-      return { kind, replyTo: field(data, "replyTo") };
+    case "email-out": {
+      const apiKey = field(data, "apiKey");
+      const fromAddress = field(data, "fromAddress");
+      return { kind, replyTo: field(data, "replyTo"), ...(apiKey === "" ? {} : { apiKey }), ...(fromAddress === "" ? {} : { fromAddress }) };
+    }
     case "email-in":
       return { kind };
     case "stripe":
@@ -237,7 +240,13 @@ function ConnectForm({
             <TextField name="forwardTo" label="Phone to ring first" type="tel" placeholder="+1 301 555 0100" hint="Optional. Anchored rings this phone for 20 seconds before drafting a missed-call text." required={false} />
           </>
         )}
-        {kind === "email-out" && <TextField name="replyTo" label="Reply-to address" type="email" placeholder="you@yourbusiness.com" hint="Customer replies come here." />}
+        {kind === "email-out" && (
+          <>
+            <TextField name="apiKey" label="Resend API key" type="password" placeholder="re_..." hint="From your Resend account, under API Keys. Anchored stores it encrypted." required={false} />
+            <TextField name="fromAddress" label="Send from" type="email" placeholder="hello@yourbusiness.com" hint="An address on a domain you verified in Resend." required={false} />
+            <TextField name="replyTo" label="Reply-to address" type="email" placeholder="you@yourbusiness.com" hint="Customer replies come here." />
+          </>
+        )}
         {kind === "stripe" && <TextField name="signingSecret" label="Signing secret" type="password" placeholder="whsec_..." hint="In Stripe, under Developers, then Webhooks, on the endpoint you add." />}
       </div>
       <div className={styles.acts}>
