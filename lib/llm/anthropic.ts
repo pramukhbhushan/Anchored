@@ -91,7 +91,11 @@ export class AnthropicProvider implements LlmProvider {
     try {
       return await this.client.beta.messages.create(params);
     } catch (error) {
-      if (error instanceof Anthropic.APIError) throw new LlmRequestError(`Claude request failed: ${error.message}`, error.status ?? null, { cause: error });
+      if (error instanceof Anthropic.APIError) {
+        // Anthropic reports a spent credit balance as a plain 400, so only its wording tells it apart.
+        const credit = error.status === 400 && /credit balance/i.test(error.message);
+        throw new LlmRequestError(`Claude request failed: ${error.message}`, error.status ?? null, { cause: error, ...(credit ? { reason: "credit" as const } : {}) });
+      }
       throw error;
     }
   }

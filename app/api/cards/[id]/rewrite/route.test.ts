@@ -12,8 +12,8 @@ import { hvacShop } from "@/test/trades";
 // "Rewrite in my voice" as the owner meets it when AI can't run: with no AI
 // key anywhere, the reply says to add one on Connections, or, on the example
 // business, that it writes without AI; and when the owner's provider turns
-// their key down, the reply says so in plain words with none of the
-// provider's text. The card lookup is stubbed; the key, the store and the
+// their key down or doesn't know their model, the reply says so in plain
+// words with none of the provider's text. The card lookup is stubbed; the key, the store and the
 // model layer are real, with the provider's endpoint answered by `fetch`.
 
 const SESSION = "owner-session";
@@ -72,5 +72,13 @@ describe("POST /api/cards/[id]/rewrite", () => {
     const answer = await rewrite();
 
     expect(answer).toEqual({ status: 422, error: "OpenAI turned down your AI key. Check it on Connections." });
+  });
+
+  it("says the owner's provider doesn't know their saved model, instead of a server error", async () => {
+    const business = state.business as BusinessProfile;
+    await state.store?.saveConnection(SESSION, { businessId: business.id, kind: "ai", hookId: "h".repeat(24), settings: { provider: "openai", model: "gpt-typo", lastFour: "1234" }, secret: encryptSecret(OWNER_KEY) });
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ error: { message: "The model `gpt-typo` does not exist" } }), { status: 404 }));
+
+    expect(await rewrite()).toEqual({ status: 502, error: "OpenAI doesn't know the model name saved on Connections. Copy the exact name from OpenAI." });
   });
 });

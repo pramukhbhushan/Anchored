@@ -1,7 +1,7 @@
 import type { RewriteResponse } from "@/lib/api/contract";
 import { LlmRefusalError, LlmResponseError } from "@/lib/llm";
 import { isAiConfigured, rewriteInVoice } from "@/lib/server/ai";
-import { AiBudgetError, AiKeyError } from "@/lib/server/ai-budget";
+import { AiBudgetError, AiKeyError, OwnerKeyRequestError } from "@/lib/server/ai-budget";
 import { findBusiness, isCardId, isCardLive, materializeCard } from "@/lib/server/data";
 import { saveRewrite } from "@/lib/server/decide";
 import { fail, handleError, json } from "@/lib/server/http";
@@ -38,7 +38,9 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     if (!updated) return fail(409, "This card was decided while it was being rewritten. Nothing changed.");
     return json<RewriteResponse>({ card: updated });
   } catch (error) {
+    // Both carry owner words with no provider text: a refused key is the owner's to fix, the rest came from upstream.
     if (error instanceof AiKeyError) return fail(422, error.message);
+    if (error instanceof OwnerKeyRequestError) return fail(502, error.message);
     if (error instanceof AiBudgetError) {
       const who = error.scope === "session" ? "You've" : "Anchored has";
       return fail(429, `${who} used today's AI rewrites. Edit the draft yourself, or try again tomorrow.`);

@@ -1,6 +1,6 @@
 import "server-only";
 import type { AiSetup } from "@/lib/domain/agents";
-import { AI_PROVIDER_COPY, isAiProvider, type AiProviderId } from "@/lib/domain/connections";
+import { AI_PROVIDER_COPY, isAiProvider } from "@/lib/domain/connections";
 import {
   getLlm,
   LlmConfigError,
@@ -54,6 +54,19 @@ export class AiBudgetError extends Error {
   constructor(readonly scope: BudgetScope) {
     super(BUDGET_MESSAGES[scope]);
   }
+}
+
+/**
+ * Raised when a call on an owner's key fails for any other reason, such as an unknown model or a provider that
+ * didn't answer. The message is for the owner and holds none of the provider's text.
+ */
+export class OwnerKeyRequestError extends LlmRequestError {
+  override name = "OwnerKeyRequestError";
+}
+
+/** Return the owner-facing words for a failed call on an owner's key, or `null` when the error isn't one. */
+export function ownerKeyProblem(error: unknown): string | null {
+  return error instanceof AiKeyError || error instanceof OwnerKeyRequestError ? error.message : null;
 }
 
 /** Raised when an owner's provider refuses their key, or their account has no credit. The message is for the owner. */
@@ -119,26 +132,32 @@ export async function spendDailyBudget(session: string, day: string, env: Env = 
 }
 
 /** Turn a failed call on an owner's key into an error that says, in the owner's words, what to do, with none of the provider's text. */
-export function ownerKeyError(provider: AiProviderId, error: unknown): Error {
+export function ownerKeyError(owner: Pick<OwnerAiSettings, "provider" | "model">, error: unknown): Error {
   // Refusals and unusable answers carry Anchored's own words, and mean the key worked.
-  if (error instanceof LlmRefusalError || error instanceof LlmResponseError || error instanceof AiKeyError) return error;
-  const name = AI_PROVIDER_COPY[provider].name;
-  const status = error instanceof LlmRequestError ? error.status : null;
+  if (error instanceof LlmRefusalError || error instanceof LlmResponseError || error instanceof AiKeyError || error instanceof OwnerKeyRequestError) return error;
+  const name = AI_PROVIDER_COPY[owner.provider].name;
+  const request = error instanceof LlmRequestError ? error : null;
+  const status = request?.status ?? null;
+  // Only an owner who saved a model name can fix it; without one, Anchored picked the model.
+  const modelHint = owner.model === null ? `Check your account and plan with ${name}.` : "Check the model name on Connections.";
   if (status === 401 || status === 403) return new AiKeyError(`${name} turned down your AI key. Check it on Connections.`, "key");
-  if (status === 402) return new AiKeyError(`${name} says your AI account is out of credit. Add credit with ${name}, then try again.`, "credit");
-  if (status === 404) return new LlmRequestError(`${name} doesn't know the model name saved on Connections. Copy the exact name from ${name}.`, status);
-  if (status === 429) return new LlmRequestError(`${name} is limiting your AI key right now. Try again in a minute, or check your plan with ${name}.`, status);
-  if (status !== null && status < 500) return new LlmRequestError(`${name} turned down the request. Check the model name on Connections.`, status);
-  return new LlmRequestError(`${name} didn't answer. Try again in a minute.`, status);
+  if (status === 402 || request?.reason === "credit") return new AiKeyError(`${name} says your AI account is out of credit. Add credit with ${name}, then try again.`, "credit");
+  if (status === 404) {
+    const words = owner.model === null ? `${name} doesn't offer the model Anchored picked for your key. Add a model name on Connections.` : `${name} doesn't know the model name saved on Connections. Copy the exact name from ${name}.`;
+    return new OwnerKeyRequestError(words, status);
+  }
+  if (status === 429) return new OwnerKeyRequestError(`${name} is limiting your AI key right now. Try again in a minute, or check your plan with ${name}.`, status);
+  if (status !== null && status < 500) return new OwnerKeyRequestError(`${name} turned down the request. ${modelHint}`, status);
+  return new OwnerKeyRequestError(`${name} didn't answer. Try again in a minute.`, status);
 }
 
 /** Return `llm`, built from an owner's key, with its errors rewritten by `ownerKeyError`. */
-export function withOwnerErrors(llm: LlmProvider, provider: AiProviderId): LlmProvider {
+export function withOwnerErrors(llm: LlmProvider, owner: Pick<OwnerAiSettings, "provider" | "model">): LlmProvider {
   return wrap(llm, async (call) => {
     try {
       return await call();
     } catch (error) {
-      throw ownerKeyError(provider, error);
+      throw ownerKeyError(owner, error);
     }
   });
 }
@@ -174,7 +193,7 @@ export function serverHasAi(): boolean {
 /** Build the provider for an owner's key, or `null` when its settings are incomplete. */
 function fromOwnerKey(owner: OwnerAiSettings): LlmProvider | null {
   try {
-    return withOwnerErrors(ownerLlm(owner), owner.provider);
+    return withOwnerErrors(ownerLlm(owner), owner);
   } catch (error) {
     if (error instanceof LlmConfigError) return null;
     throw error;

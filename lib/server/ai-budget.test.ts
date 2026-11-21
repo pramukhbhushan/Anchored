@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { LlmProvider } from "@/lib/llm";
 import { MemoryStore } from "@/lib/store/memory";
-import { AiBudgetError, AiKeyError, checkOwnerKey, dailyCallCap, DEFAULT_DAILY_CALL_CAP, DEFAULT_SESSION_DAILY_CALL_CAP, getBudgetedLlm, sessionDailyCallCap, spendDailyBudget, withDailyBudget } from "./ai-budget";
+import { AiBudgetError, AiKeyError, checkOwnerKey, OwnerKeyRequestError, dailyCallCap, DEFAULT_DAILY_CALL_CAP, DEFAULT_SESSION_DAILY_CALL_CAP, getBudgetedLlm, sessionDailyCallCap, spendDailyBudget, withDailyBudget } from "./ai-budget";
 import { encryptSecret } from "./secrets";
 
 vi.mock("server-only", () => ({}));
@@ -120,6 +120,16 @@ function stubOpenAi(status: number, body: unknown) {
   return calls;
 }
 
+/** Save an Anthropic key with no model for business `b_1`, so Anchored picks the model. */
+async function saveAnthropicKey(): Promise<void> {
+  await state.store.saveConnection(SESSION, { businessId: "b_1", kind: "ai", hookId: "a".repeat(24), settings: { provider: "anthropic", lastFour: OWNER_KEY.slice(-4) }, secret: encryptSecret(OWNER_KEY) });
+}
+
+/** Stub Anthropic's Messages endpoint to answer every request with `status` and `body`. */
+function stubAnthropic(status: number, body: unknown): void {
+  vi.stubGlobal("fetch", async () => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }));
+}
+
 const ANSWER = { choices: [{ message: { content: "Owner key answered." }, finish_reason: "stop" }] };
 
 describe("getBudgetedLlm", () => {
@@ -180,6 +190,30 @@ describe("getBudgetedLlm", () => {
     await expect(attempt).rejects.toBeInstanceOf(AiKeyError);
     await expect(attempt).rejects.toThrow("OpenAI turned down your AI key. Check it on Connections.");
     await expect(attempt).rejects.not.toThrow(/abcd1234/);
+  });
+
+  it("reads a spent balance as a credit problem, whether the provider says so with 402, 429 or 400", async () => {
+    await saveOwnerKey();
+    stubOpenAi(429, { error: { code: "insufficient_quota", message: "You exceeded your current quota." } });
+    await expect((await getBudgetedLlm(SESSION, "b_1"))?.generateText(TEXT)).rejects.toThrow("OpenAI says your AI account is out of credit. Add credit with OpenAI, then try again.");
+
+    await saveAnthropicKey();
+    stubAnthropic(400, { type: "error", error: { type: "invalid_request_error", message: "Your credit balance is too low to access the Anthropic API." } });
+    const attempt = (await getBudgetedLlm(SESSION, "b_1"))?.generateText(TEXT);
+    await expect(attempt).rejects.toBeInstanceOf(AiKeyError);
+    await expect(attempt).rejects.toThrow("Anthropic says your AI account is out of credit. Add credit with Anthropic, then try again.");
+  });
+
+  it("points at the model name only when the owner saved one", async () => {
+    await saveOwnerKey();
+    stubOpenAi(400, { error: { message: "Unsupported parameter" } });
+    const named = (await getBudgetedLlm(SESSION, "b_1"))?.generateText(TEXT);
+    await expect(named).rejects.toBeInstanceOf(OwnerKeyRequestError);
+    await expect(named).rejects.toThrow("OpenAI turned down the request. Check the model name on Connections.");
+
+    await saveAnthropicKey();
+    stubAnthropic(400, { type: "error", error: { type: "invalid_request_error", message: "Something else is wrong." } });
+    await expect((await getBudgetedLlm(SESSION, "b_1"))?.generateText(TEXT)).rejects.toThrow("Anthropic turned down the request. Check your account and plan with Anthropic.");
   });
 
   it("falls back to the server's key when the saved key can't be decrypted, and logs no key", async () => {

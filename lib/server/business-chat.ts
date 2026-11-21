@@ -29,7 +29,7 @@ import { ConnectorError } from "@/lib/connectors/errors";
 import { LlmResponseError, type LlmProvider } from "@/lib/llm";
 import { tierForTask } from "@/lib/llm/task-tier";
 import { newFacts } from "@/lib/server/ai";
-import { AiKeyError, getBudgetedLlm } from "@/lib/server/ai-budget";
+import { getBudgetedLlm, ownerKeyProblem } from "@/lib/server/ai-budget";
 import { checkEvent, ingestEvent } from "@/lib/server/ingest";
 import { connectInvoiceSheet, sheetsServiceAccount, syncInvoiceSheet } from "@/lib/server/invoice-sheet";
 import { quoted, shortPhrase } from "@/lib/server/intake-ai";
@@ -527,8 +527,9 @@ async function answerQuestion(session: string, business: BusinessProfile, role: 
     return reply;
   } catch (error) {
     console.warn(`[Business chat] AI conversation unavailable: ${error instanceof Error ? error.name : "unknown error"}`);
-    // A refused key is the owner's to fix, so the reply says how; other failures pass.
-    if (error instanceof AiKeyError) return `${error.message} ${fallback}`;
+    // A failure on the owner's own key says what happened and what to do; the server's own failures stay generic.
+    const problem = ownerKeyProblem(error);
+    if (problem !== null) return `${problem} ${fallback}`;
     return `AI couldn't reply right now. ${fallback}`;
   }
 }
