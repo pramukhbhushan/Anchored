@@ -22,7 +22,7 @@ const SESSION = "visitor-session";
 const stores = vi.hoisted(() => ({ current: null as Store | null }));
 vi.mock("@/lib/store", () => ({ getStore: () => stores.current }));
 const models = vi.hoisted(() => ({ current: null as LlmProvider | null }));
-vi.mock("@/lib/server/ai-budget", () => ({ getBudgetedLlm: () => models.current }));
+vi.mock("@/lib/server/ai-budget", async (original) => ({ ...(await original<object>()), getBudgetedLlm: () => models.current }));
 
 // Google Sheets is replaced by fixed rows, an error to throw, or no robot account at all.
 const sheets = vi.hoisted(() => ({ rows: [] as string[][], error: null as Error | null, account: { clientEmail: "robot@test.iam.gserviceaccount.com", privateKey: "unused" } as { clientEmail: string; privateKey: string } | null }));

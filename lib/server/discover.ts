@@ -223,7 +223,7 @@ function leftOut(gathered: Gathered, result: DiscoveryResult): SkippedCandidate[
 
 /** Find tools that do `workflow` for `business`, and return the ones that pass every rule. */
 export async function discoverTools(request: DiscoveryRequest): Promise<DiscoveryRun> {
-  const llm = request.llm === undefined ? getBudgetedLlm() : request.llm;
+  const llm = request.llm === undefined ? await getBudgetedLlm(null) : request.llm;
   if (!llm) throw new DiscoveryUnavailableError("AI is off. Set AI_PROVIDER and AI_API_KEY in .env.local to run discovery.");
 
   const known = [...knownToolNames(), ...(request.alsoKnown ?? [])];

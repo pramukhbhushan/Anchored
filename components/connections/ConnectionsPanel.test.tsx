@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { ConnectionsPanel } from "@/components/connections/ConnectionsPanel";
-import type { ConnectionsResponse, ConnectionView } from "@/lib/api/contract";
+import type { AiKeyView, ConnectionsResponse, ConnectionView } from "@/lib/api/contract";
 import { deferred, json, sentJson, stubFetch } from "@/test/http";
 
 // =============================================================================
@@ -14,6 +14,8 @@ import { deferred, json, sentJson, stubFetch } from "@/test/http";
 // with no form, a guest sees why they can't connect and no forms, and a
 // refused request shows the route's reason. Each service waits on its own
 // change, so one answering never frees another's buttons early.
+
+const NO_AI: AiKeyView = { provider: null, lastFour: null, model: null, fallback: "rules", unavailable: null };
 
 const SID = `AC${"a".repeat(32)}`;
 
@@ -41,7 +43,7 @@ describe("ConnectionsPanel", () => {
       ],
       unavailable: null,
     };
-    const fetchSpy = stubFetch(() => json({ blocked: null, connections: [texting, ...ALL_OFF.slice(1)], contacts: [] } satisfies ConnectionsResponse));
+    const fetchSpy = stubFetch(() => json({ blocked: null, ai: NO_AI, connections: [texting, ...ALL_OFF.slice(1)], contacts: [] } satisfies ConnectionsResponse));
     render(<ConnectionsPanel businessId="b1" blocked={null} connections={ALL_OFF} />);
 
     const block = service("Texting and missed calls");
@@ -115,7 +117,7 @@ describe("ConnectionsPanel", () => {
     await userEvent.click(service("Forwarded email").getByRole("button", { name: "Get my forwarding address" }));
     await userEvent.type(service("Stripe invoices").getByLabelText("Signing secret"), "whsec_123");
     await userEvent.click(service("Stripe invoices").getByRole("button", { name: "Connect" }));
-    forwarding.resolve(json({ blocked: null, connections: ALL_OFF, contacts: [] } satisfies ConnectionsResponse));
+    forwarding.resolve(json({ blocked: null, ai: NO_AI, connections: ALL_OFF, contacts: [] } satisfies ConnectionsResponse));
 
     await waitFor(() => expect(service("Forwarded email").getByRole("button", { name: "Get my forwarding address" })).toBeEnabled());
     expect(service("Stripe invoices").getByRole("button", { name: "Connect" })).toBeDisabled();
@@ -124,7 +126,7 @@ describe("ConnectionsPanel", () => {
   it("gets a forwarding address with one tap", async () => {
     const address = "abc123+h2@inbound.postmarkapp.com";
     const emailIn: ConnectionView = { kind: "email-in", connected: true, detail: address, setup: [{ label: "Forward customer emails to", value: address }], unavailable: null };
-    const fetchSpy = stubFetch(() => json({ blocked: null, connections: [off("texting"), off("email-out"), emailIn, off("stripe")], contacts: [] } satisfies ConnectionsResponse));
+    const fetchSpy = stubFetch(() => json({ blocked: null, ai: NO_AI, connections: [off("texting"), off("email-out"), emailIn, off("stripe")], contacts: [] } satisfies ConnectionsResponse));
     render(<ConnectionsPanel businessId="b1" blocked={null} connections={ALL_OFF} />);
 
     await userEvent.click(service("Forwarded email").getByRole("button", { name: "Get my forwarding address" }));

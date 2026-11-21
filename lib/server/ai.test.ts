@@ -29,7 +29,7 @@ describe("rewriteInVoice", () => {
       },
     } as unknown as LlmProvider;
 
-    const text = await rewriteInVoice(business, "Hi Ana, sorry we missed you. We will sort it out.");
+    const text = await rewriteInVoice("session", business, "Hi Ana, sorry we missed you. We will sort it out.");
 
     expect(text).toBe(`Hey Ana, Mike here. "No rush," we'll sort it out.`);
     expect(models.prompts[0]).toContain("Hey Mrs. Patel, Mike from Brightwater here.");

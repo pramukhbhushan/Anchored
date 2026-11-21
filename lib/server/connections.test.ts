@@ -38,7 +38,7 @@ async function stored(kind: string) {
 
 /** Return the view of `kind` as the page shows it. */
 async function view(kind: string) {
-  return (await connectionViews(SESSION, business, BASE)).find((v) => v.kind === kind);
+  return (await connectionViews(SESSION, business, BASE)).connections.find((v) => v.kind === kind);
 }
 
 beforeEach(() => {

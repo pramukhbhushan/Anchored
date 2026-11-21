@@ -44,7 +44,8 @@ export default async function NewBusinessPage({
   readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { form } = await searchParams;
-  const aiName = aiLabel();
+  // No business exists yet, so only the server's own key can read the answers.
+  const aiName = await aiLabel(null);
   const privacy = privacyLine(aiName, isAuthEnabled());
 
   if (form === "1") {

@@ -85,7 +85,8 @@ export async function takeIntakeTurn(draft: IntakeDraft, question: IntakeQuestio
   const rules = readAnswer(answer.text ?? "", step);
   if (step === "listing") return listingTurn(draft, answer, rules);
   if (isGapStep(step)) return gapTurn(draft, step, answer, rules);
-  const llm = getBudgetedLlm();
+  // Onboarding runs before the business exists, so only the server's key can read answers.
+  const llm = await getBudgetedLlm(null);
   // Chips, skips and the review are exact already; a voice sample is kept whole, so there is nothing to read.
   if (llm === null || !isPlanField(step) || step === "voice" || rules.intent !== "answer" || rules.text === "") {
     return rulesTurn(draft, step, answer, rules);
@@ -137,7 +138,7 @@ async function listingTurn(draft: IntakeDraft, answer: IntakeAnswer, reading: An
   if (facts?.listingText) after = withCandidates(after, await extractDetails("listing", facts.listingText));
   if (facts?.reviewText) after = withCandidates(after, await extractDetails("reviews", facts.reviewText));
   // Only a model can read a website for facts, so without one the page isn't fetched at all.
-  if (facts?.website && getBudgetedLlm() !== null) {
+  if (facts?.website && (await getBudgetedLlm(null)) !== null) {
     const page = await fetchPage(facts.website);
     if (page) after = withCandidates(after, await extractDetails("website", page.text));
   }

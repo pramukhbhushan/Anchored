@@ -68,10 +68,12 @@ export default async function OverviewPage({
 }) {
   const { id } = await params;
   const business = await getBusinessOrNotFound(id);
-  const [choices, feed, dailyBrief] = await Promise.all([
+  const session = await getSessionId();
+  const [choices, feed, dailyBrief, canRewrite] = await Promise.all([
     getChoices(business),
     getFeed(business),
-    getSessionId().then((session) => readBrief(session, business)),
+    readBrief(session, business),
+    isAiConfigured({ session, businessId: business.id }),
   ]);
   const stats = feedStats(feed.cards);
   const waiting = feed.cards.filter((card) => card.status === "pending");
@@ -177,7 +179,7 @@ export default async function OverviewPage({
                         ? null
                         : (agentNames[card.agent] ?? null),
                     )}
-                    canRewrite={isAiConfigured()}
+                    canRewrite={canRewrite}
                   />
                 </li>
               ))}

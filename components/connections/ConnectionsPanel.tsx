@@ -6,7 +6,7 @@ import { copyText } from "@/components/business/SendYourself";
 import { callApi, errorText } from "@/components/api";
 import { Button } from "@/components/ui/Button";
 import type { ConnectionsResponse, ConnectionView, ConnectRequest } from "@/lib/api/contract";
-import { CONNECTION_COPY, type ConnectionKind } from "@/lib/domain/connections";
+import { CONNECTION_COPY, type ServiceKind } from "@/lib/domain/connections";
 import styles from "./connections.module.css";
 
 // =============================================================================
@@ -40,7 +40,7 @@ function field(data: FormData, name: string): string {
 }
 
 /** Build the connect request for `kind` from its submitted form. */
-function requestFrom(kind: ConnectionKind, data: FormData): ConnectRequest {
+function requestFrom(kind: ServiceKind, data: FormData): ConnectRequest {
   switch (kind) {
     case "texting": {
       const forwardTo = field(data, "forwardTo");
@@ -65,11 +65,11 @@ function requestFrom(kind: ConnectionKind, data: FormData): ConnectRequest {
 export function ConnectionsPanel({ businessId, blocked, blockedLink, connections }: ConnectionsPanelProps) {
   const [views, setViews] = useState(connections);
   // Each service waits on its own change, so one finishing never frees another's buttons early.
-  const [busy, setBusy] = useState<Partial<Record<ConnectionKind, boolean>>>({});
-  const [errors, setErrors] = useState<Partial<Record<ConnectionKind, string>>>({});
+  const [busy, setBusy] = useState<Partial<Record<ServiceKind, boolean>>>({});
+  const [errors, setErrors] = useState<Partial<Record<ServiceKind, string>>>({});
 
   /** Send one change for `kind` and show the services the route answers with, or its error. */
-  async function change(kind: ConnectionKind, send: () => Promise<ConnectionsResponse>): Promise<boolean> {
+  async function change(kind: ServiceKind, send: () => Promise<ConnectionsResponse>): Promise<boolean> {
     setBusy((current) => ({ ...current, [kind]: true }));
     setErrors((current) => ({ ...current, [kind]: undefined }));
     try {
@@ -83,14 +83,14 @@ export function ConnectionsPanel({ businessId, blocked, blockedLink, connections
     }
   }
 
-  async function onConnect(kind: ConnectionKind, event: FormEvent<HTMLFormElement>) {
+  async function onConnect(kind: ServiceKind, event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const body = requestFrom(kind, new FormData(form));
     if (await change(kind, () => callApi<ConnectionsResponse>(connectionsUrl(businessId), "PUT", body))) form.reset();
   }
 
-  function onDisconnect(kind: ConnectionKind) {
+  function onDisconnect(kind: ServiceKind) {
     void change(kind, () => callApi<ConnectionsResponse>(`${connectionsUrl(businessId)}?kind=${kind}`, "DELETE"));
   }
 
@@ -203,7 +203,7 @@ function ConnectForm({
   busy,
   onSubmit,
 }: {
-  readonly kind: ConnectionKind;
+  readonly kind: ServiceKind;
   readonly connected: boolean;
   readonly busy: boolean;
   readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void;

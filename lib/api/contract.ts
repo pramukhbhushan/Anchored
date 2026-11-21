@@ -1,6 +1,6 @@
 import type { FollowupInput, RecordedFollowup } from "@/lib/domain/followups";
 import type { License } from "@/lib/domain/renewals";
-import type { ConnectionKind } from "@/lib/domain/connections";
+import type { AiProviderId, ServiceKind } from "@/lib/domain/connections";
 import type { ConsentSource, Contact } from "@/lib/domain/contacts";
 import type { DetailCandidate } from "@/lib/domain/details";
 import type { IntakeQuestion, KnownFact, ProfileChange } from "@/lib/domain/intake";
@@ -337,7 +337,7 @@ export interface BusinessChatResponse {
 
 /** One service on the Connections page, without its secrets. */
 export interface ConnectionView {
-  readonly kind: ConnectionKind;
+  readonly kind: ServiceKind;
   readonly connected: boolean;
   /** What it is connected to: the texting number, the reply-to address or the forwarding address. */
   readonly detail: string | null;
@@ -347,10 +347,25 @@ export interface ConnectionView {
   readonly unavailable: string | null;
 }
 
+/** The business's own AI key on the Connections page, without the key itself. */
+export interface AiKeyView {
+  /** The provider the saved key is for, or `null` when the business has no key. */
+  readonly provider: AiProviderId | null;
+  /** The saved key's last four characters, so the owner can tell keys apart. */
+  readonly lastFour: string | null;
+  /** The model the owner named, or `null` for the provider's own choice. */
+  readonly model: string | null;
+  /** Who writes drafts while the business has no key: this server's own AI, or Anchored's rules. */
+  readonly fallback: "server" | "rules";
+  /** Why this server can't keep AI keys, or `null` when it can. */
+  readonly unavailable: string | null;
+}
+
 /** GET /api/businesses/[id]/connections. */
 export interface ConnectionsResponse {
   /** Why this visitor can't connect services, such as being a guest, or `null` when they can. */
   readonly blocked: string | null;
+  readonly ai: AiKeyView;
   readonly connections: readonly ConnectionView[];
   readonly contacts: readonly Contact[];
 }
@@ -360,7 +375,8 @@ export type ConnectRequest =
   | { readonly kind: "texting"; readonly accountSid: string; readonly authToken: string; readonly phone: string; readonly forwardTo?: string }
   | { readonly kind: "email-out"; readonly replyTo: string }
   | { readonly kind: "email-in" }
-  | { readonly kind: "stripe"; readonly signingSecret: string };
+  | { readonly kind: "stripe"; readonly signingSecret: string }
+  | { readonly kind: "ai"; readonly provider: AiProviderId; readonly apiKey: string; readonly model?: string };
 
 /** POST /api/businesses/[id]/contacts: add a customer, or update one by `id`. */
 export interface SaveContactRequest {

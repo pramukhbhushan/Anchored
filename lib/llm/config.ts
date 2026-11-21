@@ -1,4 +1,5 @@
 import "server-only";
+import type { AiProviderId } from "@/lib/domain/connections";
 import type { ModelTier } from "@/lib/domain/types";
 import { LlmConfigError, type ProviderName } from "./types";
 
@@ -9,6 +10,9 @@ import { LlmConfigError, type ProviderName } from "./types";
 // settings once, at the boundary. Every provider takes the same three settings:
 // `AI_PROVIDER`, one `AI_API_KEY`, and an optional `AI_BASE_URL`. `readProviderConfig`
 // returns `null` when no provider is configured, so Anchored runs on its rules alone.
+// `ownerProviderConfig` builds the settings for a key an owner saved on the
+// Connections page. It always uses the provider's own endpoint: an address from
+// a stranger could aim this server's requests at machines inside its network.
 
 /** Validated settings for one provider. */
 export interface ProviderConfig {
@@ -110,4 +114,22 @@ export function readProviderConfig(env: Env): ProviderConfig | null {
   const baseUrl = rawBaseUrl ? checkBaseUrl(rawBaseUrl) : (BASE_URLS[name] ?? null);
 
   return { name, label: LABELS[name], apiKey, baseUrl, models: resolveModels(env, name), appUrl: read(env, "APP_URL") ?? null };
+}
+
+/** A key an owner saved for their business, decrypted. */
+export interface OwnerAiSettings {
+  readonly provider: AiProviderId;
+  readonly apiKey: string;
+  /** One model for every tier, or `null` for the provider's own tier defaults. Only Anthropic has defaults. */
+  readonly model: string | null;
+}
+
+/** Return the settings for an owner's own key, always on the provider's own endpoint. Throws `LlmConfigError` when a model is needed and missing. */
+export function ownerProviderConfig(owner: OwnerAiSettings, env: Env): ProviderConfig {
+  const name = owner.provider;
+  let models: Record<ModelTier, string>;
+  if (owner.model) models = { quick: owner.model, default: owner.model, complex: owner.model };
+  else if (name === "anthropic") models = { ...ANTHROPIC_MODELS };
+  else throw new LlmConfigError(`${LABELS[name]} needs a model name.`);
+  return { name, label: LABELS[name], apiKey: owner.apiKey, baseUrl: BASE_URLS[name] ?? null, models, appUrl: read(env, "APP_URL") ?? null };
 }

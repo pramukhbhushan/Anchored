@@ -1,18 +1,19 @@
 import "server-only";
-import type { AiSetup } from "@/lib/domain/agents";
 import { AnthropicProvider } from "./anthropic";
-import { readProviderConfig } from "./config";
+import { ownerProviderConfig, readProviderConfig, type OwnerAiSettings, type ProviderConfig } from "./config";
 import { OpenAICompatibleProvider } from "./openai-compatible";
 import { LlmConfigError, type LlmProvider } from "./types";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Entry point of the model layer. `getLlm` builds the configured provider once
-// per process; features call it and never import a vendor SDK themselves.
-// With no provider configured, it returns `null` and Anchored runs on its rules.
+// Entry point of the model layer. `getLlm` builds the provider the environment
+// names, once per process; `ownerLlm` builds one from a key an owner saved.
+// Features never import a vendor SDK themselves. With no provider configured,
+// `getLlm` returns `null` and Anchored runs on its rules.
 
 export * from "./types";
+export type { OwnerAiSettings } from "./config";
 
 interface Resolved {
   readonly provider: LlmProvider | null;
@@ -21,11 +22,20 @@ interface Resolved {
 // One provider per server process; settings come from the environment and don't change at runtime.
 let resolved: Resolved | undefined;
 
+/** Build the adapter for `config`. */
+function providerFor(config: ProviderConfig): LlmProvider {
+  return config.name === "anthropic" ? new AnthropicProvider(config) : new OpenAICompatibleProvider(config);
+}
+
 /** Build the provider named by the environment. */
 function build(env: Readonly<Record<string, string | undefined>>): LlmProvider | null {
   const config = readProviderConfig(env);
-  if (!config) return null;
-  return config.name === "anthropic" ? new AnthropicProvider(config) : new OpenAICompatibleProvider(config);
+  return config ? providerFor(config) : null;
+}
+
+/** Build a provider from an owner's own key. Throws `LlmConfigError` when the settings are incomplete. */
+export function ownerLlm(owner: OwnerAiSettings): LlmProvider {
+  return providerFor(ownerProviderConfig(owner, process.env));
 }
 
 /** Return the configured model provider, or `null` when AI is off. */
@@ -40,21 +50,4 @@ export function getLlm(): LlmProvider | null {
     resolved = { provider: null };
   }
   return resolved.provider;
-}
-
-/** Report whether an AI provider is configured. */
-export function isAiConfigured(): boolean {
-  return getLlm() !== null;
-}
-
-/** Name of the configured provider for owners, such as "Claude", or `null` when AI is off. */
-export function aiLabel(): string | null {
-  return getLlm()?.label ?? null;
-}
-
-/** The configured provider's name and the model it runs for each tier, or `null` when AI is off. */
-export function aiSetup(): AiSetup | null {
-  const llm = getLlm();
-  if (llm === null) return null;
-  return { label: llm.label, models: { quick: llm.modelFor("quick"), default: llm.modelFor("default"), complex: llm.modelFor("complex") } };
 }

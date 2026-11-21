@@ -1,13 +1,15 @@
 import "server-only";
 import type { NextResponse } from "next/server";
-import type { ApiError, ConnectionView, ConnectionsResponse, ConnectRequest, SaveContactRequest } from "@/lib/api/contract";
+import type { AiKeyView, ApiError, ConnectionView, ConnectionsResponse, ConnectRequest, SaveContactRequest } from "@/lib/api/contract";
 import type { Viewer } from "@/lib/auth/viewer";
 import { checkTwilioNumber } from "@/lib/connectors/twilio";
-import { CONNECTION_KINDS, type ConnectionKind } from "@/lib/domain/connections";
+import { AI_PROVIDER_COPY, isAiProvider, SERVICE_KINDS, type ConnectionKind, type ServiceKind } from "@/lib/domain/connections";
 import { isEmailAddress, normalizePhone, type Contact } from "@/lib/domain/contacts";
 import type { BusinessProfile } from "@/lib/domain/types";
+import type { OwnerAiSettings } from "@/lib/llm";
 import { getStore } from "@/lib/store";
 import type { StoredConnection } from "@/lib/store/types";
+import { checkOwnerKey, serverHasAi } from "./ai-budget";
 import { findBusiness } from "./data";
 import { fail, handleError, json } from "./http";
 import { canStoreSecrets, encryptSecret, newHookId } from "./secrets";
@@ -20,7 +22,9 @@ import { findViewer, getSessionId } from "./session";
 // whether it is connected, what the owner pastes into the service's own
 // settings, and why this server can't offer it, with no secret in any view.
 // `connect` and `disconnect` save and remove a service, encrypting its
-// credentials first. `saveContactFromOwner` checks a customer the owner typed in
+// credentials first. An AI key is checked with one short call to its provider
+// before it is saved, and its view shows the provider and the key's last four
+// characters, never the key. `saveContactFromOwner` checks a customer the owner typed in
 // and keeps the date of their texting OK unless its source changed.
 // `answerConnections` runs the checks every connections route shares.
 
@@ -40,6 +44,9 @@ export class ConnectError extends Error {
 /** Checks a Twilio Account SID, auth token and number before they are saved: an owner-facing problem, or `null` when they work. */
 type TwilioCheck = (accountSid: string, authToken: string, phone: string) => Promise<string | null>;
 
+/** Checks an owner's AI key before it is saved: an owner-facing problem, or `null` when it works. */
+type AiKeyCheck = (owner: OwnerAiSettings) => Promise<string | null>;
+
 const EXAMPLE_REFUSAL = "The example business can't connect services. Set up your business first.";
 const GUEST_REFUSAL = "Save your work with an email or Google account first, so the services you connect stay yours.";
 // Owners see these; the setting an operator must add goes to the server log instead.
@@ -47,6 +54,7 @@ const NO_SECRETS = "Not available yet. Anchored can't keep sign-ins for outside 
 const NO_EMAIL_OUT = "Sending email from Anchored isn't available yet.";
 const NO_EMAIL_IN = "Forwarding email to Anchored isn't available yet.";
 const OPERATOR_FIX: Readonly<Record<ConnectionKind, string>> = {
+  ai: "Set CONNECTOR_SECRET_KEY.",
   texting: "Set CONNECTOR_SECRET_KEY.",
   stripe: "Set CONNECTOR_SECRET_KEY.",
   "email-out": "Set RESEND_API_KEY and EMAIL_FROM_ADDRESS.",
@@ -96,6 +104,7 @@ function unavailableReason(kind: ConnectionKind, env: Env): string | null {
 
 function ownerReason(kind: ConnectionKind, env: Env): string | null {
   switch (kind) {
+    case "ai":
     case "texting":
     case "stripe":
       return canStoreSecrets(env) ? null : NO_SECRETS;
@@ -111,7 +120,7 @@ function ownerReason(kind: ConnectionKind, env: Env): string | null {
 // =============================================================================
 
 /** Build the view of one service from its stored connection, if any. */
-function viewOf(kind: ConnectionKind, stored: StoredConnection | undefined, base: string, env: Env): ConnectionView {
+function viewOf(kind: ServiceKind, stored: StoredConnection | undefined, base: string, env: Env): ConnectionView {
   const unavailable = unavailableReason(kind, env);
   if (stored === undefined) return { kind, connected: false, detail: null, setup: [], unavailable };
   const hook = stored.hookId;
@@ -147,18 +156,34 @@ function viewOf(kind: ConnectionKind, stored: StoredConnection | undefined, base
   }
 }
 
-/** Return every service's view for `business`, in page order. `base` is where webhooks point. Views never hold a secret. */
-export async function connectionViews(session: string, business: BusinessProfile, base: string): Promise<ConnectionView[]> {
+/** Build the view of the business's AI key from its stored connection, if any. Never holds the key. */
+function aiViewOf(stored: StoredConnection | undefined, env: Env): AiKeyView {
+  const provider = stored?.settings.provider;
+  const fallback = serverHasAi() ? "server" : "rules";
+  const unavailable = unavailableReason("ai", env);
+  if (stored === undefined || !isAiProvider(provider)) return { provider: null, lastFour: null, model: null, fallback, unavailable };
+  return { provider, lastFour: stored.settings.lastFour ?? null, model: stored.settings.model ?? null, fallback, unavailable };
+}
+
+/** Return the business's AI key view and every service's view, in page order. `base` is where webhooks point. Views never hold a secret. */
+export async function connectionViews(session: string, business: BusinessProfile, base: string): Promise<{ ai: AiKeyView; connections: ConnectionView[] }> {
   const stored = await getStore().listConnections(session, business.id);
-  return CONNECTION_KINDS.map((kind) => viewOf(kind, stored.find((connection) => connection.kind === kind), base, process.env));
+  const find = (kind: ConnectionKind) => stored.find((connection) => connection.kind === kind);
+  return { ai: aiViewOf(find("ai"), process.env), connections: SERVICE_KINDS.map((kind) => viewOf(kind, find(kind), base, process.env)) };
 }
 
 // =============================================================================
 // Connecting and disconnecting
 // =============================================================================
 
-/** Save the service `request` names for `business`, replacing any earlier connection of that kind. Throws `ConnectError` for a problem the owner can fix. */
-export async function connect(session: string, business: BusinessProfile, request: ConnectRequest, verifyTexting: TwilioCheck = checkTwilioNumber): Promise<void> {
+/** Save the service or AI key `request` names for `business`, replacing any earlier connection of that kind. Throws `ConnectError` for a problem the owner can fix. */
+export async function connect(
+  session: string,
+  business: BusinessProfile,
+  request: ConnectRequest,
+  verifyTexting: TwilioCheck = checkTwilioNumber,
+  verifyAiKey: AiKeyCheck = checkOwnerKey,
+): Promise<void> {
   const unavailable = unavailableReason(request.kind, process.env);
   if (unavailable !== null) throw new ConnectError(409, unavailable);
   const base = { businessId: business.id, kind: request.kind, hookId: newHookId() };
@@ -189,6 +214,19 @@ export async function connect(session: string, business: BusinessProfile, reques
     case "stripe":
       await store.saveConnection(session, { ...base, settings: {}, secret: encryptSecret(request.signingSecret) });
       return;
+    case "ai": {
+      const name = AI_PROVIDER_COPY[request.provider].name;
+      const model = request.model?.trim() || null;
+      if (model === null && AI_PROVIDER_COPY[request.provider].needsModel) throw new ConnectError(400, `${name} needs a model name. Copy the exact name from ${name}.`);
+      const problem = await verifyAiKey({ provider: request.provider, apiKey: request.apiKey, model });
+      if (problem !== null) throw new ConnectError(400, problem);
+      await store.saveConnection(session, {
+        ...base,
+        settings: { provider: request.provider, lastFour: request.apiKey.slice(-4), ...(model === null ? {} : { model }) },
+        secret: encryptSecret(request.apiKey),
+      });
+      return;
+    }
   }
 }
 
@@ -244,8 +282,8 @@ export async function removeContact(session: string, businessId: string, contact
 
 /** Return the page's data for `business`: whether the visitor may connect, every service and every contact. */
 export async function connectionsResponse(session: string, business: BusinessProfile, viewer: Viewer | null, base: string): Promise<ConnectionsResponse> {
-  const [connections, contacts] = await Promise.all([connectionViews(session, business, base), getStore().listContacts(session, business.id)]);
-  return { blocked: business.kind === "case" ? EXAMPLE_REFUSAL : connectBlocked(viewer), connections, contacts };
+  const [views, contacts] = await Promise.all([connectionViews(session, business, base), getStore().listContacts(session, business.id)]);
+  return { blocked: business.kind === "case" ? EXAMPLE_REFUSAL : connectBlocked(viewer), ...views, contacts };
 }
 
 /** What a connections route asks of `answerConnections`. */

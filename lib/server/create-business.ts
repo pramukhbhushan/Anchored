@@ -17,7 +17,8 @@ import { getStore } from "@/lib/store";
 /** Build a profile from onboarding answers, with the AI provider's rewrite when one is set up. */
 export async function buildProfileFromAnswers(answers: OnboardingAnswers): Promise<BusinessProfile> {
   const base = profileFromAnswers(answers);
-  if (!isAiConfigured()) return base;
+  // The business doesn't exist yet, so only the server's key can rewrite it.
+  if (!(await isAiConfigured(null))) return base;
   try {
     return await enrichProfile(answers, base);
   } catch (error) {

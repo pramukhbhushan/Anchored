@@ -50,7 +50,7 @@ export async function draftTelegramCard(session: string, business: BusinessProfi
   if (contact === undefined) return null;
   const chosen = new Set(chosenSkills(business, resolveChoices(business, saved)));
   const contactCards = cards.filter((record) => record.contact === contact.id);
-  let card = await cardFor(business, contact, message.text, thread, chosen, contactCards);
+  let card = await cardFor(session, business, contact, message.text, thread, chosen, contactCards);
   if (card.handoff !== undefined) {
     if (!isConversationOwner(card.handoff.to)) {
       console.warn(`[Customer reply] Rejected conversation handoff for ${contact.id}: ${card.handoff.to} does not own conversations.`);
@@ -95,6 +95,7 @@ export async function draftTelegramCard(session: string, business: BusinessProfi
 
 /** Build the card for one message. Code picks what kind of card it is; only an ordinary reply asks the model. */
 async function cardFor(
+  session: string,
   business: BusinessProfile,
   contact: Contact,
   text: string,
@@ -133,7 +134,7 @@ async function cardFor(
   if (route.kind === "owner") {
     return ownerNote(business, name, "triage", `Telegram message from ${name}`, `${name} messaged you on Telegram, and none of your agents answers customer messages. Reply to them yourself, or let Anchored draft your inquiry replies. ${said}`);
   }
-  const { body, byModel } = await replyWords(business, contact, route.skill, text, thread);
+  const { body, byModel } = await replyWords(session, business, contact, route.skill, text, thread);
   const priceQuestion = asksForPrice(text);
   return {
     to: name,
@@ -171,9 +172,9 @@ function ownerNote(business: BusinessProfile, name: string, skill: SkillId, titl
 // The reply's words
 // =============================================================================
 
-/** Write the reply with the model when one is set up, and from the template otherwise or when its reply fails a check. */
-async function replyWords(business: BusinessProfile, contact: Contact, skill: ThreadSkill, text: string, thread: readonly ThreadMessage[]): Promise<{ body: string; byModel: boolean }> {
-  const llm = getBudgetedLlm();
+/** Write the reply with the business's AI key or the server's when either is set up, and from the template otherwise or when its reply fails a check. */
+async function replyWords(session: string, business: BusinessProfile, contact: Contact, skill: ThreadSkill, text: string, thread: readonly ThreadMessage[]): Promise<{ body: string; byModel: boolean }> {
+  const llm = await getBudgetedLlm({ session, businessId: business.id });
   if (llm !== null) {
     try {
       return { body: await wordsFromModel(llm, business, contact, skill, text, thread), byModel: true };

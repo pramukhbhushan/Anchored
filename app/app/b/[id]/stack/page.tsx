@@ -8,6 +8,7 @@ import { ButtonLink } from "@/components/ui/Button";
 import { PageHeader, SectionHeader } from "@/components/ui/PageHeader";
 import { activeAgents, chosenTools } from "@/lib/domain/paths";
 import { aiSetup } from "@/lib/server/ai";
+import { getSessionId } from "@/lib/server/session";
 import { getBusinessOrNotFound, getChoices } from "@/lib/server/data";
 
 // =============================================================================
@@ -24,7 +25,8 @@ export const metadata: Metadata = { title: "Stack" };
 export default async function StackPage({ params }: { readonly params: Promise<{ id: string }> }) {
   const { id } = await params;
   const business = await getBusinessOrNotFound(id);
-  const choices = await getChoices(business);
+  const session = await getSessionId();
+  const [choices, ai] = await Promise.all([getChoices(business), aiSetup({ session, businessId: business.id })]);
   // A tool chosen for two workflows gets one panel; the first pick wins, as on the bill.
   const tools = chosenTools(business, choices).filter((x, i, all) => all.findIndex((y) => y.tool.id === x.tool.id) === i);
 
@@ -50,7 +52,7 @@ export default async function StackPage({ params }: { readonly params: Promise<{
         />
       </section>
 
-      <UnderTheHood business={business} agents={activeAgents(business, choices)} tools={tools} ai={aiSetup()} />
+      <UnderTheHood business={business} agents={activeAgents(business, choices)} tools={tools} ai={ai} />
     </>
   );
 }
