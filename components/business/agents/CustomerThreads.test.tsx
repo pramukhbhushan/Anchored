@@ -6,9 +6,9 @@ import { CustomerThreads, type CustomerThreadsData, type ThreadContact, type Thr
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Exercises customer selection, safety states and read-only message history.
-// The owner should always know whether a reply is waiting or sent, and a failed
-// conversation read must not masquerade as a successfully empty conversation.
+// Picking a customer, the STOP and allergy-lock notes, and the read-only
+// message history. Each message says whether it is waiting or sent, and a read
+// that failed never looks like an empty conversation.
 
 const CONTACTS: readonly ThreadContact[] = [
   { id: "sam & family", name: "Sam's family", lastText: "Is the shop open?", lastAt: "2026-11-08T15:00:00.000Z", stopped: false, locked: false },
@@ -89,7 +89,7 @@ describe("CustomerThreads", () => {
     expect(screen.getByRole("status")).toHaveTextContent("No messages in this conversation yet.");
   });
 
-  it("shows unavailable data honestly instead of a successful empty state", () => {
+  it("says the conversations couldn't load instead of showing an empty list", () => {
     render(<CustomerThreads businessId="example" data={data({ unavailableReason: "Customer conversations couldn't load. Try again." })} />);
 
     expect(screen.getByRole("status")).toHaveTextContent("Customer conversations couldn't load. Try again.");

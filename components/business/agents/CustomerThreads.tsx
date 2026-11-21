@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { agentHref, businessHref, cardAnchor } from "@/components/routes";
-import { OWNER_TIME_ZONE } from "@/lib/domain/executor";
+import { ownerTime } from "@/components/business/owner-time";
 import styles from "./customer-threads.module.css";
 
 // =============================================================================
@@ -44,14 +44,6 @@ export interface CustomerThreadsData {
   readonly unavailableReason?: string;
 }
 
-const DATE = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-  timeZone: OWNER_TIME_ZONE,
-});
-
 const DELIVERY: Readonly<Record<NonNullable<ThreadMessage["delivery"]>, string>> = {
   queued: "Waiting to send",
   sending: "Sending now",
@@ -64,7 +56,7 @@ function MessageTime({ at }: { readonly at: string }) {
   const date = new Date(at);
   return Number.isNaN(date.getTime())
     ? <span>Time unavailable</span>
-    : <time dateTime={at}>{DATE.format(date)}</time>;
+    : <time dateTime={at}>{ownerTime(date)}</time>;
 }
 
 /** Render the customer list and the picked customer's conversation. */

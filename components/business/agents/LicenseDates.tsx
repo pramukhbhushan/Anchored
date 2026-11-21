@@ -11,10 +11,11 @@ import styles from "./license-dates.module.css";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The owner's recorded license dates and evidence. Edits save the complete list
-// through the authorized license route, then show only the server's returned
-// facts. Saving dates never renews or files anything. A separate chosen skill
-// produces owner-only reminders, and a handled license stops those reminders.
+// "License renewal dates" on the Internal Communications page: each license,
+// when it expires and where the owner found the date. Every edit saves the
+// whole list through the licenses route, then shows what the server returns.
+// Saving a date never renews or files anything. The License Clerk skill, when
+// chosen, reminds the owner, and marking a license handled stops its reminders.
 
 interface LicenseDatesProps {
   readonly businessId: string;
@@ -22,11 +23,12 @@ interface LicenseDatesProps {
   readonly enabled: boolean;
 }
 
-/** Show evidenced license dates and save only the current business's owner changes. */
+/** Render the saved license dates and the form to add one; another business starts a fresh form. */
 export function LicenseDates(props: LicenseDatesProps) {
   return <LicenseDatesForm key={props.businessId} {...props} />;
 }
 
+/** Render the license list and form, saving through the licenses route. */
 function LicenseDatesForm({ businessId, licenses, enabled }: LicenseDatesProps) {
   const id = useId();
   const router = useRouter();

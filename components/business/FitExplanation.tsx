@@ -3,17 +3,19 @@
 import { Popover } from "radix-ui";
 import { FitRing } from "./FitRing";
 import { CheckGrid } from "./CheckGrid";
+import { buttonClass } from "@/components/ui/Button";
 import type { Rating } from "@/lib/domain/types";
 import styles from "@/components/ui/inspection.module.css";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
-// A shadcn Popover composition makes the existing computed score inspectable
-// by click, touch or keyboard. The same seven checks remain the source of
-// the explanation; no model invents an extra recommendation.
+// A tool's fit ring as a button that opens a popover explaining the score: the
+// seven checks behind it, when they were checked and the source. It works by
+// click, touch or keyboard. The text comes from the rating alone, never from
+// a model.
 
-/** Explain a tool's fit score with its recorded checks and source. */
+/** Render the fit ring that opens the explanation of `rating` for the tool `name`. */
 export function FitExplanation({
   name,
   rating,
@@ -57,7 +59,7 @@ export function FitExplanation({
               </a>
             )}
           </p>
-          <Popover.Close className="btn btn-secondary btn-sm">
+          <Popover.Close className={buttonClass("secondary", "sm")}>
             Close explanation
           </Popover.Close>
         </Popover.Content>

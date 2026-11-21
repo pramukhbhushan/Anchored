@@ -17,7 +17,7 @@ function briefResult(brief: BriefResponse): BriefRunResult | null {
   return brief.lastRunAt === null ? null : { text: brief.lines.join("\n"), generatedAt: brief.lastRunAt };
 }
 
-/** The brief and its Run now button, wired to the server. */
+/** Render the brief with a Run now button that asks the brief route for a new one. */
 export function BriefRun({ businessId, brief }: { readonly businessId: string; readonly brief: BriefResponse }) {
   const router = useRouter();
   async function run(): Promise<BriefRunResult> {

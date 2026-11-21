@@ -9,11 +9,13 @@ import type { DeleteTelegramResponse } from "@/lib/api/contract";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// An outbox removal action rendered only after the server grants eligibility.
-// It preserves the sent record, prevents duplicate taps, and reports the actual
-// server result. Removing a message cannot undo someone having read it.
+// "Remove from Telegram" on a sent outbox row. The Approvals page shows it only
+// for a message the server says can still be removed. The outbox keeps its
+// record of the send, a second tap waits for the first, and the note says what
+// the server reported. Removing a message can't unsend it from someone who
+// already read it.
 
-/** Remove an eligible message from Telegram and refresh its retained audit row. */
+/** Render the button that removes one sent message from Telegram, then refreshes the outbox. */
 export function DeleteTelegramMessage({ businessId, entryId }: { readonly businessId: string; readonly entryId: string }) {
   const router = useRouter();
   const busy = useRef(false);

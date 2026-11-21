@@ -9,9 +9,9 @@ import { FollowupSchedule } from "./FollowupSchedule";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The schedule records owner-confirmed facts through the real fetch boundary.
-// Tests verify request identities and dates, failure recovery, saved results,
-// duplicate guards and isolation when an earlier business's reply arrives late.
+// The follow-up form, tested at `fetch`: the request it sends and the due time
+// it converts, what a failed save keeps, the list the server returns, the
+// guard against a double tap, and a late reply after switching businesses.
 
 const contacts = [{ id: "customer-1", name: "Sam" }];
 const record: RecordedFollowup = { id: "timer-1", businessId: "shop", contactId: "customer-1", skill: "closer", dueAt: "2026-11-10T15:00:00.000Z", sourceId: "quote:Q1", evidence: "Owner recorded this quote as open.", state: "open-quote", status: "active" };
@@ -39,7 +39,7 @@ describe("FollowupSchedule", () => {
     rerender(<FollowupSchedule businessId="another" records={[]} contacts={[]} skills={["closer"]} />);
     await openSchedule();
     expect(screen.getByText(/No customers are recorded yet/)).toBeInTheDocument();
-    expect(screen.getByText(/scheduled sender must be running/)).toBeInTheDocument();
+    expect(screen.getByText(/Customer drafts go out on Telegram/)).toBeInTheDocument();
     expect(screen.getByText(/Every message waits in Approvals/)).toBeInTheDocument();
   });
 
@@ -86,7 +86,7 @@ describe("FollowupSchedule", () => {
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
-  it("cancels by stored identity and keeps the authoritative canceled record", async () => {
+  it("cancels by record id and shows the canceled record the server returns", async () => {
     const fetch = stubFetch(() => json({ records: [{ ...record, status: "cancelled" }] }));
     render(<FollowupSchedule businessId="shop" records={[record]} contacts={contacts} skills={["closer"]} />);
     const user = await openSchedule();

@@ -6,9 +6,9 @@ import { cardsForAgent, normalizeAgentId, presentAgents } from "./view-model";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Checks the owner's agent labels and activity during the Customer merge.
-// Presentation must not activate unchosen work, duplicate a draft, lose a
-// niche agent, or mistake a skipped or replaced draft for an approval.
+// Front Desk and Follow-up show as one Customer agent. The merge must not add
+// work the owner didn't choose, show a draft twice, drop a niche agent, or
+// count a skipped or replaced draft as approved.
 
 describe("agent presentation", () => {
   it.each(["frontdesk", "followup", "customer"])("shows %s as the same Customer identity", (id) => {

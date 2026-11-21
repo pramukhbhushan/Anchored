@@ -7,8 +7,8 @@ import { BriefRunButton, type BriefRunResult } from "./BriefRunButton";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Brief refresh behavior: last successful content remains readable through
-// failures and pending requests, and one business never adopts another's run.
+// Run now keeps the last brief on screen while it runs and after it fails, and
+// a run for one business never shows on another.
 
 const PREVIOUS = { text: "Two drafts wait for your approval.", generatedAt: "2026-11-08T15:00:00Z" };
 
@@ -69,7 +69,7 @@ describe("BriefRunButton", () => {
     await user.click(screen.getByRole("button", { name: "Run now" }));
     rerender(<BriefRunButton businessId="second" brief={null} run={vi.fn()} />);
     reply.resolve({ text: "First shop is all caught up.", generatedAt: "2026-11-08T16:00:00Z" });
-    await waitFor(() => expect(screen.getByText("No daily brief has been generated yet.")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("No brief yet. Press Run now to write one.")).toBeInTheDocument());
     expect(screen.queryByText("First shop is all caught up.")).not.toBeInTheDocument();
   });
 });

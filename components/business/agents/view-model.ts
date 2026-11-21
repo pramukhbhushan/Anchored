@@ -6,15 +6,14 @@ import type { ActiveAgent, SkillId } from "@/lib/domain/types";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Presentation-only projections for the agent workspaces. Existing Front Desk
-// and Follow-up records share the Customer label without changing persisted
-// ownership or the domain's routing. Only agents already active in the supplied
-// plan appear here, and each card keeps its original decision and send data.
+// What the agent pages show for each agent. Front Desk and Follow-up show as one
+// Customer agent, while stored cards and the domain keep their own agent ids.
+// Only agents active in the plan appear, and cards pass through unchanged.
 
-/** An agent's canonical route and display identity, including an active niche agent. */
+/** The id in an agent page's URL: one of the four page agents or a niche agent. */
 export type AgentViewId = "customer" | "books" | "content" | "internal" | `niche:${string}`;
 
-/** The metadata an agent workspace can show from its active domain definition. */
+/** What an agent page shows about one agent. */
 export interface AgentView {
   readonly id: AgentViewId;
   readonly name: string;
@@ -25,7 +24,7 @@ export interface AgentView {
   readonly never: readonly string[];
 }
 
-/** Normalize legacy Customer owners for display, without accepting an unknown agent. */
+/** Return the page id for a stored agent id, folding Front Desk and Follow-up into Customer, or `null` for an unknown one. */
 export function normalizeAgentId(id: string | null): AgentViewId | null {
   if (id === "frontdesk" || id === "followup" || id === "customer") return "customer";
   if (id === "books" || id === "content" || id === "internal") return id;
@@ -33,7 +32,7 @@ export function normalizeAgentId(id: string | null): AgentViewId | null {
   return null;
 }
 
-/** Group active legacy Customer agents and retain the plan's other active agents. */
+/** Return one view per agent page, merging Front Desk and Follow-up into Customer. */
 export function presentAgents(agents: readonly ActiveAgent[]): AgentView[] {
   const grouped = new Map<AgentViewId, { source: ActiveAgent; skills: SkillId[]; jobs: string[] }>();
   for (const agent of agents) {
@@ -58,7 +57,7 @@ export function presentAgents(agents: readonly ActiveAgent[]): AgentView[] {
   }));
 }
 
-/** Return an agent's cards once per stable key, preserving their supplied order and state. */
+/** Return the cards for agent page `id`, one per card key, in the order given. */
 export function cardsForAgent(cards: readonly CardRecord[], id: AgentViewId): CardRecord[] {
   const seen = new Set<string>();
   return cards.filter((card) => {

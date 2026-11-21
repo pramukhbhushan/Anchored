@@ -3,14 +3,16 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { errorText } from "@/components/api";
 import { Button } from "@/components/ui/Button";
-import { OWNER_TIME_ZONE } from "@/lib/domain/executor";
+import { ownerTime } from "@/components/business/owner-time";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Runs the owner's brief through an agreed callback, preserving the last
-// successful brief when a refresh fails. No customer send happens in this view.
+// The daily brief and its Run now button. `run` writes a new brief; a failed
+// run keeps the last brief on screen and says what went wrong. Nothing here
+// sends anything to a customer.
 
+/** One written brief: its lines as text, and when it was written. */
 export interface BriefRunResult {
   readonly text: string;
   readonly generatedAt: string;
@@ -71,7 +73,7 @@ function BriefControl({ brief, run, unavailableReason }: BriefRunButtonProps) {
   return (
     <section aria-labelledby={`${id}-title`}>
       <div className="section-head"><h2 id={`${id}-title`}>Daily brief</h2>{run !== undefined && <Button variant="secondary" size="sm" onClick={() => void refresh()} disabled={busy}>{busy ? "Updating..." : "Run now"}</Button>}</div>
-      {latest === null ? <p>{run === undefined ? "Your daily brief is not available yet." : "No daily brief has been generated yet."}</p> : <><p className="prose" style={{ whiteSpace: "pre-line" }}>{latest.text}</p>{when !== null && Number.isFinite(when.getTime()) && <p className="fine">Last updated <time dateTime={latest.generatedAt}>{when.toLocaleString("en-US", { timeZone: OWNER_TIME_ZONE, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</time>.</p>}</>}
+      {latest === null ? <p>{run === undefined ? "Your daily brief is not available yet." : "No brief yet. Press Run now to write one."}</p> : <><p className="prose" style={{ whiteSpace: "pre-line" }}>{latest.text}</p>{when !== null && Number.isFinite(when.getTime()) && <p className="fine">Last updated <time dateTime={latest.generatedAt}>{ownerTime(when)}</time>.</p>}</>}
       {run === undefined && <p className="fine">{unavailableReason ?? "Run now isn't available yet. Your saved brief stays here."}</p>}
       {error !== null && <p role="alert">The brief didn't update. {error} Try Run now again.</p>}
       <p role="status">{notice}</p>

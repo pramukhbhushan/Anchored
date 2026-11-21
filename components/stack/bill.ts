@@ -11,8 +11,8 @@ import { WORKFLOWS } from "@/lib/domain/workflows";
 // =============================================================================
 // The monthly bill behind the Stack page's cost picture. `monthlyBill` sorts
 // the owner's picks into four groups (Anchored's agents, new subscriptions,
-// tools they already have, and work nothing handles yet) and lists the paid pieces as
-// `BillSegment`s for the stacked bar. Totals come from `stackCost`.
+// tools they already have, and work nothing handles yet) and lists the paid
+// pieces as `BillSegment`s for the stacked bar. Totals come from `stackCost`.
 
 /** The four ways a piece of the stack shows up on the bill. */
 export type BillGroupId = "buy" | "build" | "turnon" | "skip";
@@ -129,6 +129,7 @@ function toolsOnce(business: BusinessProfile, choices: ChoiceMap): ToolPick[] {
   return [...byId.values()];
 }
 
+/** Return a tool's bill line, with what it does for each workflow it covers. */
 function toolLine(tool: Tool, workflows: readonly WorkflowId[], price: string): BillLine {
   return { key: tool.id, name: toolName(tool), does: workflows.map((w) => TOOL_STEPS[w].does), price };
 }
@@ -140,6 +141,7 @@ function buyPrice(tool: Tool, business: BusinessProfile): string {
   return amount === 0 ? "Free" : money(amount);
 }
 
+/** Return one bar segment, with its share of `total`. */
 function segment(key: string, group: BillSegment["group"], name: string, amount: number, total: number): BillSegment {
   return { key, group, name, amount, share: total > 0 ? amount / total : 0 };
 }

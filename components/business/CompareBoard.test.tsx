@@ -80,7 +80,7 @@ describe("CompareBoard", () => {
     renderBoard("social");
 
     expect(shownTools()).toEqual([]);
-    expect(screen.getByText(/No catalog tool/)).toBeInTheDocument();
+    expect(screen.getByText(/No tool built for your kind of business/)).toBeInTheDocument();
   });
 
   it("buys a tool for the first workflow it doesn't run yet", async () => {

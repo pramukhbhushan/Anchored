@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { businessHref, cardAnchor } from "@/components/routes";
+import { Badge } from "@/components/ui/Badge";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ButtonLink } from "@/components/ui/Button";
 import { SKILLS } from "@/lib/domain/agents";
@@ -12,11 +13,12 @@ import styles from "./agents.module.css";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// An active agent's workspace, using the existing feed and Approvals queue.
-// Previews never decide or send a card. Optional slots accept the separately
-// supported Ask and customer views once their server capabilities are available.
+// An agent's own page: the drafts waiting for the owner, an Ask panel, recent
+// decisions and what the agent handles. Drafts show here as previews that link
+// to their cards in Approvals, the one place a card is decided or sent. The
+// page passes the Ask panel and any extra views, such as customer threads.
 
-/** State the recorded outcome without equating an approval with a delivered message. */
+/** Return what happened to a decided card; an approval alone never reads as sent. */
 function outcome(card: CardRecord, entry: OutboxEntry | undefined): string {
   if (card.status === "skipped") return "Skipped";
   if (card.status === "superseded") return "Replaced by a newer draft";
@@ -30,7 +32,7 @@ function outcome(card: CardRecord, entry: OutboxEntry | undefined): string {
   return "Approved. See your outbox for delivery details.";
 }
 
-/** Render an agent with its own previews and links to the one approval queue. */
+/** Render an agent's page; `ask` replaces the default pointer to Chat, and `children` sit under the intro. */
 export function AgentWorkspace({ businessId, agent, cards, outbox, ask, children }: {
   readonly businessId: string;
   readonly agent: AgentView;
@@ -56,7 +58,7 @@ export function AgentWorkspace({ businessId, agent, cards, outbox, ask, children
           {waiting.length === 0 ? <p className="muted">Nothing waits for you here. New drafts appear when this agent has work to do.</p> : (
             <ul className={styles.drafts}>{waiting.map((card) => (
               <li key={card.key} className={styles.preview}>
-                {card.example === true && <span className="badge">Example</span>}
+                {card.example === true && <Badge>Example</Badge>}
                 <h3>{card.title}</h3>
                 {card.to && <p className="fine">For {card.to}</p>}
                 <p className={styles.words}>{card.body}</p>
