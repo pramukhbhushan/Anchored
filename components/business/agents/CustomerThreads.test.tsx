@@ -1,15 +1,14 @@
 import { render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { setLocation } from "@/test/next";
 import { CustomerThreads, type CustomerThreadsData, type ThreadContact, type ThreadMessage } from "./CustomerThreads";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Exercises customer selection, safety states and read-only message history.
-// The owner should always know whether a reply is waiting or sent, and a failed
-// conversation read must not masquerade as a successfully empty conversation.
+// Picking a customer, the STOP and allergy-lock notes, and the read-only
+// message history. Each message says whether it is waiting or sent, and a read
+// that failed never looks like an empty conversation.
 
 const CONTACTS: readonly ThreadContact[] = [
   { id: "sam & family", name: "Sam's family", lastText: "Is the shop open?", lastAt: "2026-11-08T15:00:00.000Z", stopped: false, locked: false },
@@ -90,26 +89,13 @@ describe("CustomerThreads", () => {
     expect(screen.getByRole("status")).toHaveTextContent("No messages in this conversation yet.");
   });
 
-  it("shows unavailable data honestly instead of a successful empty state", () => {
+  it("says the conversations couldn't load instead of showing an empty list", () => {
     render(<CustomerThreads businessId="example" data={data({ unavailableReason: "Customer conversations couldn't load. Try again." })} />);
 
     expect(screen.getByRole("status")).toHaveTextContent("Customer conversations couldn't load. Try again.");
     expect(screen.queryByText("No customer conversations yet.")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Customers" })).not.toBeInTheDocument();
     expect(screen.queryByText("Yes, we're open.")).not.toBeInTheDocument();
-  });
-
-  it("lets the caller refresh and prevents repeated refreshes while loading", async () => {
-    const onRefresh = vi.fn();
-    const { rerender } = render(<CustomerThreads businessId="example" data={data()} onRefresh={onRefresh} />);
-    await userEvent.click(screen.getByRole("button", { name: "Refresh conversations" }));
-    expect(onRefresh).toHaveBeenCalledOnce();
-
-    rerender(<CustomerThreads businessId="example" data={data()} onRefresh={onRefresh} pending />);
-    expect(screen.getByRole("button", { name: "Refreshing conversations..." })).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent("Loading messages...");
-    expect(screen.queryByText("Yes, we're open.")).not.toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Customer conversations" })).toHaveAttribute("aria-busy", "true");
   });
 
   it("renders unknown dates without crashing and distinguishes failed sends", () => {

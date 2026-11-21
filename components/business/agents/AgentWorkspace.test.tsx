@@ -9,9 +9,9 @@ import { presentAgents } from "./view-model";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The owner reads an agent's drafts and actual delivery outcomes here, then
-// follows stable links to the one Approvals queue. Workspace previews never
-// become another place that sends or decides a card.
+// An agent's page shows its waiting drafts and what happened to each decided
+// one, and links every draft to its card in Approvals. Nothing on the page
+// decides or sends a card.
 
 const AGENTS = presentAgents(ACTIVE_AGENT_FIXTURES);
 const CUSTOMER = AGENTS.find((agent) => agent.id === "customer")!;
@@ -89,7 +89,7 @@ describe("AgentWorkspace", () => {
     expect(screen.getByRole("region", { name: `Ask ${niche.name}` })).toBeInTheDocument();
   });
 
-  it("offers existing Chat while scoped requests are unavailable", () => {
+  it("points to Chat when the page passes no Ask panel", () => {
     render(<AgentWorkspace businessId={BUSINESS_ID} agent={CUSTOMER} cards={[]} outbox={[]} />);
     const ask = screen.getByRole("region", { name: "Ask Customer" });
     expect(within(ask).getByText(/For now, ask Anchored for a draft in Chat/)).toBeInTheDocument();

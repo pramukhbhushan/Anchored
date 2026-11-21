@@ -29,10 +29,11 @@ import type { Rating, Tool, WorkflowId } from "@/lib/domain/types";
 // =============================================================================
 // The tools page's ranked list, best fit first, one row per tool: a fit ring,
 // the tool's letter tile and price chip, the workflows it covers as icon chips
-// and its seven checks as dots. The server rates every tool; this component
-// hides tools built for other kinds of business until the owner asks, opens a row's checks on request, keeps which
-// tools (up to three) the owner is comparing in a tray pinned under the list,
-// and opens the side-by-side table in a dialog so nothing above shifts.
+// and its seven checks as dots. The server rates every tool. This component
+// hides tools built for other kinds of business until the owner asks, opens a
+// row's checks on request, keeps the tools the owner is comparing (up to
+// three) in a tray pinned under the list, and opens the side-by-side table in
+// a dialog so nothing above shifts.
 
 const MAX_COMPARED = 3;
 
@@ -137,13 +138,6 @@ function SideBySide({ items }: { readonly items: readonly CompareItem[] }) {
   );
 }
 
-/** Say whether a tool uses AI, as its checks detail does. */
-const AI_TEXT: Readonly<Record<"yes" | "no" | "unstated", string>> = {
-  yes: "AI on the job.",
-  no: "No AI.",
-  unstated: "AI not stated.",
-};
-
 /** Render a tool's letter tile on a color worked out from its name, in place of a vendor logo. */
 function Monogram({ name }: { readonly name: string }) {
   // React types `style` without custom properties; the intersection names the one this tile reads.
@@ -183,12 +177,7 @@ function ToolRow({
   const shownStack =
     filter === "all" ? chosenFor : chosenFor.filter((w) => w === filter);
   const verified = CHECKS.length - rating.unknown;
-  const ai =
-    tool.ai === true
-      ? AI_TEXT.yes
-      : tool.ai === false
-        ? AI_TEXT.no
-        : AI_TEXT.unstated;
+  const ai = tool.ai === true ? "Uses AI." : tool.ai === false ? "No AI." : "Doesn't say if it uses AI.";
   const CompareIcon = comparing ? SquareCheck : Square;
 
   return (
@@ -317,6 +306,7 @@ export function CompareBoard({
   const [compared, setCompared] = useState<readonly string[]>([]);
   const [showOthers, setShowOthers] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   const backdropPress = useRef(false);
 
   function toggle(id: string) {
@@ -343,9 +333,8 @@ export function CompareBoard({
     <div className={styles.board}>
       {visible.length === 0 ? (
         <p className={styles.none}>
-          No catalog tool built for your kind of business covers this workflow
-          yet. That&apos;s a gap an Anchored agent can fill on the Workflows
-          page.
+          No tool built for your kind of business covers this workflow yet.
+          Hand it to an Anchored agent on the Workflows page.
         </p>
       ) : (
         <div className={styles.rows}>
@@ -411,7 +400,7 @@ export function CompareBoard({
       <dialog
         ref={dialog}
         className="dialog"
-        aria-labelledby="compare-title"
+        aria-labelledby={titleId}
         // A tab can resize this centered dialog between pointer down and click.
         // Close only when the press began on the backdrop as well.
         onPointerDown={(event) => { backdropPress.current = event.target === event.currentTarget; }}
@@ -421,7 +410,7 @@ export function CompareBoard({
         }}
       >
         <div className="dialog-head">
-          <h2 id="compare-title">Side by side</h2>
+          <h2 id={titleId}>Side by side</h2>
           <button
             type="button"
             className="icon-btn"

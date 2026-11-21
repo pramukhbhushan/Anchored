@@ -3,19 +3,18 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { agentHref, businessHref, cardAnchor } from "@/components/routes";
-import { Button } from "@/components/ui/Button";
-import { OWNER_TIME_ZONE } from "@/lib/domain/executor";
+import { ownerTime } from "@/components/business/owner-time";
 import styles from "./customer-threads.module.css";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Read-only customer conversations inside the Customer agent workspace. The
-// caller supplies session-scoped data; selection stays in the URL and drafts
-// link to the existing Approvals queue. This view neither fetches messages nor
-// sends replies, changes consent, or substitutes examples for unavailable data.
+// The customer conversations on the Customer agent page, read-only. The page
+// loads the threads; the picked customer lives in the URL as `?contact=`, and a
+// message an agent drafted links to its card in Approvals. Nothing here sends a
+// reply or changes consent.
 
-/** A customer summary supplied by the conversation read interface. */
+/** One customer in the list, with their latest message. */
 export interface ThreadContact {
   readonly id: string;
   readonly name: string;
@@ -25,7 +24,7 @@ export interface ThreadContact {
   readonly locked: boolean;
 }
 
-/** A stored message, already ordered by the conversation read interface. */
+/** One stored message, in the order the page supplies. */
 export interface ThreadMessage {
   readonly id: string;
   readonly direction: "in" | "out";
@@ -37,29 +36,13 @@ export interface ThreadMessage {
   readonly note?: string;
 }
 
-/** Display-only conversation data, to be replaced by agreed API types at integration. */
+/** The customers, the picked customer's messages, and why they can't load, if they can't. */
 export interface CustomerThreadsData {
   readonly contacts: readonly ThreadContact[];
   readonly selectedContactId: string | null;
   readonly messages: readonly ThreadMessage[];
   readonly unavailableReason?: string;
 }
-
-/** Props for the customer conversation view, with an optional caller-owned refresh. */
-export interface CustomerThreadsProps {
-  readonly businessId: string;
-  readonly data: CustomerThreadsData;
-  readonly pending?: boolean;
-  readonly onRefresh?: () => void;
-}
-
-const DATE = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-  timeZone: OWNER_TIME_ZONE,
-});
 
 const DELIVERY: Readonly<Record<NonNullable<ThreadMessage["delivery"]>, string>> = {
   queued: "Waiting to send",
@@ -68,15 +51,16 @@ const DELIVERY: Readonly<Record<NonNullable<ThreadMessage["delivery"]>, string>>
   failed: "Didn't send",
 };
 
+/** Render a message time, or say it is unavailable when the stored time doesn't parse. */
 function MessageTime({ at }: { readonly at: string }) {
   const date = new Date(at);
   return Number.isNaN(date.getTime())
     ? <span>Time unavailable</span>
-    : <time dateTime={at}>{DATE.format(date)}</time>;
+    : <time dateTime={at}>{ownerTime(date)}</time>;
 }
 
-/** Render customer selection and its read-only conversation without a direct-send action. */
-export function CustomerThreads({ businessId, data, pending = false, onRefresh }: CustomerThreadsProps) {
+/** Render the customer list and the picked customer's conversation. */
+export function CustomerThreads({ businessId, data }: { readonly businessId: string; readonly data: CustomerThreadsData }) {
   const search = useSearchParams();
   const selected = data.contacts.find((contact) => contact.id === data.selectedContactId);
 
@@ -87,19 +71,14 @@ export function CustomerThreads({ businessId, data, pending = false, onRefresh }
   }
 
   return (
-    <section className={styles.section} aria-label="Customer conversations" aria-busy={pending}>
+    <section className={styles.section} aria-label="Customer conversations">
       <div className={styles.heading}>
         <h2>Customer conversations</h2>
-        {onRefresh !== undefined && (
-          <Button variant="quiet" size="sm" disabled={pending} onClick={onRefresh}>
-            {pending ? "Refreshing conversations..." : "Refresh conversations"}
-          </Button>
-        )}
       </div>
       {data.unavailableReason !== undefined ? (
         <p className={styles.state} role="status">{data.unavailableReason}</p>
       ) : data.contacts.length === 0 ? (
-        <p className={styles.state} role="status">{pending ? "Loading customer conversations..." : "No customer conversations yet."}</p>
+        <p className={styles.state} role="status">No customer conversations yet.</p>
       ) : (
         <div className={styles.layout}>
           <nav aria-label="Customers" className={styles.customers}>
@@ -127,9 +106,7 @@ export function CustomerThreads({ businessId, data, pending = false, onRefresh }
                 <h3 className={styles.name}>{selected.name}</h3>
                 {selected.stopped && <p className={styles.warning}>Messages stopped. Anchored won't message this customer.</p>}
                 {selected.locked && <p className={styles.warning}>Allergy question. This conversation is locked for you to handle.</p>}
-                {pending ? (
-                  <p className={styles.state} role="status">Loading messages...</p>
-                ) : data.messages.length === 0 ? (
+                {data.messages.length === 0 ? (
                   <p className={styles.state} role="status">No messages in this conversation yet.</p>
                 ) : (
                   <ol className={styles.messages} aria-label={`Messages with ${selected.name}`}>

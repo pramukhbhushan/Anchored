@@ -8,7 +8,7 @@ import type { Tool } from "@/lib/domain/types";
 // vendor logo, and `priceChip` shortens a tool's price to a few characters.
 
 /** How a fit score reads at a glance: green, plain ink or orange. */
-export type FitBand = "good" | "fair" | "weak";
+type FitBand = "good" | "fair" | "weak";
 
 /** Plain words for each band, read out with the score. */
 export const FIT_BAND_LABEL: Readonly<Record<FitBand, string>> = {

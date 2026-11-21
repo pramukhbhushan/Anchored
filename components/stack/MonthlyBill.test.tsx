@@ -1,5 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { MonthlyBill as Bill } from "@/components/stack/bill";
 import { MonthlyBill } from "@/components/stack/MonthlyBill";
@@ -166,7 +166,7 @@ describe("MonthlyBill", () => {
 
 it("lets an owner select a paid piece with the keyboard and see its work", async () => {
   render(<MonthlyBill bill={BILL} />);
-  const jobber = screen.getByRole("button", { name: /Jobber \$100/ });
+  const jobber = within(screen.getByRole("group", { name: "Monthly costs" })).getByRole("button", { name: /Jobber \$100/ });
   jobber.focus();
   await userEvent.keyboard("{Enter}");
   expect(jobber).toHaveAttribute("aria-pressed", "true");

@@ -38,7 +38,7 @@ describe("CrewPanel", () => {
     expect(screen.getByRole("heading", { name: "Content and Social" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Internal Communications" })).toBeInTheDocument();
     expect(screen.getAllByText(/required details ready/)).toHaveLength(5);
-    expect(screen.getByRole("button", { name: "Turn on Front Desk" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Front Desk to your plan" })).toBeInTheDocument();
     expect(screen.getByText('"Walk-ins"')).toBeInTheDocument();
   });
 });

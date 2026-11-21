@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   Bar,
   BarChart,
@@ -16,19 +15,22 @@ import styles from "./cost-picture.module.css";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// A shadcn-style Recharts cost picture. The chart is decorative; real buttons
-// expose the same amounts to keyboard and touch users and select the work
-// covered by that exact paid piece. No quoted price is counted as a number.
+// The stacked bar of a bill's paid pieces, drawn with Recharts, and a button
+// per piece under it. The bar is for the eye: its label carries the amounts as
+// text, and the buttons give keyboard and touch the same pieces. Picking one
+// lists the work it covers. A tool that is only on quote has no number, so it
+// is not in the bar.
 
-/** Explore paid pieces of a bill and the jobs each one covers. */
+/** Render the bar and the piece buttons; `selected` is the picked piece's key, which `onSelect` changes. */
 export function CostPicture({
   bill,
+  selected,
   onSelect,
 }: {
   readonly bill: MonthlyBill;
+  readonly selected: string | null;
   readonly onSelect: (key: string | null) => void;
 }) {
-  const [selected, setSelected] = useState<string | null>(null);
   if (bill.segments.length === 0)
     return <p className={styles.empty}>Nothing to pay yet</p>;
   const label = `${money(bill.total)} a month: ${bill.segments.map((s) => `${s.name} ${money(s.amount)}`).join(", ")}`;
@@ -89,17 +91,13 @@ export function CostPicture({
         </div>
       </div>
       <p className={styles.hint}>Pick a cost to see the work it covers.</p>
-      <div className={styles.legend} aria-label="Monthly costs">
+      <div className={styles.legend} role="group" aria-label="Monthly costs">
         {bill.segments.map((s) => (
           <button
             type="button"
             key={s.key}
             aria-pressed={selected === s.key}
-            onClick={() => {
-              const key = selected === s.key ? null : s.key;
-              setSelected(key);
-              onSelect(key);
-            }}
+            onClick={() => onSelect(selected === s.key ? null : s.key)}
           >
             <span>{s.name}</span>
             <strong>

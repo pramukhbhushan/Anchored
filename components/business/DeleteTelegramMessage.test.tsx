@@ -7,11 +7,11 @@ import { DeleteTelegramMessage } from "./DeleteTelegramMessage";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The outbox removal control sends stored identity only, prevents duplicate
-// taps and keeps the provider's truthful result visible to the owner.
+// "Remove from Telegram" sends only the outbox entry's id, ignores a second tap
+// while the first runs, and shows the result the server reports.
 
 describe("Telegram removal control", () => {
-  it("submits explicit confirmation once and displays the authoritative result", async () => {
+  it("sends one confirmed request and shows the server's result", async () => {
     const pending = deferred<Response>();
     const fetch = stubFetch(() => pending.promise);
     render(<DeleteTelegramMessage businessId="shop/id" entryId="entry" />);
