@@ -150,7 +150,9 @@ function AgentPanel({ business, agent, ai }: { readonly business: BusinessProfil
               <dt>Model</dt>
               <dd>
                 {ai === null ? (
-                  "No AI key is set up, so Anchored's rules write these drafts. Add your AI key on Connections to have AI write them."
+                  business.kind === "case"
+                    ? "The example business has no AI key, so Anchored's rules write these drafts."
+                    : "No AI key is set up, so Anchored's rules write these drafts. Add your AI key on Connections to have AI write them."
                 ) : (
                   <>
                     {ai.models[skill.tier]} on {ai.label}, {skill.tier} tier. <span className="muted">{tier.why} Anchored picks it for you.</span>
