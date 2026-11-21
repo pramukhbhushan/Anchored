@@ -133,7 +133,7 @@ function AiKeyForm({
 
   const form = (
     <form className={styles.form} onSubmit={onSubmit}>
-      <div className={styles.fields}>
+      <div className={`${styles.fields} ${styles.wideFields}`}>
         <div className={styles.field}>
           <label htmlFor={providerId}>Provider</label>
           <select id={providerId} name="provider" className={styles.input} value={provider} onChange={(event) => isAiProvider(event.target.value) && setProvider(event.target.value)}>
