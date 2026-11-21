@@ -7,6 +7,7 @@ import type {
   ApprovePlanRequest,
   BusinessChatRequest,
   ConnectRequest,
+  SaveAiKeyRequest,
   CreateBusinessRequest,
   DecideCardRequest,
   DeleteTelegramRequest,
@@ -152,14 +153,14 @@ export const connectSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("email-out"), replyTo: z.string().trim().email("Enter the email address replies should go to.").max(200) }),
   z.object({ kind: z.literal("email-in") }),
   z.object({ kind: z.literal("stripe"), signingSecret: z.string().trim().regex(/^whsec_[A-Za-z0-9]{8,120}$/, "A Stripe signing secret starts with whsec_.") }),
-  z.object({
-    kind: z.literal("ai"),
-    provider: z.enum(AI_PROVIDERS),
-    // Printable characters only: a space or line break in a header would put the key in the error text.
-    apiKey: z.string().trim().min(20, "That looks too short. Paste the whole key.").max(300).regex(/^[\x21-\x7e]+$/, "Paste only the key, with no spaces."),
-    model: z.string().trim().max(120).regex(/^[\w.:/@+-]*$/, "Copy the model's name exactly as your provider lists it.").optional(),
-  }),
 ]) satisfies z.ZodType<ConnectRequest>;
+
+export const saveAiKeySchema = z.object({
+  provider: z.enum(AI_PROVIDERS),
+  // Printable characters only: a space or line break can't go in a request header, and the error would quote the key.
+  apiKey: z.string().trim().min(20, "That looks too short. Paste the whole key.").max(300).regex(/^[\x21-\x7e]+$/, "Paste only the key, with no spaces."),
+  model: z.string().trim().max(120).regex(/^[\w.:/@+-]*$/, "Copy the model's name exactly as your provider lists it.").optional(),
+}) satisfies z.ZodType<SaveAiKeyRequest>;
 
 export const saveContactSchema = z.object({
   id: z.string().uuid().optional(),

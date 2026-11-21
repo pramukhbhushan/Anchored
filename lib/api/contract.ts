@@ -375,8 +375,15 @@ export type ConnectRequest =
   | { readonly kind: "texting"; readonly accountSid: string; readonly authToken: string; readonly phone: string; readonly forwardTo?: string }
   | { readonly kind: "email-out"; readonly replyTo: string }
   | { readonly kind: "email-in" }
-  | { readonly kind: "stripe"; readonly signingSecret: string }
-  | { readonly kind: "ai"; readonly provider: AiProviderId; readonly apiKey: string; readonly model?: string };
+  | { readonly kind: "stripe"; readonly signingSecret: string };
+
+/** PUT /api/businesses/[id]/ai-key: check the owner's own AI key with one short call, then save it. */
+export interface SaveAiKeyRequest {
+  readonly provider: AiProviderId;
+  readonly apiKey: string;
+  /** The model to run, as the provider names it. Only Anthropic picks one when it is left out. */
+  readonly model?: string;
+}
 
 /** POST /api/businesses/[id]/contacts: add a customer, or update one by `id`. */
 export interface SaveContactRequest {

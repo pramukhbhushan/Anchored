@@ -18,9 +18,6 @@ export type ConnectionKind = ServiceKind | "ai";
 /** Every service, in the order the Connections page shows them. */
 export const SERVICE_KINDS: readonly ServiceKind[] = ["texting", "email-out", "email-in", "stripe"];
 
-/** Every connection kind, the AI key first. */
-export const CONNECTION_KINDS: readonly ConnectionKind[] = ["ai", ...SERVICE_KINDS];
-
 /** Report whether `kind` is a service that moves messages, as opposed to the AI key. */
 export function isService(kind: ConnectionKind): kind is ServiceKind {
   return kind !== "ai";

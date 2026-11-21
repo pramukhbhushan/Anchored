@@ -1,6 +1,6 @@
 import "server-only";
 import type { NextResponse } from "next/server";
-import type { AiKeyView, ApiError, ConnectionView, ConnectionsResponse, ConnectRequest, SaveContactRequest } from "@/lib/api/contract";
+import type { AiKeyView, ApiError, ConnectionView, ConnectionsResponse, ConnectRequest, SaveAiKeyRequest, SaveContactRequest } from "@/lib/api/contract";
 import type { Viewer } from "@/lib/auth/viewer";
 import { checkTwilioNumber } from "@/lib/connectors/twilio";
 import { AI_PROVIDER_COPY, isAiProvider, SERVICE_KINDS, type ConnectionKind, type ServiceKind } from "@/lib/domain/connections";
@@ -176,14 +176,8 @@ export async function connectionViews(session: string, business: BusinessProfile
 // Connecting and disconnecting
 // =============================================================================
 
-/** Save the service or AI key `request` names for `business`, replacing any earlier connection of that kind. Throws `ConnectError` for a problem the owner can fix. */
-export async function connect(
-  session: string,
-  business: BusinessProfile,
-  request: ConnectRequest,
-  verifyTexting: TwilioCheck = checkTwilioNumber,
-  verifyAiKey: AiKeyCheck = checkOwnerKey,
-): Promise<void> {
+/** Save the service `request` names for `business`, replacing any earlier connection of that kind. Throws `ConnectError` for a problem the owner can fix. */
+export async function connect(session: string, business: BusinessProfile, request: ConnectRequest, verifyTexting: TwilioCheck = checkTwilioNumber): Promise<void> {
   const unavailable = unavailableReason(request.kind, process.env);
   if (unavailable !== null) throw new ConnectError(409, unavailable);
   const base = { businessId: business.id, kind: request.kind, hookId: newHookId() };
@@ -214,20 +208,25 @@ export async function connect(
     case "stripe":
       await store.saveConnection(session, { ...base, settings: {}, secret: encryptSecret(request.signingSecret) });
       return;
-    case "ai": {
-      const name = AI_PROVIDER_COPY[request.provider].name;
-      const model = request.model?.trim() || null;
-      if (model === null && AI_PROVIDER_COPY[request.provider].needsModel) throw new ConnectError(400, `${name} needs a model name. Copy the exact name from ${name}.`);
-      const problem = await verifyAiKey({ provider: request.provider, apiKey: request.apiKey, model });
-      if (problem !== null) throw new ConnectError(400, problem);
-      await store.saveConnection(session, {
-        ...base,
-        settings: { provider: request.provider, lastFour: request.apiKey.slice(-4), ...(model === null ? {} : { model }) },
-        secret: encryptSecret(request.apiKey),
-      });
-      return;
-    }
   }
+}
+
+/** Check the owner's AI key with one short call to its provider, then save it for `business`, replacing any earlier key. Throws `ConnectError` for a problem the owner can fix. */
+export async function saveAiKey(session: string, business: BusinessProfile, request: SaveAiKeyRequest, verify: AiKeyCheck = checkOwnerKey): Promise<void> {
+  const unavailable = unavailableReason("ai", process.env);
+  if (unavailable !== null) throw new ConnectError(409, unavailable);
+  const { name, needsModel } = AI_PROVIDER_COPY[request.provider];
+  const model = request.model?.trim() || null;
+  if (model === null && needsModel) throw new ConnectError(400, `${name} needs a model name. Copy the exact name from ${name}.`);
+  const problem = await verify({ provider: request.provider, apiKey: request.apiKey, model });
+  if (problem !== null) throw new ConnectError(400, problem);
+  await getStore().saveConnection(session, {
+    businessId: business.id,
+    kind: "ai",
+    hookId: newHookId(),
+    settings: { provider: request.provider, lastFour: request.apiKey.slice(-4), ...(model === null ? {} : { model }) },
+    secret: encryptSecret(request.apiKey),
+  });
 }
 
 /** Remove the business's connection of `kind`, if it has one. */

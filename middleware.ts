@@ -40,6 +40,8 @@ const LIMITS = {
   // onboardings plus chat. The daily model budget in `lib/server/ai-budget.ts` caps the spend.
   chat: { bucket: "chat", windowMs: WINDOW_MS, perSession: 90, perIp: 450 },
   newEvent: { bucket: "new-event", windowMs: WINDOW_MS, perSession: 60, perIp: 300 },
+  // Saving an AI key calls the owner's provider once to check it; ten tries covers a few typos.
+  aiKey: { bucket: "ai-key", windowMs: WINDOW_MS, perSession: 10, perIp: 50 },
   // Connecting a service and adding a contact create rows, so they get their own bucket.
   connect: { bucket: "connect", windowMs: WINDOW_MS, perSession: 60, perIp: 300 },
   // Each photo is its own request, and a post holds up to 10.
@@ -119,6 +121,7 @@ export function clientKey(ip: string): string {
 /** Return the rate limits for a `method` request to `pathname`, an API mutation. */
 export function limitFor(method: string, pathname: string): ApiLimit {
   if (pathname.startsWith("/api/hooks/")) return LIMITS.hook;
+  if (/^\/api\/businesses\/[^/]+\/ai-key\/?$/.test(pathname)) return LIMITS.aiKey;
   if (/^\/api\/businesses\/[^/]+\/(?:connections|contacts)(?:\/[^/]+)?\/?$/.test(pathname)) return LIMITS.connect;
   if (/^\/api\/businesses\/[^/]+\/automations\/?$/.test(pathname)) return LIMITS.automation;
   if (method === "POST" && /^\/api\/businesses\/[^/]+\/outbox\/[^/]+\/delete\/?$/.test(pathname)) return LIMITS.telegramDelete;

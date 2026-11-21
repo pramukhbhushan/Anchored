@@ -195,7 +195,9 @@ export async function checkOwnerKey(owner: OwnerAiSettings): Promise<string | nu
   } catch (error) {
     // A refusal or an odd answer still means the provider took the key.
     if (error instanceof LlmRefusalError || error instanceof LlmResponseError) return null;
+    // Nothing is saved yet, so these two say what to fix in the form rather than on Connections.
     if (error instanceof AiKeyError && error.reason === "key") return `${name} turned down this key. Copy the whole key from your ${name} account and paste it again.`;
+    if (error instanceof LlmRequestError && error.status === 404) return `${name} doesn't know that model name. Copy the exact name from ${name}.`;
     if (error instanceof AiKeyError || error instanceof LlmRequestError) return error.message;
     return `${name} didn't answer. Try again in a minute.`;
   }
