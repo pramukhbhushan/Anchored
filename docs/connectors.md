@@ -6,7 +6,7 @@ Sources are the team's research notes in `docs/research/` and vendor pages check
 
 ## Built
 
-Each adapter lives in `lib/connectors/`. The README's "Connect real services" section sets each one up.
+Each adapter lives in `lib/connectors/`. [Connect real services](deploy.md#connect-real-services) sets each one up.
 
 | Connector | File | What it does | Feeds |
 | --- | --- | --- | --- |
