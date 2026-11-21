@@ -8,8 +8,8 @@ import type { ModelTier } from "@/lib/domain/types";
 // or a typed object by task tier (`ModelTier`); which vendor and model answer is
 // configuration, not code. Errors are typed so callers can fall back cleanly.
 
-/** Model providers Anchored can call. `openai-compatible` covers any other endpoint that speaks the OpenAI chat API. */
-export type ProviderName = "anthropic" | "openai" | "openrouter" | "featherless" | "openai-compatible";
+/** Model providers Anchored can call, the same ones an owner may bring a key for. */
+export type ProviderName = "anthropic" | "openai" | "openrouter" | "featherless";
 
 /** A request for plain text. */
 export interface TextRequest {
@@ -56,7 +56,7 @@ export interface LlmProvider {
   searchWeb?(request: WebSearchRequest): Promise<WebFindings>;
 }
 
-/** Raised when the provider settings in the environment are missing or invalid. */
+/** Raised when a key's provider settings are incomplete, such as a provider that needs a model name and has none. */
 export class LlmConfigError extends Error {
   override readonly name = "LlmConfigError";
 }

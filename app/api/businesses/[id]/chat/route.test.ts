@@ -13,7 +13,7 @@ import { GET, POST } from "./route";
 const stores = vi.hoisted(() => ({ current: null as Store | null }));
 vi.mock("@/lib/store", async () => ({ NotFoundError: (await import("@/lib/store/types")).NotFoundError, getStore: () => stores.current }));
 vi.mock("@/lib/server/session", () => ({ getSessionId: async () => "owner" }));
-vi.mock("@/lib/server/ai-budget", () => ({ getBudgetedLlm: () => null }));
+vi.mock("@/lib/server/business-llm", () => ({ getBusinessLlm: () => null }));
 const context = { params: Promise.resolve({ id: "hvac" }) };
 beforeEach(async () => { stores.current = new MemoryStore(); await stores.current.saveBusiness("owner", hvacShop()); });
 

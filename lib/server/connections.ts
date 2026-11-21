@@ -9,7 +9,7 @@ import type { BusinessProfile } from "@/lib/domain/types";
 import type { OwnerAiSettings } from "@/lib/llm";
 import { getStore } from "@/lib/store";
 import type { StoredConnection } from "@/lib/store/types";
-import { checkOwnerKey, serverHasAi } from "./ai-budget";
+import { checkOwnerKey } from "./business-llm";
 import { findBusiness } from "./data";
 import { fail, handleError, json } from "./http";
 import { canStoreSecrets, encryptSecret, newHookId } from "./secrets";
@@ -52,13 +52,11 @@ const GUEST_REFUSAL = "Save your work with an email or Google account first, so 
 // Owners see these; the setting an operator must add goes to the server log instead.
 const NO_SECRETS = "Not available yet. Anchored can't keep sign-ins for outside services until its setup is finished.";
 const NO_EMAIL_OUT = "Sending email from Anchored isn't available yet.";
-const NO_EMAIL_IN = "Forwarding email to Anchored isn't available yet.";
 const OPERATOR_FIX: Readonly<Record<ConnectionKind, string>> = {
   ai: "Set CONNECTOR_SECRET_KEY.",
   texting: "Set CONNECTOR_SECRET_KEY.",
   stripe: "Set CONNECTOR_SECRET_KEY.",
   "email-out": "Set CONNECTOR_SECRET_KEY.",
-  "email-in": "Set INBOUND_EMAIL_ADDRESS to one address.",
 };
 const warned = new Set<ConnectionKind>();
 
@@ -84,14 +82,6 @@ export function appBaseUrl(from?: Request | Headers): string {
   return `${proto}://${host}`;
 }
 
-/** The forwarding address for `hookId` on the inbound address `inbound`, such as "abc123+hook@inbound.postmarkapp.com", or `null` when `inbound` isn't one address. */
-function forwardingAddress(hookId: string, inbound: string): string | null {
-  const trimmed = inbound.trim();
-  const at = trimmed.lastIndexOf("@");
-  if (at <= 0 || !isEmailAddress(trimmed)) return null;
-  return `${trimmed.slice(0, at)}+${hookId}@${trimmed.slice(at + 1)}`;
-}
-
 /** Why this server can't offer `kind` in owner words, or `null` when it can. Logs the operator's fix once per kind. */
 function unavailableReason(kind: ConnectionKind, env: Env): string | null {
   const reason = ownerReason(kind, env);
@@ -110,8 +100,6 @@ function ownerReason(kind: ConnectionKind, env: Env): string | null {
       return canStoreSecrets(env) ? null : NO_SECRETS;
     case "email-out":
       return canStoreSecrets(env) ? null : NO_EMAIL_OUT;
-    case "email-in":
-      return env.INBOUND_EMAIL_ADDRESS && forwardingAddress("x", env.INBOUND_EMAIL_ADDRESS) !== null ? null : NO_EMAIL_IN;
   }
 }
 
@@ -141,10 +129,6 @@ function viewOf(kind: ServiceKind, stored: StoredConnection | undefined, base: s
       const detail = fromAddress === undefined ? (replyTo ?? null) : `${fromAddress}, replies go to ${replyTo ?? fromAddress}`;
       return { kind, connected: true, detail, setup: [], unavailable };
     }
-    case "email-in": {
-      const address = env.INBOUND_EMAIL_ADDRESS ? forwardingAddress(hook, env.INBOUND_EMAIL_ADDRESS) : null;
-      return { kind, connected: true, detail: address, setup: address === null ? [] : [{ label: "Forward customer emails to", value: address }], unavailable };
-    }
     case "stripe":
       return {
         kind,
@@ -162,10 +146,9 @@ function viewOf(kind: ServiceKind, stored: StoredConnection | undefined, base: s
 /** Build the view of the business's AI key from its stored connection, if any. Never holds the key. */
 function aiViewOf(stored: StoredConnection | undefined, env: Env): AiKeyView {
   const provider = stored?.settings.provider;
-  const fallback = serverHasAi() ? "server" : "rules";
   const unavailable = unavailableReason("ai", env);
-  if (stored === undefined || !isAiProvider(provider)) return { provider: null, lastFour: null, model: null, fallback, unavailable };
-  return { provider, lastFour: stored.settings.lastFour ?? null, model: stored.settings.model ?? null, fallback, unavailable };
+  if (stored === undefined || !isAiProvider(provider)) return { provider: null, lastFour: null, model: null, unavailable };
+  return { provider, lastFour: stored.settings.lastFour ?? null, model: stored.settings.model ?? null, unavailable };
 }
 
 /** Return the business's AI key view and every service's view, in page order. `base` is where webhooks point. Views never hold a secret. */
@@ -209,9 +192,6 @@ export async function connect(session: string, business: BusinessProfile, reques
         settings: { replyTo: request.replyTo, fromAddress: request.fromAddress },
         secret: encryptSecret(JSON.stringify({ apiKey: request.apiKey })),
       });
-      return;
-    case "email-in":
-      await store.saveConnection(session, { ...base, settings: {}, secret: null });
       return;
     case "stripe":
       await store.saveConnection(session, { ...base, settings: {}, secret: encryptSecret(request.signingSecret) });

@@ -2,8 +2,9 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import type { IntakeResponse, StartIntakeResponse } from "@/lib/api/contract";
 import { withCrewDecisions } from "@/lib/domain/crew";
+import { profileFromAnswers } from "@/lib/domain/engine";
 import { answerText, draftDetails, draftToAnswers, newDraft, nextQuestion, openingMessages, planReadyText, type IntakeAnswer } from "@/lib/domain/intake";
-import { buildProfileFromAnswers, saveNewBusiness } from "@/lib/server/create-business";
+import { saveNewBusiness } from "@/lib/server/create-business";
 import { intakeState, intakeThread, takeIntakeTurn } from "@/lib/server/intake-ai";
 import { getStore } from "@/lib/store";
 import type { IntakeRecord, NewChatMessage } from "@/lib/store/types";
@@ -52,12 +53,12 @@ export async function answerIntake(session: string, id: string, answer: IntakeAn
 
   // No question means the owner confirmed but the build didn't finish last time; build it now.
   const question = nextQuestion(intake.draft);
-  const turn = question ? await takeIntakeTurn(session, intake.draft, question, answer, transcript) : { draft: intake.draft, reply: null };
+  const turn = question ? takeIntakeTurn(intake.draft, question, answer) : { draft: intake.draft, reply: null };
   let businessId: string | null = null;
   let reply = turn.reply;
   if (reply === null) {
     // The owner confirmed the details at the review, so they arrive as theirs.
-    const business = withCrewDecisions({ ...(await buildProfileFromAnswers(session, draftToAnswers(turn.draft))), ...draftDetails(turn.draft) });
+    const business = withCrewDecisions({ ...profileFromAnswers(draftToAnswers(turn.draft)), ...draftDetails(turn.draft) });
     const raw = { intakeId: id, messages: transcript.map(({ role, text, at }) => ({ role, text, at })), draft: turn.draft };
     await saveNewBusiness(session, business, raw, { seedExample: false });
     businessId = business.id;

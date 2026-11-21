@@ -6,8 +6,6 @@ import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { isAuthEnabled } from "@/lib/auth/config";
-import { aiLabel } from "@/lib/server/ai";
-import { getSessionId } from "@/lib/server/session";
 
 // =============================================================================
 // Module Overview
@@ -18,7 +16,7 @@ import { getSessionId } from "@/lib/server/session";
 
 export const metadata: Metadata = { title: "Set up your business" };
 
-// Provider keys can be set after a build, so check them per request rather than once at build time.
+// Whether accounts are on can change after a build, so check per request rather than once at build time.
 export const dynamic = "force-dynamic";
 
 const NEXT_STEPS: readonly string[] = [
@@ -30,12 +28,10 @@ const NEXT_STEPS: readonly string[] = [
 ];
 
 /** Return the line that says who reads the owner's answers and where they are kept. */
-function privacyLine(aiName: string | null, accountsOn: boolean): string {
+function privacyLine(accountsOn: boolean): string {
   // With accounts off there is no account; the answers belong to this browser's session.
   const kept = accountsOn ? "stay in your account" : "stay with this browser";
-  return aiName
-    ? `Your answers go only to ${aiName} and ${kept}. Nothing is sent to your customers.`
-    : `Anchored's own rules read your answers, which ${kept}. Nothing is sent to your customers.`;
+  return `Anchored's own rules read your answers, which ${kept}. Nothing is sent to your customers.`;
 }
 
 /** Render chat onboarding, or the form when `?form=1`. */
@@ -45,9 +41,8 @@ export default async function NewBusinessPage({
   readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { form } = await searchParams;
-  // No business exists yet, so only the server's own key can read the answers.
-  const aiName = await aiLabel(await getSessionId());
-  const privacy = privacyLine(aiName, isAuthEnabled());
+  // No business exists yet, so no owner AI key does either: the rules read every answer.
+  const privacy = privacyLine(isAuthEnabled());
 
   if (form === "1") {
     return (
@@ -62,7 +57,7 @@ export default async function NewBusinessPage({
           }
         />
         <div className="form-layout">
-          <OnboardForm aiName={aiName} />
+          <OnboardForm />
           <aside className="rail">
             <Card title="What happens next" level={2}>
               <ol className="steps-list">

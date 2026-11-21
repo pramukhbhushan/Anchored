@@ -10,13 +10,11 @@ Each adapter lives in `lib/connectors/`. [Connect real services](deploy.md#conne
 
 | Connector | File | What it does | Feeds |
 | --- | --- | --- | --- |
-| Outbound email through Resend | `email.ts` | Sends an approved email with the owner's own Resend key and from-address, under the business's name, with the owner as reply-to. A self-hosted server can set one shared sender instead | Email cards, such as Payment Nudger reminders |
-| Inbound email through Postmark | `email.ts` | Reads email the owner forwards to their business's address | Internal Communications triage |
+| Outbound email through Resend | `email.ts` | Sends an approved email with the owner's own Resend key and from-address, under the business's name, with the owner as reply-to | Email cards, such as Payment Nudger reminders |
 | Twilio | `twilio.ts` | Sends approved texts from the owner's Twilio number, receives replies and STOP, and answers missed calls. Calls are never recorded or transcribed | Callback and the other texting skills |
 | Stripe | `stripe.ts` | Reads `invoice.overdue` and `invoice.payment_failed` events from the owner's Stripe account. Never charges a card | Payment Nudger |
-| Telegram, optional | `telegram.ts` | One shared bot: customers message a business through its link, and approved replies go back. Off unless the server sets `TELEGRAM_BOT_TOKEN`, and not verified in production | Customer |
 
-Twilio, Resend, Postmark and Stripe are connected per business on the Connections page, stored as one row per business in the `connections` table with the credentials encrypted. The Telegram link is set up from the Customer page.
+Twilio, Resend and Stripe are connected per business on the Connections page, stored as one row per business in the `connections` table with the credentials encrypted.
 
 ## Rules every connector follows
 

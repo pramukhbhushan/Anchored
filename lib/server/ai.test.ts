@@ -11,7 +11,7 @@ import type { LlmProvider } from "@/lib/llm";
 // prices, numbers, links, emails or phone numbers absent from the source.
 
 const models = vi.hoisted(() => ({ current: null as LlmProvider | null, prompts: [] as string[] }));
-vi.mock("@/lib/server/ai-budget", () => ({ getBudgetedLlm: () => models.current }));
+vi.mock("@/lib/server/business-llm", () => ({ getBusinessLlm: () => models.current }));
 
 const { newFacts, rewriteInVoice } = await import("./ai");
 

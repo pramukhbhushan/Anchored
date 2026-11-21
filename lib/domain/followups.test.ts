@@ -11,7 +11,7 @@ import { dueFollowup, FOLLOWUP_SKILLS, FOLLOWUP_STATES, followupInputSchema, typ
 // is a request for owner approval, with no guessed prices or appointments.
 
 const NOW = new Date("2026-11-08T15:00:00Z");
-const contact: Contact = { id: "contact-1", businessId: "business-1", name: "Sam", phone: null, email: null, consent: { source: "messaged-first", at: "2026-11-07T12:00:00Z" }, optedOutAt: null, telegramChatId: "12345" };
+const contact: Contact = { id: "contact-1", businessId: "business-1", name: "Sam", phone: "+13015550192", email: null, consent: { source: "texted-first", at: "2026-11-07T12:00:00Z" }, optedOutAt: null };
 const timer: RecordedFollowup = { id: "timer-1", businessId: "business-1", contactId: contact.id, skill: "closer", dueAt: "2026-11-08T09:00:00-05:00", state: "open-quote", sourceId: "quote:Q1", evidence: "Owner recorded quote Q1 as open after the call.", status: "active" };
 const context: FollowupContext = { now: NOW, contact, chosen: new Set<SkillId>(FOLLOWUP_SKILLS), locked: false, businessName: "Greenfield Lawn" };
 
@@ -48,8 +48,8 @@ describe("recorded follow-up input", () => {
 describe("dueFollowup", () => {
   it("drafts from recorded facts and leaves the owner to approve", () => {
     const draft = dueFollowup(timer, context);
-    expect(draft).toMatchObject({ skill: "closer", channel: "telegram", contact: contact.id, action: "Send Telegram message", to: "Sam" });
-    expect(draft?.body).toBe("Greenfield Lawn: Checking in on the quote we sent. Do you have any questions before deciding?");
+    expect(draft).toMatchObject({ skill: "closer", channel: "sms", contact: contact.id, action: "Send text", to: "+13015550192" });
+    expect(draft?.body).toBe("Greenfield Lawn: Checking in on the quote we sent. Do you have any questions before deciding? Reply STOP to opt out.");
     expect(draft?.checks).toContain("Waiting for your approval");
     expect(draft?.reason).toContain(timer.evidence);
   });
@@ -76,12 +76,12 @@ describe("dueFollowup", () => {
     expect(dueFollowup(timer, { ...context, contact: { ...contact, optedOutAt: NOW.toISOString() } })).toBeNull();
   });
 
-  it("never crosses a business or customer boundary or sends without consent and a Telegram destination", () => {
+  it("never crosses a business or customer boundary or texts without a texting OK and a number", () => {
     expect(dueFollowup(timer, { ...context, contact: null })).toBeNull();
     expect(dueFollowup(timer, { ...context, contact: { ...contact, businessId: "someone-else" } })).toBeNull();
     expect(dueFollowup(timer, { ...context, contact: { ...contact, id: "someone-else" } })).toBeNull();
     expect(dueFollowup(timer, { ...context, contact: { ...contact, consent: null } })).toBeNull();
-    expect(dueFollowup(timer, { ...context, contact: { ...contact, telegramChatId: undefined } })).toBeNull();
+    expect(dueFollowup(timer, { ...context, contact: { ...contact, phone: null } })).toBeNull();
   });
 
   it("does not let untrusted evidence become outgoing text", () => {
@@ -101,7 +101,7 @@ describe("dueFollowup", () => {
   });
 
   it("keeps Debrief owner-only even without a connected customer channel", () => {
-    const draft = dueFollowup({ ...timer, skill: "debrief", state: "completed-call" }, { ...context, contact: { ...contact, consent: null, telegramChatId: undefined } });
+    const draft = dueFollowup({ ...timer, skill: "debrief", state: "completed-call" }, { ...context, contact: { ...contact, consent: null, phone: null } });
     expect(draft).toMatchObject({ channel: "flag", action: "Mark read" });
     expect(draft?.contact).toBeUndefined();
     expect(draft?.body).toContain("No customer message has been drafted");

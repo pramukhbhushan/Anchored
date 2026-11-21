@@ -48,7 +48,7 @@ describe("briefSnapshot and briefLines", () => {
     key: Math.random().toString(),
     title: "A card",
     status: "pending",
-    channel: "telegram",
+    channel: "sms",
     skill: "inquiry",
     createdAt: "2026-11-08T12:00:00Z",
     ...over,
@@ -82,10 +82,10 @@ describe("briefSnapshot and briefLines", () => {
     const snapshot = briefSnapshot({
       cards: [card({ createdAt: "2026-11-08T09:00:00Z" }), card({ createdAt: "2026-11-08T13:00:00Z" })],
       outbox: [
-        { delivery: "sent", channel: "telegram", sentAt: "2026-11-08T09:30:00Z" },
-        { delivery: "sent", channel: "telegram", sentAt: "2026-11-08T13:30:00Z" },
-        { delivery: "failed", channel: "telegram", sentAt: "2026-11-08T14:00:00Z" },
-        { delivery: "queued", channel: "telegram", sentAt: "2026-11-09T13:00:00Z" },
+        { delivery: "sent", channel: "sms", sentAt: "2026-11-08T09:30:00Z" },
+        { delivery: "sent", channel: "sms", sentAt: "2026-11-08T13:30:00Z" },
+        { delivery: "failed", channel: "sms", sentAt: "2026-11-08T14:00:00Z" },
+        { delivery: "queued", channel: "sms", sentAt: "2026-11-09T13:00:00Z" },
       ],
       optedOutAt: ["2026-11-08T09:00:00Z", "2026-11-08T14:30:00Z", null],
       since: "2026-11-08T12:00:00Z",

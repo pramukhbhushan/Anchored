@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { readProviderConfig } from "./config";
+import { keyProviderConfig, type KeySettings } from "./config";
 import { OpenAICompatibleProvider } from "./openai-compatible";
 import { LlmRefusalError, LlmRequestError, LlmResponseError, type ObjectRequest, type TextRequest } from "./types";
 
@@ -53,11 +53,9 @@ function recordingFetch(reply: () => Response) {
   return { fetchImpl, sent };
 }
 
-/** Build the provider an environment selects, wired to `fetchImpl`. */
-function providerFor(env: Record<string, string>, fetchImpl: typeof fetch): OpenAICompatibleProvider {
-  const config = readProviderConfig(env);
-  if (!config) throw new Error("test environment selects no provider");
-  return new OpenAICompatibleProvider(config, fetchImpl);
+/** Build the provider for `key`, attributed to `appUrl`, wired to `fetchImpl`. */
+function providerFor(key: KeySettings, fetchImpl: typeof fetch, appUrl: string | null = null): OpenAICompatibleProvider {
+  return new OpenAICompatibleProvider(keyProviderConfig(key, appUrl), fetchImpl);
 }
 
 /** Return what `promise` rejects with, so a test can check its type and fields. */
@@ -70,11 +68,10 @@ async function rejectionOf(promise: Promise<unknown>): Promise<unknown> {
   );
 }
 
-const MODELS = { AI_MODEL_QUICK: "quick-model", AI_MODEL_DEFAULT: "default-model", AI_MODEL_COMPLEX: "complex-model" };
-const OPENAI = { AI_PROVIDER: "openai", AI_API_KEY: "test-openai-key", ...MODELS };
-const OPENROUTER = { AI_PROVIDER: "openrouter", AI_API_KEY: "test-openrouter-key", ...MODELS };
-const FEATHERLESS = { AI_PROVIDER: "featherless", AI_API_KEY: "test-featherless-key", ...MODELS };
-const CUSTOM = { AI_PROVIDER: "openai-compatible", AI_API_KEY: "test-custom-key", AI_BASE_URL: "https://models.example.com/v1", ...MODELS };
+const MODELS = { quick: "quick-model", default: "default-model", complex: "complex-model" };
+const OPENAI: KeySettings = { provider: "openai", apiKey: "test-openai-key", models: MODELS };
+const OPENROUTER: KeySettings = { provider: "openrouter", apiKey: "test-openrouter-key", models: MODELS };
+const FEATHERLESS: KeySettings = { provider: "featherless", apiKey: "test-featherless-key", models: MODELS };
 
 // =============================================================================
 // Requests each dialect sends
@@ -94,7 +91,6 @@ describe("OpenAICompatibleProvider requests", () => {
   it.each([
     { provider: "openai", env: OPENAI },
     { provider: "openrouter", env: OPENROUTER },
-    { provider: "openai-compatible", env: CUSTOM },
   ])("sends no thinking switch to $provider", async ({ env }) => {
     const { fetchImpl, sent } = recordingFetch(() => completion({ content: "Welcome!" }));
     await providerFor(env, fetchImpl).generateText(TEXT_REQUEST);
@@ -105,7 +101,6 @@ describe("OpenAICompatibleProvider requests", () => {
     { provider: "openai", env: OPENAI, url: "https://api.openai.com/v1/chat/completions", key: "test-openai-key", tokenParam: "max_completion_tokens" },
     { provider: "openrouter", env: OPENROUTER, url: "https://openrouter.ai/api/v1/chat/completions", key: "test-openrouter-key", tokenParam: "max_tokens" },
     { provider: "featherless", env: FEATHERLESS, url: "https://api.featherless.ai/v1/chat/completions", key: "test-featherless-key", tokenParam: "max_completion_tokens" },
-    { provider: "openai-compatible", env: CUSTOM, url: "https://models.example.com/v1/chat/completions", key: "test-custom-key", tokenParam: "max_tokens" },
   ])("sends $provider text requests to its endpoint with its key and `$tokenParam`", async ({ env, url, key, tokenParam }) => {
     const { fetchImpl, sent } = recordingFetch(() => completion({ content: "Welcome!" }));
     await providerFor(env, fetchImpl).generateText(TEXT_REQUEST);
@@ -131,7 +126,6 @@ describe("OpenAICompatibleProvider requests", () => {
 
   it.each([
     { provider: "openai", env: OPENAI },
-    { provider: "openai-compatible", env: CUSTOM },
   ])("sends $provider no attribution headers", async ({ env }) => {
     const { fetchImpl, sent } = recordingFetch(() => completion({ content: "Welcome!" }));
     await providerFor(env, fetchImpl).generateText(TEXT_REQUEST);
@@ -141,9 +135,9 @@ describe("OpenAICompatibleProvider requests", () => {
     expect(headers?.has("HTTP-Referer")).toBe(false);
   });
 
-  it("sends `HTTP-Referer` when `APP_URL` is set", async () => {
+  it("sends `HTTP-Referer` when the deployment has a public URL", async () => {
     const { fetchImpl, sent } = recordingFetch(() => completion({ content: "Welcome!" }));
-    await providerFor({ ...OPENROUTER, APP_URL: "https://anchored.example.com" }, fetchImpl).generateText(TEXT_REQUEST);
+    await providerFor(OPENROUTER, fetchImpl, "https://anchored.example.com").generateText(TEXT_REQUEST);
     expect(sent[0]?.headers.get("HTTP-Referer")).toBe("https://anchored.example.com");
   });
 
@@ -179,7 +173,6 @@ describe("OpenAICompatibleProvider requests", () => {
 
   it.each([
     { provider: "featherless", env: FEATHERLESS },
-    { provider: "openai-compatible", env: CUSTOM },
   ])("asks $provider for JSON in the prompt, with the schema, instead of `response_format`", async ({ env }) => {
     const { fetchImpl, sent } = recordingFetch(() => completion({ content: JSON.stringify(PROFILE) }));
     await providerFor(env, fetchImpl).generateObject(OBJECT_REQUEST);
@@ -224,7 +217,7 @@ describe("OpenAICompatibleProvider replies", () => {
 
   it("raises `LlmResponseError` when the reply holds no JSON", async () => {
     const { fetchImpl } = recordingFetch(() => completion({ content: "I'd describe it as a cozy bakery." }));
-    expect(await rejectionOf(providerFor(CUSTOM, fetchImpl).generateObject(OBJECT_REQUEST))).toBeInstanceOf(LlmResponseError);
+    expect(await rejectionOf(providerFor(FEATHERLESS, fetchImpl).generateObject(OBJECT_REQUEST))).toBeInstanceOf(LlmResponseError);
   });
 
   it("raises `LlmResponseError` when the reply has no text", async () => {

@@ -23,23 +23,16 @@ The page is `app/app/b/[id]/workflows/[workflow]/page.tsx`, and the automation p
 
 ## How a card is made
 
-1. **Something happens.** A customer messages the business on Telegram, a webhook delivers an event, the owner types in chat, or a scheduled job finds due work. `ingestEvent` in `lib/server/ingest.ts` maps each event source to a skill through `SOURCE_SKILLS`.
+1. **Something happens.** A webhook delivers an event, such as a customer's text or a missed call, the owner types in chat, or a scheduled job finds due work. `ingestEvent` in `lib/server/ingest.ts` maps each event source to a skill through `SOURCE_SKILLS`.
 2. **Code decides.** Code picks the skill, the contact and the facts. The model writes only the words, and code checks the reply before it uses it. With no AI provider set, or when a reply fails a check, the card uses a template.
 3. **The owner approves.** `decideCard` in `lib/server/decide.ts` runs `checkSend` and writes the approved message to the outbox.
 4. **Anchored sends.** `lib/server/dispatch.ts` runs `checkSend` again at send time, then sends through the connector. `GET /api/cron/dispatch` sends what is due.
 
 ## Customer
 
-Customer answers new messages and follows up on work the owner recorded.
+Customer answers new messages and follows up on work the owner recorded. A customer's text or missed call to the owner's Twilio number becomes a draft through `ingestEvent`.
 
-- **Telegram, optional.** Customers message the business through a shared Telegram bot. It is off unless the server sets `TELEGRAM_BOT_TOKEN` and `TELEGRAM_BOT_USERNAME`, and it has not been verified in production. `telegramSetup` in `lib/server/telegram-setup.ts` gives each business its own link and a QR code drawn on the server. The shared example business never gets one. [Set up Telegram](deploy.md#set-up-telegram) registers the webhook.
-- **The webhook.** `app/api/hooks/telegram/route.ts` checks the secret header, claims each update once, and answers 200 only after the work is saved. An update still in progress gets a 503, so Telegram retries it.
-- **Commands.** In `lib/server/telegram-hooks.ts`, `/start <link>` binds the chat to the business and records consent. `/stop`, or blocking the bot, opts the customer out.
-- **Picking the skill.** `routeCustomerMessage` in `lib/domain/customer-routing.ts` tries closer, then showup, catering and inquiry, among the skills the owner chose. A billing question, or a message no chosen skill can answer, becomes a note for the owner.
-- **Drafting.** `draftTelegramCard` in `lib/server/customer-reply.ts` gives the model the last 10 messages of the thread. An allergy question becomes a locked card that Anchored never drafts an answer for.
-- **Acknowledgment.** The `acknowledge` standing rule starts on (`defaultRuleState` in `lib/domain/rules.ts`). It sends a fixed reply at most once per contact every 12 hours. Turning it off cancels the acknowledgments still queued. Free-text replies always wait in Approvals.
-- **Recorded follow-ups.** The owner records a contact, a chosen skill, a due time, the job's state, a source id and evidence through `FollowupSchedule`, which calls `GET`, `POST` and `PUT /api/businesses/[id]/followups`. `dueFollowup` in `lib/domain/followups.ts` turns a due record into a draft. Closer and Call Follow-up stop after 3 approved touches. Debrief makes a note for the owner, not a customer message. A timer never sends on its own.
-- **Removing a sent message.** The outbox offers removal of a Telegram message for 48 hours after it was sent, through `POST /api/businesses/[id]/outbox/[entry]/delete` with `{ "confirm": true }`. The server decides eligibility from the stored message. Removal keeps the sent text and the delivery history, and the customer may already have read it.
+- **Recorded follow-ups.** The owner records a contact, a chosen skill, a due time, the job's state, a source id and evidence through `FollowupSchedule`, which calls `GET`, `POST` and `PUT /api/businesses/[id]/followups`. `dueFollowup` in `lib/domain/followups.ts` turns a due record into a draft text to the contact's number, which needs a texting OK on file. Closer and Call Follow-up stop after 3 approved touches. Debrief makes a note for the owner, not a customer message. A timer never sends on its own.
 
 ## Bookkeeping
 
@@ -60,10 +53,9 @@ Marketing drafts social posts from the owner's photos and drafts review replies.
 
 ## Internal Communications
 
-Internal Communications runs for every business. It writes the daily brief, sorts forwarded email and watches license dates.
+Internal Communications runs for every business. It writes the daily brief and watches license dates. Inbox Triage, which sorted forwarded email, has no way to receive email: the forwarding address ran on a Postmark account the original team held, and it was removed.
 
 - **Daily brief.** `runBrief` in `lib/server/brief.ts` writes the brief, and `briefSnapshot` in `lib/domain/brief.ts` computes every number in code. `GET /api/cron/brief` runs hourly and writes at most one brief per business a day, from 7 a.m. Eastern. The Run now button (`BriefRun`) runs it on demand, and Overview shows the latest one. A failed run keeps the last good brief.
-- **Forwarded email.** The Postmark inbound hook calls `triageEmail`. `classifyEmail` and `routeEmail` in `lib/domain/triage.ts` sort each email to a skill or to the owner with fixed rules, and file one card per message. Anchored sends no email reply.
 - **License dates.** The owner records each license's expiry date, source and status through `LicenseDates`, which calls `GET` and `PUT /api/businesses/[id]/licenses`. The dates live in `ProfileDetails.licenses`, in the versioned profile, and the model never fills them in. `renewalNotice` in `lib/domain/renewals.ts` leaves a note for the owner 30 days and 7 days before expiry, on the day, and once overdue, using Eastern dates across clock changes. Marking a license handled, removing it or changing its date replaces the old notes. Anchored never renews or files anything.
 
 ## Recorded work on a schedule
@@ -76,7 +68,7 @@ Follow-up records live in the `customer_followups` table, filtered by session an
 
 Each workspace has its own chat. The chat route accepts an optional `agent` token, and the server checks it against the business's active agents and limits drafts to their chosen skills. Each workspace keeps its own history in the business's thread, under the id `<business id>:agent:<agent id>`. General chat keeps its own thread.
 
-Chat answers go through `getBudgetedLlm` and have no tools, so the model cannot change data or send anything. Code still reads requests, records business changes and prepares cards. When AI is off or a call fails, the chat says so. Visitors can chat with the example business, but their messages cannot change its facts, create cards or send anything.
+Chat answers run on the business's own AI key through `getBusinessLlm` and have no tools, so the model cannot change data or send anything. Code still reads requests, records business changes and prepares cards. When the business has no AI key or a call fails, the chat says so. Visitors can chat with the example business, but their messages cannot change its facts, create cards or send anything.
 
 ## Not built
 

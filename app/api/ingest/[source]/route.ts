@@ -10,8 +10,8 @@ import { getSessionId } from "@/lib/server/session";
 // =============================================================================
 // POST /api/ingest/[source] turns an event the visitor sends into a card for the
 // skill that handles it, through `ingestEvent`. It trusts the visitor's session,
-// so it serves the simulator and tests. Real events from Twilio, Stripe and
-// forwarded email arrive at the signed webhooks under `app/api/hooks/`.
+// so it serves the simulator and tests. Real events from Twilio and Stripe
+// arrive at the signed webhooks under `app/api/hooks/`.
 
 /** Record an event and draft a card from the skill that handles its source. */
 export async function POST(request: Request, { params }: { params: Promise<{ source: string }> }) {

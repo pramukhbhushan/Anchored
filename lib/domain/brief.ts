@@ -121,7 +121,7 @@ export interface BriefSnapshot {
   readonly sent: number;
   readonly queued: number;
   readonly failed: number;
-  /** Customers who sent STOP or /stop, or blocked the bot, in the window. */
+  /** Customers who sent STOP in the window. */
   readonly stops: number;
   /** The start of the activity read when the server caps it, at 24 hours. */
   readonly windowStart?: string;

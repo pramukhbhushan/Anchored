@@ -57,8 +57,6 @@ function requestFrom(kind: ServiceKind, data: FormData): ConnectRequest {
     }
     case "email-out":
       return { kind, replyTo: field(data, "replyTo"), apiKey: field(data, "apiKey"), fromAddress: field(data, "fromAddress") };
-    case "email-in":
-      return { kind };
     case "stripe":
       return { kind, signingSecret: field(data, "signingSecret") };
   }
@@ -213,19 +211,6 @@ function ConnectForm({
   readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const verb = connected ? "Reconnect" : "Connect";
-  if (kind === "email-in") {
-    // Connected already means an address is on screen; a new one would stop the old one working.
-    if (connected) return null;
-    return (
-      <form className={styles.form} onSubmit={onSubmit}>
-        <div className={styles.acts}>
-          <Button type="submit" disabled={busy}>
-            Get my forwarding address
-          </Button>
-        </div>
-      </form>
-    );
-  }
   const form = (
     <form className={styles.form} onSubmit={onSubmit}>
       <div className={styles.fields}>

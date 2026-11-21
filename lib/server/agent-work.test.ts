@@ -5,7 +5,7 @@ import type { RecordedFollowup } from "@/lib/domain/followups";
 import type { BusinessProfile, KeyedCard } from "@/lib/domain/types";
 import { MemoryStore } from "@/lib/store/memory";
 import { hvacShop } from "@/test/trades";
-import { customerLocked, followupStillAllowed, runBusinessAgentWork, runDueAgentWork } from "./agent-work";
+import { followupStillAllowed, runBusinessAgentWork, runDueAgentWork } from "./agent-work";
 
 // =============================================================================
 // Module Overview
@@ -28,7 +28,7 @@ beforeEach(async () => {
   await store.setChoice(SESSION, SHOP.id, "calls", { path: "build", skills: ["callback"] });
   await store.setChoice(SESSION, SHOP.id, "quotes", { path: "build", skills: ["closer"] });
   await store.setChoice(SESSION, SHOP.id, "licenses", { path: "build", skills: ["license"] });
-  contact = await store.saveContact(SESSION, { businessId: SHOP.id, name: "Dana", phone: null, email: null, consent: { source: "messaged-first", at: "2026-11-08T12:00:00Z" }, optedOutAt: null, telegramChatId: "123" });
+  contact = await store.saveContact(SESSION, { businessId: SHOP.id, name: "Dana", phone: "+13015550192", email: null, consent: { source: "texted-first", at: "2026-11-08T12:00:00Z" }, optedOutAt: null });
   timer = { id: "timer-1", businessId: SHOP.id, contactId: contact.id, skill: "callback", dueAt: "2026-11-09T14:00:00.000Z", state: "missed-call", sourceId: "call:one", evidence: "The owner recorded a missed call on November 9.", status: "active" };
   await store.saveFollowup(SESSION, timer);
 });
@@ -47,7 +47,7 @@ describe("recorded agent work", () => {
     await runBusinessAgentWork(store, SESSION, SHOP, NOW);
     const cards = await store.listCards(SESSION, SHOP.id);
     expect(cards).toHaveLength(1);
-    expect(cards[0]).toMatchObject({ status: "pending", channel: "telegram", skill: "callback", contact: contact.id, recordedFollowup: { id: timer.id, dueAt: timer.dueAt, sourceId: timer.sourceId } });
+    expect(cards[0]).toMatchObject({ status: "pending", channel: "sms", skill: "callback", contact: contact.id, recordedFollowup: { id: timer.id, dueAt: timer.dueAt, sourceId: timer.sourceId } });
     expect(await store.listOutbox(SESSION, SHOP.id)).toEqual([]);
   });
 
@@ -72,17 +72,7 @@ describe("recorded agent work", () => {
     await store.saveContact(SESSION, contact);
     await store.ensureCards(SESSION, SHOP.id, [{ ...lock("allergy"), lockedContact: contact.id }]);
     await runBusinessAgentWork(store, SESSION, SHOP, NOW);
-    expect(await customerLocked(store, SESSION, SHOP.id, contact.id)).toBe(true);
     expect(await store.listCards(SESSION, SHOP.id)).toMatchObject([{ key: "allergy", status: "pending" }]);
-  });
-
-  it("recognizes older allergy locks by their scoped incoming thread message", async () => {
-    await store.ensureCards(SESSION, SHOP.id, [lock("old-allergy")]);
-    await store.addThreadMessage(SESSION, { businessId: SHOP.id, contactId: contact.id, direction: "in", text: "A question", skill: null, cardKey: "old-allergy", outboxId: null, providerId: "in-1", at: NOW.toISOString() });
-    expect(await customerLocked(store, SESSION, SHOP.id, contact.id)).toBe(true);
-    expect(await customerLocked(store, "other-owner", SHOP.id, contact.id)).toBe(false);
-    await runBusinessAgentWork(store, SESSION, SHOP, NOW);
-    expect((await store.listCards(SESSION, SHOP.id)).some((card) => card.recordedFollowup)).toBe(false);
   });
 
   it("cancellation supersedes pending work and invalidates an approved old draft", async () => {
@@ -108,7 +98,7 @@ describe("recorded agent work", () => {
     const quote: RecordedFollowup = { ...timer, skill: "closer", state: "open-quote", sourceId: "quote:Q1" };
     await store.saveFollowup(SESSION, { ...timer, status: "cancelled" });
     await store.saveFollowup(SESSION, quote);
-    const drafts: KeyedCard[] = [1, 2, 3].map((touch) => ({ key: `previous:${touch}`, agent: "followup", skill: "closer", title: "Follow-up", body: "Hello", reason: "", checks: [], action: "Send", channel: "telegram", contact: contact.id, recordedFollowup: { id: `old-${touch}`, dueAt: timer.dueAt, sourceId: quote.sourceId } }));
+    const drafts: KeyedCard[] = [1, 2, 3].map((touch) => ({ key: `previous:${touch}`, agent: "followup", skill: "closer", title: "Follow-up", body: "Hello", reason: "", checks: [], action: "Send text", channel: "sms", contact: contact.id, recordedFollowup: { id: `old-${touch}`, dueAt: timer.dueAt, sourceId: quote.sourceId } }));
     await store.ensureCards(SESSION, SHOP.id, drafts);
     for (const card of await store.listCards(SESSION, SHOP.id)) await store.updatePendingCard(SESSION, card.id, { status: "approved" });
     await runBusinessAgentWork(store, SESSION, SHOP, NOW);

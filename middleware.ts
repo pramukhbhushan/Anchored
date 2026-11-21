@@ -38,7 +38,7 @@ const LIMITS = {
   createBusiness: { bucket: "create-business", windowMs: WINDOW_MS, perSession: 10, perIp: 60 },
   rewrite: { bucket: "rewrite", windowMs: WINDOW_MS, perSession: 20, perIp: 120 },
   // One onboarding runs 11 to 14 turns and an owner may map several businesses, so 90 fits three
-  // onboardings plus chat. The daily model budget in `lib/server/ai-budget.ts` caps the spend.
+  // onboardings plus chat. Model calls in chat run on the business's own AI key, so the owner pays.
   chat: { bucket: "chat", windowMs: WINDOW_MS, perSession: 90, perIp: 450 },
   newEvent: { bucket: "new-event", windowMs: WINDOW_MS, perSession: 60, perIp: 300 },
   // Saving an AI key calls the owner's provider once to check it; ten tries covers a few typos.
@@ -49,11 +49,10 @@ const LIMITS = {
   photo: { bucket: "photo", windowMs: WINDOW_MS, perSession: 100, perIp: 500 },
   // Turning a job on can add a question to the chat, so the switch gets its own bucket.
   automation: { bucket: "automation", windowMs: WINDOW_MS, perSession: 60, perIp: 300 },
-  // Twilio, Stripe and Postmark post from shared addresses with no session, so only the per-IP limit holds them.
+  // Twilio and Stripe post from shared addresses with no session, so only the per-IP limit holds them.
   hook: { bucket: "hook", windowMs: WINDOW_MS, perSession: 600, perIp: 3000 },
   // Recorded follow-ups and license dates create rows and can draft a card.
   agentWork: { bucket: "agent-work", windowMs: WINDOW_MS, perSession: 30, perIp: 150 },
-  telegramDelete: { bucket: "telegram-delete", windowMs: WINDOW_MS, perSession: 20, perIp: 100 },
   // Run now writes a brief card; a few a minute is plenty for an owner checking it.
   brief: { bucket: "brief", windowMs: WINDOW_MS, perSession: 30, perIp: 150 },
   // Approving the plan and adding a job each save a new profile version, a full snapshot row.
@@ -72,7 +71,7 @@ function isPhotoUpload(pathname: string): boolean {
   return /^\/api\/businesses\/[^/]+\/photos\/?$/.test(pathname);
 }
 
-/** Largest webhook body accepted. A forwarded email arrives with its attachments, which Anchored ignores. */
+/** Largest webhook body accepted. */
 export const MAX_HOOK_BODY_BYTES = 4 * 1024 * 1024;
 
 // Module scope lives as long as the server instance, so counts carry across requests.
@@ -132,7 +131,6 @@ export function limitFor(method: string, pathname: string): ApiLimit {
   if (/^\/api\/businesses\/[^/]+\/ai-key\/?$/.test(pathname)) return LIMITS.aiKey;
   if (/^\/api\/businesses\/[^/]+\/(?:connections|contacts)(?:\/[^/]+)?\/?$/.test(pathname)) return LIMITS.connect;
   if (/^\/api\/businesses\/[^/]+\/automations\/?$/.test(pathname)) return LIMITS.automation;
-  if (method === "POST" && /^\/api\/businesses\/[^/]+\/outbox\/[^/]+\/delete\/?$/.test(pathname)) return LIMITS.telegramDelete;
   if (/^\/api\/businesses\/[^/]+\/(?:followups|licenses)\/?$/.test(pathname)) return LIMITS.agentWork;
   if (method === "PUT" && /^\/api\/businesses\/[^/]+\/plan\/?$/.test(pathname)) return LIMITS.profile;
   if (method !== "POST") return LIMITS.mutation;

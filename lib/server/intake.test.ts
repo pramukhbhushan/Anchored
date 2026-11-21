@@ -6,7 +6,7 @@ import { MemoryStore } from "@/lib/store/memory";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The onboarding chat's store flows on the in-memory store, with AI off: a new
+// The onboarding chat's store flows on the in-memory store, read by the rules: a new
 // chat opens with a question, a reload reads it back only for its own session,
 // each answer adds the owner's words and Anchored's reply, and the owner's yes
 // at the review builds one business, after which a repeated tap builds no
@@ -16,7 +16,6 @@ const SESSION = "owner-session";
 
 const state = vi.hoisted(() => ({ store: null as MemoryStore | null, scheduleStarters: vi.fn() }));
 vi.mock("@/lib/store", async (original) => ({ ...(await original<object>()), getStore: () => state.store }));
-vi.mock("@/lib/server/ai-budget", () => ({ getBudgetedLlm: () => null, isAiConfigured: async () => false }));
 vi.mock("@/lib/server/starters", () => ({ scheduleStarters: state.scheduleStarters }));
 
 const { answerIntake, readIntake, startIntake } = await import("./intake");

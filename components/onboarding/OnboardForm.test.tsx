@@ -13,10 +13,10 @@ import { deferred, json, sentJson, stubFetch } from "@/test/http";
 // suggests boxes for the kind of business typed, sends the answers and opens
 // the new plan, or says what is missing or what went wrong.
 
-function renderForm(aiName: string | null = null) {
+function renderForm() {
   return render(
     <ToastProvider>
-      <OnboardForm aiName={aiName} />
+      <OnboardForm />
     </ToastProvider>,
   );
 }
@@ -158,16 +158,16 @@ describe("OnboardForm", () => {
     expect(screen.queryByRole("button", { name: "Sends quotes" })).not.toBeInTheDocument();
   });
 
-  it("holds the button and names the AI provider while the plan is built", async () => {
+  it("holds the button and says the plan is being built", async () => {
     const answer = deferred<Response>();
     stubFetch(() => answer.promise);
-    renderForm("Claude");
+    renderForm();
 
     await fillRequired();
     await userEvent.click(submit());
 
     expect(submit()).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent(/Claude/);
+    expect(screen.getByRole("status")).toHaveTextContent("Building your plan...");
     answer.resolve(created());
     await waitFor(() => expect(router.push).toHaveBeenCalledTimes(1));
   });

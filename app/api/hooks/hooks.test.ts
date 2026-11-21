@@ -11,9 +11,9 @@ import { hvacShop } from "@/test/trades";
 // The signed webhooks, as each provider calls them. A customer's text becomes a
 // reply draft and records their OK to get a reply; STOP records their opt-out
 // and drafts nothing; a missed call becomes a callback draft and the caller
-// hears a short message; an unpaid Stripe invoice becomes a reminder draft; a
-// forwarded email reaches Inbox Triage. A request with a bad signature, a wrong
-// key or an unknown hook id changes nothing. The scheduled sender needs its secret.
+// hears a short message; an unpaid Stripe invoice becomes a reminder draft. A
+// request with a bad signature or an unknown hook id changes nothing. The
+// scheduled sender needs its secret.
 
 const SESSION = "owner-session";
 const SHOP = hvacShop();
@@ -21,7 +21,6 @@ const KEY = randomBytes(32).toString("base64");
 const TOKEN = "twilio-auth-token";
 const TEXT_HOOK = "t".repeat(24);
 const STRIPE_HOOK = "s".repeat(24);
-const MAIL_HOOK = "m".repeat(24);
 const STRIPE_SECRET = "whsec_testsecret123";
 
 const state = vi.hoisted(() => ({ store: null as MemoryStore | null }));
@@ -29,7 +28,6 @@ vi.mock("@/lib/store", async (original) => ({ ...(await original<object>()), get
 
 const twilio = await import("./twilio/[hookId]/[event]/route");
 const stripe = await import("./stripe/[hookId]/route");
-const email = await import("./email/route");
 const cron = await import("../cron/dispatch/route");
 
 function store(): MemoryStore {
@@ -40,18 +38,16 @@ function store(): MemoryStore {
 beforeEach(async () => {
   vi.stubEnv("CONNECTOR_SECRET_KEY", KEY);
   vi.stubEnv("PUBLIC_APP_URL", "https://anchored.test");
-  vi.stubEnv("INBOUND_EMAIL_SECRET", "inbound-key");
   vi.stubEnv("CRON_SECRET", "cron-key");
   state.store = new MemoryStore();
   const s = store();
   await s.saveBusiness(SESSION, SHOP);
-  // The front desk, payment reminders and triage are working, so each event has an agent to draft it.
+  // The front desk and payment reminders are working, so each event has an agent to draft it.
   await s.setChoice(SESSION, SHOP.id, "calls", { path: "build", skills: ["callback"] });
   await s.setChoice(SESSION, SHOP.id, "leads", { path: "build", skills: ["inquiry"] });
   await s.setChoice(SESSION, SHOP.id, "books", { path: "build", skills: ["nudger"] });
   await s.saveConnection(SESSION, { businessId: SHOP.id, kind: "texting", hookId: TEXT_HOOK, settings: { phone: "+13015550100", accountSid: `AC${"0".repeat(32)}` }, secret: encryptSecret(JSON.stringify({ authToken: TOKEN }), { CONNECTOR_SECRET_KEY: KEY }) });
   await s.saveConnection(SESSION, { businessId: SHOP.id, kind: "stripe", hookId: STRIPE_HOOK, settings: {}, secret: encryptSecret(STRIPE_SECRET, { CONNECTOR_SECRET_KEY: KEY }) });
-  await s.saveConnection(SESSION, { businessId: SHOP.id, kind: "email-in", hookId: MAIL_HOOK, settings: {}, secret: null });
 });
 
 afterEach(() => {
@@ -192,71 +188,6 @@ describe("Stripe", () => {
     expect((await fromStripe(OVERDUE, Math.floor(Date.now() / 1000) - 3600)).status).toBe(400);
     expect((await fromStripe(OVERDUE, undefined, "whsec_wrongsecret")).status).toBe(400);
     expect(await (await fromStripe({ type: "customer.created", data: { object: {} } })).json()).toEqual({ received: true, drafted: false });
-    expect(await cardTitles()).toEqual([]);
-  });
-});
-
-describe("forwarded email", () => {
-  function forward(key: string, mailbox = MAIL_HOOK, fields: Record<string, string> = {}) {
-    const request = new Request(`http://localhost/api/hooks/email?key=${key}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ From: "pat@example.com", FromName: "Pat", Subject: "Quote for a new AC", TextBody: "Can you send a quote?", MailboxHash: mailbox, ...fields }),
-    });
-    return email.POST(request);
-  }
-
-  it("files a customer's email under the agent that answers customers", async () => {
-    expect(await (await forward("inbound-key")).json()).toEqual({ received: true, drafted: true });
-    const [card] = await store().listCards(SESSION, SHOP.id);
-    expect(card).toMatchObject({ title: "Customer email from Pat <pat@example.com>: Quote for a new AC", skill: "inquiry", channel: "list" });
-  });
-
-  it("files a billing email under Payment Nudger and states no amount", async () => {
-    await forward("inbound-key", MAIL_HOOK, { Subject: "Invoice 1042 is past due", TextBody: "Your balance is $240.50" });
-    const [card] = await store().listCards(SESSION, SHOP.id);
-    expect(card).toMatchObject({ skill: "nudger", title: expect.stringContaining("Billing email") });
-    expect(card?.reason).toContain("no amount");
-  });
-
-  it("gives the owner an email no agent of theirs handles", async () => {
-    await forward("inbound-key", MAIL_HOOK, { Subject: "New price list from Ferguson", TextBody: "Prices change next month." });
-    await forward("inbound-key", MAIL_HOOK, { Subject: "Hello", TextBody: "Lunch next week?" });
-    const cards = await store().listCards(SESSION, SHOP.id);
-    expect(cards.map((card) => [card.skill, card.title.split(" from ")[0]])).toEqual([
-      ["triage", "Supplier email"],
-      ["triage", "Forwarded email"],
-    ]);
-    expect(cards[0]?.reason).toContain("None of your agents handles this kind of email");
-  });
-
-  it("makes one card for an email Postmark delivers twice", async () => {
-    await forward("inbound-key", MAIL_HOOK, { MessageID: "abc-123" });
-    await forward("inbound-key", MAIL_HOOK, { MessageID: "abc-123" });
-    expect(await cardTitles()).toHaveLength(1);
-  });
-
-  it("sends nothing to anyone", async () => {
-    await forward("inbound-key");
-    expect(await store().listOutbox(SESSION, SHOP.id)).toEqual([]);
-  });
-
-  it("shows the email's own words and promises no draft that nothing will write", async () => {
-    await forward("inbound-key");
-    const [card] = await store().listCards(SESSION, SHOP.id);
-    expect(card?.body).toContain("Can you send a quote?");
-    expect(card?.body).not.toMatch(/will draft|will compare/);
-  });
-
-  it("refuses the wrong key and drops mail for no business", async () => {
-    expect((await forward("guess")).status).toBe(404);
-    expect(await (await forward("inbound-key", "n".repeat(24))).json()).toEqual({ received: true, drafted: false });
-    expect(await cardTitles()).toEqual([]);
-  });
-
-  it("answers 400 to a body that isn't JSON, so Postmark stops retrying it", async () => {
-    const request = new Request("http://localhost/api/hooks/email?key=inbound-key", { method: "POST", headers: { "content-type": "application/json" }, body: "not json" });
-    expect((await email.POST(request)).status).toBe(400);
     expect(await cardTitles()).toEqual([]);
   });
 });

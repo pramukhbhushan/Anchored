@@ -43,7 +43,7 @@ describe("rulesFor", () => {
 
 describe("SKILLS setup steps", () => {
   // Anchored has no phone numbers of its own, no web form, no file upload and no photo reading: the owner
-  // connects their own Twilio number, Stripe and a forwarding address, adds customers on Connections, and asks in chat.
+  // connects their own Twilio number, Resend and Stripe, adds customers on Connections, and asks in chat.
   const missing = /Anchored (phone )?number|form link|\bupload|photograph|tap '/i;
 
   it.each(Object.values(SKILLS).map((skill) => [skill.name, skill] as const))("asks %s's owner only for steps the app has today", (_, skill) => {

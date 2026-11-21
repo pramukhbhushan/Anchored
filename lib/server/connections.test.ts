@@ -169,20 +169,6 @@ describe("connecting email and Stripe", () => {
     expect(JSON.stringify(shown)).not.toContain("re_owner");
   });
 
-  it("gives a forwarding address made from the inbound address and the connection's id", async () => {
-    vi.stubEnv("INBOUND_EMAIL_ADDRESS", "abc123@inbound.postmarkapp.com");
-    await connect(SESSION, business, { kind: "email-in" });
-    const hook = (await stored("email-in"))?.hookId;
-    const address = `abc123+${hook}@inbound.postmarkapp.com`;
-    expect(await view("email-in")).toEqual({ kind: "email-in", connected: true, detail: address, setup: [{ label: "Forward customer emails to", value: address }], unavailable: null });
-  });
-
-  it("refuses forwarded email when the server has no inbound address", async () => {
-    vi.stubEnv("INBOUND_EMAIL_ADDRESS", "");
-    expect((await view("email-in"))?.unavailable).not.toBeNull();
-    await expect(connect(SESSION, business, { kind: "email-in" })).rejects.toMatchObject({ status: 409 });
-  });
-
   it("encrypts the Stripe signing secret and shows the endpoint and events to send", async () => {
     vi.stubEnv("CONNECTOR_SECRET_KEY", KEY);
     await connect(SESSION, business, { kind: "stripe", signingSecret: "whsec_abcdef123456" });

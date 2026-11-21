@@ -126,8 +126,8 @@ function PickGroup({
   );
 }
 
-/** Render the onboarding form; `aiName` names the server's AI provider, or is `null` when AI is off. */
-export function OnboardForm({ aiName }: { readonly aiName: string | null }) {
+/** Render the onboarding form. */
+export function OnboardForm() {
   const router = useRouter();
   const toast = useToast();
   const [kind, setKind] = useState("");
@@ -153,7 +153,7 @@ export function OnboardForm({ aiName }: { readonly aiName: string | null }) {
       return;
     }
     setBusy(true);
-    setProgress(aiName ? `${aiName} is reading your answers. This can take up to a minute.` : "Building your plan...");
+    setProgress("Building your plan...");
     try {
       const { id, business } = await callApi<CreateBusinessResponse>("/api/businesses", "POST", { from: "answers", answers });
       toast(`Plan built for ${business.name}`);
@@ -255,9 +255,7 @@ export function OnboardForm({ aiName }: { readonly aiName: string | null }) {
         </span>
       </div>
       <p className="tiny muted">
-        {aiName
-          ? `${aiName} reads your answers and writes your profile in your words.`
-          : "Anchored maps your answers with its own rules. Once your business is set up, add your AI key on Connections and AI writes your drafts."}
+        Anchored maps your answers with its own rules. Once your business is set up, add your AI key on Connections and AI writes your drafts.
       </p>
     </form>
   );

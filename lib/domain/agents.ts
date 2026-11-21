@@ -20,7 +20,7 @@ import type {
 // onboarding spawns for one business through `spawnNicheAgents`; `rulesFor`
 // lists the rules every agent here works under.
 
-/** Why a tier fits the work. Which model runs it depends on the server's AI settings, read as an `AiSetup`. */
+/** Why a tier fits the work. Which model runs it depends on the business's own AI key, read as an `AiSetup`. */
 interface ModelTierDef {
   readonly why: string;
 }
@@ -242,7 +242,7 @@ export const SKILLS: Readonly<Record<SkillId, SkillDef>> = {
     does: ["Shows each forwarded email as a card"],
     never: ["Replies to anyone on its own", "Reads your inbox directly"],
     tier: "quick",
-    setup: ["Get your forwarding address on the Connections page", "Forward emails to it"],
+    setup: ["Not built yet: forwarded email can't reach Anchored today"],
   },
   license: {
     id: "license",
@@ -381,7 +381,7 @@ function sellsFood(business: Pick<BusinessProfile, "tradeKey" | "signals">): boo
 // Model tiers
 // =============================================================================
 
-/** Why each tier fits its work. The model behind it comes from the server's AI settings. */
+/** Why each tier fits its work. The model behind it comes from the business's own AI key. */
 export const MODEL_TIERS: Readonly<Record<ModelTier, ModelTierDef>> = {
   quick: { why: "Short, routine text, so the fastest model is enough." },
   default: { why: "Writes in your voice about a specific job." },

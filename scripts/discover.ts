@@ -1,21 +1,26 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { z } from "zod";
+import { AI_PROVIDERS, isAiProvider } from "@/lib/domain/connections";
 import { discoveryListingSchema } from "@/lib/domain/discovered";
 import { withArticle } from "@/lib/domain/discovery";
 import type { DiscoveryListing, WorkflowId } from "@/lib/domain/types";
 import { BASE_WORKFLOWS, WORKFLOWS, WORKFLOW_IDS } from "@/lib/domain/workflows";
+import { keyLlm, type LlmProvider } from "@/lib/llm";
 import { discoverTools } from "@/lib/server/discover";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
 // `npm run discover`: runs the discovery agent for one or more workflows and
-// appends what it finds to `lib/domain/discovered.json`. It reads `.env.local`;
-// `--env-file` in front of the script points it at another file. The listings appear on
-// the Tools page as "waiting for a person to check", with no score. A person
-// reviews the file's diff before it merges, which is the check the queue
-// promises. `--dry-run` prints the listings without writing them.
+// appends what it finds to `lib/domain/discovered.json`. It runs on the
+// operator's own machine with the operator's own AI key, read here from
+// `AI_PROVIDER`, `AI_API_KEY` and the `AI_MODEL` settings in `.env.local`;
+// `--env-file` in front of the script points it at another file. The web app
+// never reads these settings. The listings appear on the Tools page as
+// "waiting for a person to check", with no score. A person reviews the file's
+// diff before it merges, which is the check the queue promises. `--dry-run`
+// prints the listings without writing them.
 
 const FILE = new URL("../lib/domain/discovered.json", import.meta.url);
 
@@ -24,7 +29,35 @@ const USAGE = `Usage: npm run discover -- --workflow <id|base> [--business "<kin
   --workflow   One workflow id, or "base" for the five every business gets.
                Ids: ${WORKFLOW_IDS.join(", ")}
   --business   The kind of business to search for. Default: "small business".
-  --dry-run    Print what the agent found without changing discovered.json.`;
+  --dry-run    Print what the agent found without changing discovered.json.
+
+Set your own AI key in .env.local first:
+  AI_PROVIDER  One of: ${AI_PROVIDERS.join(", ")}. Use anthropic to search the web.
+  AI_API_KEY   Your key for that provider.
+  AI_MODEL     The model for every step. Not needed for anthropic.
+  AI_MODEL_QUICK, AI_MODEL_DEFAULT, AI_MODEL_COMPLEX replace AI_MODEL for one step.`;
+
+type Env = Readonly<Record<string, string | undefined>>;
+
+/** Read a variable, treating blank as unset. */
+function read(env: Env, name: string): string | undefined {
+  return env[name]?.trim() || undefined;
+}
+
+/** Build the operator's model from their AI settings, or return what to fix. */
+function llmFromEnv(env: Env): LlmProvider | string {
+  const provider = read(env, "AI_PROVIDER")?.toLowerCase();
+  const apiKey = read(env, "AI_API_KEY");
+  if (provider === undefined || apiKey === undefined) return "Set AI_PROVIDER and AI_API_KEY in .env.local to run discovery.";
+  if (!isAiProvider(provider)) return `AI_PROVIDER "${provider}" isn't supported. Use one of: ${AI_PROVIDERS.join(", ")}.`;
+  const shared = read(env, "AI_MODEL");
+  const models = { quick: read(env, "AI_MODEL_QUICK") ?? shared, default: read(env, "AI_MODEL_DEFAULT") ?? shared, complex: read(env, "AI_MODEL_COMPLEX") ?? shared };
+  try {
+    return keyLlm({ provider, apiKey, models });
+  } catch (error) {
+    return `${error instanceof Error ? error.message : String(error)} Set AI_MODEL, or AI_MODEL_QUICK, AI_MODEL_DEFAULT and AI_MODEL_COMPLEX.`;
+  }
+}
 
 /** The workflows `--workflow` names, or `null` when it names none. */
 function workflowsFor(value: string | undefined): readonly WorkflowId[] | null {
@@ -55,11 +88,18 @@ async function main(): Promise<void> {
     return;
   }
 
+  const llm = llmFromEnv(process.env);
+  if (typeof llm === "string") {
+    console.error(llm);
+    process.exitCode = 1;
+    return;
+  }
+
   const saved = readListings();
   const added: DiscoveryListing[] = [];
   for (const workflow of workflows) {
     console.log(`\nLooking for ${WORKFLOWS[workflow].name.toLowerCase()} tools for ${withArticle(values.business)}...`);
-    const run = await discoverTools({ workflow, business: values.business, alsoKnown: added.map((listing) => listing.name) });
+    const run = await discoverTools({ workflow, business: values.business, llm, alsoKnown: added.map((listing) => listing.name) });
     const read = run.method === "search" ? `Searched the web and read ${run.pagesRead} pages.` : `Loaded ${run.pagesRead} vendor sites that name their tool.`;
     console.log(`${read} Found ${run.listings.length} new ${run.listings.length === 1 ? "tool" : "tools"}.`);
     for (const listing of run.listings) console.log(`  + ${listing.name}: ${listing.price} (${listing.source})`);

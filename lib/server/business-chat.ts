@@ -27,7 +27,7 @@ import { LANGUAGE_OPTIONS, REACH_OPTIONS, SIGNALS, TOOL_OPTIONS } from "@/lib/do
 import { LlmResponseError, type LlmProvider } from "@/lib/llm";
 import { tierForTask } from "@/lib/llm/task-tier";
 import { newFacts } from "@/lib/server/ai";
-import { getBudgetedLlm, ownerKeyProblem } from "@/lib/server/ai-budget";
+import { getBusinessLlm, ownerKeyProblem } from "@/lib/server/business-llm";
 import { checkEvent, ingestEvent } from "@/lib/server/ingest";
 import { quoted, shortPhrase } from "@/lib/server/intake-ai";
 import { draftPhotoPost } from "@/lib/server/posts";
@@ -335,7 +335,7 @@ function linkCards(business: BusinessProfile, messages: readonly ChatMessage[], 
 
 /** Write the draft's words with the model when one is set up, and with the rules otherwise or when its reply fails a check. */
 async function writeWords(session: string, business: BusinessProfile, request: DraftRequest, text: string): Promise<string> {
-  const llm = await getBudgetedLlm(session, business.id);
+  const llm = await getBusinessLlm(session, business.id);
   if (llm === null) return ruleWords(business, request);
   try {
     return await wordsFromModel(llm, business, request, text);
@@ -346,7 +346,7 @@ async function writeWords(session: string, business: BusinessProfile, request: D
 }
 
 // The longest draft each channel takes. A text runs a few lines; a post or a review reply a short paragraph.
-const WORDS_MAX: Readonly<Record<Channel, number>> = { sms: 360, email: 900, telegram: 600, list: 600, locked: 0, flag: 0 };
+const WORDS_MAX: Readonly<Record<Channel, number>> = { sms: 360, email: 900, list: 600, locked: 0, flag: 0 };
 
 /** Ask the model for the draft's words, and refuse a reply that adds a fact, mentions an allergen or leaves a blank. */
 async function wordsFromModel(llm: LlmProvider, business: BusinessProfile, request: DraftRequest, text: string): Promise<string> {
@@ -398,7 +398,7 @@ ${quoted(text, 1000)}
 
 /** Read the changes in an owner's message with the model when one is set up, and with the rules otherwise or on failure. */
 async function readOwnerChanges(session: string, business: BusinessProfile, text: string, transcript: readonly ChatMessage[]): Promise<FactChanges> {
-  const llm = await getBudgetedLlm(session, business.id);
+  const llm = await getBusinessLlm(session, business.id);
   if (llm === null) return readChanges(text);
   try {
     // The model reads facts and lists; details such as a new minimum come from the rules either way.
@@ -487,7 +487,7 @@ ${quoted(text, 2000)}
 
 /** Answer an owner's question with grounded advice, with no tools or authority to perform actions. */
 async function answerQuestion(session: string, business: BusinessProfile, role: string, skills: readonly SkillId[], text: string, history: readonly ChatMessage[], fallback: string, cards: readonly CardRecord[]): Promise<string> {
-  const llm = await getBudgetedLlm(session, business.id);
+  const llm = await getBusinessLlm(session, business.id);
   if (!llm) return `${business.kind === "case" ? "AI chat is off for the example business." : "AI chat is off. Add your AI key on Connections to turn it on."} ${fallback}`;
   try {
     const context = { example: business.kind === "case", name: business.name, trade: business.trade, place: business.place, voice: business.voice, tools: business.tools, details: business.details, recentDrafts: cards.slice(-10).map((card) => ({ title: card.title, status: card.status })), skills: skills.map((id) => ({ name: SKILLS[id].name, job: SKILLS[id].job, limits: SKILLS[id].never })) };

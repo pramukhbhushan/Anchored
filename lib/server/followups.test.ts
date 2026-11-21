@@ -6,8 +6,8 @@ import { hvacShop } from "@/test/trades";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The follow-up flows on the in-memory store: a due timer for a customer who
-// started the Telegram chat becomes a pending card and sends nothing, each
+// The follow-up flows on the in-memory store: a due timer for a customer with
+// a number and a texting OK becomes a pending card and sends nothing, each
 // refusal writes nothing, and cancelling keeps the timer's facts.
 
 const SESSION = "owner";
@@ -36,7 +36,7 @@ beforeEach(async () => {
   state.store = new MemoryStore();
   await store().saveBusiness(SESSION, SHOP);
   await store().setChoice(SESSION, SHOP.id, "calls", { path: "build", skills: ["callback"] });
-  contactId = (await store().saveContact(SESSION, { businessId: SHOP.id, name: "Dana", phone: null, email: null, consent: { source: "messaged-first", at: "2026-11-08T12:00:00Z" }, optedOutAt: null, telegramChatId: "123" })).id;
+  contactId = (await store().saveContact(SESSION, { businessId: SHOP.id, name: "Dana", phone: "+13015550192", email: null, consent: { source: "texted-first", at: "2026-11-08T12:00:00Z" }, optedOutAt: null })).id;
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -46,14 +46,14 @@ describe("recordFollowup", () => {
   it("saves a due timer and drafts its card for approval without sending", async () => {
     const result = await recordFollowup(SESSION, SHOP, input());
     expect(result).toMatchObject({ ok: true, records: [{ businessId: SHOP.id, contactId, status: "active", dueAt: "2026-11-09T14:00:00.000Z" }] });
-    expect(await store().listCards(SESSION, SHOP.id)).toMatchObject([{ status: "pending", channel: "telegram", contact: contactId }]);
+    expect(await store().listCards(SESSION, SHOP.id)).toMatchObject([{ status: "pending", channel: "sms", contact: contactId }]);
     expect(await store().listOutbox(SESSION, SHOP.id)).toEqual([]);
     expect(await listFollowups(SESSION, SHOP)).toHaveLength(1);
   });
 
   it.each([
     ["a customer from another business", async () => ({ contactId: (await store().saveContact(SESSION, { businessId: "another-shop", name: "Other", phone: null, email: null, consent: null, optedOutAt: null })).id }), 404],
-    ["a customer who never started the Telegram chat", async () => ({ contactId: (await store().saveContact(SESSION, { businessId: SHOP.id, name: "Lee", phone: null, email: null, consent: null, optedOutAt: null })).id }), 409],
+    ["a customer with no number or texting OK", async () => ({ contactId: (await store().saveContact(SESSION, { businessId: SHOP.id, name: "Lee", phone: null, email: null, consent: null, optedOutAt: null })).id }), 409],
     ["a job the owner hasn't chosen", async () => ({ skill: "showup" as const }), 409],
   ] as const)("refuses %s and writes nothing", async (_name, change, status) => {
     const result = await recordFollowup(SESSION, SHOP, input(await change()));

@@ -6,17 +6,14 @@ import type { CardDraft } from "@/lib/domain/types";
 // The rules plain code enforces before anything reaches a customer. `checkSend`
 // refuses a locked thread, allergy talk, an unfilled `[placeholder]`, or a text
 // without `OPT_OUT_LINE`, consent, or daytime in `OWNER_TIME_ZONE`, whatever the
-// model drafted. A Telegram message follows the same rules except the opt-out
-// line, since /stop and blocking the bot do that job. `checkProtocolNotice`
-// checks the bot's fixed answer to a customer's own /start or /stop, which goes
-// out at any hour. `sendTimeText` prints send times in that zone for the views.
+// model drafted. `sendTimeText` prints send times in that zone for the views.
 
 /** When and for whom a card would be sent. */
 export interface SendContext {
   readonly now: Date;
   /** IANA time zone of the business, such as "America/New_York". */
   readonly timeZone: string;
-  /** Whether the recipient has a consent record for texts or Telegram messages. */
+  /** Whether the recipient has a consent record for texts. */
   readonly hasConsent: boolean;
 }
 
@@ -60,25 +57,13 @@ export function checkSend(card: CardDraft, ctx: SendContext): SendCheck {
   const placeholder = findPlaceholder(card.body);
   if (placeholder !== null) return refuse(`Fill in ${placeholder} before sending.`);
   if (card.channel === "email") return { ok: true };
-  const telegram = card.channel === "telegram";
-  if (!telegram && !card.body.trimEnd().endsWith(OPT_OUT_LINE)) {
+  if (!card.body.trimEnd().endsWith(OPT_OUT_LINE)) {
     return refuse(`Texts must end with "${OPT_OUT_LINE}" Add it, then approve again.`);
   }
-  if (!ctx.hasConsent) return refuse(telegram ? "No consent on file: this customer hasn't messaged you on Telegram." : "No consent on file: texts need the customer's OK first.");
-  // A Telegram reply answers a chat the customer opened, so it goes out the moment the owner approves it.
-  // Quiet hours are a texting rule: solicitation laws bar texts at night, and no such rule covers a chat reply.
-  if (telegram) return { ok: true };
+  if (!ctx.hasConsent) return refuse("No consent on file: texts need the customer's OK first.");
   const hour = localHour(ctx.now, ctx.timeZone);
   if (hour >= QUIET_FROM_HOUR || hour < QUIET_UNTIL_HOUR) return refuse("Quiet hours: texts wait until 8 a.m.");
   return { ok: true };
-}
-
-/** Decide whether the bot's fixed answer to a customer's /start or /stop may go out. Content rules only: they just wrote. */
-export function checkProtocolNotice(body: string): SendCheck {
-  if (body.trim() === "") return refuse("This notice is empty.");
-  if (mentionsAllergen(body)) return refuse("This mentions an allergen, so Anchored won't send it.");
-  const placeholder = findPlaceholder(body);
-  return placeholder === null ? { ok: true } : refuse(`Fill in ${placeholder} before sending.`);
 }
 
 /** `body` ending in exactly one `OPT_OUT_LINE`: added when missing, moved to the end when it sits elsewhere. */

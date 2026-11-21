@@ -1,14 +1,12 @@
 import "server-only";
-import { z } from "zod";
 import { ConnectorError, PROVIDER_TIMEOUT_MS, type FetchLike } from "./errors";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Email both ways. `sendEmail` sends one approved email through the owner's own
+// Email out. `sendEmail` sends one approved email through the owner's own
 // Resend account, from their verified address, under the business's name, with
-// the owner as reply-to so answers reach their inbox. `readInboundEmail` reads the JSON
-// Postmark posts when an email arrives at a forwarding address.
+// the owner as reply-to so answers reach their inbox.
 
 /** A Resend sending account: an API key and a from-address on a domain verified in that account. */
 export interface EmailAccount {
@@ -58,42 +56,4 @@ export async function sendEmail(account: EmailAccount, email: OutgoingEmail, fet
   const sent = (await response.json()) as { id?: string };
   if (typeof sent.id !== "string") throw new ConnectorError("The email service accepted it but sent back no message id.", false);
   return { id: sent.id };
-}
-
-// Postmark's inbound fields that Anchored reads. Everything else, attachments included, is ignored.
-const inboundSchema = z.object({
-  From: z.string(),
-  FromName: z.string().optional(),
-  Subject: z.string().optional(),
-  TextBody: z.string().optional(),
-  StrippedTextReply: z.string().optional(),
-  MailboxHash: z.string().optional(),
-  MessageID: z.string().optional(),
-});
-
-/** An email that arrived at a forwarding address. `mailbox` is the hook id after the "+" in the address. */
-export interface InboundEmail {
-  readonly mailbox: string;
-  readonly from: string;
-  readonly fromName: string | null;
-  readonly subject: string;
-  readonly text: string;
-  /** Postmark's id for the email, so a delivery Postmark retries is handled once; `null` when it sent none. */
-  readonly messageId: string | null;
-}
-
-/** Read Postmark's inbound JSON, or `null` when it isn't one or has no mailbox hash. */
-export function readInboundEmail(json: unknown): InboundEmail | null {
-  const parsed = inboundSchema.safeParse(json);
-  if (!parsed.success) return null;
-  const mail = parsed.data;
-  if (!mail.MailboxHash) return null;
-  return {
-    mailbox: mail.MailboxHash,
-    from: mail.From.trim().slice(0, 120),
-    fromName: mail.FromName?.trim().slice(0, 80) || null,
-    subject: (mail.Subject ?? "").trim().slice(0, 200) || "(no subject)",
-    text: (mail.StrippedTextReply || mail.TextBody || "").trim().slice(0, 2000),
-    messageId: /^[\w.@<>-]{1,120}$/.test(mail.MessageID ?? "") ? (mail.MessageID ?? null) : null,
-  };
 }

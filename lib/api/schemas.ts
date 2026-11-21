@@ -10,13 +10,11 @@ import type {
   SaveAiKeyRequest,
   CreateBusinessRequest,
   DecideCardRequest,
-  DeleteTelegramRequest,
   IngestRequest,
   IntakeAnswerRequest,
   SaveContactRequest,
   SetChoiceRequest,
   SetAutomationRequest,
-  SetStandingRuleRequest,
   SimulateRequest,
 } from "@/lib/api/contract";
 import { SKILLS } from "@/lib/domain/agents";
@@ -143,7 +141,6 @@ export const connectSchema = z.discriminatedUnion("kind", [
     apiKey: z.string().trim().regex(/^re_[A-Za-z0-9_]{8,200}$/, "A Resend API key starts with re_."),
     fromAddress: z.string().trim().email("Enter the address emails should come from.").max(200),
   }),
-  z.object({ kind: z.literal("email-in") }),
   z.object({ kind: z.literal("stripe"), signingSecret: z.string().trim().regex(/^whsec_[A-Za-z0-9]{8,120}$/, "A Stripe signing secret starts with whsec_.") }),
 ]) satisfies z.ZodType<ConnectRequest>;
 
@@ -161,11 +158,6 @@ export const saveContactSchema = z.object({
   email: z.string().trim().max(200).optional(),
   consent: z.enum(CONSENT_SOURCES as [ConsentSource, ...ConsentSource[]]).nullable(),
 }) satisfies z.ZodType<SaveContactRequest>;
-
-export const setStandingRuleSchema = z.strictObject({ enabled: z.boolean() }) satisfies z.ZodType<SetStandingRuleRequest>;
-
-/** Require an explicit deletion request without accepting any provider or chat identity. */
-export const deleteTelegramSchema = z.object({ confirm: z.literal(true) }).strict() satisfies z.ZodType<DeleteTelegramRequest>;
 
 /** Record a timer only from an explicit due instant and evidenced state. */
 export const scheduleFollowupSchema = followupInputSchema satisfies z.ZodType<ScheduleFollowupRequest>;

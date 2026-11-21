@@ -7,7 +7,7 @@ import { MemoryStore } from "./memory";
 // Module Overview
 // =============================================================================
 // Behavior of `MemoryStore` that the server relies on: the pending-only card
-// update, the shared daily AI call cap, the bound on how many sessions it keeps,
+// update, the bound on how many sessions it keeps,
 // the sending queue, contacts kept one per phone number, and connections found
 // by the hook id a webhook carries, profile versions, and replaced drafts.
 
@@ -46,48 +46,6 @@ describe("updatePendingCard", () => {
   });
 });
 
-describe("useAiCall", () => {
-  it("allows calls up to the cap for the day and refuses the rest", async () => {
-    const store = new MemoryStore();
-    const answers = [];
-    for (let i = 0; i < 4; i++) answers.push(await store.useAiCall("2026-11-07", 3));
-    expect(answers).toEqual([true, true, true, false]);
-  });
-
-  it("starts a new count on a new day", async () => {
-    const store = new MemoryStore();
-    await store.useAiCall("2026-11-07", 1);
-    expect(await store.useAiCall("2026-11-07", 1)).toBe(false);
-    expect(await store.useAiCall("2026-11-08", 1)).toBe(true);
-  });
-});
-
-describe("useSessionAiCall", () => {
-  it("counts each session against its own cap for the day", async () => {
-    const store = new MemoryStore();
-    const answers = [];
-    for (let i = 0; i < 3; i++) answers.push(await store.useSessionAiCall("s1", "2026-11-20", 2));
-    expect(answers).toEqual([true, true, false]);
-    expect(await store.useSessionAiCall("s2", "2026-11-20", 2)).toBe(true);
-  });
-
-  it("starts a new count on a new day, and refuses every call at a cap of 0", async () => {
-    const store = new MemoryStore();
-    await store.useSessionAiCall("s1", "2026-11-20", 1);
-    expect(await store.useSessionAiCall("s1", "2026-11-20", 1)).toBe(false);
-    expect(await store.useSessionAiCall("s1", "2026-11-21", 1)).toBe(true);
-    expect(await store.useSessionAiCall("s2", "2026-11-21", 0)).toBe(false);
-  });
-
-  it("keeps today's count through a reset, so deleting businesses can't refill the budget", async () => {
-    const store = new MemoryStore();
-    const today = new Date().toISOString().slice(0, 10);
-    await store.useSessionAiCall("s1", today, 1);
-    await store.reset("s1");
-    expect(await store.useSessionAiCall("s1", today, 1)).toBe(false);
-  });
-});
-
 describe("retained events and conversation ownership", () => {
   it("keeps raw event payloads scoped to the business", async () => {
     const store = new MemoryStore();
@@ -97,14 +55,6 @@ describe("retained events and conversation ownership", () => {
     expect(await store.listEvents("s1", BUSINESS)).toMatchObject([
       { businessId: BUSINESS, source: "onboarding_raw", payload: { sentence: "I run a bakery" } },
     ]);
-  });
-
-  it("starts a conversation at Front Desk and saves a handoff", async () => {
-    const store = new MemoryStore();
-
-    expect(await store.getConversationOwner("s1", BUSINESS, "contact-1")).toBe("frontdesk");
-    await store.setConversationOwner("s1", BUSINESS, "contact-1", "followup", "2026-11-08T12:00:00Z");
-    expect(await store.getConversationOwner("s1", BUSINESS, "contact-1")).toBe("followup");
   });
 });
 
@@ -211,134 +161,17 @@ describe("supersedePendingCards", () => {
   });
 });
 
-describe("Telegram hook ids", () => {
-  it("saves the first candidate, keeps it, and finds the business by it from any session", async () => {
-    const store = new MemoryStore();
-    const business = await store.saveBusiness("s1", profileFromFacts({ name: "Apex Heating", trade: "HVAC", tradeKey: "home", reach: [], tools: [], signals: [] }));
-
-    expect(await store.telegramHook("s1", business.id, "firsthookid0000000000000")).toBe("firsthookid0000000000000");
-    expect(await store.telegramHook("s1", business.id, "secondhookid000000000000")).toBe("firsthookid0000000000000");
-    expect(await store.findTelegramHook("firsthookid0000000000000")).toEqual({ session: "s1", businessId: business.id });
-    expect(await store.findTelegramHook("secondhookid000000000000")).toBeNull();
-  });
-
-  it("refuses a business the session doesn't own", async () => {
-    const store = new MemoryStore();
-    const business = await store.saveBusiness("s1", profileFromFacts({ name: "Apex Heating", trade: "HVAC", tradeKey: "home", reach: [], tools: [], signals: [] }));
-    await expect(store.telegramHook("s2", business.id, "x".repeat(24))).rejects.toThrow(/not found/);
-  });
-});
-
-describe("Telegram chats", () => {
-  const chat = { chatId: "5551234567", businessId: BUSINESS, contactId: "c1", boundAt: "2026-11-08T10:00:00.000Z" };
-
-  it("binds a chat to the latest business and clears a block on rebinding", async () => {
-    const store = new MemoryStore();
-    await store.bindTelegramChat("s1", chat);
-    await store.setTelegramChatBlocked(chat.chatId, "2026-11-08T11:00:00.000Z");
-    expect((await store.findTelegramChat(chat.chatId))?.blockedAt).toBe("2026-11-08T11:00:00.000Z");
-
-    await store.bindTelegramChat("s2", { ...chat, businessId: "b_other", contactId: "c9" });
-    expect(await store.findTelegramChat(chat.chatId)).toEqual({ ...chat, session: "s2", businessId: "b_other", contactId: "c9", blockedAt: null });
-  });
-
-  it("forgets a chat once its session is reset", async () => {
-    const store = new MemoryStore();
-    await store.bindTelegramChat("s1", chat);
-    await store.reset("s1");
-    expect(await store.findTelegramChat(chat.chatId)).toBeNull();
-  });
-});
-
-describe("claimTelegramUpdate", () => {
-  const at = (minutes: number) => new Date(Date.UTC(2026, 10, 8, 12, minutes)).toISOString();
-
-  it("lets one caller process an update, and refuses repeats once it's done", async () => {
-    const store = new MemoryStore();
-    expect(await store.claimTelegramUpdate(7, at(0), 120_000)).toBe(true);
-    expect(await store.claimTelegramUpdate(7, at(0), 120_000)).toBe(false);
-    await store.finishTelegramUpdate(7, "done");
-    expect(await store.claimTelegramUpdate(7, at(10), 120_000)).toBe(false);
-  });
-
-  it("lets a failed update, or one claimed long ago and never finished, be claimed again", async () => {
-    const store = new MemoryStore();
-    await store.claimTelegramUpdate(8, at(0), 120_000);
-    await store.finishTelegramUpdate(8, "failed");
-    expect(await store.claimTelegramUpdate(8, at(1), 120_000)).toBe(true);
-
-    await store.claimTelegramUpdate(9, at(0), 120_000);
-    expect(await store.claimTelegramUpdate(9, at(1), 120_000)).toBe(false);
-    expect(await store.claimTelegramUpdate(9, at(2), 120_000)).toBe(true);
-  });
-});
-
-describe("customer threads", () => {
-  const message = (text: string, at: string, contactId = "c1") => ({
-    businessId: BUSINESS,
-    contactId,
-    direction: "in" as const,
-    text,
-    skill: null,
-    cardKey: null,
-    outboxId: null,
-    providerId: null,
-    at,
-  });
-
-  it("returns the latest messages of one contact's thread, oldest first, in its own session only", async () => {
-    const store = new MemoryStore();
-    await store.addThreadMessage("s1", message("third", "2026-11-08T10:03:00.000Z"));
-    await store.addThreadMessage("s1", message("first", "2026-11-08T10:01:00.000Z"));
-    await store.addThreadMessage("s1", message("second", "2026-11-08T10:02:00.000Z"));
-    await store.addThreadMessage("s1", message("other customer", "2026-11-08T10:02:30.000Z", "c2"));
-
-    expect((await store.listThreadMessages("s1", BUSINESS, "c1", 10)).map((m) => m.text)).toEqual(["first", "second", "third"]);
-    expect((await store.listThreadMessages("s1", BUSINESS, "c1", 2)).map((m) => m.text)).toEqual(["second", "third"]);
-    expect(await store.listThreadMessages("s2", BUSINESS, "c1", 10)).toEqual([]);
-  });
-});
-
-describe("standing rules", () => {
-  it("start unsaved, keep the last approval when turned off, and stay in their session", async () => {
-    const store = new MemoryStore();
-    expect(await store.getStandingRules("s1", BUSINESS)).toEqual([]);
-
-    await store.setStandingRule("s1", BUSINESS, "acknowledge", true, "2026-11-08T10:00:00.000Z");
-    const off = await store.setStandingRule("s1", BUSINESS, "acknowledge", false, "2026-11-08T11:00:00.000Z");
-
-    expect(off).toEqual({ rule: "acknowledge", enabled: false, approvedAt: "2026-11-08T10:00:00.000Z", changedAt: "2026-11-08T11:00:00.000Z" });
-    expect(await store.getStandingRules("s1", BUSINESS)).toEqual([off]);
-    expect(await store.getStandingRules("s1", "b_other")).toEqual([]);
-    expect(await store.getStandingRules("s2", BUSINESS)).toEqual([]);
-  });
-});
-
-describe("Telegram contacts", () => {
-  it("keep one contact per chat per business, with no phone or email needed", async () => {
-    const store = new MemoryStore();
-    const base = { businessId: BUSINESS, name: "Dana", phone: null, email: null, consent: { source: "messaged-first" as const, at: "2026-11-08T10:00:00.000Z" }, optedOutAt: null, telegramChatId: "42" };
-    const first = await store.saveContact("s1", base);
-    const again = await store.saveContact("s1", { ...base, name: "Dana Ruiz", telegramName: "Dana Ruiz" });
-
-    expect(again.id).toBe(first.id);
-    expect(await store.listContacts("s1", BUSINESS)).toEqual([again]);
-  });
-});
-
-describe("contacts that share a phone number or a chat", () => {
+describe("contacts that share a phone number", () => {
   const base = { businessId: BUSINESS, email: null, consent: null, optedOutAt: null };
 
-  it("never merges or deletes them: a chat another contact holds stays with it", async () => {
+  it("update the contact that already has the number", async () => {
     const store = new MemoryStore();
-    const byPhone = await store.saveContact("s1", { ...base, name: "Dana", phone: "+12025550100" });
-    const byChat = await store.saveContact("s1", { ...base, name: "Dana on Telegram", phone: null, telegramChatId: "42" });
+    const first = await store.saveContact("s1", { ...base, name: "Dana", phone: "+12025550100" });
 
-    const saved = await store.saveContact("s1", { ...base, name: "Dana Ruiz", phone: "+12025550100", telegramChatId: "42" });
+    const saved = await store.saveContact("s1", { ...base, name: "Dana Ruiz", phone: "+12025550100" });
 
-    expect(saved.id).toBe(byPhone.id);
-    expect(saved.telegramChatId).toBeUndefined();
-    expect(await store.listContacts("s1", BUSINESS)).toEqual([saved, byChat]);
+    expect(saved.id).toBe(first.id);
+    expect(await store.listContacts("s1", BUSINESS)).toEqual([saved]);
   });
 
   it("refuses a phone number another contact holds", async () => {
@@ -348,14 +181,6 @@ describe("contacts that share a phone number or a chat", () => {
 
     await expect(store.saveContact("s1", { ...base, id: other.id, name: "Lee", phone: "+12025550100" })).rejects.toThrow("already has");
     expect(await store.listContacts("s1", BUSINESS)).toHaveLength(2);
-  });
-});
-
-describe("outbox entries a rule authorized", () => {
-  it("keep their rule and need no card", async () => {
-    const store = new MemoryStore();
-    const entry = await store.addOutbox("s1", { businessId: BUSINESS, cardId: null, channel: "telegram", to: "42", body: "You're now messaging Apex.", rule: "protocol", delivery: "queued" });
-    expect(entry).toMatchObject({ cardId: null, channel: "telegram", rule: "protocol", delivery: "queued" });
   });
 });
 

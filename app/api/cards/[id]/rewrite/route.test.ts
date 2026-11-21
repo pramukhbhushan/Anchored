@@ -23,7 +23,6 @@ const OWNER_KEY = "sk-owner-test-key-abcd1234";
 const state = vi.hoisted(() => ({ store: null as MemoryStore | null, business: null as BusinessProfile | null }));
 vi.mock("@/lib/store", async (original) => ({ ...(await original<object>()), getStore: () => state.store }));
 vi.mock("@/lib/server/session", async (original) => ({ ...(await original<object>()), getSessionId: async () => SESSION }));
-vi.mock("@/lib/llm", async (original) => ({ ...(await original<object>()), getLlm: () => null }));
 vi.mock("@/lib/server/data", async (original) => ({
   ...(await original<object>()),
   findBusiness: async () => state.business,

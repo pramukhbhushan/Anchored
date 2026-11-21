@@ -7,7 +7,7 @@ import { readBody } from "@/lib/server/http";
 // =============================================================================
 // /api/businesses/[id]/ai-key: PUT checks the owner's own AI key with one short
 // call to its provider, then saves it encrypted; DELETE removes it, and the
-// business goes back to the server's key or the rules. Each answers with the
+// business goes back to the rules. Each answers with the
 // Connections page's data, which shows the key's last four characters only.
 // It has its own route so `middleware.ts` can rate-limit the check, which
 // calls a model. `answerConnections` refuses the example and guests.

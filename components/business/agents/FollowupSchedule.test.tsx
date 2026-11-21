@@ -39,7 +39,7 @@ describe("FollowupSchedule", () => {
     rerender(<FollowupSchedule businessId="another" records={[]} contacts={[]} skills={["closer"]} />);
     await openSchedule();
     expect(screen.getByText(/No customers are recorded yet/)).toBeInTheDocument();
-    expect(screen.getByText(/Customer drafts go out on Telegram/)).toBeInTheDocument();
+    expect(screen.getByText(/Customer drafts are texts to the number on file/)).toBeInTheDocument();
     expect(screen.getByText(/Every message waits in Approvals/)).toBeInTheDocument();
   });
 
