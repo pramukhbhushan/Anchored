@@ -1,7 +1,7 @@
 import { ArrowLeftRight, Minus, Plus } from "lucide-react";
 import type { ReactNode } from "react";
+import { ownerTime } from "@/components/business/owner-time";
 import type { ChatMessage } from "@/lib/api/contract";
-import { OWNER_TIME_ZONE } from "@/lib/domain/executor";
 import { CHANGE_AREA_LABEL, type ProfileChange } from "@/lib/domain/intake";
 
 // =============================================================================
@@ -34,17 +34,6 @@ function latestChanges(messages: readonly ChatMessage[]): DatedChange[] {
     .slice(0, SHOWN);
 }
 
-/** Return a reply's time as "Nov 7, 3:12 PM". */
-function whenText(iso: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: OWNER_TIME_ZONE,
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(iso));
-}
-
 /** Render the latest changes the chat made, or what to do to make one. */
 export function RecentChanges({ messages, isSample }: { readonly messages: readonly ChatMessage[]; readonly isSample: boolean }) {
   const changes = latestChanges(messages);
@@ -66,7 +55,7 @@ export function RecentChanges({ messages, isSample }: { readonly messages: reado
             <span className="sr">{OP[change.op].word}: </span>
             <b>{CHANGE_AREA_LABEL[change.area]}</b> {change.to === undefined ? change.label : `${change.label}: ${change.to}`}
           </span>
-          <time dateTime={at}>{whenText(at)}</time>
+          <time dateTime={at}>{ownerTime(new Date(at))}</time>
         </li>
       ))}
     </ul>
