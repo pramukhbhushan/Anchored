@@ -131,7 +131,7 @@ function renderAgentSidebar(location: ShellLocation, collapsed = false) {
 }
 
 describe("agent navigation in Sidebar", () => {
-  it("lists active agents and niche agents as direct destinations", () => {
+  it("links to each active agent, niche agents included, under Workflows", () => {
     renderAgentSidebar({ page: "business", businessId: "rosa", section: "workflows" });
     const agents = within(nav()).getByRole("list", { name: "Agents" });
     expect(within(agents).getByRole("link", { name: "Customer" })).toHaveAttribute("href", "/app/b/rosa/workflows/customer");
@@ -147,7 +147,7 @@ describe("agent navigation in Sidebar", () => {
     expect(nav().querySelectorAll('[aria-current="page"]')).toHaveLength(1);
   });
 
-  it("keeps agent destinations available in the collapsed rail", () => {
+  it("keeps the agent links, with their names as tooltips, in the collapsed rail", () => {
     renderAgentSidebar({ page: "business", businessId: "rosa", section: "workflows", agent: "customer" }, true);
     expect(screen.getByRole("list", { name: "Agents" })).toBeInTheDocument();
     expect(within(nav()).getByRole("link", { name: "Customer" })).toHaveAttribute("aria-current", "page");

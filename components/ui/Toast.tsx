@@ -49,7 +49,7 @@ export function ToastProvider({ children }: { readonly children: ReactNode }) {
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
-  // A toast with a link waits while the pointer or focus is on it, so it can't vanish mid-tap.
+  // A toast waits while the pointer or focus is on it, so its link can't vanish mid-tap.
   const hold = () => clearTimeout(timer.current);
   const release = () => schedule(TOAST_MS);
 

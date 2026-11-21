@@ -10,7 +10,9 @@ import type { ComponentProps } from "react";
 
 /** Primary is solid ink, secondary is outlined, quiet is a link-styled text button. */
 export type ButtonVariant = "primary" | "secondary" | "quiet";
-export type ButtonSize = "md" | "sm";
+
+/** `sm` for buttons inside cards and menus, `md` everywhere else. */
+type ButtonSize = "md" | "sm";
 
 const VARIANT_CLASS: Readonly<Record<ButtonVariant, string>> = {
   primary: "btn",
@@ -23,6 +25,7 @@ export function buttonClass(variant: ButtonVariant = "primary", size: ButtonSize
   return [VARIANT_CLASS[variant], size === "sm" ? "btn-sm" : "", extra ?? ""].filter(Boolean).join(" ");
 }
 
+/** The look props `Button` and `ButtonLink` add to the element's own. */
 interface StyleProps {
   readonly variant?: ButtonVariant;
   readonly size?: ButtonSize;

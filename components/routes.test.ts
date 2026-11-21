@@ -4,9 +4,9 @@ import { SECTIONS, agentHref, businessHref, cardAnchor } from "./routes";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Protects the existing product URLs as agent workspaces are added underneath
-// Workflows. Dynamic business and agent identifiers remain encoded, and the
-// approval anchors keep their established meaning.
+// The URL builders: an agent's workspace sits one segment under Workflows,
+// business and agent ids are percent-encoded, and an approvals anchor is built
+// from the card's key alone.
 
 describe("agent workspace routes", () => {
   it("puts an agent's workspace one segment under Workflows", () => {
@@ -18,12 +18,12 @@ describe("agent workspace routes", () => {
     expect(agentHref("Sam / shop", "niche:stock check")).toBe("/app/b/Sam%20%2F%20shop/workflows/niche%3Astock%20check");
   });
 
-  it("keeps one approvals anchor stable as a card is materialized", () => {
+  it("builds an approvals anchor from the card key alone", () => {
     const key = "restaurant:inquiry:message/7";
     expect(`${businessHref("restaurant", "approvals")}#${cardAnchor(key)}`).toBe("/app/b/restaurant/approvals#card-restaurant-inquiry-message-7");
   });
 
-  it("retains the existing top-level sections in their order", () => {
+  it("lists the business pages in sidebar order", () => {
     expect(SECTIONS.map((entry) => entry.label)).toEqual(["Overview", "Chat", "Workflows", "Automations", "Tools", "Approvals", "Connections", "Stack", "Profile"]);
   });
 });

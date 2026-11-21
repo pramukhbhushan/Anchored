@@ -20,7 +20,7 @@ import type { Viewer } from "@/lib/auth/viewer";
 // toggle. Under `/app` it steps aside, because the app shell draws its own chrome.
 
 /** Props for `SiteFrame`; `viewer` is `null` when nobody is signed in or accounts are off. */
-export interface SiteFrameProps {
+interface SiteFrameProps {
   readonly authEnabled: boolean;
   readonly viewer: Viewer | null;
   readonly children: ReactNode;
