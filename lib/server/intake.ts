@@ -53,12 +53,12 @@ export async function answerIntake(session: string, id: string, answer: IntakeAn
 
   // No question means the owner confirmed but the build didn't finish last time; build it now.
   const question = nextQuestion(intake.draft);
-  const turn = question ? await takeIntakeTurn(intake.draft, question, answer, transcript) : { draft: intake.draft, reply: null };
+  const turn = question ? await takeIntakeTurn(session, intake.draft, question, answer, transcript) : { draft: intake.draft, reply: null };
   let businessId: string | null = null;
   let reply = turn.reply;
   if (reply === null) {
     // The owner confirmed the details at the review, so they arrive as theirs.
-    const business = withCrewDecisions({ ...(await buildProfileFromAnswers(draftToAnswers(turn.draft))), ...draftDetails(turn.draft) });
+    const business = withCrewDecisions({ ...(await buildProfileFromAnswers(session, draftToAnswers(turn.draft))), ...draftDetails(turn.draft) });
     const raw = { intakeId: id, messages: transcript.map(({ role, text, at }) => ({ role, text, at })), draft: turn.draft };
     await saveNewBusiness(session, business, raw, { seedExample: false });
     businessId = business.id;

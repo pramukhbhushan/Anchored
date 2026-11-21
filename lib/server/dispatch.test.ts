@@ -184,10 +184,51 @@ describe("sending an email", () => {
     });
   });
 
+  it("sends with the owner's own Resend key, from their own address", async () => {
+    await store.saveConnection(SESSION, {
+      businessId: SHOP.id,
+      kind: "email-out",
+      hookId: "b".repeat(24),
+      settings: { replyTo: "dana@cpha.test", fromAddress: "hello@cpha.test" },
+      secret: encryptSecret(JSON.stringify({ apiKey: "re_owner_key_123" }), ENV),
+    });
+    await approve(EMAIL, NOON);
+    const resend = provider(200, { id: "em_2" });
+
+    expect(await dispatchEntry(store, SESSION, (await onlyEntry()).id, NOON, { fetch: resend.fetchImpl, env: ENV })).toBe("sent");
+
+    expect(new Headers(resend.calls[0]?.init?.headers).get("authorization")).toBe("Bearer re_owner_key_123");
+    expect(JSON.parse(String(resend.calls[0]?.init?.body))).toMatchObject({ from: `"College Park Heating & Air" <hello@cpha.test>`, reply_to: "dana@cpha.test" });
+  });
+
   it("leaves an email with no address to the owner", async () => {
     await store.saveConnection(SESSION, { businessId: SHOP.id, kind: "email-out", hookId: "b".repeat(24), settings: { replyTo: "dana@cpha.test" }, secret: null });
     await approve({ ...EMAIL, to: "Sam Patel" }, NOON);
 
     expect(await onlyEntry()).toMatchObject({ delivery: "yours", note: expect.stringContaining("no address") });
+  });
+});
+
+describe("refusing what nobody approved", () => {
+  it("sends no email for a card that is still waiting for the owner", async () => {
+    await store.saveConnection(SESSION, { businessId: SHOP.id, kind: "email-out", hookId: "b".repeat(24), settings: { replyTo: "dana@cpha.test" }, secret: null });
+    const draft: KeyedCard = { ...TEXT, key: `${SHOP.id}:event:9`, channel: "email", to: "victim@example.com", body: "Your account is locked." };
+    await store.ensureCards(SESSION, SHOP.id, [draft]);
+    const card = (await store.listCards(SESSION, SHOP.id)).find((c) => c.key === draft.key);
+    const entry = await store.addOutbox(SESSION, { businessId: SHOP.id, cardId: card?.id ?? null, channel: "email", to: "victim@example.com", body: draft.body, delivery: "queued" });
+    const resend = provider(200, { id: "em_3" });
+
+    expect(await dispatchEntry(store, SESSION, entry.id, NOON, { fetch: resend.fetchImpl, env: ENV })).toBe("failed");
+    expect(resend.calls).toHaveLength(0);
+    expect(await onlyEntry()).toMatchObject({ delivery: "failed", note: "This message was never approved, so it wasn't sent." });
+  });
+
+  it("sends no email that names a rule instead of a card", async () => {
+    await store.saveConnection(SESSION, { businessId: SHOP.id, kind: "email-out", hookId: "b".repeat(24), settings: { replyTo: "dana@cpha.test" }, secret: null });
+    const entry = await store.addOutbox(SESSION, { businessId: SHOP.id, cardId: null, channel: "email", to: "victim@example.com", body: "Hello", delivery: "queued", rule: "protocol" });
+    const resend = provider(200, { id: "em_4" });
+
+    expect(await dispatchEntry(store, SESSION, entry.id, NOON, { fetch: resend.fetchImpl, env: ENV })).toBe("failed");
+    expect(resend.calls).toHaveLength(0);
   });
 });

@@ -266,8 +266,15 @@ const PHOTO_BUCKET = "post-photos";
 // The most entries one Storage `list` call returns.
 const PHOTO_PAGE = 1000;
 
-/** A photo's path in `PHOTO_BUCKET`. Every part is a session id, a business id or a UUID, so none holds a slash. */
+// Past this many photos in one business folder, the oldest are removed, as the memory store does.
+const MAX_PHOTOS_PER_BUSINESS = 60;
+
+// A path part: a session id, a business id or a UUID. Never a slash or a dot segment.
+const PATH_PART = /^[A-Za-z0-9_-]+$/;
+
+/** A photo's path in `PHOTO_BUCKET`. Throws for any part that could climb out of the session's folder. */
 function photoPath(session: string, businessId: string, photoId: string): string {
+  if (![session, businessId, photoId].every((part) => PATH_PART.test(part))) throw new NotFoundError("Photo not found.");
   return `${session}/${businessId}/${photoId}`;
 }
 
@@ -482,6 +489,13 @@ export class SupabaseStore implements Store {
     // `use_ai_call` increments and compares in one statement, so concurrent callers can't overshoot the cap.
     const { data, error } = await this.db.rpc("use_ai_call", { p_day: day, p_cap: cap });
     if (error) fail("useAiCall", error);
+    return data === true;
+  }
+
+  async useSessionAiCall(session: string, day: string, cap: number): Promise<boolean> {
+    // `use_session_ai_call` increments and compares in one statement, as `use_ai_call` does.
+    const { data, error } = await this.db.rpc("use_session_ai_call", { p_session_id: session, p_day: day, p_cap: cap });
+    if (error) fail("useSessionAiCall", error);
     return data === true;
   }
 
@@ -821,12 +835,22 @@ export class SupabaseStore implements Store {
 
   async savePhoto(session: string, businessId: string, data: Uint8Array, contentType: string): Promise<StoredPhoto> {
     const id = randomUUID();
-    const { error } = await this.db.storage.from(PHOTO_BUCKET).upload(photoPath(session, businessId, id), data, { contentType, upsert: false });
+    const bucket = this.db.storage.from(PHOTO_BUCKET);
+    const path = photoPath(session, businessId, id);
+    const { data: files, error: listError } = await bucket.list(`${session}/${businessId}`, { limit: PHOTO_PAGE, sortBy: { column: "created_at", order: "asc" } });
+    if (listError) fail("savePhoto", listError);
+    const extra = (files ?? []).length - MAX_PHOTOS_PER_BUSINESS + 1;
+    if (extra > 0) {
+      const { error: removeError } = await bucket.remove((files ?? []).slice(0, extra).map((file) => `${session}/${businessId}/${file.name}`));
+      if (removeError) fail("savePhoto", removeError);
+    }
+    const { error } = await bucket.upload(path, data, { contentType, upsert: false });
     if (error) fail("savePhoto", error);
     return { id, businessId, contentType, size: data.byteLength };
   }
 
   async getPhoto(session: string, businessId: string, photoId: string): Promise<PhotoFile | null> {
+    if (![session, businessId, photoId].every((part) => PATH_PART.test(part))) return null;
     const { data, error } = await this.db.storage.from(PHOTO_BUCKET).download(photoPath(session, businessId, photoId));
     if (error) {
       // Storage answers a missing object with a 400 or 404 rather than a typed error.
@@ -838,6 +862,7 @@ export class SupabaseStore implements Store {
   }
 
   async photoExists(session: string, businessId: string, photoId: string): Promise<boolean> {
+    if (![session, businessId, photoId].every((part) => PATH_PART.test(part))) return false;
     const { data, error } = await this.db.storage.from(PHOTO_BUCKET).list(`${session}/${businessId}`, { search: photoId, limit: 1 });
     if (error) fail("photoExists", error);
     return (data ?? []).some((file) => file.name === photoId);
@@ -885,6 +910,9 @@ export class SupabaseStore implements Store {
       const { error } = await this.db.from(table).delete().eq("session_id", session);
       if (error) fail(`reset ${table}`, error);
     }
+    // Today's AI call count stays, so deleting businesses can't refill the day's budget; older days go.
+    const { error } = await this.db.from("ai_session_usage").delete().eq("session_id", session).lt("day", new Date().toISOString().slice(0, 10));
+    if (error) fail("reset ai_session_usage", error);
   }
 
   /** Delete every photo under the session's folder, one business folder and one page of files at a time. */

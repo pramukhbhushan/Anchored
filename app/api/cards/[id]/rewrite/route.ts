@@ -28,13 +28,17 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     const business = await findBusiness(card.businessId);
     if (!business) return fail(404, "Business not found. It may have been deleted. Reload the page to see your businesses.");
 
-    const body = await rewriteInVoice(business, card.body);
+    const session = await getSessionId();
+    const body = await rewriteInVoice(session, business, card.body);
     // The model call takes seconds; if the owner decided the card meanwhile, its sent text must not change.
-    const updated = await saveRewrite(await getSessionId(), card.id, body);
+    const updated = await saveRewrite(session, card.id, body);
     if (!updated) return fail(409, "This card was decided while it was being rewritten. Nothing changed.");
     return json<RewriteResponse>({ card: updated });
   } catch (error) {
-    if (error instanceof AiBudgetError) return fail(429, "Anchored has used today's AI rewrites. Edit the draft yourself, or try again tomorrow.");
+    if (error instanceof AiBudgetError) {
+      const who = error.scope === "session" ? "You've" : "Anchored has";
+      return fail(429, `${who} used today's AI rewrites. Edit the draft yourself, or try again tomorrow.`);
+    }
     if (error instanceof LlmRefusalError) return fail(422, "The AI model couldn't rewrite this one. Edit it yourself instead.");
     if (error instanceof LlmResponseError) return fail(422, "The rewrite changed facts in the draft, so it was thrown away. Edit it yourself instead.");
     return handleError(error, "POST /api/cards/[id]/rewrite");

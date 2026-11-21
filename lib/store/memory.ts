@@ -80,6 +80,10 @@ const MAX_PHOTOS_PER_SESSION = 60;
 // Past this many sessions the oldest is dropped, so a server on memory can't grow without bound.
 const MAX_SESSIONS = 2000;
 
+function utcToday(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function threadKey(thread: ChatThread): string {
   return `${thread.kind}:${thread.id}`;
 }
@@ -89,6 +93,8 @@ export class MemoryStore implements Store {
   readonly kind = "memory" as const;
   private readonly sessions = new Map<string, SessionData>();
   private readonly aiCalls = new Map<string, number>();
+  // Kept apart from `sessions` so neither eviction nor `reset` hands a session a fresh day's budget.
+  private readonly sessionAiCalls = new Map<string, { readonly day: string; readonly calls: number }>();
   // The shared bot's records belong to no one session: a webhook knows only a chat id, an update id or a hook id.
   private readonly telegramChats = new Map<string, TelegramChat>();
   private readonly telegramUpdates = new Map<number, UpdateClaim>();
@@ -259,6 +265,20 @@ export class MemoryStore implements Store {
     // Only today's count matters; drop older days so the map stays one entry.
     this.aiCalls.clear();
     this.aiCalls.set(day, used + 1);
+    return true;
+  }
+
+  async useSessionAiCall(session: string, day: string, cap: number): Promise<boolean> {
+    const found = this.sessionAiCalls.get(session);
+    const used = found?.day === day ? found.calls : 0;
+    if (used >= cap) return false;
+    // Re-inserting moves the session to the end, so the oldest entry is the one dropped past `MAX_SESSIONS`.
+    this.sessionAiCalls.delete(session);
+    if (this.sessionAiCalls.size >= MAX_SESSIONS) {
+      const oldest = this.sessionAiCalls.keys().next().value;
+      if (oldest !== undefined) this.sessionAiCalls.delete(oldest);
+    }
+    this.sessionAiCalls.set(session, { day, calls: used + 1 });
     return true;
   }
 
@@ -544,6 +564,8 @@ export class MemoryStore implements Store {
 
   async reset(session: string): Promise<void> {
     this.sessions.delete(session);
+    // Today's AI call count stays, so deleting businesses can't refill the day's budget; an older day's goes.
+    if (this.sessionAiCalls.get(session)?.day !== utcToday()) this.sessionAiCalls.delete(session);
     for (const [chatId, chat] of this.telegramChats) {
       if (chat.session === session) this.telegramChats.delete(chatId);
     }

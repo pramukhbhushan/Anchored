@@ -1,4 +1,5 @@
 import "server-only";
+import { liveEventKey } from "@/lib/domain/cards";
 import type { ConnectionKind } from "@/lib/domain/connections";
 import { applyOptOut, contactByPhone, normalizePhone, optOutKeyword } from "@/lib/domain/contacts";
 import type { BusinessProfile } from "@/lib/domain/types";
@@ -80,11 +81,22 @@ export async function receiveMissedCall(target: HookTarget, rawFrom: string): Pr
   return logged(await ingestEvent(session, business, "missed-call", { from }, "live"), "missed-call");
 }
 
-/** Draft a reminder for an unpaid Stripe invoice. */
+/** Draft a reminder for an unpaid Stripe invoice, once per Stripe event id. */
 export async function receiveUnpaidInvoice(
   target: HookTarget,
-  invoice: { readonly kind: "overdue" | "failed"; readonly customerName: string | null; readonly customerEmail: string | null; readonly amountDue: number; readonly number: string | null },
+  invoice: {
+    readonly eventId: string | null;
+    readonly kind: "overdue" | "failed";
+    readonly customerName: string | null;
+    readonly customerEmail: string | null;
+    readonly amountDue: number;
+    readonly number: string | null;
+  },
 ): Promise<boolean> {
+  // The card is keyed by Stripe's event id, so a retried or replayed event finds the first card and drafts nothing.
+  // The key is unique per session in the store too, so two copies arriving at once still make one card.
+  const key = invoice.eventId === null ? undefined : liveEventKey(target.business.id, `stripe-${invoice.eventId}`);
+  if (key !== undefined && (await getStore().listCards(target.session, target.business.id)).some((card) => card.key === key)) return false;
   // Stripe allows longer names than a reminder event takes, and a name over the limit would drop the whole reminder.
   const name = invoice.customerName?.trim().slice(0, 80).trim();
   const payload = {
@@ -94,7 +106,7 @@ export async function receiveUnpaidInvoice(
     ...(invoice.customerEmail ? { email: invoice.customerEmail } : {}),
     ...(invoice.number ? { number: invoice.number } : {}),
   };
-  return logged(await ingestEvent(target.session, target.business, "invoice-late", payload, "live"), "invoice-late");
+  return logged(await ingestEvent(target.session, target.business, "invoice-late", payload, "live", key === undefined ? {} : { key }), "invoice-late");
 }
 
 /** Hand a forwarded email to Inbox Triage, which files it under the agent whose work it is. */
