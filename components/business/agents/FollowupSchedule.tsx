@@ -53,9 +53,11 @@ function SchedulePanel(props: FollowupScheduleProps) {
   );
 }
 
+const LOCAL_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+
 /** Return the instant for a `datetime-local` value, or `null` when the clocks skip or repeat that time. */
 function dueInstant(value: string): Date | null {
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return null;
+  if (!LOCAL_TIME.test(value)) return null;
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return null;
   const local = `${String(date.getFullYear()).padStart(4, "0")}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}T${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
@@ -122,7 +124,7 @@ function ScheduleControl({ businessId, records, contacts, skills }: FollowupSche
     event.preventDefault();
     if (pending.current) return;
     if (instant === null) {
-      setError("That time is skipped or happens twice when the clocks change. Pick another time.");
+      setError(LOCAL_TIME.test(dueAt) ? "That time is skipped or happens twice when the clocks change. Pick another time." : "Pick a date and a time for the draft.");
       return;
     }
     if (!confirmed || !available.includes(skill) || !contacts.some((contact) => contact.id === contactId)) return;
