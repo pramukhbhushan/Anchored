@@ -5,8 +5,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { callApi, errorText } from "@/components/api";
 import { businessHref } from "@/components/routes";
 import { useToast } from "@/components/ui/Toast";
-import type { CreateBusinessResponse, PlacesLookupResponse } from "@/lib/api/contract";
-import type { ListingChoice } from "@/lib/domain/intake";
+import type { CreateBusinessResponse } from "@/lib/api/contract";
 import { hintFor } from "@/lib/domain/engine";
 import { LANGUAGE_OPTIONS, REACH_OPTIONS, SIGNALS, TOOL_OPTIONS } from "@/lib/domain/workflows";
 import type { OnboardingAnswers, SignalId } from "@/lib/domain/types";
@@ -131,15 +130,10 @@ function PickGroup({
 export function OnboardForm({ aiName }: { readonly aiName: string | null }) {
   const router = useRouter();
   const toast = useToast();
-  const [name, setName] = useState("");
   const [kind, setKind] = useState("");
   const [picked, setPicked] = useState<Picked>(START_PICKED);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
-  const [listingChoices, setListingChoices] = useState<readonly ListingChoice[]>([]);
-  const [placeId, setPlaceId] = useState<string | null>(null);
-  const [lookingUp, setLookingUp] = useState(false);
-  const [lookupNote, setLookupNote] = useState("");
   const suggestions = useMemo(() => suggestionsFor(kind), [kind]);
 
   function toggle(group: Group, value: string) {
@@ -149,27 +143,6 @@ export function OnboardForm({ aiName }: { readonly aiName: string | null }) {
       else next.add(value);
       return { ...current, [group]: next };
     });
-  }
-
-  async function lookup() {
-    const [businessName = "", ...cityParts] = name.split(",");
-    const city = cityParts.join(",").trim();
-    if (businessName.trim() === "" || city === "") {
-      setLookupNote("Add the business name and city, separated by a comma.");
-      return;
-    }
-    setLookingUp(true);
-    setLookupNote("Looking for your Google listing...");
-    try {
-      const result = await callApi<PlacesLookupResponse>("/api/onboarding/lookup", "POST", { name: businessName.trim(), city });
-      setListingChoices(result.choices);
-      setPlaceId(null);
-      setLookupNote(result.choices.length === 0 ? "No listing found. Paste your website below, or continue without one." : "Pick your business, or use your website instead.");
-    } catch (error) {
-      setLookupNote(errorText(error));
-    } finally {
-      setLookingUp(false);
-    }
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -182,11 +155,7 @@ export function OnboardForm({ aiName }: { readonly aiName: string | null }) {
     setBusy(true);
     setProgress(aiName ? `${aiName} is reading your answers. This can take up to a minute.` : "Building your plan...");
     try {
-      const { id, business } = await callApi<CreateBusinessResponse>("/api/businesses", "POST", {
-        from: "answers",
-        answers,
-        ...(placeId === null ? {} : { placeId }),
-      });
+      const { id, business } = await callApi<CreateBusinessResponse>("/api/businesses", "POST", { from: "answers", answers });
       toast(`Plan built for ${business.name}`);
       // The plan is the Workflows page, the same place chat onboarding opens.
       router.push(businessHref(id, "workflows"));
@@ -202,30 +171,7 @@ export function OnboardForm({ aiName }: { readonly aiName: string | null }) {
     <form className="ob panel" onSubmit={submit}>
       <div className="field">
         <label htmlFor="ob-name">Business name and town</label>
-        <input type="text" id="ob-name" name="name" placeholder="Greenfield Lawn & Landscape, Bowie, MD" value={name} onChange={(event) => setName(event.target.value)} />
-        <div className="row">
-          <button className="btn btn-secondary btn-sm" type="button" onClick={lookup} disabled={lookingUp}>
-            Find my Google listing
-          </button>
-          {lookupNote !== "" && <span className="progress" role="status">{lookupNote}</span>}
-        </div>
-        {listingChoices.length > 0 && (
-          <fieldset className="field">
-            <legend>Is this you?</legend>
-            <div className="pick">
-              {listingChoices.map((choice) => (
-                <label key={choice.id}>
-                  <input type="radio" name="placeId" value={choice.id} checked={placeId === choice.id} onChange={() => setPlaceId(choice.id)} />
-                  {choice.name}, {choice.address}{choice.rating === undefined ? "" : `, ${choice.rating} stars`}
-                </label>
-              ))}
-              <label>
-                <input type="radio" name="placeId" value="" checked={placeId === null} onChange={() => setPlaceId(null)} />
-                Not listed, use my website
-              </label>
-            </div>
-          </fieldset>
-        )}
+        <input type="text" id="ob-name" name="name" placeholder="Greenfield Lawn & Landscape, Bowie, MD" />
         <label htmlFor="ob-website">Website, if you have one</label>
         <input type="url" id="ob-website" name="website" placeholder="https://yourbusiness.com" />
       </div>

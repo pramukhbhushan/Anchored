@@ -317,12 +317,8 @@ export interface BusinessProfile {
   readonly evidence?: Readonly<Partial<Record<FieldKey, FieldEvidence>>>;
   /** Each core agent on or off, with the reason in the owner's terms. */
   readonly crew?: readonly CrewDecision[];
-  /** The Google Places id the owner picked at onboarding. Places' other values are kept only once the owner confirms them. */
-  readonly placeId?: string;
   /** How many times the profile has been saved. The store sets it; every save keeps a copy in the profile's history. */
   readonly version?: number;
-  /** The Google Sheet the owner keeps invoices in, shared with Anchored's service account. Bookkeeping reads it on request. */
-  readonly invoiceSheet?: { readonly id: string; readonly connectedAt: string };
   readonly caseStudy?: {
     readonly label: string;
     readonly stat: string;
@@ -440,7 +436,8 @@ export type FieldKey = keyof ProfileDetails;
 
 /**
  * Where a fact came from, strongest first: the owner's own words, a document they gave, their Google listing or
- * website, then reviews.
+ * website, then reviews. Nothing records `listing` or `reviews` any more, but profiles saved before the Google
+ * lookup was removed still hold evidence with them, and stored profiles are read without parsing.
  */
 export type SourceType = "owner" | "document" | "listing" | "website" | "reviews";
 

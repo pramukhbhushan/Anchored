@@ -5,11 +5,10 @@ import { BlockList, isIP } from "node:net";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Loads one public web page and returns its title and readable text. Public
-// routes reach it: `POST /api/businesses` with `from: "answers"` loads the
-// owner's website, and the listing step in `lib/server/intake-ai.ts` loads the
-// website on the Google listing the owner picks. `npm run discover` also uses it
-// to confirm that a tool's own site exists and names it. A visitor can pick the
+// Loads one public web page and returns its title and readable text. A public
+// route reaches it: `POST /api/businesses` with `from: "answers"` loads the
+// owner's website. `npm run discover` also uses it to confirm that a tool's
+// own site exists and names it. A visitor can pick the
 // address, so every request passes a guard first: an http or https URL on the
 // default port with no credentials, a host name that isn't local, single-label or
 // an IPv6 literal, and a DNS answer whose every address is public. It follows at

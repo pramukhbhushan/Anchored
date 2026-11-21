@@ -72,21 +72,16 @@ describe("OnboardForm", () => {
     expect(await screen.findByText(/Greenfield Lawn & Landscape/)).toHaveRole("status");
   });
 
-  it("lets the owner pick a Google listing and sends only its place id", async () => {
-    const fetchSpy = stubFetch((url) => url === "/api/onboarding/lookup"
-      ? json({ choices: [{ id: "place-1", name: "Greenfield Lawn", address: "10 Main St, Bowie", rating: 4.8 }] })
-      : created());
+  it("sends the website the owner pasted with the answers", async () => {
+    const fetchSpy = stubFetch(() => created());
     renderForm();
     await fillRequired();
 
-    await userEvent.click(screen.getByRole("button", { name: "Find my Google listing" }));
-    expect(await screen.findByRole("radio", { name: /Greenfield Lawn/ })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("radio", { name: /Greenfield Lawn/ }));
+    await userEvent.type(screen.getByLabelText("Website, if you have one"), "https://greenfield.example");
     await userEvent.click(submit());
 
-    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
-    expect(sentJson(fetchSpy, 0).body).toEqual({ name: "Greenfield Lawn & Landscape", city: "Bowie, MD" });
-    expect(sentJson(fetchSpy, 1).body).toMatchObject({ from: "answers", placeId: "place-1" });
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+    expect(sentJson(fetchSpy, 0).body).toMatchObject({ from: "answers", answers: { website: "https://greenfield.example" } });
   });
 
   it("sends the boxes the owner ticks and leaves out the ones they untick", async () => {

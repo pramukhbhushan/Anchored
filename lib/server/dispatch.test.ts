@@ -24,7 +24,7 @@ const SHOP = hvacShop();
 const NOON = new Date("2026-11-09T17:00:00Z");
 const NIGHT = new Date("2026-11-10T03:00:00Z");
 const DANA: Omit<Contact, "id"> = { businessId: SHOP.id, name: "Dana", phone: "+13015550192", email: null, consent: { source: "texted-first", at: "2026-11-08T15:00:00Z" }, optedOutAt: null };
-const ENV = { CONNECTOR_SECRET_KEY: randomBytes(32).toString("base64"), RESEND_API_KEY: "re_test", EMAIL_FROM_ADDRESS: "drafts@mail.anchored.test" };
+const ENV = { CONNECTOR_SECRET_KEY: randomBytes(32).toString("base64") };
 
 const TEXT: KeyedCard = {
   key: `${SHOP.id}:event:1`,
@@ -169,22 +169,8 @@ describe("sending a text", () => {
 describe("sending an email", () => {
   const EMAIL: KeyedCard = { ...TEXT, key: `${SHOP.id}:event:2`, skill: "nudger", agent: "books", channel: "email", action: "Send email", to: "sam@example.com", body: "Hi Sam, a quick reminder about invoice 1042." };
 
-  it("sends from Anchored under the business's name, with the owner as reply-to", async () => {
-    await store.saveConnection(SESSION, { businessId: SHOP.id, kind: "email-out", hookId: "b".repeat(24), settings: { replyTo: "dana@cpha.test" }, secret: null });
-    await approve(EMAIL, NOON);
-    const resend = provider(200, { id: "em_1" });
-
-    expect(await dispatchEntry(store, SESSION, (await onlyEntry()).id, NOON, { fetch: resend.fetchImpl, env: ENV })).toBe("sent");
-
-    expect(JSON.parse(String(resend.calls[0]?.init?.body))).toMatchObject({
-      from: `"College Park Heating & Air" <drafts@mail.anchored.test>`,
-      to: ["sam@example.com"],
-      reply_to: "dana@cpha.test",
-      text: "Hi Sam, a quick reminder about invoice 1042.",
-    });
-  });
-
-  it("sends with the owner's own Resend key, from their own address", async () => {
+  /** Connect email with the owner's own Resend key and address. */
+  async function connectEmail(): Promise<void> {
     await store.saveConnection(SESSION, {
       businessId: SHOP.id,
       kind: "email-out",
@@ -192,17 +178,35 @@ describe("sending an email", () => {
       settings: { replyTo: "dana@cpha.test", fromAddress: "hello@cpha.test" },
       secret: encryptSecret(JSON.stringify({ apiKey: "re_owner_key_123" }), ENV),
     });
+  }
+
+  it("sends with the owner's own Resend key, from their own address, with the owner as reply-to", async () => {
+    await connectEmail();
     await approve(EMAIL, NOON);
     const resend = provider(200, { id: "em_2" });
 
     expect(await dispatchEntry(store, SESSION, (await onlyEntry()).id, NOON, { fetch: resend.fetchImpl, env: ENV })).toBe("sent");
 
     expect(new Headers(resend.calls[0]?.init?.headers).get("authorization")).toBe("Bearer re_owner_key_123");
-    expect(JSON.parse(String(resend.calls[0]?.init?.body))).toMatchObject({ from: `"College Park Heating & Air" <hello@cpha.test>`, reply_to: "dana@cpha.test" });
+    expect(JSON.parse(String(resend.calls[0]?.init?.body))).toMatchObject({
+      from: `"College Park Heating & Air" <hello@cpha.test>`,
+      to: ["sam@example.com"],
+      reply_to: "dana@cpha.test",
+      text: "Hi Sam, a quick reminder about invoice 1042.",
+    });
+  });
+
+  it("never sends through a server's own Resend key, so an email without the owner's key is theirs to send", async () => {
+    vi.stubEnv("RESEND_API_KEY", "re_team_key");
+    vi.stubEnv("EMAIL_FROM_ADDRESS", "drafts@anchored.test");
+    await store.saveConnection(SESSION, { businessId: SHOP.id, kind: "email-out", hookId: "b".repeat(24), settings: { replyTo: "dana@cpha.test" }, secret: null });
+    await approve(EMAIL, NOON);
+
+    expect(await onlyEntry()).toMatchObject({ delivery: "yours" });
   });
 
   it("leaves an email with no address to the owner", async () => {
-    await store.saveConnection(SESSION, { businessId: SHOP.id, kind: "email-out", hookId: "b".repeat(24), settings: { replyTo: "dana@cpha.test" }, secret: null });
+    await connectEmail();
     await approve({ ...EMAIL, to: "Sam Patel" }, NOON);
 
     expect(await onlyEntry()).toMatchObject({ delivery: "yours", note: expect.stringContaining("no address") });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emailAccountFromEnv, readInboundEmail, sendEmail, type EmailAccount, type OutgoingEmail } from "./email";
+import { readInboundEmail, sendEmail, type EmailAccount, type OutgoingEmail } from "./email";
 import { ConnectorError, type FetchLike } from "./errors";
 
 // =============================================================================
@@ -116,16 +116,3 @@ describe("readInboundEmail", () => {
   });
 });
 
-describe("emailAccountFromEnv", () => {
-  it("reads the key and from-address", () => {
-    expect(emailAccountFromEnv({ RESEND_API_KEY: " re_live ", EMAIL_FROM_ADDRESS: "send@anchored.example" })).toEqual({
-      apiKey: "re_live",
-      fromAddress: "send@anchored.example",
-    });
-  });
-
-  it("returns null when either is unset", () => {
-    expect(emailAccountFromEnv({ RESEND_API_KEY: "re_live" })).toBeNull();
-    expect(emailAccountFromEnv({ EMAIL_FROM_ADDRESS: "send@anchored.example", RESEND_API_KEY: " " })).toBeNull();
-  });
-});

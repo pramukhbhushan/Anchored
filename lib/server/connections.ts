@@ -2,7 +2,6 @@ import "server-only";
 import type { NextResponse } from "next/server";
 import type { AiKeyView, ApiError, ConnectionView, ConnectionsResponse, ConnectRequest, SaveAiKeyRequest, SaveContactRequest } from "@/lib/api/contract";
 import type { Viewer } from "@/lib/auth/viewer";
-import { emailAccountFromEnv } from "@/lib/connectors/email";
 import { checkTwilioNumber } from "@/lib/connectors/twilio";
 import { AI_PROVIDER_COPY, isAiProvider, SERVICE_KINDS, type ConnectionKind, type ServiceKind } from "@/lib/domain/connections";
 import { isEmailAddress, normalizePhone, type Contact } from "@/lib/domain/contacts";
@@ -53,13 +52,12 @@ const GUEST_REFUSAL = "Save your work with an email or Google account first, so 
 // Owners see these; the setting an operator must add goes to the server log instead.
 const NO_SECRETS = "Not available yet. Anchored can't keep sign-ins for outside services until its setup is finished.";
 const NO_EMAIL_OUT = "Sending email from Anchored isn't available yet.";
-const NEED_EMAIL_KEY = "Add your Resend API key and a from address on a domain you verified in Resend.";
 const NO_EMAIL_IN = "Forwarding email to Anchored isn't available yet.";
 const OPERATOR_FIX: Readonly<Record<ConnectionKind, string>> = {
   ai: "Set CONNECTOR_SECRET_KEY.",
   texting: "Set CONNECTOR_SECRET_KEY.",
   stripe: "Set CONNECTOR_SECRET_KEY.",
-  "email-out": "Set CONNECTOR_SECRET_KEY so owners can add their own Resend key, or RESEND_API_KEY and EMAIL_FROM_ADDRESS for one shared sender.",
+  "email-out": "Set CONNECTOR_SECRET_KEY.",
   "email-in": "Set INBOUND_EMAIL_ADDRESS to one address.",
 };
 const warned = new Set<ConnectionKind>();
@@ -111,7 +109,7 @@ function ownerReason(kind: ConnectionKind, env: Env): string | null {
     case "stripe":
       return canStoreSecrets(env) ? null : NO_SECRETS;
     case "email-out":
-      return canStoreSecrets(env) || emailAccountFromEnv(env) !== null ? null : NO_EMAIL_OUT;
+      return canStoreSecrets(env) ? null : NO_EMAIL_OUT;
     case "email-in":
       return env.INBOUND_EMAIL_ADDRESS && forwardingAddress("x", env.INBOUND_EMAIL_ADDRESS) !== null ? null : NO_EMAIL_IN;
   }
@@ -204,21 +202,14 @@ export async function connect(session: string, business: BusinessProfile, reques
       });
       return;
     }
-    case "email-out": {
-      // An owner's own key sends from their own domain. Without one, only a server with a shared sender can send.
-      if (request.apiKey === undefined || request.fromAddress === undefined) {
-        if (emailAccountFromEnv(process.env) === null) throw new ConnectError(400, NEED_EMAIL_KEY);
-        await store.saveConnection(session, { ...base, settings: { replyTo: request.replyTo }, secret: null });
-        return;
-      }
-      if (!canStoreSecrets(process.env)) throw new ConnectError(409, NO_SECRETS);
+    case "email-out":
+      // Email goes out only through the owner's own Resend account, from their own domain.
       await store.saveConnection(session, {
         ...base,
         settings: { replyTo: request.replyTo, fromAddress: request.fromAddress },
         secret: encryptSecret(JSON.stringify({ apiKey: request.apiKey })),
       });
       return;
-    }
     case "email-in":
       await store.saveConnection(session, { ...base, settings: {}, secret: null });
       return;

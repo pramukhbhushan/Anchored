@@ -2,7 +2,6 @@ import type { FollowupInput, RecordedFollowup } from "@/lib/domain/followups";
 import type { License } from "@/lib/domain/renewals";
 import type { AiProviderId, ServiceKind } from "@/lib/domain/connections";
 import type { ConsentSource, Contact } from "@/lib/domain/contacts";
-import type { DetailCandidate } from "@/lib/domain/details";
 import type { IntakeQuestion, KnownFact, ProfileChange } from "@/lib/domain/intake";
 import type { BriefSnapshot } from "@/lib/domain/brief";
 import type { OutboxRule } from "@/lib/domain/rules";
@@ -154,24 +153,12 @@ export interface TelegramSetupResponse {
 
 /** POST /api/businesses: build a profile from onboarding answers, an example, or one sentence. */
 export type CreateBusinessRequest =
-  | { readonly from: "answers"; readonly answers: OnboardingAnswers; readonly placeId?: string }
+  | { readonly from: "answers"; readonly answers: OnboardingAnswers }
   | { readonly from: "example"; readonly exampleId: string }
   | { readonly from: "sentence"; readonly sentence: string };
 export interface CreateBusinessResponse {
   readonly id: string;
   readonly business: BusinessProfile;
-}
-
-/** POST /api/onboarding/lookup: find up to three Google listing matches. */
-export interface PlacesLookupRequest { readonly name: string; readonly city: string }
-export interface PlacesLookupResponse { readonly choices: readonly { readonly id: string; readonly name: string; readonly address: string; readonly rating?: number }[] }
-
-/** POST /api/onboarding/place: read the selected listing into profile candidates. */
-export interface PlacesDetailRequest { readonly placeId: string }
-export interface PlacesDetailResponse {
-  readonly placeId: string;
-  readonly candidates: readonly DetailCandidate[];
-  readonly website: string | null;
 }
 
 /** DELETE /api/businesses: everything the visitor saved is gone. */
@@ -220,14 +207,6 @@ export interface CardsResponse {
 /** POST /api/businesses/[id]/cards: try an example event on the example business, for one chosen skill or rotating through them all. */
 export interface SimulateRequest {
   readonly skill?: SkillId;
-}
-
-/** POST /api/businesses/[id]/invoice-sheet: an empty body asks to read the connected invoice sheet now. */
-export type InvoiceSheetCheckRequest = Readonly<Record<string, never>>;
-
-/** What reading the invoice sheet did, in the owner's words. */
-export interface InvoiceSheetCheckResponse {
-  readonly reply: string;
 }
 
 /** POST /api/businesses/[id]/cards and POST /api/ingest/[source]: the feed, plus the card the event created. */
@@ -376,10 +355,10 @@ export type ConnectRequest =
   | {
       readonly kind: "email-out";
       readonly replyTo: string;
-      /** The owner's own Resend API key. Required unless the server has one shared sender. */
-      readonly apiKey?: string;
-      /** The address emails come from, on a domain verified in the owner's Resend account. Sent with `apiKey`. */
-      readonly fromAddress?: string;
+      /** The owner's own Resend API key. */
+      readonly apiKey: string;
+      /** The address emails come from, on a domain verified in the owner's Resend account. */
+      readonly fromAddress: string;
     }
   | { readonly kind: "email-in" }
   | { readonly kind: "stripe"; readonly signingSecret: string };

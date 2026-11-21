@@ -19,11 +19,9 @@ import {
   type IntakeAnswer,
   type IntakeDraft,
   type IntakeQuestion,
-  applyListing,
   draftDetails,
   readDetailChanges,
-  withListingChoices,
-  wantsInvoiceSheet,
+  withCandidates,
 } from "@/lib/domain/intake";
 import { PATH_OUTCOME } from "@/lib/domain/workflows";
 
@@ -534,7 +532,7 @@ describe("business chat changes", () => {
 
 describe("details in business chat", () => {
   const shop = profileFromFacts({ name: "Apex Heating", trade: "HVAC contractor", tradeKey: "home", reach: ["Phone calls"], tools: [], signals: ["quotes"] });
-  const withHours = { ...shop, details: { hours: "Mon to Fri 8 to 6" }, evidence: { hours: { sourceType: "listing", quote: "8 to 6", confidence: "high", ownerConfirmed: true } }, placeId: "place-1", version: 3 } as const;
+  const withHours = { ...shop, details: { hours: "Mon to Fri 8 to 6" }, evidence: { hours: { sourceType: "website", quote: "8 to 6", confidence: "high", ownerConfirmed: true } }, version: 3 } as const;
 
   it("reads a new minimum and prices as the owner's own, confirmed", () => {
     const { profile, changes } = applyChanges(withHours, readChanges("Our minimum is now $89, and a tune-up costs $129"));
@@ -545,12 +543,11 @@ describe("details in business chat", () => {
     expect(changeReply(changes, profile.name)).toContain("minimum charge to $89");
   });
 
-  it("keeps the details, listing and version when a chat message changes something else", () => {
+  it("keeps the details and version when a chat message changes something else", () => {
     const { profile } = applyChanges(withHours, readChanges("We started using QuickBooks Online"));
 
     expect(profile.tools).toContain("QuickBooks Online");
     expect(profile.details?.hours).toBe("Mon to Fri 8 to 6");
-    expect(profile.placeId).toBe("place-1");
     expect(profile.version).toBe(3);
   });
 
@@ -565,72 +562,40 @@ describe("details in business chat", () => {
   });
 });
 
-describe("the listing step", () => {
+describe("a detail from another source", () => {
   const named = applyAnswer(newDraft(), "name", text("Apex Heating, Laurel, MD"));
-  const choices = [
-    { id: "place-a", name: "Apex Heating & Air", address: "1 Main St, Laurel, MD", rating: 4.8 },
-    { id: "place-b", name: "Apex Plumbing", address: "9 Elm St, Laurel, MD" },
-  ];
 
-  it("drops a listing's value when the owner says it is wrong, so confirming never makes it theirs", () => {
-    const hours = { key: "hours", value: "9 to 5", sourceType: "listing", quote: "Open 9-5", confidence: "medium" } as const;
-    const listed = applyListing(withListingChoices(named, choices), "place-a", [hours]);
-    expect(listed.details?.hours).toBe("9 to 5");
+  it("drops the value when the owner says it is wrong, so confirming never makes it theirs", () => {
+    const hours = { key: "hours", value: "9 to 5", sourceType: "website", quote: "Open 9-5", confidence: "medium" } as const;
+    const found = withCandidates(named, [hours]);
+    expect(found.details?.hours).toBe("9 to 5");
 
     for (const reply of ["no", "wrong"]) {
-      const answered = applyAnswer(listed, "gap:hours", text(reply));
+      const answered = applyAnswer(found, "gap:hours", text(reply));
       expect(draftDetails(answered).details?.hours).toBeUndefined();
       expect(answered.gaps).toContain("hours");
     }
   });
 
-  it("asks right after the name, with each match and a way to say none", () => {
-    const draft = withListingChoices(named, choices);
-    const listing = question(draft);
-
-    expect(listing.field).toBe("listing");
-    expect(listing.options?.map((option) => option.label)).toEqual(["Apex Heating & Air, 1 Main St, Laurel, MD", "Apex Plumbing, 9 Elm St, Laurel, MD", "Not listed"]);
-  });
-
-  it("keeps the pick and its facts as listing evidence, and moves on", () => {
-    const draft = withListingChoices(named, choices);
-    const after = applyListing(draft, "place-a", [{ key: "hours", value: "Mon to Fri 8 to 5", sourceType: "listing", quote: "Mon to Fri 8 to 5", confidence: "high" }]);
-
-    expect(after.placeId).toBe("place-a");
-    expect(after.evidence?.hours?.sourceType).toBe("listing");
-    expect(question(after).field).toBe("kind");
-    expect(summarize(after)).toContainEqual(expect.objectContaining({ field: "hours", value: "Mon to Fri 8 to 5", source: "From your Google listing" }));
-  });
-
-  it("ignores an id that wasn't offered, and skips the step when Google found nothing", () => {
-    const draft = withListingChoices(named, choices);
-
-    expect(applyListing(draft, "place-z", []).placeId).toBeUndefined();
-    expect(question(withListingChoices(named, [])).field).toBe("kind");
-  });
-
-  it("hands the confirmed details and listing to the business", () => {
-    const after = applyListing(withListingChoices(named, choices), "place-a", [{ key: "hours", value: "8 to 5", sourceType: "listing", quote: "8 to 5", confidence: "high" }]);
+  it("hands the confirmed details to the business", () => {
+    const after = withCandidates(named, [{ key: "hours", value: "8 to 5", sourceType: "website", quote: "8 to 5", confidence: "high" }]);
 
     expect(draftDetails(after)).toEqual({
       details: { hours: "8 to 5" },
-      evidence: { hours: { sourceType: "listing", quote: "8 to 5", confidence: "high", ownerConfirmed: true } },
-      placeId: "place-a",
+      evidence: { hours: { sourceType: "website", quote: "8 to 5", confidence: "high", ownerConfirmed: true } },
     });
   });
 });
 
-describe("the invoice sheet question", () => {
-  const LINK = "https://docs.google.com/spreadsheets/d/1u8jzPde0IgxLd6GncfBAepfJBd0Kh8oOOL8dKLzdocJ/edit";
-  /** A coaching agency through the nine planned questions and the gaps, with the tools answer given. */
-  const coaching = (tools: IntakeAnswer) =>
-    throughGaps(
+describe("an owner who keeps invoices in Google Sheets", () => {
+  it("goes from the gap questions straight to the review", () => {
+    const draft = throughGaps(
       converse([
         text("Brightpath Coaching, College Park"),
         picks("Professional services"),
         text("1-on-1 career coaching, sessions $175, a 3-session package $450, a $1,200 a month retainer"),
         picks("Email", "Referrals"),
-        tools,
+        text("Google Sheets, Calendly and Zoom"),
         picks("appointments", "memberships"),
         picks("English"),
         text("Chasing clients who pay their invoices late"),
@@ -638,31 +603,7 @@ describe("the invoice sheet question", () => {
       ]).draft,
     ).draft;
 
-  it("asks for the sheet after the gaps when the owner uses Google Sheets and Bookkeeping is planned", () => {
-    const draft = coaching(text("Google Sheets, Calendly and Zoom"));
-    expect(wantsInvoiceSheet(draft)).toBe(true);
-    const asked = question(draft);
-    expect(asked.field).toBe("sheet");
-    expect(asked.text).toContain("paste its link here");
-    expect(asked.options?.map((option) => option.label)).toEqual(["Skip for now"]);
-  });
-
-  it("keeps the pasted link's sheet ID, then moves on to the review", () => {
-    const answered = answer(coaching(text("Google Sheets")), text(`here it is ${LINK}`));
-    expect(answered.invoiceSheet).toEqual({ id: "1u8jzPde0IgxLd6GncfBAepfJBd0Kh8oOOL8dKLzdocJ" });
-    expect(question(answered).field).toBe("confirm");
-  });
-
-  it("asks only once, and a skip leaves no sheet", () => {
-    const skipped = answer(coaching(text("Google Sheets")), picks("skip"));
-    expect(skipped.invoiceSheet).toEqual({ id: null });
-    expect(wantsInvoiceSheet(skipped)).toBe(false);
-    expect(question(skipped).field).toBe("confirm");
-  });
-
-  it("doesn't ask an owner who doesn't use Google Sheets", () => {
-    const draft = coaching(picks("QuickBooks Online"));
-    expect(wantsInvoiceSheet(draft)).toBe(false);
+    expect(draft.facts.tools).toContain("Google Sheets");
     expect(question(draft).field).toBe("confirm");
   });
 });

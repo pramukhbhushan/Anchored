@@ -13,7 +13,7 @@ The table lists the layers from the bottom up. A file may always import its own 
 | `lib/domain/` | Workflows, agents and skills, the tool catalog, ratings, the rules engine, the example business, card templates, and the executor's `checkSend` | `zod` only |
 | `lib/api/` | `contract.ts`, the request and response types of every API route, and `schemas.ts`, the Zod schema for every request body | `lib/domain` and `zod` only |
 | `lib/llm/` | The model layer: the `LlmProvider` interface and one adapter per provider | Anything except `lib/server`, `lib/store`, `lib/api`, `lib/auth`, `next` and `react` |
-| `lib/connectors/` | One adapter per connected service: Twilio texts and calls, Resend email out, Postmark email in, Stripe invoices, Google Sheets invoice sheets, and the shared Telegram bot. Each turns one send, one read or one webhook into plain values | Anything except `lib/server`, `lib/store`, `lib/api`, `lib/auth`, `lib/llm`, `next` and `react` |
+| `lib/connectors/` | One adapter per connected service: Twilio texts and calls, Resend email out, Postmark email in, Stripe invoices, and the shared Telegram bot. Each turns one send, one read or one webhook into plain values | Anything except `lib/server`, `lib/store`, `lib/api`, `lib/auth`, `lib/llm`, `next` and `react` |
 | `lib/store/` | The `Store` interface, with `SupabaseStore` for Postgres and `MemoryStore` for local runs | Anything except `lib/server`, `lib/llm`, `lib/auth`, `next` and `react` |
 | `lib/auth/` | Supabase Auth clients, the sign-in paths, and the `Viewer` type | Anything except `lib/server`, `lib/store` and `lib/llm` |
 | `lib/server/` | Server-only orchestration: the session, data reads, model calls under a daily budget, card decisions, the scheduled sender, turning events into cards, and request parsing | Any `lib` layer |
@@ -53,7 +53,7 @@ When the test fails, move the code to the layer that owns it. If the design itse
 | Agents and skills | `agents.ts` holds every skill; `agent-config.ts` assembles each active agent's settings; `starters.ts` picks the starter drafts; `requests.ts` reads an owner's chat message for a request for work |
 | Cards and sends | `cards.ts` holds a card template per skill; `executor.ts` holds `checkSend`; `rules.ts` holds the standing rules and protocol notices that send without a tap; `contacts.ts` holds customers and their consent; `connections.ts` names the services a business can connect |
 | Customer conversations | `threads.ts` keeps one thread per contact; `conversation.ts` allows the ownership changes for a thread; `customer-routing.ts` picks the Customer skill that answers a Telegram message; `followups.ts` runs follow-up timers from recorded facts |
-| Bookkeeping | `invoices.ts` holds the payment reminder rules; `invoice-sheet.ts` reads the owner's invoice sheet |
+| Bookkeeping | `invoices.ts` holds the payment reminder rules |
 | Marketing | `posts.ts` turns photos and a line into a post; `photos.ts` holds the upload rules; `playbook.ts` and `playbook-seed.ts` hold the post formats, hooks and hashtags |
 | Internal Communications | `brief.ts` writes the morning brief; `triage.ts` sorts forwarded email; `renewals.ts` warns about license dates |
 

@@ -11,7 +11,6 @@ import { resetSession } from "@/lib/server/data";
 import { extractDetails } from "@/lib/server/extract";
 import { fetchPage } from "@/lib/server/fetch-page";
 import { fail, handleError, json, readBody } from "@/lib/server/http";
-import { placeDetails } from "@/lib/server/places";
 import { getSessionId } from "@/lib/server/session";
 
 // =============================================================================
@@ -43,25 +42,8 @@ export async function POST(request: Request) {
     const built = await buildProfile(session, parsed.data);
     if (!built) return fail(400, "That example doesn't exist. Pick one from the list.");
     let business = withCrewDecisions(built);
-    let placeRaw: { readonly listingText?: string; readonly website?: { readonly url: string; readonly title: string; readonly text: string } } | undefined;
-    let sourceWebsite = parsed.data.from === "answers" ? parsed.data.answers.website : undefined;
-    if (parsed.data.from === "answers" && parsed.data.placeId !== undefined) {
-      business = { ...business, placeId: parsed.data.placeId };
-      const facts = await placeDetails(parsed.data.placeId);
-      if (facts !== null) {
-        const [listingCandidates, reviewCandidates] = await Promise.all([
-          extractDetails(session, "listing", facts.listingText ?? ""),
-          extractDetails(session, "reviews", facts.reviewText ?? ""),
-        ]);
-        const merged = mergeCandidates(
-          { details: business.details ?? {}, evidence: business.evidence ?? {} },
-          [...facts.candidates, ...listingCandidates, ...reviewCandidates],
-        );
-        business = { ...business, details: merged.details, evidence: merged.evidence };
-        placeRaw = !facts.listingText ? undefined : { listingText: facts.listingText };
-        sourceWebsite = facts.website ?? sourceWebsite;
-      }
-    }
+    let website: { readonly url: string; readonly title: string; readonly text: string } | undefined;
+    const sourceWebsite = parsed.data.from === "answers" ? parsed.data.answers.website : undefined;
     if (sourceWebsite !== undefined) {
       const page = await fetchPage(sourceWebsite);
       if (page !== null) {
@@ -70,10 +52,10 @@ export async function POST(request: Request) {
           await extractDetails(session, "website", page.text),
         );
         business = { ...business, details: merged.details, evidence: merged.evidence };
-        placeRaw = { ...placeRaw, website: { url: page.url, title: page.title, text: page.text } };
+        website = { url: page.url, title: page.title, text: page.text };
       }
     }
-    const raw = { request: parsed.data, ...(placeRaw === undefined ? {} : { place: placeRaw }) };
+    const raw = { request: parsed.data, ...(website === undefined ? {} : { website }) };
     await saveNewBusiness(session, business, raw, { seedExample: parsed.data.from === "example" });
     return json<CreateBusinessResponse>({ id: business.id, business }, 201);
   } catch (error) {

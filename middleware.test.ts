@@ -185,11 +185,6 @@ describe("limitFor", () => {
     expect(limitFor("POST", "/api/cards/abc-123/rewrite")).toMatchObject({ perSession: 20, perIp: 120 });
   });
 
-  it("limits Google business lookup separately", () => {
-    expect(limitFor("POST", "/api/onboarding/lookup")).toMatchObject({ bucket: "places", perSession: 20, perIp: 120 });
-    expect(limitFor("POST", "/api/onboarding/place").bucket).toBe("places");
-  });
-
   it("shares one chat limit between onboarding turns and the business chat", () => {
     const start = limitFor("POST", "/api/intake");
     const answer = limitFor("POST", "/api/intake/abc-123");
@@ -199,13 +194,11 @@ describe("limitFor", () => {
     expect(chat.bucket).toBe(start.bucket);
   });
 
-  it("shares one event limit between simulate, ingest and reading the invoice sheet", () => {
+  it("shares one event limit between simulate and ingest", () => {
     const simulate = limitFor("POST", "/api/businesses/b_1/cards");
     const ingest = limitFor("POST", "/api/ingest/missed-call");
-    const sheet = limitFor("POST", "/api/businesses/b_1/invoice-sheet");
     expect(simulate).toMatchObject({ perSession: 60, perIp: 300 });
     expect(ingest.bucket).toBe(simulate.bucket);
-    expect(sheet.bucket).toBe(simulate.bucket);
   });
 
   it("gives Run now on the daily brief its own bucket, apart from other changes", () => {

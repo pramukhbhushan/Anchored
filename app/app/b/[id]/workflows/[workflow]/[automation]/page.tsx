@@ -5,7 +5,6 @@ import { notFound } from "next/navigation";
 import { businessHref, cardAnchor, toolsHref } from "@/components/routes";
 import { automationSummary, automationsOf, type Automation } from "@/components/workflows/automations";
 import { AskInChat } from "@/components/workflows/AskInChat";
-import { CheckSheetButton } from "@/components/workflows/CheckSheetButton";
 import { workflowFlow } from "@/components/workflows/flow";
 import { SKILLS } from "@/lib/domain/agents";
 import { POST_BRIEF_QUESTION } from "@/lib/domain/posts";
@@ -22,8 +21,8 @@ import { getBusinessOrNotFound, getChoices, getFeed } from "@/lib/server/data";
 // like a thread inside a project: what it does in one sentence, the drafts it
 // has waiting for the owner's OK with a link to approve each in Approvals, its
 // recent decisions, and how it works, including what it never does. "Run it
-// now" starts real work only: payment reminders read the connected invoice
-// sheet, and other drafting automations link to Chat with a request to ask.
+// now" starts real work only: it links to Chat with a request to ask, and for
+// payment reminders, an invoice to tell Bookkeeping about.
 // Every automation page has a chat box whose words carry over to the business
 // chat; for post drafts it asks the one question a post starts from.
 
@@ -103,14 +102,9 @@ export default async function AutomationPage({ params }: { readonly params: Para
       {business.kind !== "case" && a.kind === "agent" && (a.key === "nudger" || askExampleFor(a.key) !== null) && (
         <section className="auto-card" aria-labelledby="auto-run">
           <h2 id="auto-run">Run it now</h2>
-          {a.key === "nudger" && business.invoiceSheet ? (
-            <>
-              <p className="muted">Read your invoice sheet now. Overdue invoices get a reminder to approve, and paid ones stop theirs.</p>
-              <CheckSheetButton businessId={business.id} approvalsHref={approvalsHref} />
-            </>
-          ) : a.key === "nudger" ? (
+          {a.key === "nudger" ? (
             <p className="muted">
-              Paste your invoice sheet&apos;s link in <Link href={businessHref(business.id, "chat")}>Chat</Link> to connect it, or tell Bookkeeping about one invoice there, like &quot;Sam Lee owes $240 on invoice 1042.&quot;
+              Tell Bookkeeping about an invoice in <Link href={businessHref(business.id, "chat")}>Chat</Link>, like &quot;Sam Lee owes $240 on invoice 1042.&quot;
             </p>
           ) : (
             <p className="muted">

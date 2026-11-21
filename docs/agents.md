@@ -45,10 +45,9 @@ Customer answers new messages and follows up on work the owner recorded.
 
 Bookkeeping drafts reminders for unpaid invoices and stops them once the invoice is paid. It never moves money.
 
-- **Where invoices come from.** The owner's chat ("Maya Chen owes $450 on invoice 1042, due Oct 20"), read by `readInvoiceMessage` in `lib/domain/invoices.ts`; Stripe's `invoice.overdue` and `invoice.payment_failed` events; a Google Sheet; and the simulator.
+- **Where invoices come from.** The owner's chat ("Maya Chen owes $450 on invoice 1042, due Oct 20"), read by `readInvoiceMessage` in `lib/domain/invoices.ts`; Stripe's `invoice.overdue` and `invoice.payment_failed` events; and the simulator.
 - **Reminders.** `reminderCard` uses only the amount, the invoice number and the due date from the source. `checkReminderDraft` refuses late fees and threats. `MAX_REMINDERS` caps each invoice at 2 reminders, and a third is refused. Reminders go out by email.
 - **Paid.** When an invoice is marked paid, `matchPaidInvoice` finds it and asks which invoice if the customer has more than one open. `cancelInvoiceReminders` stops the reminders still waiting, and the owner gets a note.
-- **Google Sheet.** The owner pastes a sheet link in chat or during onboarding and shares the sheet as a Viewer with the service account in `GOOGLE_SERVICE_ACCOUNT_JSON`. `connectInvoiceSheet` in `lib/server/invoice-sheet.ts` reads the first tab. `parseInvoiceRows` needs Amount, Status and Due date columns, plus Invoice # or Customer. `syncInvoiceSheet` drafts one reminder per overdue row, and checking again never drafts the same reminder twice. The owner checks again by typing "check my invoice sheet" or through `POST /api/businesses/[id]/invoice-sheet`.
 - **Price Watch.** It formats a simulated supplier invoice that already carries its prices. Forwarded supplier email becomes a triage card, and Anchored reads no prices from it.
 
 ## Marketing
@@ -85,7 +84,7 @@ These appear in old plans and do not exist:
 
 - Handoffs between agents. A billing question or a supplier invoice becomes a note for the owner.
 - Reading supplier prices from forwarded email, and invoice CSV or Excel upload.
-- A Stripe `invoice.paid` reader. Payment arrives through chat, the sheet or the simulator.
+- A Stripe `invoice.paid` reader. Payment arrives through chat or the simulator.
 - A review request after a paid invoice. Payment alone does not prove the job is done.
 - A weekly posts schedule.
 

@@ -107,7 +107,7 @@ With `anthropic` and no model variables, the `quick`, `default` and `complex` ti
 
 ## Connect real services
 
-An owner connects Twilio, Stripe and Resend with their own accounts on a business's **Connections** page, signed in with email or Google. Postmark and Google Sheets run on accounts the deployment holds. Each service stays off until its variables are set, and Anchored never sends without the owner's approval.
+An owner connects Twilio, Stripe and Resend with their own accounts on a business's **Connections** page, signed in with email or Google. Postmark runs on an account the deployment holds. Each service stays off until its variables are set, and Anchored never sends without the owner's approval.
 
 Before you connect any service, set these on the server:
 
@@ -132,7 +132,7 @@ Each owner sends approved email through their own Resend account, so the deploym
 1. The owner verifies a sending domain in their Resend account.
 2. On the Connections page, the owner pastes a Resend API key and a from-address on that domain. Each email shows the business's name and sets the owner as reply-to.
 
-For a self-hosted server with one business, you can set `RESEND_API_KEY` and `EMAIL_FROM_ADDRESS` instead, as one shared sender. Leave them unset on a public deployment: with a shared sender, anyone who signs up can email any address from your domain.
+The server has no Resend key of its own, so email goes out only from an owner's own account and domain.
 
 ### Email in with Postmark
 
@@ -145,20 +145,6 @@ For a self-hosted server with one business, you can set `RESEND_API_KEY` and `EM
 
 1. In the owner's Stripe account, add the webhook endpoint from the Connections page, for the `invoice.overdue` and `invoice.payment_failed` events.
 2. Paste the endpoint's signing secret on the Connections page.
-
-### Invoice sheets with Google Sheets
-
-Bookkeeping reads an owner's invoice sheet as a Google service account that the owner shares the sheet with.
-
-1. In Google Cloud, turn on the Google Sheets API.
-2. Create a service account with no project role, and add a JSON key to it.
-3. Set `GOOGLE_SERVICE_ACCOUNT_JSON` to the key, on one line in single quotes.
-
-The owner shares the sheet with the service account's email as a Viewer, then sends the sheet link in the business chat. Anchored only reads the sheet.
-
-### Business lookup with Google Places
-
-`GOOGLE_PLACES_API_KEY` turns on the **Is this you?** step in onboarding. After the owner types a name and town, Anchored shows up to three Google listings, and the one the owner picks fills in their hours and review link for them to confirm. In Google Cloud, restrict the key to the Places API and give it a daily quota.
 
 ## Schedule the background routes
 
@@ -235,12 +221,8 @@ With the two `NEXT_PUBLIC_SUPABASE_*` variables unset, accounts are off. Each vi
 | `CONNECTOR_SECRET_KEY` | 32 random bytes in base64 that encrypt every credential an owner connects, AI keys included. Without it, no service that needs a secret can be connected |
 | `PUBLIC_APP_URL` | This deployment's public https address. Webhook URLs start with it |
 | `ANCHORED_ALLOW_GUEST_CONNECTIONS` | Set to `1` to let a guest connect services in a local run |
-| `RESEND_API_KEY` | Optional shared sender for a self-hosted server with one business. Owners otherwise paste their own Resend key on the Connections page. Leave it unset on a public deployment |
-| `EMAIL_FROM_ADDRESS` | The shared sender's address, on a domain verified in Resend |
 | `INBOUND_EMAIL_ADDRESS` | The Postmark inbound address |
 | `INBOUND_EMAIL_SECRET` | The secret that Postmark's webhook URL carries as `?key=` |
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | The JSON key of the Google service account that reads invoice sheets |
-| `GOOGLE_PLACES_API_KEY` | Turns on the **Is this you?** step in onboarding |
 | `CRON_SECRET` | The bearer token the scheduled routes require |
 | `TELEGRAM_BOT_TOKEN` | The shared bot's token from BotFather. Server only |
 | `TELEGRAM_BOT_USERNAME` | The bot's username, without the `@` |

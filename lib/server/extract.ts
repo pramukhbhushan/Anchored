@@ -10,7 +10,7 @@ import { getBudgetedLlm } from "@/lib/server/ai-budget";
 // Module Overview
 // =============================================================================
 // Reads profile details out of one source's text with the model: the owner's
-// answers, their website, or a listing. The model only reports words; code
+// answers or their website. The model only reports words; code
 // parses each value with the same rules the gap questions use, drops any quote
 // that isn't in the source, and retries once when the reply has the wrong
 // shape. Session notes and call transcripts are never read.

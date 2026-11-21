@@ -5,9 +5,9 @@ import { ConnectorError, PROVIDER_TIMEOUT_MS, type FetchLike } from "./errors";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Email both ways. `sendEmail` sends one approved email through Resend, from
-// the owner's own verified address or the server's shared one, under the
-// business's name, with the owner as reply-to so answers reach their inbox. `readInboundEmail` reads the JSON
+// Email both ways. `sendEmail` sends one approved email through the owner's own
+// Resend account, from their verified address, under the business's name, with
+// the owner as reply-to so answers reach their inbox. `readInboundEmail` reads the JSON
 // Postmark posts when an email arrives at a forwarding address.
 
 /** A Resend sending account: an API key and a from-address on a domain verified in that account. */
@@ -25,13 +25,6 @@ export interface OutgoingEmail {
   readonly fromName: string;
   readonly subject: string;
   readonly text: string;
-}
-
-/** Return the sending account from `RESEND_API_KEY` and `EMAIL_FROM_ADDRESS`, or `null` when either is unset. */
-export function emailAccountFromEnv(env: Readonly<Record<string, string | undefined>> = process.env): EmailAccount | null {
-  const apiKey = env.RESEND_API_KEY?.trim();
-  const fromAddress = env.EMAIL_FROM_ADDRESS?.trim();
-  return apiKey && fromAddress ? { apiKey, fromAddress } : null;
 }
 
 /** A display name safe inside a From header: no quotes, angle brackets or line breaks. */
