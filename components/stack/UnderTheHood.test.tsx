@@ -25,6 +25,6 @@ describe("UnderTheHood", () => {
   it("says the rules write the drafts when no model is set up", () => {
     render(<UnderTheHood business={SHOP} agents={AGENTS} tools={[]} ai={null} />);
 
-    expect(screen.getAllByText(/No AI model is set up here, so Anchored's rules write these drafts/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/No AI key is set up, so Anchored's rules write these drafts. Add your AI key on Connections/).length).toBeGreaterThan(0);
   });
 });

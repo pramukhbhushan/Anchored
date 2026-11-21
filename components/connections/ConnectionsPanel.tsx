@@ -5,18 +5,20 @@ import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { copyText } from "@/components/business/SendYourself";
 import { callApi, errorText } from "@/components/api";
 import { Button } from "@/components/ui/Button";
-import type { ConnectionsResponse, ConnectionView, ConnectRequest } from "@/lib/api/contract";
+import type { AiKeyView, ConnectionsResponse, ConnectionView, ConnectRequest } from "@/lib/api/contract";
 import { CONNECTION_COPY, type ServiceKind } from "@/lib/domain/connections";
+import { AiKeyCard } from "./AiKeyCard";
 import styles from "./connections.module.css";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The services on the Connections page, one block each: what the service does,
-// whether it is connected, the form that connects it, and the addresses the
-// owner pastes into the service's own settings, each with Copy. A service this
-// server can't offer shows why and no form. A visitor who can't connect, such
-// as a guest, sees the reason once at the top and no forms at all.
+// The owner's AI key, then the services on the Connections page, one block
+// each: what the service does, whether it is connected, the form that connects
+// it, and the addresses the owner pastes into the service's own settings, each
+// with Copy. A service this server can't offer shows why and no form. A
+// visitor who can't connect, such as a guest, sees the reason once at the top
+// and no forms at all, the AI key's included.
 
 /** Props for `ConnectionsPanel`. */
 interface ConnectionsPanelProps {
@@ -25,6 +27,7 @@ interface ConnectionsPanelProps {
   readonly blocked: string | null;
   /** Where the visitor goes to fix `blocked`, such as setting up their own business. */
   readonly blockedLink?: { readonly href: string; readonly label: string };
+  readonly ai: AiKeyView;
   readonly connections: readonly ConnectionView[];
 }
 
@@ -62,7 +65,7 @@ function requestFrom(kind: ServiceKind, data: FormData): ConnectRequest {
 }
 
 /** Render the services, each with its status, its form and its setup addresses. */
-export function ConnectionsPanel({ businessId, blocked, blockedLink, connections }: ConnectionsPanelProps) {
+export function ConnectionsPanel({ businessId, blocked, blockedLink, ai, connections }: ConnectionsPanelProps) {
   const [views, setViews] = useState(connections);
   // Each service waits on its own change, so one finishing never frees another's buttons early.
   const [busy, setBusy] = useState<Partial<Record<ServiceKind, boolean>>>({});
@@ -107,6 +110,7 @@ export function ConnectionsPanel({ businessId, blocked, blockedLink, connections
           )}
         </p>
       )}
+      <AiKeyCard businessId={businessId} view={ai} canChange={blocked === null} />
       <div className={styles.services}>
         {views.map((view) => (
           <ServiceBlock
