@@ -38,7 +38,12 @@ Routes also check path parameters against data the session owns:
 
 ## Rate limits
 
-`middleware.ts` rate-limits every `/api/*` request except GET and HEAD. Each request counts against its session and its IP, and either limit refuses it. The IP is `x-real-ip`, then the first `x-forwarded-for` entry, then the shared value `unknown`. Vercel sets `x-real-ip` to the connecting address, so a client can't pick its bucket. `clientKey` counts an IPv6 address by its /64 prefix, since one subscriber usually holds a whole /64. `lib/server/rate-limit.ts` holds the fixed-window counter.
+`middleware.ts` rate-limits every `/api/*` request except GET and HEAD. Each request counts against its session and its IP, and either limit refuses it. The IP is `x-real-ip`, then the first `x-forwarded-for` entry. Vercel sets `x-real-ip` to the connecting address, so a client can't pick its bucket. `clientKey` counts an IPv6 address by its /64 prefix, since one subscriber usually holds a whole /64. `lib/server/rate-limit.ts` holds the fixed-window counter.
+
+`clientIp` reads those headers only when `VERCEL=1`, which Vercel sets, or `TRUST_PROXY_HEADERS=1`. Set `TRUST_PROXY_HEADERS` only behind a proxy that sets `x-real-ip` or replaces `x-forwarded-for`; anywhere else a client writes the headers itself and could pick a new bucket for every request. With the headers untrusted or missing, `limitChecks` keys by session alone:
+
+- A request that arrived with a valid session cookie or a signed-in account counts under its session limit only.
+- A request that arrived with no session, such as a client that drops its cookie, a signed-out visitor or a webhook, could mint a new session each time. All of these share one bucket per route at the per-IP limit, so cookie dropping can't escape the limits, at the cost of such requests from different clients limiting each other.
 
 | Request | Per session | Per IP | What the request does |
 | --- | --- | --- | --- |
