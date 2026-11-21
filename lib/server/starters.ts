@@ -198,7 +198,7 @@ async function writtenWords(llm: LlmProvider, business: BusinessProfile, skills:
  * feed already shows the templates; once stored, a starter is never written again, even when the call failed.
  */
 export async function writeStarters(session: string, business: BusinessProfile): Promise<void> {
-  const llm = getBudgetedLlm();
+  const llm = getBudgetedLlm(session);
   if (llm === null) return;
   const store = getStore();
   const [saved, stored, connections] = await Promise.all([

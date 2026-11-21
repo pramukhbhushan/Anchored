@@ -9,7 +9,8 @@ import { decryptSecret } from "@/lib/server/secrets";
 // Stripe's webhook for one business. Each event must carry a `Stripe-Signature`
 // made with the endpoint's signing secret within the last five minutes. An
 // `invoice.overdue` or `invoice.payment_failed` event becomes a Payment Nudger
-// draft; every other event is acknowledged and ignored.
+// draft, once per Stripe event id, so a retried or replayed event drafts no
+// second card; every other event is acknowledged and ignored.
 
 /** Receive one Stripe event. */
 export async function POST(request: Request, { params }: { params: Promise<{ hookId: string }> }) {

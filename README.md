@@ -126,6 +126,7 @@ With no AI settings, Anchored maps businesses and drafts cards with its own rule
 | `AI_MODEL` | The model for every tier. Every provider except `anthropic` needs it, unless all three tier variables are set |
 | `AI_MODEL_QUICK`, `AI_MODEL_DEFAULT`, `AI_MODEL_COMPLEX` | The model for one tier. Each one overrides `AI_MODEL` |
 | `AI_DAILY_CALL_CAP` | Model calls allowed per UTC day across every visitor, counted in Supabase. Default 2000; `0` turns model calls off |
+| `AI_SESSION_DAILY_CALL_CAP` | Model calls allowed per UTC day for one visitor or account, checked before `AI_DAILY_CALL_CAP`, so one visitor can't spend the whole day's budget. Default 150; `0` turns model calls off |
 | `APP_URL` | This deployment's public URL. Anchored sends it as the `HTTP-Referer` header to providers that ask for attribution, such as OpenRouter |
 
 Each model call names a tier: `quick` for "Rewrite in my voice" and chat turns, and `default` for onboarding text. With `anthropic` and no model variables, the `quick`, `default`, and `complex` tiers run `claude-haiku-5-5`, `claude-sonnet-5-5`, and `claude-opus-5-5`.
@@ -204,6 +205,7 @@ Production runs on Vercel with Supabase for both data and sign-in. `next build` 
    | `AI_BASE_URL` | Optional for the named providers, required for `openai-compatible` |
    | `AI_MODEL` | The model, required for every provider except `anthropic` |
    | `AI_DAILY_CALL_CAP` | Model calls allowed per UTC day. Default 2000 |
+   | `AI_SESSION_DAILY_CALL_CAP` | Model calls allowed per UTC day for one account. Default 150 |
    | `APP_URL` | Your Vercel domain, such as `https://anchored.vercel.app` |
 
    Leave `ANCHORED_ALLOW_MEMORY_STORE` unset in production.

@@ -16,7 +16,7 @@ Either way, a visitor sees only the businesses, choices, cards, outbox entries, 
 
 Every table has row-level security on. `20261120000000_read_only_browser_access.sql` revokes every table privilege from the `anon` and `authenticated` roles, and from tables made later. The browser's token, guests included, can read only its own `cards` rows, which Realtime needs, and the shared post playbook. It can write nothing.
 
-`SupabaseStore` in `lib/store/supabase.ts` connects from the server with `SUPABASE_SERVICE_ROLE_KEY`, which bypasses row-level security. The `session_id` filter in each query is what keeps one session's rows from another. Earlier migrations let a signed-in token, guests included, write its own rows directly, which skipped approval and every other server check; the read-only migration replaced those policies.
+`SupabaseStore` in `lib/store/supabase.ts` connects from the server with `SUPABASE_SERVICE_ROLE_KEY`, which bypasses row-level security. The `session_id` filter in each query is what keeps one session's rows from another. Earlier migrations let a signed-in token, guests included, write its own rows directly, which skipped approval and every other server check; the read-only migration replaced those policies. `ai_usage` and `ai_session_usage` have no policy, so only the service role reads them.
 
 With no store variables, `getStore` in `lib/store/index.ts` uses `MemoryStore`, which keeps data in process memory and holds at most 2,000 sessions, dropping the oldest. A production build throws on its first data read instead, unless `ANCHORED_ALLOW_MEMORY_STORE=1`, so a public deploy can't lose visitors' work in memory unnoticed.
 
@@ -38,7 +38,12 @@ Routes also check path parameters against data the session owns:
 
 ## Rate limits
 
-`middleware.ts` rate-limits every `/api/*` request except GET and HEAD. Each request counts against its session and its IP, and either limit refuses it. The IP is `x-real-ip`, then the first `x-forwarded-for` entry, then the shared value `unknown`. Vercel sets `x-real-ip` to the connecting address, so a client can't pick its bucket. `clientKey` counts an IPv6 address by its /64 prefix, since one subscriber usually holds a whole /64. `lib/server/rate-limit.ts` holds the fixed-window counter.
+`middleware.ts` rate-limits every `/api/*` request except GET and HEAD. Each request counts against its session and its IP, and either limit refuses it. The IP is `x-real-ip`, then the first `x-forwarded-for` entry. Vercel sets `x-real-ip` to the connecting address, so a client can't pick its bucket. `clientKey` counts an IPv6 address by its /64 prefix, since one subscriber usually holds a whole /64. `lib/server/rate-limit.ts` holds the fixed-window counter.
+
+`clientIp` reads those headers only when `VERCEL=1`, which Vercel sets, or `TRUST_PROXY_HEADERS=1`. Set `TRUST_PROXY_HEADERS` only behind a proxy that sets `x-real-ip` or replaces `x-forwarded-for`; anywhere else a client writes the headers itself and could pick a new bucket for every request. With the headers untrusted or missing, `limitChecks` keys by session alone:
+
+- A request that arrived with a valid session cookie or a signed-in account counts under its session limit only.
+- A request that arrived with no session, such as a client that drops its cookie, a signed-out visitor or a webhook, could mint a new session each time. All of these share one bucket per route at the per-IP limit, so cookie dropping can't escape the limits, at the cost of such requests from different clients limiting each other.
 
 | Request | Per session | Per IP | What the request does |
 | --- | --- | --- | --- |
@@ -54,7 +59,7 @@ Each server instance keeps its own counts in memory. On Vercel, a client whose r
 
 ## AI call budget
 
-`getBudgetedLlm` in `lib/server/ai-budget.ts` wraps the configured provider. Before each model call it runs `use_ai_call`, a SQL function from `20261107000500_ai_budget_and_chat_policies.sql` that adds one to today's row in `ai_usage` and reports whether the count is still under `AI_DAILY_CALL_CAP` (default 2,000, and 0 turns model calls off). The increment and the comparison are one statement, so concurrent calls can't overshoot, and every server instance shares the count. The day is UTC.
+`getBudgetedLlm` in `lib/server/ai-budget.ts` wraps the configured provider for one session. Before each model call it runs `use_session_ai_call`, a SQL function from `20261120000100_ai_session_budget.sql` that adds one to the session's row for today in `ai_session_usage` and reports whether the count is still under `AI_SESSION_DAILY_CALL_CAP` (default 150), so one visitor can't spend the whole day's budget. Routes pass the session from `getSessionId`; webhooks and schedulers pass the session their store lookup returned. "Delete my businesses" keeps today's count, so it can't refill the budget. A call within the session's cap then runs `use_ai_call`, a SQL function from `20261107000500_ai_budget_and_chat_policies.sql` that adds one to today's row in `ai_usage` and reports whether the count is still under `AI_DAILY_CALL_CAP` (default 2,000, and 0 turns model calls off). The increment and the comparison are one statement, so concurrent calls can't overshoot, and every server instance shares the count. The day is UTC.
 
 Past the cap, onboarding, the intake chat and the business chat fall back to the rules, and a rewrite returns 429. The provider's own spend cap stays the backstop.
 
