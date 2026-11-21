@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { CARDS, DAY_END, DAY_START, boardAt, clockLabel, columnAt } from "@/components/site/harbor/day-board";
 
+// =============================================================================
+// Module Overview
+// =============================================================================
+// The landing page's example day: every message waits on the owner first, then
+// moves to Done or Held till morning once approved, and the clock stops at the
+// end of the day.
+
 describe("boardAt", () => {
   it("starts the day with an empty board", () => {
     const board = boardAt(DAY_START);

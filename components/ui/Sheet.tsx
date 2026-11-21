@@ -8,11 +8,12 @@ import styles from "./inspection.module.css";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// A shadcn Sheet composition adapted to Anchored's CSS tokens. Radix owns
-// focus trapping, Escape, background inertness and focus restoration. The same
-// content slides from the side on desktop and from the bottom on phones.
+// `Sheet`, a side panel for a closer look at one thing, built on the Radix
+// dialog, which traps focus, closes on Escape, makes the page behind it inert
+// and puts focus back after. It slides in from the side on desktop and from the
+// bottom on phones.
 
-/** Show a named inspection panel, controlled by its parent or its trigger. */
+/** Render the panel with `title` and `description`, opened by `trigger` or by a parent through `open`. */
 export function Sheet({
   title,
   description,
