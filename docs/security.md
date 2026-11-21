@@ -108,7 +108,7 @@ Secrets come only from environment variables:
 
 - `SUPABASE_SERVICE_ROLE_KEY`, read in `lib/store/index.ts`.
 - `AI_API_KEY`, the key for the configured `AI_PROVIDER`, read in `lib/llm/config.ts`.
-- `CONNECTOR_SECRET_KEY`, `RESEND_API_KEY`, `INBOUND_EMAIL_SECRET` and `CRON_SECRET`, which [Connected services](#connected-services) covers.
+- `CONNECTOR_SECRET_KEY`, `INBOUND_EMAIL_SECRET` and `CRON_SECRET`, which [Connected services](#connected-services) covers.
 - `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET`, when the optional Telegram bot is on.
 
 None of these names has the `NEXT_PUBLIC_` prefix, so Next.js never puts them in the browser bundle. `NEXT_PUBLIC_SUPABASE_ANON_KEY` is public by design, and row-level security limits what it reaches. `.gitignore` excludes `.env` and `.env*.local`, and `.env.example` lists the names with empty values. Each module in `lib/server/`, `lib/llm/` and `lib/connectors/` that reads a secret or calls the store or a provider imports `server-only`, so a client component that imports one fails the build. The helpers that the edge middleware shares with the server and the browser import nothing, `server-only` included: `lib/server/origin.ts`, `lib/server/rate-limit.ts`, `lib/session-cookie.ts`, and `config.ts`, `paths.ts`, `session-id.ts` and `viewer.ts` in `lib/auth/`. `lib/architecture.test.ts` enforces that list, and also fails any `"use client"` file that imports `lib/server`, `lib/store`, `lib/llm`, `lib/connectors` or `server-only`.
@@ -162,7 +162,7 @@ An owner can connect a Twilio number for texts and missed calls, email in and ou
 - **Calls are never recorded.** Maryland requires every party's consent to record a call, so the voice webhook answers with `twimlSayAndHangUp`, which at most says a short message before it hangs up, and nothing records or transcribes the call.
 - **The scheduled sender needs a secret.** `GET /api/cron/dispatch` sends due rows only for a request with `Authorization: Bearer <CRON_SECRET>`.
 - **The sender sends only what was approved.** `dispatchEntry` refuses an outbox row whose card isn't approved, and a row with no card unless it is a Telegram rule's fixed message.
-- **Owners send email with their own Resend key.** An owner pastes a Resend API key and a from-address on a domain they verified in Resend; the key is encrypted like other credentials. `RESEND_API_KEY` and `EMAIL_FROM_ADDRESS` set one shared sender as a fallback for a self-hosted server with one business. Leave them unset on a public deployment: with a shared sender, anyone who signs up can email any address from your domain.
+- **Owners send email with their own Resend key.** An owner pastes a Resend API key and a from-address on a domain they verified in Resend, and the key is encrypted like other credentials. The server has no Resend key of its own, so email goes out only from an owner\'s own account and domain.
 - **Photos stay in the owner's folder.** The photo route finds the business in the caller's session before it reads, `SupabaseStore` refuses any path part that isn't a plain id, and each business keeps at most 60 photos.
 
 ## Recorded work and Telegram
