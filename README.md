@@ -141,8 +141,8 @@ Each service stays off until its variables are set. [Connect real services](#con
 | Variable | What it does |
 | --- | --- |
 | `CONNECTOR_SECRET_KEY` | 32 random bytes in base64 that encrypt every credential an owner connects. Make one with `openssl rand -base64 32`. Without it, no service that needs a secret can be connected. Changing it makes stored credentials unreadable, so owners would reconnect |
-| `RESEND_API_KEY` | The Resend API key that sends approved emails |
-| `EMAIL_FROM_ADDRESS` | The address approved emails come from, on a domain verified in Resend. Each email shows the business's name and sets the owner as reply-to |
+| `RESEND_API_KEY` | Optional shared sender for a self-hosted server with one business. Owners otherwise paste their own Resend key on the Connections page. Leave it unset on a public deployment, or anyone who signs up can email from your domain |
+| `EMAIL_FROM_ADDRESS` | The shared sender's address, on a domain verified in Resend. Each email shows the business's name and sets the owner as reply-to |
 | `INBOUND_EMAIL_ADDRESS` | The Postmark inbound address. Each business forwards to it with its own hook id after a `+` |
 | `INBOUND_EMAIL_SECRET` | A random string that Postmark's webhook URL carries as `?key=`, so only Postmark can post inbound email |
 | `TELEGRAM_BOT_TOKEN` | The shared bot token from BotFather, used only on the server |
@@ -177,7 +177,7 @@ A magic link works only in the browser that asked for it. That browser holds the
 
 A guest who adds an email under **Save your work** keeps the same user id. Their businesses, choices, and cards carry over once they confirm the address.
 
-The server reads and writes with the service role key, which bypasses row-level security. `20261107000200_auth_policies.sql` adds policies as a second layer. With them, a signed-in user's own token can reach only the rows whose `session_id` is that user's id. The anon key alone reaches nothing.
+The server reads and writes with the service role key, which bypasses row-level security. `20261120000000_read_only_browser_access.sql` leaves the browser's token able to read only its own cards, for live updates. The anon key alone reaches nothing.
 
 `purge_expired_demo_data()` deletes guests' and anonymous sessions' rows older than 30 days once you schedule it with `pg_cron`. It skips rows that belong to email and Google accounts. The name dates from the hackathon build; migrations are frozen, so it stays.
 
@@ -224,7 +224,7 @@ An owner connects credential-bearing services on a business's Connections page, 
    2. On the Connections page, enter the Account SID, the auth token and the number.
    3. In Twilio, paste the two webhook URLs the Connections page shows into the number's **Messaging** and **Voice** settings.
    4. Forward the shop's own line to the Twilio number when no one answers. On Verizon dial `*71` and the number; many GSM carriers use `**61*<number>#`.
-3. **Email out.** Verify a sending domain in Resend, then set `RESEND_API_KEY` and `EMAIL_FROM_ADDRESS`.
+3. **Email out.** Set `CONNECTOR_SECRET_KEY`. Each owner verifies a sending domain in their own Resend account and pastes the API key and from-address on the Connections page. For one business on your own server, you can set `RESEND_API_KEY` and `EMAIL_FROM_ADDRESS` instead.
 4. **Email in.** Create a Postmark inbound server. Set `INBOUND_EMAIL_ADDRESS` to its inbound address and `INBOUND_EMAIL_SECRET` to a random string, then set the server's inbound webhook to `<PUBLIC_APP_URL>/api/hooks/email?key=<INBOUND_EMAIL_SECRET>`.
 5. **Stripe invoices.** In Stripe, add the webhook endpoint the Connections page shows, for the `invoice.overdue` and `invoice.payment_failed` events. Paste its signing secret on the Connections page.
 6. **Scheduled work.** Pramukh owns scheduler configuration. The existing dispatch route now also checks due recorded follow-ups and license warnings; Run now checks this work before counting its brief. No additional cron entry is needed. Call `GET /api/cron/dispatch` every 5 minutes and `GET /api/cron/brief` hourly, both with `Authorization: Bearer <CRON_SECRET>`. Both routes return 404 for missing or incorrect authorization. Vercel Cron supplies that header when configured with `CRON_SECRET`; an outside scheduler can supply it too. SMS held for quiet hours needs the dispatch schedule. Telegram and email do not wait for quiet hours. The brief route writes at most once per business per local day from 7 a.m. Eastern.
