@@ -13,7 +13,7 @@ The table lists the layers from the bottom up. A file may always import its own 
 | `lib/domain/` | Workflows, agents and skills, the tool catalog, ratings, the rules engine, the example business, card templates, and the executor's `checkSend` | `zod` only |
 | `lib/api/` | `contract.ts`, the request and response types of every API route, and `schemas.ts`, the Zod schema for every request body | `lib/domain` and `zod` only |
 | `lib/llm/` | The model layer: the `LlmProvider` interface and one adapter per provider | Anything except `lib/server`, `lib/store`, `lib/api`, `lib/auth`, `next` and `react` |
-| `lib/connectors/` | One adapter per connected service: Twilio texts and calls, Resend email out, Stripe invoices, and the shared Telegram bot. Each turns one send, one read or one webhook into plain values | Anything except `lib/server`, `lib/store`, `lib/api`, `lib/auth`, `lib/llm`, `next` and `react` |
+| `lib/connectors/` | One adapter per connected service: Twilio texts and calls, Resend email out, and Stripe invoices. Each turns one send, one read or one webhook into plain values | Anything except `lib/server`, `lib/store`, `lib/api`, `lib/auth`, `lib/llm`, `next` and `react` |
 | `lib/store/` | The `Store` interface, with `SupabaseStore` for Postgres and `MemoryStore` for local runs | Anything except `lib/server`, `lib/llm`, `lib/auth`, `next` and `react` |
 | `lib/auth/` | Supabase Auth clients, the sign-in paths, and the `Viewer` type | Anything except `lib/server`, `lib/store` and `lib/llm` |
 | `lib/server/` | Server-only orchestration: the session, data reads, model calls on the owner's own key, card decisions, the scheduled sender, turning events into cards, and request parsing | Any `lib` layer |
@@ -37,7 +37,7 @@ When the test fails, move the code to the layer that owns it. If the design itse
 - `ui/` holds the primitives that both the site and the app use, such as `Button`, `Card`, `Badge`, `Toast` and `PageSkeleton`.
 - `site/` holds the marketing pages' pieces, and `shell/` holds the app's sidebar, top bar and command palette.
 - `business/` holds the pieces of the business pages under `/app/b/[id]`, and `stack/` holds the Stack page's.
-- `workflows/` holds the Workflows graph, the map and the plan controls, and `connections/` holds the Connections page, the contact list and the Telegram setup.
+- `workflows/` holds the Workflows graph, the map and the plan controls, and `connections/` holds the Connections page and the contact list.
 - `chat/`, `account/`, `onboarding/` and `resize/` each hold one feature.
 - The root holds four shared modules and nothing else. `api.ts` wraps `fetch` for client components, `routes.ts` builds URLs, and `view-helpers.ts` and `agent-labels.ts` hold pure helpers for the views.
 
@@ -51,8 +51,8 @@ When the test fails, move the code to the layer that owns it. If the design itse
 | Learn about the business | `intake.ts` runs chat onboarding; `fields.ts` registers every profile detail and the agents that need it; `details.ts` reads and prints each detail; `cases.ts` holds the example business and its fact sets |
 | Rate tools | `catalog.ts` is the tool catalog; `rating.ts` scores a tool for one business; `discovery.ts` vets a tool the discovery agent found; `discovered.ts` reads `discovered.json` |
 | Agents and skills | `agents.ts` holds every skill; `agent-config.ts` assembles each active agent's settings; `starters.ts` picks the starter drafts; `requests.ts` reads an owner's chat message for a request for work |
-| Cards and sends | `cards.ts` holds a card template per skill; `executor.ts` holds `checkSend`; `rules.ts` holds the standing rules and protocol notices that send without a tap; `contacts.ts` holds customers and their consent; `connections.ts` names the services a business can connect |
-| Customer conversations | `threads.ts` keeps one thread per contact; `conversation.ts` allows the ownership changes for a thread; `customer-routing.ts` picks the Customer skill that answers a Telegram message; `followups.ts` runs follow-up timers from recorded facts |
+| Cards and sends | `cards.ts` holds a card template per skill; `executor.ts` holds `checkSend`; `contacts.ts` holds customers and their consent; `connections.ts` names the services a business can connect |
+| Customer follow-ups | `followups.ts` runs follow-up timers from recorded facts |
 | Bookkeeping | `invoices.ts` holds the payment reminder rules |
 | Marketing | `posts.ts` turns photos and a line into a post; `photos.ts` holds the upload rules; `playbook.ts` and `playbook-seed.ts` hold the post formats, hooks and hashtags |
 | Internal Communications | `brief.ts` writes the morning brief; `renewals.ts` warns about license dates |
@@ -87,7 +87,7 @@ These hold everywhere in the code. A change that breaks one is a design change, 
 
 **The model writes text, and code decides.** `planWorkflows` in `lib/domain/engine.ts` picks the workflows, `pathOptions` and `defaultChoice` in `lib/domain/paths.ts` pick the paths, `rateTool` in `lib/domain/rating.ts` computes every score, and `readRequest` in `lib/domain/requests.ts` decides whether a business chat message asks for work and which chosen skill drafts it. `starterSkills` in `lib/domain/starters.ts` picks which skills get a written starter draft. The model features in `lib/server/ai.ts`, `lib/server/business-chat.ts` and `lib/server/starters.ts` only write or rewrite text or read chat answers, and code validates each reply against the allowed values. They run only on the business's own AI key, which `getBusinessLlm` in `lib/server/business-llm.ts` reads from its connections. With no key, the rules run instead, and onboarding always uses the rules, since it runs before a business exists.
 
-**`checkSend` gates every send.** `lib/server/decide.ts` is the one module that writes to the outbox. `decideCard` runs `checkSend` before it writes an approved card. The two entries that need no card follow their own checks: `queueAcknowledgment` runs `checkSend` on the fixed acknowledgment, and `queueProtocolNotice` runs `checkProtocolNotice` on the bot's fixed answer to a customer's own /start or /stop. `checkSend` refuses a locked thread, an allergy answer, an unfilled `[placeholder]`, and a text with no opt-out line, no consent, or a send time in quiet hours. When quiet hours are the only problem, `decideCard` queues the text for the first hour that passes.
+**`checkSend` gates every send.** `lib/server/decide.ts` is the one module that writes to the outbox. `decideCard` runs `checkSend` before it writes an approved card, and every outbox row stands behind a card the owner approved. `checkSend` refuses a locked thread, an allergy answer, an unfilled `[placeholder]`, and a text with no opt-out line, no consent, or a send time in quiet hours. When quiet hours are the only problem, `decideCard` queues the text for the first hour that passes.
 
 Each outbox row carries a `delivery`: `yours` when the owner sends it from their own phone or email, or `queued`, `sending`, `sent` and `failed` when Anchored sends it. `deliveryFor` in `lib/domain/contacts.ts` picks Anchored only when the business has connected the service, and then texts only a number with a consent record and no STOP reply, and emails only a real address. The dispatcher in `lib/server/dispatch.ts` sends queued rows through the adapters in `lib/connectors/` and runs `checkSend` again at send time, since a queued text can cross into quiet hours and a customer can text STOP after the owner approves.
 
@@ -97,7 +97,6 @@ Each outbox row carries a `delivery`: `yours` when the owner sends it from their
 - `findConnection` lets a webhook find its business by hook id.
 - `listPostPlaybook` reads the shared, read-only post formats, hooks and hashtags.
 - `listBriefTargets` gives the brief and recorded-work schedulers a bounded list of business and session pairs.
-- The shared Telegram bot's webhook knows only a chat id, an update id or the hook id in a customer link, so it adds `findTelegramHook` and `findTelegramChat`, which return the owning session with the business or chat; `setTelegramChatBlocked`, which records a customer blocking the bot; and `claimTelegramUpdate`, `telegramUpdateDone` and `finishTelegramUpdate`, which tell completed updates from busy or failed ones. `telegramUpdateDone` returns only whether an update finished, so a busy update is retried.
 
 Every lookup that returns an owner's row returns its session id, and the caller uses that id for every later call. `docs/security.md` covers the row-level security that backs this up.
 

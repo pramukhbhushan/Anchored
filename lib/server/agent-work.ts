@@ -16,18 +16,9 @@ import { getStore, type Store } from "@/lib/store";
 // follow-up, a STOP, an allergy question, a changed date or a job the owner
 // turned off stops it. Each card's key is fixed, so two runs at once draft it once.
 
-/** Check a contact's persisted allergy locks, including older cards linked through its thread. */
-export async function customerLocked(store: Store, session: string, businessId: string, contactId: string): Promise<boolean> {
-  return lockedAmong(await store.listCards(session, businessId), store, session, businessId, contactId);
-}
-
-/** `customerLocked` over cards the caller already read, so a loop over many customers reads them once. */
-async function lockedAmong(cards: readonly CardRecord[], store: Store, session: string, businessId: string, contactId: string): Promise<boolean> {
-  const locked = cards.filter((card) => card.channel === "locked" && card.status === "pending");
-  if (locked.some((card) => (card.contact === contactId || card.lockedContact === contactId))) return true;
-  if (locked.length === 0) return false;
-  const keys = new Set(locked.map((card) => card.key));
-  return (await store.listThreadMessages(session, businessId, contactId, 200)).some((message) => message.cardKey !== null && keys.has(message.cardKey));
+/** Whether an allergy question from this contact waits for the owner among `cards`, which locks their follow-ups. */
+function lockedAmong(cards: readonly CardRecord[], contactId: string): boolean {
+  return cards.some((card) => card.channel === "locked" && card.status === "pending" && (card.contact === contactId || card.lockedContact === contactId));
 }
 
 /** Count already approved touches to this recorded quote or call, excluding the current card. */
@@ -41,7 +32,7 @@ export async function followupStillAllowed(store: Store, session: string, busine
   const record = (await store.listFollowups(session, business.id)).find((item) => item.id === card.recordedFollowup!.id);
   if (record === undefined || record.contactId !== card.contact || record.skill !== card.skill || record.dueAt !== card.recordedFollowup.dueAt || record.sourceId !== card.recordedFollowup.sourceId) return false;
   const [contacts, saved, cards] = await Promise.all([store.listContacts(session, business.id), store.getChoices(session, business.id), store.listCards(session, business.id)]);
-  const locked = await lockedAmong(cards, store, session, business.id, record.contactId);
+  const locked = lockedAmong(cards, record.contactId);
   return dueFollowup(record, { now, chosen: new Set(chosenSkills(business, resolveChoices(business, saved))), contact: contacts.find((c) => c.id === record.contactId) ?? null, locked, businessName: business.name, previousTouches: touches(cards, record, card.id) }) !== null;
 }
 
@@ -52,7 +43,7 @@ export async function runBusinessAgentWork(store: Store, session: string, busine
   const chosen = new Set<SkillId>(chosenSkills(business, resolveChoices(business, saved)));
   const drafts: KeyedCard[] = [];
   for (const record of records) {
-    const draft = dueFollowup(record, { now, chosen, contact: contacts.find((c) => c.id === record.contactId) ?? null, locked: await lockedAmong(cards, store, session, business.id, record.contactId), businessName: business.name, previousTouches: touches(cards, record) });
+    const draft = dueFollowup(record, { now, chosen, contact: contacts.find((c) => c.id === record.contactId) ?? null, locked: lockedAmong(cards, record.contactId), businessName: business.name, previousTouches: touches(cards, record) });
     if (draft !== null) {
       const { contactId: _contact, ...words } = draft;
       drafts.push({ ...words, contact: record.contactId, agent: agentForSkill(business, record.skill), recordedFollowup: { id: record.id, dueAt: record.dueAt, sourceId: record.sourceId } });

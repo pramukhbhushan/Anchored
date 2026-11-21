@@ -4,7 +4,6 @@ import type { AiProviderId, ServiceKind } from "@/lib/domain/connections";
 import type { ConsentSource, Contact } from "@/lib/domain/contacts";
 import type { IntakeQuestion, KnownFact, ProfileChange } from "@/lib/domain/intake";
 import type { BriefSnapshot } from "@/lib/domain/brief";
-import type { OutboxRule } from "@/lib/domain/rules";
 import type { BusinessProfile, CardDraft, Choice, OnboardingAnswers, PlanApproval, SkillId, WorkflowId } from "@/lib/domain/types";
 
 // =============================================================================
@@ -43,9 +42,9 @@ export type Delivery = "yours" | "queued" | "sending" | "sent" | "failed";
 export interface OutboxEntry {
   readonly id: string;
   readonly businessId: string;
-  /** The card the owner approved; `null` for an entry a standing rule or a protocol notice authorized instead. */
+  /** The card the owner approved; `null` once that card is gone. */
   readonly cardId: string | null;
-  readonly channel: "sms" | "email" | "telegram" | "list";
+  readonly channel: "sms" | "email" | "list";
   readonly to: string;
   readonly body: string;
   /** When it went out, or, while it is queued, when it may. */
@@ -53,16 +52,8 @@ export interface OutboxEntry {
   readonly delivery: Delivery;
   /** Why Anchored didn't send it, or what went wrong, in plain words; `null` when there is nothing to say. */
   readonly note: string | null;
-  /** What authorized it when no card tap did: the owner's standing rule, or the bot's fixed answer to /start or /stop. */
-  readonly rule?: OutboxRule;
-  /** The contact a Telegram entry goes to. `to` holds their name for the owner to read; the chat id stays server side. */
-  readonly contactId?: string;
-  /** Provider identity for server-side operations. Never accepted from deletion request input. */
+  /** The provider's id for the message, such as Twilio's `SM...` sid. Kept server side. */
   readonly providerId?: string;
-  readonly deletionState?: "deleting" | "deleted" | "failed";
-  readonly deletionNote?: string;
-  /** Computed by the server at read time, then checked again on the delete request. */
-  readonly canDeleteTelegram?: boolean;
 }
 
 // =============================================================================
@@ -81,73 +72,6 @@ export interface BriefResponse {
   readonly cardKey: string | null;
   /** Another run is under way, so this one didn't start; the lines are the last finished brief. */
   readonly running: boolean;
-  readonly unavailableReason: string | null;
-}
-
-/** The acknowledgment rule as the owner sees it: on or off, and when they last approved it. */
-export interface AcknowledgmentState {
-  readonly enabled: boolean;
-  readonly approvedAt: string | null;
-}
-
-/**
- * GET and PUT /api/businesses/[id]/standing-rules: the acknowledgment rule's saved state, the exact text it sends, and
- * why it can't change, when it can't. A PUT answers with the state as saved, never the state the owner asked for.
- */
-export interface StandingRulesResponse {
-  readonly acknowledge: AcknowledgmentState;
-  readonly template: string;
-  readonly unavailableReason: string | null;
-}
-
-/** PUT /api/businesses/[id]/standing-rules: turn the acknowledgment rule on or off. */
-export interface SetStandingRuleRequest {
-  readonly enabled: boolean;
-}
-
-/** One customer in the Customer agent's list, newest conversation first. */
-export interface CustomerSummary {
-  readonly id: string;
-  readonly name: string;
-  readonly lastText?: string;
-  readonly lastAt?: string;
-  /** The customer sent /stop or blocked the bot. */
-  readonly stopped: boolean;
-  /** An allergy question of theirs waits for the owner's own answer. */
-  readonly locked: boolean;
-}
-
-/** One message in a customer's thread, with what happened to it when Anchored sent it. */
-export interface ThreadMessageView {
-  readonly id: string;
-  readonly direction: "in" | "out";
-  readonly text: string;
-  readonly at: string;
-  readonly skill?: string;
-  readonly cardKey?: string;
-  readonly delivery?: "queued" | "sending" | "sent" | "failed";
-  readonly note?: string;
-  /** Set when a rule sent it with no card: the owner's acknowledgment rule or the bot's answer to /start or /stop. */
-  readonly rule?: OutboxRule;
-}
-
-/**
- * GET /api/businesses/[id]/customers?contact=<id>: the business's Telegram customers and one customer's thread,
- * oldest message first. `selectedContactId` is `null` when there are none or the asked-for one isn't this business's.
- */
-export interface CustomersResponse {
-  readonly contacts: readonly CustomerSummary[];
-  readonly selectedContactId: string | null;
-  readonly messages: readonly ThreadMessageView[];
-  readonly unavailableReason?: string;
-}
-
-/**
- * GET /api/businesses/[id]/telegram: the link customers open to message this business through the shared bot, or
- * the reason there is none. Exactly one of the two is set. The bot's token never appears here.
- */
-export interface TelegramSetupResponse {
-  readonly url: string | null;
   readonly unavailableReason: string | null;
 }
 
@@ -377,10 +301,6 @@ export interface SaveContactRequest {
   /** Where their OK to get texts came from, or `null` for none. */
   readonly consent: ConsentSource | null;
 }
-
-/** POST /api/businesses/[id]/outbox/[entry]/delete: confirm removal from Telegram, preserving the audit record. */
-export interface DeleteTelegramRequest { readonly confirm: true }
-export interface DeleteTelegramResponse { readonly deleted: boolean; readonly message: string }
 
 /** Owner-entered future work, not permission to send. */
 export type ScheduleFollowupRequest = FollowupInput;

@@ -12,7 +12,7 @@ Say what an attacker could do, the steps to reproduce it, and the commit or depl
 
 In scope: this repository's code, such as the session and account checks, the `Store` session filters, the send rules in `checkSend`, the webhook signature checks, and the AI call budget.
 
-Out of scope: a deployment someone else runs, and the services Anchored connects to, such as Supabase, Twilio, Stripe, Resend and Telegram. Report those to their owners.
+Out of scope: a deployment someone else runs, and the services Anchored connects to, such as Supabase, Twilio, Stripe and Resend. Report those to their owners.
 
 ## How Anchored protects data
 

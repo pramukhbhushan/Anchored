@@ -227,9 +227,9 @@ describe("refusing what nobody approved", () => {
     expect(await onlyEntry()).toMatchObject({ delivery: "failed", note: "This message was never approved, so it wasn't sent." });
   });
 
-  it("sends no email that names a rule instead of a card", async () => {
+  it("sends no email with no card behind it", async () => {
     await store.saveConnection(SESSION, { businessId: SHOP.id, kind: "email-out", hookId: "b".repeat(24), settings: { replyTo: "dana@cpha.test" }, secret: null });
-    const entry = await store.addOutbox(SESSION, { businessId: SHOP.id, cardId: null, channel: "email", to: "victim@example.com", body: "Hello", delivery: "queued", rule: "protocol" });
+    const entry = await store.addOutbox(SESSION, { businessId: SHOP.id, cardId: null, channel: "email", to: "victim@example.com", body: "Hello", delivery: "queued" });
     const resend = provider(200, { id: "em_4" });
 
     expect(await dispatchEntry(store, SESSION, entry.id, NOON, { fetch: resend.fetchImpl, env: ENV })).toBe("failed");

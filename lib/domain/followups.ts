@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Contact } from "@/lib/domain/contacts";
+import { OPT_OUT_LINE, QUIET_HOURS_RULE } from "@/lib/domain/executor";
 import type { CardDraft, SkillId } from "@/lib/domain/types";
 
 // =============================================================================
@@ -7,8 +8,10 @@ import type { CardDraft, SkillId } from "@/lib/domain/types";
 // =============================================================================
 // Follow-up timers run from facts an owner recorded, never dates or job states
 // guessed from a customer's message. Each timer creates at most one draft for
-// that customer, skill and due day. The owner still approves every message.
-// Debrief stays an owner note. A payment alone doesn't count as a completed job.
+// that customer, skill and due day. A customer's draft is a text to their
+// number on file, which needs a texting OK, and the owner still approves every
+// message. Debrief stays an owner note. A payment alone doesn't count as a
+// completed job.
 
 /** Customer skills with a recorded-fact timer. */
 export const FOLLOWUP_SKILLS = ["callback", "closer", "callfollow", "reactivator", "keeper", "referral", "debrief", "showup", "reviewer"] as const;
@@ -94,7 +97,7 @@ export function dueFollowup(record: RecordedFollowup, context: FollowupContext):
   const contact = context.contact;
   if (contact === null || contact.id !== record.contactId || contact.businessId !== record.businessId || contact.optedOutAt !== null) return null;
   const ownerOnly = record.skill === "debrief";
-  if (!ownerOnly && (contact.telegramChatId === undefined || contact.consent === null)) return null;
+  if (!ownerOnly && (contact.phone === null || contact.consent === null)) return null;
   const copy = COPY[record.skill];
   return {
     // A second record for the same customer and due day must not produce another draft.
@@ -102,12 +105,12 @@ export function dueFollowup(record: RecordedFollowup, context: FollowupContext):
     skill: record.skill,
     contactId: contact.id,
     title: `${copy.title}: ${contact.name}`,
-    body: ownerOnly ? copy.body : `${context.businessName}: ${copy.body}`,
+    body: ownerOnly ? copy.body : `${context.businessName}: ${copy.body} ${OPT_OUT_LINE}`,
     reason: `You recorded this follow-up and its due time. Source: ${parsed.data.evidence}`,
-    checks: ["Due time and job state recorded by you", "No price or open time guessed", ...(ownerOnly ? ["Nothing sent to the customer"] : ["Waiting for your approval"])],
-    action: ownerOnly ? "Mark read" : "Send Telegram message",
-    channel: ownerOnly ? "flag" : "telegram",
-    ...(ownerOnly ? {} : { contact: contact.id }),
-    to: contact.name,
+    checks: ["Due time and job state recorded by you", "No price or open time guessed", ...(ownerOnly ? ["Nothing sent to the customer"] : [QUIET_HOURS_RULE, "Waiting for your approval"])],
+    action: ownerOnly ? "Mark read" : "Send text",
+    channel: ownerOnly ? "flag" : "sms",
+    // A text goes to the number on file, so the sender can match it to this customer's texting OK and any STOP.
+    ...(ownerOnly ? { to: contact.name } : { contact: contact.id, to: contact.phone ?? contact.name }),
   };
 }

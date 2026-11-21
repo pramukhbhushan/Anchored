@@ -53,7 +53,6 @@ const LIMITS = {
   hook: { bucket: "hook", windowMs: WINDOW_MS, perSession: 600, perIp: 3000 },
   // Recorded follow-ups and license dates create rows and can draft a card.
   agentWork: { bucket: "agent-work", windowMs: WINDOW_MS, perSession: 30, perIp: 150 },
-  telegramDelete: { bucket: "telegram-delete", windowMs: WINDOW_MS, perSession: 20, perIp: 100 },
   // Run now writes a brief card; a few a minute is plenty for an owner checking it.
   brief: { bucket: "brief", windowMs: WINDOW_MS, perSession: 30, perIp: 150 },
   // Approving the plan and adding a job each save a new profile version, a full snapshot row.
@@ -132,7 +131,6 @@ export function limitFor(method: string, pathname: string): ApiLimit {
   if (/^\/api\/businesses\/[^/]+\/ai-key\/?$/.test(pathname)) return LIMITS.aiKey;
   if (/^\/api\/businesses\/[^/]+\/(?:connections|contacts)(?:\/[^/]+)?\/?$/.test(pathname)) return LIMITS.connect;
   if (/^\/api\/businesses\/[^/]+\/automations\/?$/.test(pathname)) return LIMITS.automation;
-  if (method === "POST" && /^\/api\/businesses\/[^/]+\/outbox\/[^/]+\/delete\/?$/.test(pathname)) return LIMITS.telegramDelete;
   if (/^\/api\/businesses\/[^/]+\/(?:followups|licenses)\/?$/.test(pathname)) return LIMITS.agentWork;
   if (method === "PUT" && /^\/api\/businesses\/[^/]+\/plan\/?$/.test(pathname)) return LIMITS.profile;
   if (method !== "POST") return LIMITS.mutation;

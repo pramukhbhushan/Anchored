@@ -23,23 +23,16 @@ The page is `app/app/b/[id]/workflows/[workflow]/page.tsx`, and the automation p
 
 ## How a card is made
 
-1. **Something happens.** A customer messages the business on Telegram, a webhook delivers an event, the owner types in chat, or a scheduled job finds due work. `ingestEvent` in `lib/server/ingest.ts` maps each event source to a skill through `SOURCE_SKILLS`.
+1. **Something happens.** A webhook delivers an event, such as a customer's text or a missed call, the owner types in chat, or a scheduled job finds due work. `ingestEvent` in `lib/server/ingest.ts` maps each event source to a skill through `SOURCE_SKILLS`.
 2. **Code decides.** Code picks the skill, the contact and the facts. The model writes only the words, and code checks the reply before it uses it. With no AI provider set, or when a reply fails a check, the card uses a template.
 3. **The owner approves.** `decideCard` in `lib/server/decide.ts` runs `checkSend` and writes the approved message to the outbox.
 4. **Anchored sends.** `lib/server/dispatch.ts` runs `checkSend` again at send time, then sends through the connector. `GET /api/cron/dispatch` sends what is due.
 
 ## Customer
 
-Customer answers new messages and follows up on work the owner recorded.
+Customer answers new messages and follows up on work the owner recorded. A customer's text or missed call to the owner's Twilio number becomes a draft through `ingestEvent`.
 
-- **Telegram, optional.** Customers message the business through a shared Telegram bot. It is off unless the server sets `TELEGRAM_BOT_TOKEN` and `TELEGRAM_BOT_USERNAME`, and it has not been verified in production. `telegramSetup` in `lib/server/telegram-setup.ts` gives each business its own link and a QR code drawn on the server. The shared example business never gets one. [Set up Telegram](deploy.md#set-up-telegram) registers the webhook.
-- **The webhook.** `app/api/hooks/telegram/route.ts` checks the secret header, claims each update once, and answers 200 only after the work is saved. An update still in progress gets a 503, so Telegram retries it.
-- **Commands.** In `lib/server/telegram-hooks.ts`, `/start <link>` binds the chat to the business and records consent. `/stop`, or blocking the bot, opts the customer out.
-- **Picking the skill.** `routeCustomerMessage` in `lib/domain/customer-routing.ts` tries closer, then showup, catering and inquiry, among the skills the owner chose. A billing question, or a message no chosen skill can answer, becomes a note for the owner.
-- **Drafting.** `draftTelegramCard` in `lib/server/customer-reply.ts` gives the model the last 10 messages of the thread. An allergy question becomes a locked card that Anchored never drafts an answer for.
-- **Acknowledgment.** The `acknowledge` standing rule starts on (`defaultRuleState` in `lib/domain/rules.ts`). It sends a fixed reply at most once per contact every 12 hours. Turning it off cancels the acknowledgments still queued. Free-text replies always wait in Approvals.
-- **Recorded follow-ups.** The owner records a contact, a chosen skill, a due time, the job's state, a source id and evidence through `FollowupSchedule`, which calls `GET`, `POST` and `PUT /api/businesses/[id]/followups`. `dueFollowup` in `lib/domain/followups.ts` turns a due record into a draft. Closer and Call Follow-up stop after 3 approved touches. Debrief makes a note for the owner, not a customer message. A timer never sends on its own.
-- **Removing a sent message.** The outbox offers removal of a Telegram message for 48 hours after it was sent, through `POST /api/businesses/[id]/outbox/[entry]/delete` with `{ "confirm": true }`. The server decides eligibility from the stored message. Removal keeps the sent text and the delivery history, and the customer may already have read it.
+- **Recorded follow-ups.** The owner records a contact, a chosen skill, a due time, the job's state, a source id and evidence through `FollowupSchedule`, which calls `GET`, `POST` and `PUT /api/businesses/[id]/followups`. `dueFollowup` in `lib/domain/followups.ts` turns a due record into a draft text to the contact's number, which needs a texting OK on file. Closer and Call Follow-up stop after 3 approved touches. Debrief makes a note for the owner, not a customer message. A timer never sends on its own.
 
 ## Bookkeeping
 

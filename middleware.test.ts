@@ -203,7 +203,6 @@ describe("limitFor", () => {
 
   it("gives Run now on the daily brief its own bucket, apart from other changes", () => {
     expect(limitFor("POST", "/api/businesses/b_1/brief")).toMatchObject({ bucket: "brief", perSession: 30 });
-    expect(limitFor("PUT", "/api/businesses/b_1/standing-rules").bucket).toBe("mutation");
   });
 
   it("gives connecting a service and saving a contact their own bucket", () => {
@@ -459,9 +458,8 @@ describe("middleware with accounts on", () => {
 });
 
 
-it("gives recorded work and Telegram removal their own mutation limits", () => {
+it("gives recorded work its own mutation limit", () => {
   expect(limitFor("POST", "/api/businesses/shop/followups").bucket).toBe("agent-work");
   expect(limitFor("PUT", "/api/businesses/shop/followups").bucket).toBe("agent-work");
   expect(limitFor("PUT", "/api/businesses/shop/licenses").bucket).toBe("agent-work");
-  expect(limitFor("POST", "/api/businesses/shop/outbox/entry/delete").bucket).toBe("telegram-delete");
 });

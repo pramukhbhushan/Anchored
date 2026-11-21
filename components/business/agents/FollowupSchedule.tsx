@@ -134,8 +134,8 @@ function ScheduleControl({ businessId, records, contacts, skills }: FollowupSche
   return (
     <>
       <p>Record the job or customer fact and when its draft is due. Anchored never chooses a date for you. Every message waits in Approvals for your OK.</p>
-      <p>Customer drafts go out on Telegram. A debrief writes a note for you and contacts nobody.</p>
-      {available.length === 0 ? <p>Choose a follow-up job on Workflows before recording its schedule.</p> : contacts.length === 0 ? <p>No customers are recorded yet. Open your Telegram link with a customer first.</p> : (
+      <p>Customer drafts are texts to the number on file, for customers with a texting OK. A debrief writes a note for you and contacts nobody.</p>
+      {available.length === 0 ? <p>Choose a follow-up job on Workflows before recording its schedule.</p> : contacts.length === 0 ? <p>No customers are recorded yet. Add one under Customers on Connections first.</p> : (
         <form onSubmit={submit}>
           <fieldset className={styles.fields} disabled={busy !== null}>
             <label htmlFor={`${id}-contact`}>Customer<select id={`${id}-contact`} value={contactId} onChange={(event) => setContactId(event.currentTarget.value)} required>{contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name}</option>)}</select></label>

@@ -100,7 +100,7 @@ With `AI_PROVIDER=anthropic`, the agent uses Claude's web search. Other provider
 
 | Doc | Covers |
 | --- | --- |
-| [`docs/deploy.md`](docs/deploy.md) | Supabase, Vercel, AI, connected services, Telegram and every environment variable |
+| [`docs/deploy.md`](docs/deploy.md) | Supabase, Vercel, AI, connected services and every environment variable |
 | [`docs/architecture.md`](docs/architecture.md) | The layers, the rules that keep owners' customers safe, and where to add a workflow, tool, route or connector |
 | [`docs/agents.md`](docs/agents.md) | The four agents, what each drafts and what starts it |
 | [`docs/connectors.md`](docs/connectors.md) | The connected services, the rules they follow, and the ones not built |

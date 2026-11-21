@@ -5,9 +5,7 @@ import type { Contact } from "@/lib/domain/contacts";
 import type { IntakeDraft } from "@/lib/domain/intake";
 import type { PostPlaybook } from "@/lib/domain/playbook";
 import type { BriefSnapshot } from "@/lib/domain/brief";
-import type { OutboxRule, StandingRuleId, StandingRuleState } from "@/lib/domain/rules";
-import type { NewThreadMessage, ThreadMessage } from "@/lib/domain/threads";
-import type { BusinessProfile, Choice, ChoiceMap, ConversationOwner, KeyedCard, ProfileChangeSource, TradeKey, WorkflowId } from "@/lib/domain/types";
+import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, ProfileChangeSource, TradeKey, WorkflowId } from "@/lib/domain/types";
 
 // =============================================================================
 // Module Overview
@@ -37,8 +35,6 @@ export interface OutboxPatch {
   readonly note?: string | null;
   /** The provider's id for the message, such as Twilio's `SM...` sid. */
   readonly providerId?: string;
-  readonly deletionState?: "deleting" | "deleted" | "failed";
-  readonly deletionNote?: string;
   /** When it actually went out. */
   readonly sentAt?: string;
 }
@@ -85,20 +81,6 @@ export interface ChatThread {
 /** A chat message before the store assigns its id and time. A reply's card is read from the cards, never stored on it. */
 export type NewChatMessage = Omit<ChatMessage, "id" | "at" | "card">;
 
-/** Which business a Telegram chat is talking to: the one whose link the customer opened last, with the owning session. */
-export interface TelegramChat {
-  readonly chatId: string;
-  readonly session: string;
-  readonly businessId: string;
-  readonly contactId: string;
-  readonly boundAt: string;
-  /** When the customer blocked the bot, or `null`. Blocking stops every business on the shared bot. */
-  readonly blockedAt: string | null;
-}
-
-/** A Telegram chat binding before it is saved. The session comes from the caller. */
-export type NewTelegramChat = Omit<TelegramChat, "session" | "blockedAt">;
-
 /** A business's daily brief: whether one is being written, and the last one that finished. */
 export interface BriefState {
   readonly runningSince: string | null;
@@ -135,9 +117,9 @@ export interface StoredEvent {
 }
 
 /**
- * Persistence for businesses, choices, cards, the outbox, raw events, chats, contacts, connections, customer threads,
- * Telegram chats, standing rules and post photos. Every method takes the session first and touches only its rows, except
- * the ones marked deployment-wide, which webhooks, the scheduled sender and the shared post playbook use.
+ * Persistence for businesses, choices, cards, the outbox, raw events, chats, contacts, connections and post photos.
+ * Every method takes the session first and touches only its rows, except the ones marked deployment-wide, which
+ * webhooks, the scheduled sender and the shared post playbook use.
  */
 export interface Store {
   readonly kind: "supabase" | "memory";
@@ -169,11 +151,6 @@ export interface Store {
    */
   cancelInvoiceReminders(session: string, businessId: string, invoiceKey: string, note: string): Promise<{ readonly cards: number; readonly outbox: number }>;
   addOutbox(session: string, entry: NewOutboxEntry): Promise<OutboxEntry>;
-  /**
-   * Add an entry a rule authorized, unless the session already has one with the same `ruleKey`; `null` then. One
-   * statement checks and writes, so a burst of messages or a retried update queues one acknowledgment.
-   */
-  addRuleOutbox(session: string, entry: NewOutboxEntry & { readonly rule: OutboxRule; readonly ruleKey: string }): Promise<OutboxEntry | null>;
   listOutbox(session: string, businessId: string): Promise<OutboxEntry[]>;
   recordEvent(session: string, businessId: string, source: string, payload: Readonly<Record<string, unknown>>): Promise<void>;
   /** Return this business's retained raw inputs, oldest first, optionally from `since`. */
@@ -187,8 +164,6 @@ export interface Store {
   saveIntake(session: string, intake: IntakeRecord): Promise<void>;
   /** The onboarding chat that built `businessId`, or `null` when the business came from the form or an example. */
   findIntakeByBusiness(session: string, businessId: string): Promise<IntakeRecord | null>;
-  /** Claim deletion of a sent Telegram message once, scoped to its business and session. */
-  claimTelegramDeletion(session: string, businessId: string, entryId: string): Promise<OutboxEntry | null>;
   /** Mark a queued entry as sending and return it; `null` when it isn't queued, so two senders can't both send it. */
   claimOutbox(session: string, entryId: string): Promise<OutboxEntry | null>;
   settleOutbox(session: string, entryId: string, patch: OutboxPatch): Promise<void>;
@@ -212,40 +187,6 @@ export interface Store {
   photoExists(session: string, businessId: string, photoId: string): Promise<boolean>;
   /** The post formats, hooks and hashtags that apply to `niche`. Shared reference rows, read-only. Deployment-wide. */
   listPostPlaybook(niche: TradeKey): Promise<PostPlaybook>;
-  /**
-   * Return the business's Telegram hook id, the random id in its customer link. The first call saves `candidate`;
-   * later calls return the saved one. Throws `NotFoundError` when the business isn't the session's.
-   */
-  telegramHook(session: string, businessId: string, candidate: string): Promise<string>;
-  /** The business a Telegram hook id names, with the session that owns it, or `null`. Deployment-wide. */
-  findTelegramHook(hookId: string): Promise<{ readonly session: string; readonly businessId: string } | null>;
-  /** The business a Telegram chat is bound to, with its session, or `null`. Deployment-wide: the bot knows only the chat id. */
-  findTelegramChat(chatId: string): Promise<TelegramChat | null>;
-  /** Bind a chat to one of the session's businesses, replacing any earlier binding and clearing a block. */
-  bindTelegramChat(session: string, chat: NewTelegramChat): Promise<TelegramChat>;
-  /** Record that the customer blocked the bot, or `null` once they unblock it. Deployment-wide. */
-  setTelegramChatBlocked(chatId: string, at: string | null): Promise<void>;
-  /** Report whether an update finished, so a delivery that arrives while another is still processing it is retried. Deployment-wide. */
-  telegramUpdateDone(updateId: number): Promise<boolean>;
-  /**
-   * Claim a Telegram update so it is processed once: `true` for the caller that should process it. A failed update, or
-   * one claimed more than `retakeAfterMs` ago and never finished, can be claimed again. Deployment-wide.
-   */
-  claimTelegramUpdate(updateId: number, now: string, retakeAfterMs: number): Promise<boolean>;
-  /** Record how processing a claimed update ended. Deployment-wide. */
-  finishTelegramUpdate(updateId: number, status: "done" | "failed"): Promise<void>;
-  /** Append a message to a customer's thread and return it as stored. */
-  addThreadMessage(session: string, message: NewThreadMessage): Promise<ThreadMessage>;
-  /** Return the latest `limit` messages of a customer's thread, oldest first. */
-  listThreadMessages(session: string, businessId: string, contactId: string, limit: number): Promise<ThreadMessage[]>;
-  /** Return which agent owns a customer's conversation. A new conversation starts at Front Desk. */
-  getConversationOwner(session: string, businessId: string, contactId: string): Promise<ConversationOwner>;
-  /** Save the code-validated owner of a customer's conversation. */
-  setConversationOwner(session: string, businessId: string, contactId: string, owner: ConversationOwner, at: string): Promise<void>;
-  /** Return the business's saved standing rules. A rule with no saved state is off. */
-  getStandingRules(session: string, businessId: string): Promise<StandingRuleState[]>;
-  /** Turn a standing rule on or off at `at`, and return it as saved. */
-  setStandingRule(session: string, businessId: string, rule: StandingRuleId, enabled: boolean, at: string): Promise<StandingRuleState>;
   /** Return the business's brief state, or `null` before its first brief. */
   getBriefState(session: string, businessId: string): Promise<BriefState | null>;
   /**

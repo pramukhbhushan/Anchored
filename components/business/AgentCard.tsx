@@ -29,11 +29,6 @@ const REWRITE_FAILED = "Couldn't rewrite right now. The draft is unchanged.";
 const STALE_DRAFT = "This draft changed. Reload to see the latest.";
 const SEE_OUTBOX: ToastLink = { label: "See outbox", href: "#outbox" };
 
-/** Report whether a channel uses Anchored's shared Telegram bot. */
-function isTelegram(channel: string): boolean {
-  return channel === "telegram";
-}
-
 /** Return the toast after an approval that went through, and its link; `copied` says whether a copy card's text reached the clipboard. */
 function approvedToast(card: CardRecord, result: DecideCardResponse, business: HandOffBusiness, copied: boolean | null): { message: string; link?: ToastLink } {
   if (card.channel === "locked") return { message: "Marked as yours" };
@@ -43,14 +38,11 @@ function approvedToast(card: CardRecord, result: DecideCardResponse, business: H
       ? { message: `Approved. The ${thing} is on your clipboard, ready to paste.`, link: SEE_OUTBOX }
       : { message: `Approved. Your browser blocked the clipboard, so copy the ${thing} from the outbox.`, link: SEE_OUTBOX };
   }
-  const what = card.channel === "email" ? "email" : isTelegram(card.channel) ? "Telegram message" : "text";
+  const what = card.channel === "email" ? "email" : "text";
   const outbox = result.outbox;
   // Anchored took the message on, so the owner has nothing to send; say only what actually happened.
   if (outbox?.delivery === "sent") return { message: `Approved. Anchored sent the ${what} to ${outbox.to}.`, link: SEE_OUTBOX };
   if (outbox?.delivery === "queued" || outbox?.delivery === "sending") return { message: `Approved. Anchored will send the ${what}.`, link: SEE_OUTBOX };
-  if (outbox?.delivery === "failed" && isTelegram(outbox.channel)) {
-    return { message: "Approved, but the Telegram message didn't send. Check the Telegram connection.", link: { label: "See connections", href: businessHref(card.businessId, "connections") } };
-  }
   const draft = outbox === undefined ? null : approvedDraft(outbox, result.card);
   const step = draft === null ? null : handOff(draft, business);
   const lead = outbox?.delivery === "failed" ? `Approved, but it didn't send${outbox.note === null ? "." : `: ${outbox.note}`}` : `Approved. The ${what} is ready to send.`;
@@ -71,7 +63,7 @@ function decidedLabel(card: CardRecord): string {
 /** Return the line above a card's title: who drafted it and, when it has one, who it goes to. */
 function whoLine(card: CardRecord, source: string): string {
   if (card.to === undefined || card.to === "") return source;
-  const to = card.channel === "sms" ? `text to ${card.to}` : card.channel === "email" ? `email to ${card.to}` : isTelegram(card.channel) ? `Telegram message to ${card.to}` : `for ${card.to}`;
+  const to = card.channel === "sms" ? `text to ${card.to}` : card.channel === "email" ? `email to ${card.to}` : `for ${card.to}`;
   return `${source}, ${to}`;
 }
 

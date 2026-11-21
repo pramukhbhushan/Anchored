@@ -104,7 +104,7 @@ describe("doc links", () => {
     expect(linkedPath("docs/agents.md", "testing/agent-demo.md#live-checks")).toBe("docs/testing/agent-demo.md");
     expect(linkedPath("README.md", "Agent%20System%20Implementation/README.md")).toBe("Agent System Implementation/README.md");
     expect(linkedPath("README.md", "https://example.com/a.md")).toBeNull();
-    expect(linkedPath("README.md", "#set-up-telegram")).toBeNull();
+    expect(linkedPath("README.md", "#configuration")).toBeNull();
     expect(backtickedPath("lib/domain/executor.ts:42")).toBe("lib/domain/executor.ts");
     expect(backtickedPath("supabase/migrations/<timestamp>_<what>.sql")).toBeNull();
     expect(backtickedPath("npm run check")).toBeNull();

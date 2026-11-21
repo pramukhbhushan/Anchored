@@ -346,7 +346,7 @@ async function writeWords(session: string, business: BusinessProfile, request: D
 }
 
 // The longest draft each channel takes. A text runs a few lines; a post or a review reply a short paragraph.
-const WORDS_MAX: Readonly<Record<Channel, number>> = { sms: 360, email: 900, telegram: 600, list: 600, locked: 0, flag: 0 };
+const WORDS_MAX: Readonly<Record<Channel, number>> = { sms: 360, email: 900, list: 600, locked: 0, flag: 0 };
 
 /** Ask the model for the draft's words, and refuse a reply that adds a fact, mentions an allergen or leaves a blank. */
 async function wordsFromModel(llm: LlmProvider, business: BusinessProfile, request: DraftRequest, text: string): Promise<string> {

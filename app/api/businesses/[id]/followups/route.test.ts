@@ -38,7 +38,7 @@ beforeEach(async () => {
   state.session = "owner";
   await store().saveBusiness(state.session, SHOP);
   await store().setChoice(state.session, SHOP.id, "calls", { path: "build", skills: ["callback"] });
-  contactId = (await store().saveContact(state.session, { businessId: SHOP.id, name: "Dana", phone: null, email: null, consent: { source: "messaged-first", at: "2026-11-08T12:00:00Z" }, optedOutAt: null, telegramChatId: "123" })).id;
+  contactId = (await store().saveContact(state.session, { businessId: SHOP.id, name: "Dana", phone: "+13015550192", email: null, consent: { source: "texted-first", at: "2026-11-08T12:00:00Z" }, optedOutAt: null })).id;
 });
 afterEach(() => { vi.useRealTimers(); });
 
@@ -49,7 +49,7 @@ describe("follow-up route", () => {
     const data = await response.json() as FollowupsResponse;
     expect(data.records).toHaveLength(1);
     expect(data.records[0]).toMatchObject({ businessId: SHOP.id, contactId, status: "active", dueAt: "2026-11-09T14:00:00.000Z", sourceId: "call:001", evidence: input().evidence });
-    expect((await store().listCards("owner", SHOP.id))[0]).toMatchObject({ status: "pending", channel: "telegram", contact: contactId });
+    expect((await store().listCards("owner", SHOP.id))[0]).toMatchObject({ status: "pending", channel: "sms", contact: contactId });
     expect(await store().listOutbox("owner", SHOP.id)).toEqual([]);
     expect((await (await route.GET(request("GET"), params())).json() as FollowupsResponse).records).toEqual(data.records);
   });

@@ -112,7 +112,6 @@ Secrets come only from environment variables:
 
 - `SUPABASE_SERVICE_ROLE_KEY`, read in `lib/store/index.ts`.
 - `CONNECTOR_SECRET_KEY` and `CRON_SECRET`, which [Connected services](#connected-services) covers.
-- `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET`, when the optional Telegram bot is on.
 
 Owners' AI keys live encrypted in the database, as [Owner AI keys](#owner-ai-keys) describes. None of these names has the `NEXT_PUBLIC_` prefix, so Next.js never puts them in the browser bundle. `NEXT_PUBLIC_SUPABASE_ANON_KEY` is public by design, and row-level security limits what it reaches. `.gitignore` excludes `.env` and `.env*.local`, and `.env.example` lists the names with empty values. Each module in `lib/server/`, `lib/llm/` and `lib/connectors/` that reads a secret or calls the store or a provider imports `server-only`, so a client component that imports one fails the build. The helpers that the edge middleware shares with the server and the browser import nothing, `server-only` included: `lib/server/origin.ts`, `lib/server/rate-limit.ts`, `lib/session-cookie.ts`, and `config.ts`, `paths.ts`, `session-id.ts` and `viewer.ts` in `lib/auth/`. `lib/architecture.test.ts` enforces that list, and also fails any `"use client"` file that imports `lib/server`, `lib/store`, `lib/llm`, `lib/connectors` or `server-only`.
 
@@ -158,23 +157,23 @@ An owner can connect a Twilio number for texts and missed calls, email out, and 
 - **Credentials are encrypted.** `encryptSecret` in `lib/server/secrets.ts` seals each connected secret, such as a Twilio auth token or a Stripe signing secret, with AES-256-GCM under `CONNECTOR_SECRET_KEY`, 32 random bytes in base64. The database holds only ciphertext, and no page or API response shows a secret back. With no key set, a service that needs a secret can't be connected.
 - **Only signed-in email or Google accounts can connect.** A guest's only credential is a cookie, and the retention job deletes guest rows after 30 days. `ANCHORED_ALLOW_GUEST_CONNECTIONS=1` lifts this for local runs only.
 - **Each webhook proves who sent it.** Twilio requests must carry an `X-Twilio-Signature` that matches HMAC-SHA1 under the owner's auth token, checked by `verifyTwilioRequest` in `lib/connectors/twilio.ts`. Stripe events must carry a `Stripe-Signature` that matches HMAC-SHA256 under the endpoint's signing secret, signed within the last 5 minutes so a captured event can't be replayed. The signature checks compare in constant time.
-- **A webhook finds its business only by hook id.** `newHookId` in `lib/server/secrets.ts` gives each connection 24 random lower-case letters and digits, which its webhook URL carries. The route finds the business with `Store.findConnection`, never through a session. The shared Telegram bot works the same way: a customer link carries the business's own random `telegram_hook_id`, `Store.findTelegramHook` finds the business from it, and `Store.findTelegramChat` finds which business a chat last opened. `telegram_chats` and `telegram_updates` have row-level security on and no policy, so only the server reads them.
+- **A webhook finds its business only by hook id.** `newHookId` in `lib/server/secrets.ts` gives each connection 24 random lower-case letters and digits, which its webhook URL carries. The route finds the business with `Store.findConnection`, never through a session.
 - **STOP and START replies update the contact.** A STOP reply marks the contact opted out and a START reply clears it. `deliveryFor` and the dispatcher never text an opted-out number.
 - **Calls are never recorded.** Maryland requires every party's consent to record a call, so the voice webhook answers with `twimlSayAndHangUp`, which at most says a short message before it hangs up, and nothing records or transcribes the call.
 - **The scheduled sender needs a secret.** `GET /api/cron/dispatch` sends due rows only for a request with `Authorization: Bearer <CRON_SECRET>`.
-- **The sender sends only what was approved.** `dispatchEntry` refuses an outbox row whose card isn't approved, and a row with no card unless it is a Telegram rule's fixed message.
+- **The sender sends only what was approved.** `dispatchEntry` refuses an outbox row whose card isn't approved, and a row with no card.
 - **Owners send email with their own Resend key.** An owner pastes a Resend API key and a from-address on a domain they verified in Resend, and the key is encrypted like other credentials. The server has no Resend key of its own, so email goes out only from an owner\'s own account and domain.
 - **Photos stay in the owner's folder.** The photo route finds the business in the caller's session before it reads, `SupabaseStore` refuses any path part that isn't a plain id, and each business keeps at most 60 photos.
 
-## Recorded work and Telegram
-
-Telegram is optional. It stays off unless the server sets `TELEGRAM_BOT_TOKEN`, and it has not been verified in production.
+## Recorded work
 
 - **Recorded work stays in its session.** The follow-up and license routes take the session from the server, read their bodies through `readBody` with a Zod schema, and share the `agentWork` rate limit in `middleware.ts`. A contact or follow-up must belong to the current business. A saved date or source creates approval cards only.
 - **Follow-ups are stored like the other owner data.** `customer_followups` has row-level security, both stores filter it by session and business, `reset` clears it, and deleting a business deletes its follow-ups. License dates live in the versioned profile and follow its retention.
-- **Two lookups read across sessions, on purpose.** `listBriefTargets` returns business and session pairs for the brief and recorded-work schedulers, and every later read and write uses that session. `telegramUpdateDone` returns only whether one update id is finished. An update still in progress gets a 503, so Telegram retries it until the work is saved.
-- **An uncertain Telegram send is never repeated blindly.** Every Telegram send except a protocol notice checks the allergy lock again. A timeout, a transport error or an unreadable success reply marks the send uncertain. It fails, and the owner is asked to check the conversation. A 429 or a server error may be retried once. A database failure after Telegram accepted the message also reports the send as uncertain.
-- **Removing a message checks the stored record.** The delete route takes only an outbox id and an explicit confirmation. It checks the session and business, the sent status, the 48-hour window and the server settings before it claims the removal. The chat and message ids come from storage, never from the request. The sent text stays for the record, and a removed message may already have been read. A removal that crashes midway stays marked in progress for someone to check, and never reports success.
+- **One lookup reads across sessions, on purpose.** `listBriefTargets` returns business and session pairs for the brief and recorded-work schedulers, and every later read and write uses that session.
+
+## Removed features
+
+The shared Telegram bot and forwarded email through Postmark ran on accounts the original team held, and are gone. Their tables, `telegram_chats`, `telegram_updates`, `thread_messages`, `conversation_states` and `standing_rules`, and their columns on `businesses`, `contacts` and `outbox`, stay in the database, since migrations are append-only. Nothing writes them. `SupabaseStore` skips any stored card or outbox row on the `telegram` channel and any connection of kind `email-in`, and "Delete my businesses" still clears a session's old rows.
 
 ## Known limits
 

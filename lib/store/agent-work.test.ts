@@ -42,18 +42,6 @@ describe("recorded work stores", () => {
     expect(calls[1]!.url.searchParams.get("business_id")).toBe("eq.shop");
   });
 
-  it("claims Supabase removal atomically with business, session, delivery and state guards", async () => {
-    let called: URL | null = null;
-    vi.stubGlobal("fetch", vi.fn(async (input: string | URL) => {
-      called = new URL(String(input));
-      return new Response(JSON.stringify({ id: "outbox", business_id: "shop", card_id: null, channel: "telegram", recipient: "Dana", body: "Hello", sent_at: "2026-11-10T12:00:00Z", delivery: "sent", delivery_note: null, rule: null, contact_id: "customer", provider_id: "42", deletion_state: "deleting", deletion_note: null }), { status: 200, headers: { "content-type": "application/json" } });
-    }));
-    const store = new SupabaseStore("https://database.test", "service-test");
-    expect(await store.claimTelegramDeletion("owner", "shop", "outbox")).toMatchObject({ providerId: "42", deletionState: "deleting" });
-    const params = new URL(String(called)).searchParams;
-    expect(Object.fromEntries(params)).toMatchObject({ session_id: "eq.owner", business_id: "eq.shop", id: "eq.outbox", channel: "eq.telegram", delivery: "eq.sent", or: "(deletion_state.is.null,deletion_state.eq.failed)" });
-  });
-
   it("includes follow-up rows in Supabase reset using the current session", async () => {
     const calls: URL[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: string | URL) => {

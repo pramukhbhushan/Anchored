@@ -1,6 +1,6 @@
 import { QUIET_HOURS_RULE } from "@/lib/domain/executor";
 import { activeAgents, agentForSkill, chosenSkills } from "@/lib/domain/paths";
-import type { ActiveAgent, BusinessProfile, CardDraft, ChoiceMap, KeyedCard, SkillId, TradeKey } from "@/lib/domain/types";
+import type { ActiveAgent, BusinessProfile, CardDraft, Channel, ChoiceMap, KeyedCard, SkillId, TradeKey } from "@/lib/domain/types";
 
 // =============================================================================
 // Module Overview
@@ -9,6 +9,18 @@ import type { ActiveAgent, BusinessProfile, CardDraft, ChoiceMap, KeyedCard, Ski
 // generic card per skill, worded for the business's trade, with customer names
 // picked from its id; `draftFeed` builds a business's feed from its chosen
 // skills, and `simulateCard` drafts one more card as if a new event came in.
+// `isChannel` tells a stored card's channel from one Anchored removed.
+
+/** Every channel a card can go out on. */
+const CHANNELS: readonly Channel[] = ["sms", "email", "list", "locked", "flag"];
+
+/**
+ * Report whether `value` is a channel Anchored still has. A stored card or outbox row can name one it removed, such
+ * as `telegram` from the old shared bot, and the store skips it.
+ */
+export function isChannel(value: unknown): value is Channel {
+  return (CHANNELS as readonly unknown[]).includes(value);
+}
 
 /** A card before Anchored stamps it with the agent and skill that drafted it. */
 export type CardBody = Omit<CardDraft, "agent" | "skill">;

@@ -29,11 +29,11 @@ export async function listFollowups(session: string, business: BusinessProfile):
   return getStore().listFollowups(session, business.id);
 }
 
-/** Return the business's timers and the customers who started its Telegram chat, for the follow-up schedule. */
+/** Return the business's timers and its customers, for the follow-up schedule. */
 export async function followupSchedule(session: string, business: BusinessProfile): Promise<{ readonly records: RecordedFollowup[]; readonly contacts: Contact[] }> {
   const store = getStore();
   const [records, contacts] = await Promise.all([store.listFollowups(session, business.id), store.listContacts(session, business.id)]);
-  return { records, contacts: contacts.filter((contact) => contact.telegramChatId !== undefined) };
+  return { records, contacts };
 }
 
 /** Record explicit facts and a due time for one customer, then check whether an approval draft is due. */
@@ -44,8 +44,8 @@ export async function recordFollowup(session: string, business: BusinessProfile,
   const contacts = await store.listContacts(session, business.id);
   const contact = contacts.find((candidate) => candidate.id === input.contactId);
   if (contact === undefined) return { ok: false, status: 404, error: "Customer not found in this business." };
-  if (input.skill !== "debrief" && (contact.telegramChatId === undefined || contact.consent === null || contact.optedOutAt !== null)) {
-    return { ok: false, status: 409, error: "This customer must start your Telegram chat before you can record a follow-up message." };
+  if (input.skill !== "debrief" && (contact.phone === null || contact.consent === null || contact.optedOutAt !== null)) {
+    return { ok: false, status: 409, error: "This customer needs a phone number and a texting OK on Connections before you can record a follow-up text." };
   }
   const chosen = chosenSkills(business, resolveChoices(business, await store.getChoices(session, business.id)));
   if (!chosen.includes(input.skill)) return { ok: false, status: 409, error: "Choose this job on Workflows before recording its follow-up." };

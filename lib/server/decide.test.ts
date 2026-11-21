@@ -109,7 +109,7 @@ describe("decideCard", () => {
     const card = await addCard({
       ...missedCallText,
       key: `${BUSINESS}:quote-edit`,
-      channel: "telegram",
+      channel: "email",
       body: "We'll confirm the price.",
       editMap: { body: "prices" },
     });

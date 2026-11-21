@@ -139,30 +139,6 @@ Two routes do work that no click starts. Without a schedule, texts held for quie
 
 Both routes answer 404 when `CRON_SECRET` is unset or the header does not match.
 
-## Set up Telegram
-
-Telegram is optional and not verified in production. One shared bot serves every business: each business gets its own link, and a customer who opens it messages that business. The bot stays off unless `TELEGRAM_BOT_TOKEN` is set.
-
-A bot sends updates to one address at a time. If you point it at a laptop tunnel, production stops getting its updates until you point it back.
-
-1. In Telegram, open the official BotFather chat and create a bot with `/newbot`. Keep its token private.
-2. Set these on the server and in the `.env.local` you register from:
-   - `TELEGRAM_BOT_TOKEN` to the token.
-   - `TELEGRAM_BOT_USERNAME` to the bot's username, without the `@`. Use the username, not the display name.
-   - `TELEGRAM_WEBHOOK_SECRET` to a random string. The value must match on both sides, or the server rejects every update with 404.
-3. [Schedule the background routes](#schedule-the-background-routes).
-4. Point the bot at your deployment, then check where it points:
-
-   ```bash
-   node --conditions=react-server --env-file-if-exists=.env.local --import tsx scripts/telegram-webhook.ts set https://YOUR-DEPLOYMENT
-   node --conditions=react-server --env-file-if-exists=.env.local --import tsx scripts/telegram-webhook.ts info
-   ```
-
-   `set` replaces the bot's webhook and drops pending updates. `info` prints the target, the number of waiting updates and Telegram's last error, without the token or the secret. A past error stays in that report, so send a new message to confirm that it arrives.
-5. Create a business, choose a Customer workflow for Anchored to draft, and open **Connections** or **Customer**. Scan the QR code, tap **Start**, send a question, and review the draft in **Approvals**.
-
-Only a reply the owner approves sends. The bot also sends a fixed acknowledgment when a customer writes, which the owner can turn off on the Customer workflow page or on **Approvals**. `/stop` stops that business's messages, and a new `/start` from its link restarts them. [The agent test runbook](testing/agent-demo.md) lists the checks to run on a real phone.
-
 ## Environment variables
 
 Every variable is optional for a local run. `.env.example` lists them all.
@@ -190,6 +166,3 @@ No variable turns on AI. Each owner adds their own key on the Connections page, 
 | `PUBLIC_APP_URL` | This deployment's public https address. Webhook URLs start with it, and Anchored sends it as the `HTTP-Referer` header to AI providers that ask for attribution, such as OpenRouter |
 | `ANCHORED_ALLOW_GUEST_CONNECTIONS` | Set to `1` to let a guest connect services in a local run |
 | `CRON_SECRET` | The bearer token the scheduled routes require |
-| `TELEGRAM_BOT_TOKEN` | The shared bot's token from BotFather. Server only |
-| `TELEGRAM_BOT_USERNAME` | The bot's username, without the `@` |
-| `TELEGRAM_WEBHOOK_SECRET` | The secret Telegram sends with each update. The registration script and the deployed app must use the same value |

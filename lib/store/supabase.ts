@@ -6,11 +6,10 @@ import type { CardRecord, CardStatus, ChatMessage, OutboxEntry } from "@/lib/api
 import { isConnectionKind, type ConnectionKind } from "@/lib/domain/connections";
 import type { ConsentSource, Contact } from "@/lib/domain/contacts";
 import type { BriefSnapshot } from "@/lib/domain/brief";
+import { isChannel } from "@/lib/domain/cards";
 import type { IntakeDraft, ProfileChange } from "@/lib/domain/intake";
 import type { PlaybookNiche, PostFormat, PostMedia, PostPlatform, PostPlaybook } from "@/lib/domain/playbook";
-import type { OutboxRule, StandingRuleId, StandingRuleState } from "@/lib/domain/rules";
-import type { NewThreadMessage, ThreadDirection, ThreadMessage } from "@/lib/domain/threads";
-import type { BusinessProfile, CardDraft, Choice, ChoiceMap, ConversationOwner, KeyedCard, ProfileChangeSource, SkillId, TradeKey, WorkflowId } from "@/lib/domain/types";
+import type { BusinessProfile, CardDraft, Choice, ChoiceMap, KeyedCard, ProfileChangeSource, TradeKey, WorkflowId } from "@/lib/domain/types";
 import {
   NotFoundError,
   type CardPatch,
@@ -20,7 +19,6 @@ import {
   type NewConnection,
   type NewContact,
   type NewOutboxEntry,
-  type NewTelegramChat,
   type OutboxPatch,
   type PhotoFile,
   type ProfileVersion,
@@ -28,7 +26,6 @@ import {
   type StoredConnection,
   type StoredPhoto,
   type StoredEvent,
-  type TelegramChat,
   type BriefRunResult,
   type BriefState,
 } from "./types";
@@ -60,17 +57,14 @@ interface OutboxRow {
   id: string;
   business_id: string;
   card_id: string | null;
-  channel: OutboxEntry["channel"];
+  /** An outbox channel, or one Anchored no longer has, such as `telegram`. */
+  channel: string;
   recipient: string;
   body: string;
   sent_at: string;
   delivery: OutboxEntry["delivery"];
   delivery_note: string | null;
-  rule: OutboxRule | null;
-  contact_id: string | null;
   provider_id: string | null;
-  deletion_state: "deleting" | "deleted" | "failed" | null;
-  deletion_note: string | null;
 }
 
 interface ContactRow {
@@ -82,37 +76,6 @@ interface ContactRow {
   consent_source: ConsentSource | null;
   consent_at: string | null;
   opted_out_at: string | null;
-  telegram_chat_id: string | null;
-  telegram_name: string | null;
-}
-
-interface ThreadMessageRow {
-  id: string;
-  business_id: string;
-  contact_id: string;
-  direction: ThreadDirection;
-  body: string;
-  skill: SkillId | null;
-  card_key: string | null;
-  outbox_id: string | null;
-  provider_id: string | null;
-  created_at: string;
-}
-
-interface TelegramChatRow {
-  chat_id: string;
-  session_id: string;
-  business_id: string;
-  contact_id: string;
-  bound_at: string;
-  blocked_at: string | null;
-}
-
-interface StandingRuleRow {
-  rule: StandingRuleId;
-  enabled: boolean;
-  approved_at: string | null;
-  changed_at: string;
 }
 
 interface ConnectionRow {
@@ -142,34 +105,34 @@ interface IntakeRow {
 }
 
 const CARD_COLUMNS = "id, business_id, key, draft, status, edited, created_at, decided_at";
-const OUTBOX_COLUMNS = "id, business_id, card_id, channel, recipient, body, sent_at, delivery, delivery_note, rule, contact_id, provider_id, deletion_state, deletion_note";
-const CONTACT_COLUMNS = "id, business_id, name, phone, email, consent_source, consent_at, opted_out_at, telegram_chat_id, telegram_name";
-const THREAD_COLUMNS = "id, business_id, contact_id, direction, body, skill, card_key, outbox_id, provider_id, created_at";
-const CHAT_COLUMNS = "chat_id, session_id, business_id, contact_id, bound_at, blocked_at";
-const RULE_COLUMNS = "rule, enabled, approved_at, changed_at";
+const OUTBOX_COLUMNS = "id, business_id, card_id, channel, recipient, body, sent_at, delivery, delivery_note, provider_id";
+const CONTACT_COLUMNS = "id, business_id, name, phone, email, consent_source, consent_at, opted_out_at";
+// The channels an outbox row can still have, so the sender's query never fills its limit with rows it would skip.
+const OUTBOX_CHANNELS: readonly OutboxEntry["channel"][] = ["sms", "email", "list"];
 const CONNECTION_COLUMNS = "id, session_id, business_id, kind, hook_id, settings, secret, created_at";
 const MESSAGE_COLUMNS = "id, role, body, changes, created_at";
 
-function toCard(row: CardRow): CardRecord {
+/** Read a card row, or `null` for a channel Anchored no longer has, such as `telegram`, so an old card is skipped. */
+function toCard(row: CardRow): CardRecord | null {
+  if (!isChannel(row.draft.channel)) return null;
   return { ...row.draft, id: row.id, key: row.key, businessId: row.business_id, status: row.status, edited: row.edited, createdAt: row.created_at, decidedAt: row.decided_at };
 }
 
-function toOutbox(row: OutboxRow): OutboxEntry {
+/** Read an outbox row, or `null` for a channel Anchored no longer has, such as `telegram`, so an old entry is skipped. */
+function toOutbox(row: OutboxRow): OutboxEntry | null {
+  const channel = OUTBOX_CHANNELS.find((known) => known === row.channel);
+  if (channel === undefined) return null;
   return {
     id: row.id,
     businessId: row.business_id,
     cardId: row.card_id,
-    channel: row.channel,
+    channel,
     to: row.recipient,
     body: row.body,
     sentAt: row.sent_at,
     delivery: row.delivery,
     note: row.delivery_note,
     ...(row.provider_id == null ? {} : { providerId: row.provider_id }),
-    ...(row.deletion_state == null ? {} : { deletionState: row.deletion_state }),
-    ...(row.deletion_note == null ? {} : { deletionNote: row.deletion_note }),
-    ...(row.rule === null ? {} : { rule: row.rule }),
-    ...(row.contact_id === null ? {} : { contactId: row.contact_id }),
   };
 }
 
@@ -195,8 +158,6 @@ function outboxRow(session: string, entry: NewOutboxEntry) {
     body: entry.body,
     delivery: entry.delivery ?? "yours",
     delivery_note: entry.note ?? null,
-    rule: entry.rule ?? null,
-    contact_id: entry.contactId ?? null,
     ...(entry.sentAt ? { sent_at: entry.sentAt } : {}),
   };
 }
@@ -210,8 +171,6 @@ function toContact(row: ContactRow): Contact {
     email: row.email,
     consent: row.consent_source !== null && row.consent_at !== null ? { source: row.consent_source, at: row.consent_at } : null,
     optedOutAt: row.opted_out_at,
-    ...(row.telegram_chat_id === null ? {} : { telegramChatId: row.telegram_chat_id }),
-    ...(row.telegram_name === null ? {} : { telegramName: row.telegram_name }),
   };
 }
 
@@ -225,32 +184,7 @@ function contactRow(session: string, contact: NewContact) {
     consent_source: contact.consent?.source ?? null,
     consent_at: contact.consent?.at ?? null,
     opted_out_at: contact.optedOutAt,
-    telegram_chat_id: contact.telegramChatId ?? null,
-    telegram_name: contact.telegramName ?? null,
   };
-}
-
-function toThreadMessage(row: ThreadMessageRow): ThreadMessage {
-  return {
-    id: row.id,
-    businessId: row.business_id,
-    contactId: row.contact_id,
-    direction: row.direction,
-    text: row.body,
-    skill: row.skill,
-    cardKey: row.card_key,
-    outboxId: row.outbox_id,
-    providerId: row.provider_id,
-    at: row.created_at,
-  };
-}
-
-function toTelegramChat(row: TelegramChatRow): TelegramChat {
-  return { chatId: row.chat_id, session: row.session_id, businessId: row.business_id, contactId: row.contact_id, boundAt: row.bound_at, blockedAt: row.blocked_at };
-}
-
-function toRule(row: StandingRuleRow): StandingRuleState {
-  return { rule: row.rule, enabled: row.enabled, approvedAt: row.approved_at, changedAt: row.changed_at };
 }
 
 /** Read a connection row, or `null` for a kind Anchored no longer offers, so an old row is skipped rather than shown. */
@@ -406,7 +340,7 @@ export class SupabaseStore implements Store {
   async listCards(session: string, businessId: string): Promise<CardRecord[]> {
     const { data, error } = await this.db.from("cards").select(CARD_COLUMNS).eq("session_id", session).eq("business_id", businessId).order("created_at");
     if (error) fail("listCards", error);
-    return (data ?? []).map((row) => toCard(row as CardRow));
+    return (data ?? []).flatMap((row) => toCard(row as CardRow) ?? []);
   }
 
   async getCard(session: string, cardId: string): Promise<CardRecord | null> {
@@ -420,7 +354,7 @@ export class SupabaseStore implements Store {
     if (!current) throw new NotFoundError(`Card ${cardId} not found in this session.`);
     const { data, error } = await this.db.from("cards").update(cardUpdate(current, patch)).eq("session_id", session).eq("id", current.id).select(CARD_COLUMNS).single();
     if (error) fail("updateCard", error);
-    return toCard(data as CardRow);
+    return toCard(data as CardRow) ?? current;
   }
 
   async updatePendingCard(session: string, cardId: string, patch: CardPatch): Promise<CardRecord | null> {
@@ -491,27 +425,15 @@ export class SupabaseStore implements Store {
   async addOutbox(session: string, entry: NewOutboxEntry): Promise<OutboxEntry> {
     const { data, error } = await this.db.from("outbox").insert(outboxRow(session, entry)).select(OUTBOX_COLUMNS).single();
     if (error) fail("addOutbox", error);
-    return toOutbox(data as OutboxRow);
-  }
-
-  async addRuleOutbox(session: string, entry: NewOutboxEntry & { readonly rule: OutboxRule; readonly ruleKey: string }): Promise<OutboxEntry | null> {
-    const { data, error } = await this.db.from("outbox").insert({ ...outboxRow(session, entry), rule_key: entry.ruleKey }).select(OUTBOX_COLUMNS).single();
-    // `outbox_rule_key_unique` refused a second entry with this key: one is already queued or sent.
-    if (error?.code === "23505") return null;
-    if (error) fail("addRuleOutbox", error);
-    return toOutbox(data as OutboxRow);
+    const saved = toOutbox(data as OutboxRow);
+    if (saved === null) throw new Error(`addOutbox: the database returned a channel other than ${entry.channel}.`);
+    return saved;
   }
 
   async listOutbox(session: string, businessId: string): Promise<OutboxEntry[]> {
     const { data, error } = await this.db.from("outbox").select(OUTBOX_COLUMNS).eq("session_id", session).eq("business_id", businessId).order("sent_at", { ascending: false });
     if (error) fail("listOutbox", error);
-    return (data ?? []).map((row) => toOutbox(row as OutboxRow));
-  }
-
-  async claimTelegramDeletion(session: string, businessId: string, entryId: string): Promise<OutboxEntry | null> {
-    const { data, error } = await this.db.from("outbox").update({ deletion_state: "deleting" }).eq("session_id", session).eq("business_id", businessId).eq("id", entryId).eq("channel", "telegram").eq("delivery", "sent").or("deletion_state.is.null,deletion_state.eq.failed").select(OUTBOX_COLUMNS).maybeSingle();
-    if (error) fail("claimTelegramDeletion", error);
-    return data ? toOutbox(data as OutboxRow) : null;
+    return (data ?? []).flatMap((row) => toOutbox(row as OutboxRow) ?? []);
   }
 
   async claimOutbox(session: string, entryId: string): Promise<OutboxEntry | null> {
@@ -525,8 +447,6 @@ export class SupabaseStore implements Store {
     const update = {
       delivery: patch.delivery,
       ...(patch.note === undefined ? {} : { delivery_note: patch.note }),
-      ...(patch.deletionState === undefined ? {} : { deletion_state: patch.deletionState }),
-      ...(patch.deletionNote === undefined ? {} : { deletion_note: patch.deletionNote }),
       ...(patch.providerId === undefined ? {} : { provider_id: patch.providerId }),
       ...(patch.sentAt === undefined ? {} : { sent_at: patch.sentAt }),
     };
@@ -535,9 +455,12 @@ export class SupabaseStore implements Store {
   }
 
   async listDueOutbox(now: string, limit: number): Promise<{ readonly session: string; readonly entry: OutboxEntry }[]> {
-    const { data, error } = await this.db.from("outbox").select(`session_id, ${OUTBOX_COLUMNS}`).eq("delivery", "queued").lte("sent_at", now).order("sent_at").limit(limit);
+    const { data, error } = await this.db.from("outbox").select(`session_id, ${OUTBOX_COLUMNS}`).eq("delivery", "queued").in("channel", OUTBOX_CHANNELS).lte("sent_at", now).order("sent_at").limit(limit);
     if (error) fail("listDueOutbox", error);
-    return (data ?? []).map((row) => ({ session: (row as { session_id: string }).session_id, entry: toOutbox(row as OutboxRow) }));
+    return (data ?? []).flatMap((row) => {
+      const entry = toOutbox(row as OutboxRow);
+      return entry === null ? [] : [{ session: (row as { session_id: string }).session_id, entry }];
+    });
   }
 
   async listContacts(session: string, businessId: string): Promise<Contact[]> {
@@ -547,17 +470,14 @@ export class SupabaseStore implements Store {
   }
 
   async saveContact(session: string, contact: NewContact): Promise<Contact> {
-    // One contact per phone number and per Telegram chat: a save for either already on file updates that contact.
-    const holder = async (column: "phone" | "telegram_chat_id", value: string): Promise<string | undefined> => {
+    // One contact per phone number: a save for one already on file updates that contact.
+    const holder = async (column: "phone", value: string): Promise<string | undefined> => {
       const { data, error } = await this.db.from("contacts").select("id").eq("session_id", session).eq("business_id", contact.businessId).eq(column, value).maybeSingle();
       if (error) fail("saveContact", error);
       return (data as { id: string } | null)?.id;
     };
-    const chatHolder = contact.telegramChatId === undefined ? undefined : await holder("telegram_chat_id", contact.telegramChatId);
-    const id = contact.id ?? (contact.phone === null ? undefined : await holder("phone", contact.phone)) ?? chatHolder;
-    // Contacts never merge: a chat another contact holds stays with it, and this one keeps whatever chat it had.
-    const { telegram_chat_id, telegram_name, ...rest } = contactRow(session, contact);
-    const row = chatHolder === undefined || chatHolder === id ? { ...rest, telegram_chat_id, telegram_name } : rest;
+    const id = contact.id ?? (contact.phone === null ? undefined : await holder("phone", contact.phone));
+    const row = contactRow(session, contact);
     const query = id === undefined ? this.db.from("contacts").insert(row) : this.db.from("contacts").update(row).eq("session_id", session).eq("id", id);
     const { data, error } = await query.select(CONTACT_COLUMNS).single();
     if (error) fail("saveContact", error);
@@ -667,127 +587,6 @@ export class SupabaseStore implements Store {
     if (error) fail(operation, error);
   }
 
-  async telegramHook(session: string, businessId: string, candidate: string): Promise<string> {
-    // Only a business with no hook id takes the candidate, so two first calls agree on the one saved.
-    const set = await this.db.from("businesses").update({ telegram_hook_id: candidate }).eq("session_id", session).eq("id", businessId).is("telegram_hook_id", null);
-    if (set.error) fail("telegramHook", set.error);
-    const { data, error } = await this.db.from("businesses").select("telegram_hook_id").eq("session_id", session).eq("id", businessId).maybeSingle();
-    if (error) fail("telegramHook", error);
-    const hookId = (data as { telegram_hook_id: string | null } | null)?.telegram_hook_id;
-    if (hookId === undefined || hookId === null) throw new NotFoundError(`Business ${businessId} not found in this session.`);
-    return hookId;
-  }
-
-  async findTelegramHook(hookId: string): Promise<{ readonly session: string; readonly businessId: string } | null> {
-    const { data, error } = await this.db.from("businesses").select("id, session_id").eq("telegram_hook_id", hookId).maybeSingle();
-    if (error) fail("findTelegramHook", error);
-    const row = data as { id: string; session_id: string } | null;
-    return row === null ? null : { session: row.session_id, businessId: row.id };
-  }
-
-  async findTelegramChat(chatId: string): Promise<TelegramChat | null> {
-    const { data, error } = await this.db.from("telegram_chats").select(CHAT_COLUMNS).eq("chat_id", chatId).maybeSingle();
-    if (error) fail("findTelegramChat", error);
-    return data ? toTelegramChat(data as TelegramChatRow) : null;
-  }
-
-  async bindTelegramChat(session: string, chat: NewTelegramChat): Promise<TelegramChat> {
-    const row = { chat_id: chat.chatId, session_id: session, business_id: chat.businessId, contact_id: chat.contactId, bound_at: chat.boundAt, blocked_at: null };
-    const { data, error } = await this.db.from("telegram_chats").upsert(row, { onConflict: "chat_id" }).select(CHAT_COLUMNS).single();
-    if (error) fail("bindTelegramChat", error);
-    return toTelegramChat(data as TelegramChatRow);
-  }
-
-  async setTelegramChatBlocked(chatId: string, at: string | null): Promise<void> {
-    const { error } = await this.db.from("telegram_chats").update({ blocked_at: at }).eq("chat_id", chatId);
-    if (error) fail("setTelegramChatBlocked", error);
-  }
-
-  async telegramUpdateDone(updateId: number): Promise<boolean> {
-    const { data, error } = await this.db.from("telegram_updates").select("status").eq("update_id", updateId).maybeSingle();
-    if (error) fail("telegramUpdateDone", error);
-    return data?.status === "done";
-  }
-
-  async claimTelegramUpdate(updateId: number, now: string, retakeAfterMs: number): Promise<boolean> {
-    // `claim_telegram_update` claims in one statement, so two deliveries of one update can't both process it.
-    const retakeBefore = new Date(Date.parse(now) - retakeAfterMs).toISOString();
-    const { data, error } = await this.db.rpc("claim_telegram_update", { p_update_id: updateId, p_now: now, p_retake_before: retakeBefore });
-    if (error) fail("claimTelegramUpdate", error);
-    return data === true;
-  }
-
-  async finishTelegramUpdate(updateId: number, status: "done" | "failed"): Promise<void> {
-    const { error } = await this.db.from("telegram_updates").update({ status, finished_at: new Date().toISOString() }).eq("update_id", updateId);
-    if (error) fail("finishTelegramUpdate", error);
-  }
-
-  async addThreadMessage(session: string, message: NewThreadMessage): Promise<ThreadMessage> {
-    const row = {
-      session_id: session,
-      business_id: message.businessId,
-      contact_id: message.contactId,
-      direction: message.direction,
-      body: message.text,
-      skill: message.skill,
-      card_key: message.cardKey,
-      outbox_id: message.outboxId,
-      provider_id: message.providerId,
-      created_at: message.at,
-    };
-    const { data, error } = await this.db.from("thread_messages").insert(row).select(THREAD_COLUMNS).single();
-    if (error) fail("addThreadMessage", error);
-    return toThreadMessage(data as ThreadMessageRow);
-  }
-
-  async listThreadMessages(session: string, businessId: string, contactId: string, limit: number): Promise<ThreadMessage[]> {
-    // Newest first so `limit` keeps the latest messages, then reversed to read oldest first.
-    const { data, error } = await this.db
-      .from("thread_messages")
-      .select(THREAD_COLUMNS)
-      .eq("session_id", session)
-      .eq("business_id", businessId)
-      .eq("contact_id", contactId)
-      .order("created_at", { ascending: false })
-      .limit(limit);
-    if (error) fail("listThreadMessages", error);
-    return (data ?? []).map((row) => toThreadMessage(row as ThreadMessageRow)).reverse();
-  }
-
-  async getConversationOwner(session: string, businessId: string, contactId: string): Promise<ConversationOwner> {
-    const { data, error } = await this.db
-      .from("conversation_states")
-      .select("owner")
-      .eq("session_id", session)
-      .eq("business_id", businessId)
-      .eq("contact_id", contactId)
-      .maybeSingle();
-    if (error) fail("getConversationOwner", error);
-    return (data as { owner: ConversationOwner } | null)?.owner ?? "frontdesk";
-  }
-
-  async setConversationOwner(session: string, businessId: string, contactId: string, owner: ConversationOwner, at: string): Promise<void> {
-    const { error } = await this.db.from("conversation_states").upsert(
-      { session_id: session, business_id: businessId, contact_id: contactId, owner, updated_at: at },
-      { onConflict: "session_id,business_id,contact_id" },
-    );
-    if (error) fail("setConversationOwner", error);
-  }
-
-  async getStandingRules(session: string, businessId: string): Promise<StandingRuleState[]> {
-    const { data, error } = await this.db.from("standing_rules").select(RULE_COLUMNS).eq("session_id", session).eq("business_id", businessId);
-    if (error) fail("getStandingRules", error);
-    return (data ?? []).map((row) => toRule(row as StandingRuleRow));
-  }
-
-  async setStandingRule(session: string, businessId: string, rule: StandingRuleId, enabled: boolean, at: string): Promise<StandingRuleState> {
-    // Turning a rule off keeps when it was last approved, so the history stays readable.
-    const row = { session_id: session, business_id: businessId, rule, enabled, changed_at: at, ...(enabled ? { approved_at: at } : {}) };
-    const { data, error } = await this.db.from("standing_rules").upsert(row, { onConflict: "session_id,business_id,rule" }).select(RULE_COLUMNS).single();
-    if (error) fail("setStandingRule", error);
-    return toRule(data as StandingRuleRow);
-  }
-
   async getBriefState(session: string, businessId: string): Promise<BriefState | null> {
     const { data, error } = await this.db.from("brief_runs").select("running_since, last_success_at, last_card_key, last_snapshot").eq("session_id", session).eq("business_id", businessId).maybeSingle();
     if (error) fail("getBriefState", error);
@@ -879,7 +678,9 @@ export class SupabaseStore implements Store {
 
   async reset(session: string): Promise<void> {
     await this.removeSessionPhotos(session);
-    // Rule-sent outbox rows have no card to cascade from, so the outbox is cleared first; the rest go one by one.
+    // The outbox goes first, since old rows a removed feature sent have no card to cascade from. Some tables below,
+    // such as `thread_messages` and `telegram_chats`, belong to the removed Telegram bot; nothing writes them now,
+    // but rows from before can still name the session's customers, so they are cleared too.
     for (const table of [
       "outbox",
       "cards",

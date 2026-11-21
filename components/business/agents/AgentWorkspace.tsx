@@ -16,7 +16,7 @@ import styles from "./agents.module.css";
 // An agent's own page: the drafts waiting for the owner, an Ask panel, recent
 // decisions and what the agent handles. Drafts show here as previews that link
 // to their cards in Approvals, the one place a card is decided or sent. The
-// page passes the Ask panel and any extra views, such as customer threads.
+// page passes the Ask panel and any extra views, such as scheduled follow-ups.
 
 /** Return what happened to a decided card; an approval alone never reads as sent. */
 function outcome(card: CardRecord, entry: OutboxEntry | undefined): string {
