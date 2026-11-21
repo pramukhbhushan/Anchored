@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { deferred, json, sentJson, stubFetch } from "@/test/http";
 import { router } from "@/test/next";
 import type { RecordedFollowup } from "@/lib/domain/followups";
@@ -9,9 +9,9 @@ import { FollowupSchedule } from "./FollowupSchedule";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The schedule records owner-confirmed facts through the real fetch boundary.
-// Tests verify request identities and dates, failure recovery, saved results,
-// duplicate guards and isolation when an earlier business's reply arrives late.
+// The follow-up form, tested at `fetch`: the request it sends and the due time
+// it converts, what a failed save keeps, the list the server returns, the
+// guard against a double tap, and a late reply after switching businesses.
 
 const contacts = [{ id: "customer-1", name: "Sam" }];
 const record: RecordedFollowup = { id: "timer-1", businessId: "shop", contactId: "customer-1", skill: "closer", dueAt: "2026-11-10T15:00:00.000Z", sourceId: "quote:Q1", evidence: "Owner recorded this quote as open.", state: "open-quote", status: "active" };
@@ -39,7 +39,7 @@ describe("FollowupSchedule", () => {
     rerender(<FollowupSchedule businessId="another" records={[]} contacts={[]} skills={["closer"]} />);
     await openSchedule();
     expect(screen.getByText(/No customers are recorded yet/)).toBeInTheDocument();
-    expect(screen.getByText(/scheduled sender must be running/)).toBeInTheDocument();
+    expect(screen.getByText(/Customer drafts go out on Telegram/)).toBeInTheDocument();
     expect(screen.getByText(/Every message waits in Approvals/)).toBeInTheDocument();
   });
 
@@ -86,7 +86,7 @@ describe("FollowupSchedule", () => {
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
-  it("cancels by stored identity and keeps the authoritative canceled record", async () => {
+  it("cancels by record id and shows the canceled record the server returns", async () => {
     const fetch = stubFetch(() => json({ records: [{ ...record, status: "cancelled" }] }));
     render(<FollowupSchedule businessId="shop" records={[record]} contacts={contacts} skills={["closer"]} />);
     const user = await openSchedule();
@@ -135,6 +135,50 @@ describe("FollowupSchedule", () => {
     expect(screen.queryByText("Closer: Sam")).not.toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Customer" })).toHaveValue("another");
     expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("asks for a date and time when the due value doesn't parse, and sends nothing", async () => {
+    const fetch = stubFetch(() => json({ records: [record] }));
+    render(<FollowupSchedule businessId="shop" records={[]} contacts={contacts} skills={["closer"]} />);
+    const user = await openSchedule();
+    await fillSchedule(user);
+    const due = screen.getByLabelText("Draft due (your device's local time)");
+    fireEvent.change(due, { target: { value: "" } });
+    // Submit the form directly: a browser's `required` check would stop an empty value first, but an old browser that shows a text box lets a malformed one through.
+    fireEvent.submit(due.closest("form")!);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Pick a date and a time for the draft.");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  describe("in a time zone with daylight saving", () => {
+    const zone = process.env.TZ;
+    beforeEach(() => { process.env.TZ = "America/New_York"; });
+    afterEach(() => { if (zone === undefined) delete process.env.TZ; else process.env.TZ = zone; });
+
+    it("refuses a time the clocks skip, and sends nothing", async () => {
+      // Clocks in New York jump from 2:00 to 3:00 on March 14, 2027, so 2:30 never happens.
+      expect(new Date("2027-03-14T02:30").getHours()).toBe(3);
+      const fetch = stubFetch(() => json({ records: [record] }));
+      render(<FollowupSchedule businessId="shop" records={[]} contacts={contacts} skills={["closer"]} />);
+      const user = await openSchedule();
+      await fillSchedule(user);
+      fireEvent.change(screen.getByLabelText("Draft due (your device's local time)"), { target: { value: "2027-03-14T02:30" } });
+      await user.click(screen.getByRole("button", { name: "Record follow-up" }));
+      expect(await screen.findByRole("alert")).toHaveTextContent("That time is skipped or happens twice when the clocks change.");
+      expect(fetch).not.toHaveBeenCalled();
+    });
+  });
+
+  it("keeps the saved notice when the refreshed page brings the new record", async () => {
+    stubFetch(() => json({ records: [record] }));
+    const { rerender } = render(<FollowupSchedule businessId="shop" records={[]} contacts={contacts} skills={["closer"]} />);
+    const user = await openSchedule();
+    await fillSchedule(user);
+    await user.click(screen.getByRole("button", { name: "Record follow-up" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Follow-up recorded");
+    rerender(<FollowupSchedule businessId="shop" records={[record]} contacts={contacts} skills={["closer"]} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Follow-up recorded");
+    expect(screen.getByRole("button", { name: "Cancel Closer for Sam" })).toBeVisible();
   });
 
   it("keeps the disclosure open when refreshed saved records replace its contents", async () => {

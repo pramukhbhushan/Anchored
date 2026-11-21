@@ -74,10 +74,10 @@ function checkedSlides(slides: readonly string[], photoCount: number, source: st
   return ok ? clean : [];
 }
 
-/** Draft a post from the owner's photos and description, with the model when one is set up. */
-export async function draftPhotoPost(business: BusinessProfile, description: string, photos: readonly PostPhoto[]): Promise<PostDraft> {
-  const playbook = await getStore().listPostPlaybook(business.tradeKey);
-  return writePost(getBudgetedLlm(), playbook, business, description, photos);
+/** Draft a post from the owner's photos and description, with the business's AI key or the server's when either is set up. */
+export async function draftPhotoPost(session: string, business: BusinessProfile, description: string, photos: readonly PostPhoto[]): Promise<PostDraft> {
+  const [playbook, llm] = await Promise.all([getStore().listPostPlaybook(business.tradeKey), getBudgetedLlm(session, business.id)]);
+  return writePost(llm, playbook, business, description, photos);
 }
 
 /** Write the post with `llm`, or with the rules when it is `null`. Split out so tests can pass a fake model. */

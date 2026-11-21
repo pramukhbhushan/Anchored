@@ -20,8 +20,7 @@ const stores = vi.hoisted(() => ({ current: null as Store | null }));
 vi.mock("@/lib/store", () => ({ getStore: () => stores.current }));
 vi.mock("@/lib/server/session", () => ({ getSessionId: async () => SESSION }));
 const models = vi.hoisted(() => ({ current: null as LlmProvider | null }));
-vi.mock("@/lib/server/ai-budget", () => ({ getBudgetedLlm: () => models.current }));
-vi.mock("@/lib/llm", async (original) => ({ ...(await original<typeof import("@/lib/llm")>()), isAiConfigured: () => models.current !== null }));
+vi.mock("@/lib/server/ai-budget", () => ({ getBudgetedLlm: () => models.current, llmFromConnections: () => models.current }));
 // `after` runs its task once the response is sent; the test runs the tasks when it chooses.
 const later = vi.hoisted(() => ({ tasks: [] as (() => Promise<void>)[] }));
 vi.mock("next/server", async (original) => ({ ...(await original<typeof import("next/server")>()), after: (task: () => Promise<void>) => later.tasks.push(task) }));

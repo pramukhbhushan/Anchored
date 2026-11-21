@@ -5,18 +5,20 @@ import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { copyText } from "@/components/business/SendYourself";
 import { callApi, errorText } from "@/components/api";
 import { Button } from "@/components/ui/Button";
-import type { ConnectionsResponse, ConnectionView, ConnectRequest } from "@/lib/api/contract";
-import { CONNECTION_COPY, type ConnectionKind } from "@/lib/domain/connections";
+import type { AiKeyView, ConnectionsResponse, ConnectionView, ConnectRequest } from "@/lib/api/contract";
+import { CONNECTION_COPY, type ServiceKind } from "@/lib/domain/connections";
+import { AiKeyCard } from "./AiKeyCard";
 import styles from "./connections.module.css";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The services on the Connections page, one block each: what the service does,
-// whether it is connected, the form that connects it, and the addresses the
-// owner pastes into the service's own settings, each with Copy. A service this
-// server can't offer shows why and no form. A visitor who can't connect, such
-// as a guest, sees the reason once at the top and no forms at all.
+// The owner's AI key, then the services on the Connections page, one block
+// each: what the service does, whether it is connected, the form that connects
+// it, and the addresses the owner pastes into the service's own settings, each
+// with Copy. A service this server can't offer shows why and no form. A
+// visitor who can't connect, such as a guest, sees the reason once at the top
+// and no forms at all, the AI key's included.
 
 /** Props for `ConnectionsPanel`. */
 interface ConnectionsPanelProps {
@@ -25,6 +27,7 @@ interface ConnectionsPanelProps {
   readonly blocked: string | null;
   /** Where the visitor goes to fix `blocked`, such as setting up their own business. */
   readonly blockedLink?: { readonly href: string; readonly label: string };
+  readonly ai: AiKeyView;
   readonly connections: readonly ConnectionView[];
 }
 
@@ -40,7 +43,7 @@ function field(data: FormData, name: string): string {
 }
 
 /** Build the connect request for `kind` from its submitted form. */
-function requestFrom(kind: ConnectionKind, data: FormData): ConnectRequest {
+function requestFrom(kind: ServiceKind, data: FormData): ConnectRequest {
   switch (kind) {
     case "texting": {
       const forwardTo = field(data, "forwardTo");
@@ -52,8 +55,11 @@ function requestFrom(kind: ConnectionKind, data: FormData): ConnectRequest {
         ...(forwardTo === "" ? {} : { forwardTo }),
       };
     }
-    case "email-out":
-      return { kind, replyTo: field(data, "replyTo") };
+    case "email-out": {
+      const apiKey = field(data, "apiKey");
+      const fromAddress = field(data, "fromAddress");
+      return { kind, replyTo: field(data, "replyTo"), ...(apiKey === "" ? {} : { apiKey }), ...(fromAddress === "" ? {} : { fromAddress }) };
+    }
     case "email-in":
       return { kind };
     case "stripe":
@@ -62,14 +68,14 @@ function requestFrom(kind: ConnectionKind, data: FormData): ConnectRequest {
 }
 
 /** Render the services, each with its status, its form and its setup addresses. */
-export function ConnectionsPanel({ businessId, blocked, blockedLink, connections }: ConnectionsPanelProps) {
+export function ConnectionsPanel({ businessId, blocked, blockedLink, ai, connections }: ConnectionsPanelProps) {
   const [views, setViews] = useState(connections);
   // Each service waits on its own change, so one finishing never frees another's buttons early.
-  const [busy, setBusy] = useState<Partial<Record<ConnectionKind, boolean>>>({});
-  const [errors, setErrors] = useState<Partial<Record<ConnectionKind, string>>>({});
+  const [busy, setBusy] = useState<Partial<Record<ServiceKind, boolean>>>({});
+  const [errors, setErrors] = useState<Partial<Record<ServiceKind, string>>>({});
 
   /** Send one change for `kind` and show the services the route answers with, or its error. */
-  async function change(kind: ConnectionKind, send: () => Promise<ConnectionsResponse>): Promise<boolean> {
+  async function change(kind: ServiceKind, send: () => Promise<ConnectionsResponse>): Promise<boolean> {
     setBusy((current) => ({ ...current, [kind]: true }));
     setErrors((current) => ({ ...current, [kind]: undefined }));
     try {
@@ -83,14 +89,14 @@ export function ConnectionsPanel({ businessId, blocked, blockedLink, connections
     }
   }
 
-  async function onConnect(kind: ConnectionKind, event: FormEvent<HTMLFormElement>) {
+  async function onConnect(kind: ServiceKind, event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const body = requestFrom(kind, new FormData(form));
     if (await change(kind, () => callApi<ConnectionsResponse>(connectionsUrl(businessId), "PUT", body))) form.reset();
   }
 
-  function onDisconnect(kind: ConnectionKind) {
+  function onDisconnect(kind: ServiceKind) {
     void change(kind, () => callApi<ConnectionsResponse>(`${connectionsUrl(businessId)}?kind=${kind}`, "DELETE"));
   }
 
@@ -107,6 +113,7 @@ export function ConnectionsPanel({ businessId, blocked, blockedLink, connections
           )}
         </p>
       )}
+      <AiKeyCard businessId={businessId} view={ai} canChange={blocked === null} />
       <div className={styles.services}>
         {views.map((view) => (
           <ServiceBlock
@@ -203,7 +210,7 @@ function ConnectForm({
   busy,
   onSubmit,
 }: {
-  readonly kind: ConnectionKind;
+  readonly kind: ServiceKind;
   readonly connected: boolean;
   readonly busy: boolean;
   readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -233,7 +240,13 @@ function ConnectForm({
             <TextField name="forwardTo" label="Phone to ring first" type="tel" placeholder="+1 301 555 0100" hint="Optional. Anchored rings this phone for 20 seconds before drafting a missed-call text." required={false} />
           </>
         )}
-        {kind === "email-out" && <TextField name="replyTo" label="Reply-to address" type="email" placeholder="you@yourbusiness.com" hint="Customer replies come here." />}
+        {kind === "email-out" && (
+          <>
+            <TextField name="apiKey" label="Resend API key" type="password" placeholder="re_..." hint="From your Resend account, under API Keys. Anchored stores it encrypted." required={false} />
+            <TextField name="fromAddress" label="Send from" type="email" placeholder="hello@yourbusiness.com" hint="An address on a domain you verified in Resend." required={false} />
+            <TextField name="replyTo" label="Reply-to address" type="email" placeholder="you@yourbusiness.com" hint="Customer replies come here." />
+          </>
+        )}
         {kind === "stripe" && <TextField name="signingSecret" label="Signing secret" type="password" placeholder="whsec_..." hint="In Stripe, under Developers, then Webhooks, on the endpoint you add." />}
       </div>
       <div className={styles.acts}>

@@ -60,6 +60,8 @@
   .group,.group[data-group="build"]{grid-column:auto;grid-row:auto}
 }
 .group{min-width:0;border-top:4px solid var(--tone);padding-top:10px}
+/* The group that holds the piece picked in the cost picture. */
+.group[data-highlighted]{outline:2px solid var(--ink);outline-offset:var(--s-2)}
 .groupHead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:var(--fs-md);font-weight:800;font-stretch:106%}
 .groupAmount{font-family:var(--display);font-stretch:100%;font-weight:850;font-variant-numeric:tabular-nums}
 .hint{margin-top:2px;font-size:var(--fs-fine);color:var(--muted)}

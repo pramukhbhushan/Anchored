@@ -9,9 +9,8 @@ import { LicenseDates } from "./LicenseDates";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Exercises the owner's license-date form at the fetch boundary: the exact
-// recorded facts, authoritative saves, completion and failure preservation.
-// No class names or browser implementation details are part of the assertions.
+// The license-date form, tested at `fetch`: the facts it sends, the list the
+// server returns, marking a license handled, and what a failed save keeps.
 
 const permit: License = {
   id: "food-permit",
@@ -49,7 +48,7 @@ describe("LicenseDates", () => {
     expect(screen.getByRole("button", { name: "Add license" })).toBeEnabled();
   });
 
-  it("saves the complete list and shows only the authoritative returned dates", async () => {
+  it("saves the whole list and shows only the dates the server returns", async () => {
     const fetch = stubFetch(() => json({ licenses: [permit, { ...permit, id: "server-saved", name: "Saved trade license", expiresOn: "2027-11-20" }] }));
     render(<LicenseDates businessId="shop/id" licenses={[permit]} enabled />);
     const user = await fillDate();

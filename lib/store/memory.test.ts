@@ -62,6 +62,32 @@ describe("useAiCall", () => {
   });
 });
 
+describe("useSessionAiCall", () => {
+  it("counts each session against its own cap for the day", async () => {
+    const store = new MemoryStore();
+    const answers = [];
+    for (let i = 0; i < 3; i++) answers.push(await store.useSessionAiCall("s1", "2026-11-20", 2));
+    expect(answers).toEqual([true, true, false]);
+    expect(await store.useSessionAiCall("s2", "2026-11-20", 2)).toBe(true);
+  });
+
+  it("starts a new count on a new day, and refuses every call at a cap of 0", async () => {
+    const store = new MemoryStore();
+    await store.useSessionAiCall("s1", "2026-11-20", 1);
+    expect(await store.useSessionAiCall("s1", "2026-11-20", 1)).toBe(false);
+    expect(await store.useSessionAiCall("s1", "2026-11-21", 1)).toBe(true);
+    expect(await store.useSessionAiCall("s2", "2026-11-21", 0)).toBe(false);
+  });
+
+  it("keeps today's count through a reset, so deleting businesses can't refill the budget", async () => {
+    const store = new MemoryStore();
+    const today = new Date().toISOString().slice(0, 10);
+    await store.useSessionAiCall("s1", today, 1);
+    await store.reset("s1");
+    expect(await store.useSessionAiCall("s1", today, 1)).toBe(false);
+  });
+});
+
 describe("retained events and conversation ownership", () => {
   it("keeps raw event payloads scoped to the business", async () => {
     const store = new MemoryStore();

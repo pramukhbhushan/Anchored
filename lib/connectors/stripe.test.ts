@@ -8,7 +8,7 @@ import { readUnpaidInvoice, verifyStripeSignature } from "./stripe";
 // Behavior of the Stripe adapter: a webhook signed with the endpoint's secret
 // within five minutes passes, and a stale, wrongly signed or unsigned one
 // fails. Only overdue and failed invoices in US dollars become an unpaid
-// invoice, with the amount in dollars.
+// invoice, with the amount in dollars and Stripe's event id.
 
 const SECRET = "whsec_test";
 const PAYLOAD = JSON.stringify({ id: "evt_1", type: "invoice.overdue" });
@@ -55,6 +55,7 @@ describe("readUnpaidInvoice", () => {
 
   it("reads an overdue invoice with the amount in dollars", () => {
     expect(readUnpaidInvoice(event("invoice.overdue"))).toEqual({
+      eventId: null,
       kind: "overdue",
       customerName: "Dana Lee",
       customerEmail: "dana@example.com",
@@ -65,6 +66,11 @@ describe("readUnpaidInvoice", () => {
 
   it("reads a failed payment", () => {
     expect(readUnpaidInvoice(event("invoice.payment_failed", "USD"))).toMatchObject({ kind: "failed", amountDue: 125.5 });
+  });
+
+  it("keeps Stripe's event id, and drops one that isn't Stripe's shape", () => {
+    expect(readUnpaidInvoice({ id: "evt_1QxYz", ...event("invoice.overdue") })?.eventId).toBe("evt_1QxYz");
+    expect(readUnpaidInvoice({ id: "evt_1:event:x", ...event("invoice.overdue") })?.eventId).toBeNull();
   });
 
   it("returns null for other events, other currencies and malformed events", () => {

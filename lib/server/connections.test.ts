@@ -11,7 +11,8 @@ import { hvacShop } from "@/test/trades";
 // The Connections page's server side, as an owner meets it: who may connect,
 // what each service shows once connected and what the owner pastes into it,
 // why a server can't offer a service, how a texting number is checked, and how
-// a customer's texting OK keeps its date. The store is in memory and each test
+// a customer's texting OK keeps its date. An AI key is checked, saved
+// encrypted, and shown as its provider and last four characters only. The store is in memory and each test
 // sets the server's settings with `vi.stubEnv`.
 
 const SESSION = "owner-session";
@@ -22,7 +23,7 @@ const SID = `AC${"a".repeat(32)}`;
 const stores = vi.hoisted(() => ({ current: null as Store | null }));
 vi.mock("@/lib/store", () => ({ getStore: () => stores.current }));
 
-const { appBaseUrl, connect, connectBlocked, ConnectError, connectionViews, disconnect, saveContactFromOwner } = await import("./connections");
+const { appBaseUrl, connect, connectBlocked, ConnectError, connectionViews, disconnect, saveAiKey, saveContactFromOwner } = await import("./connections");
 const { decryptSecret } = await import("./secrets");
 
 const ACCOUNT: Viewer = { id: "u1", email: "owner@example.com", isGuest: false, authEnabled: true };
@@ -38,7 +39,7 @@ async function stored(kind: string) {
 
 /** Return the view of `kind` as the page shows it. */
 async function view(kind: string) {
-  return (await connectionViews(SESSION, business, BASE)).find((v) => v.kind === kind);
+  return (await connectionViews(SESSION, business, BASE)).connections.find((v) => v.kind === kind);
 }
 
 beforeEach(() => {
@@ -149,7 +150,8 @@ describe("connecting texting", () => {
 });
 
 describe("connecting email and Stripe", () => {
-  it("offers sending email only when the server has an email key and a from address", async () => {
+  it("offers sending email only when owners can store a key or the server has a shared sender", async () => {
+    vi.stubEnv("CONNECTOR_SECRET_KEY", "");
     vi.stubEnv("RESEND_API_KEY", "");
     vi.stubEnv("EMAIL_FROM_ADDRESS", "");
     expect((await view("email-out"))?.unavailable).toBe("Sending email from Anchored isn't available yet.");
@@ -158,6 +160,27 @@ describe("connecting email and Stripe", () => {
     vi.stubEnv("EMAIL_FROM_ADDRESS", "drafts@anchored.example");
     await connect(SESSION, business, { kind: "email-out", replyTo: "owner@hvac.example" });
     expect(await view("email-out")).toEqual({ kind: "email-out", connected: true, detail: "owner@hvac.example", setup: [], unavailable: null });
+  });
+
+  it("stores the owner's own Resend key encrypted and never shows it", async () => {
+    vi.stubEnv("RESEND_API_KEY", "");
+    vi.stubEnv("EMAIL_FROM_ADDRESS", "");
+    vi.stubEnv("CONNECTOR_SECRET_KEY", KEY);
+    expect((await view("email-out"))?.unavailable).toBeNull();
+
+    await connect(SESSION, business, { kind: "email-out", replyTo: "owner@hvac.example", apiKey: "re_owner_key_123", fromAddress: "hello@hvac.example" });
+    const saved = await stored("email-out");
+    expect(JSON.parse(decryptSecret(saved?.secret ?? ""))).toEqual({ apiKey: "re_owner_key_123" });
+    const shown = await view("email-out");
+    expect(shown?.detail).toBe("hello@hvac.example, replies go to owner@hvac.example");
+    expect(JSON.stringify(shown)).not.toContain("re_owner");
+  });
+
+  it("asks for the owner's own Resend key when the server has no shared sender", async () => {
+    vi.stubEnv("RESEND_API_KEY", "");
+    vi.stubEnv("EMAIL_FROM_ADDRESS", "");
+    vi.stubEnv("CONNECTOR_SECRET_KEY", KEY);
+    await expect(connect(SESSION, business, { kind: "email-out", replyTo: "owner@hvac.example" })).rejects.toMatchObject({ status: 400 });
   });
 
   it("gives a forwarding address made from the inbound address and the connection's id", async () => {
@@ -185,6 +208,55 @@ describe("connecting email and Stripe", () => {
       { label: "Events to send", value: "invoice.overdue, invoice.payment_failed" },
     ]);
     expect(JSON.stringify(shown)).not.toContain("whsec_");
+  });
+});
+
+describe("saving an AI key", () => {
+  const KEY_TEXT = "sk-owner-test-key-abcd1234";
+  const works = async () => null;
+
+  it("checks the key, saves it encrypted, and shows only the provider and its last four characters", async () => {
+    vi.stubEnv("CONNECTOR_SECRET_KEY", KEY);
+    const checked: unknown[] = [];
+    await saveAiKey(SESSION, business, { provider: "openai", apiKey: KEY_TEXT, model: "gpt-test" }, async (owner) => {
+      checked.push(owner);
+      return null;
+    });
+
+    expect(checked).toEqual([{ provider: "openai", apiKey: KEY_TEXT, model: "gpt-test" }]);
+    const saved = await stored("ai");
+    expect(saved?.settings).toEqual({ provider: "openai", model: "gpt-test", lastFour: "1234" });
+    expect(decryptSecret(saved?.secret ?? "")).toBe(KEY_TEXT);
+    const views = await connectionViews(SESSION, business, BASE);
+    expect(views.ai).toMatchObject({ provider: "openai", lastFour: "1234", model: "gpt-test" });
+    expect(JSON.stringify(views)).not.toContain(KEY_TEXT);
+  });
+
+  it("saves nothing when the provider turns the key down, and says why", async () => {
+    vi.stubEnv("CONNECTOR_SECRET_KEY", KEY);
+    const attempt = saveAiKey(SESSION, business, { provider: "openai", apiKey: KEY_TEXT, model: "gpt-test" }, async () => "OpenAI turned down this key.");
+
+    await expect(attempt).rejects.toMatchObject({ status: 400, message: "OpenAI turned down this key." });
+    expect(await stored("ai")).toBeUndefined();
+  });
+
+  it("asks for a model name for every provider but Anthropic, before calling anyone", async () => {
+    vi.stubEnv("CONNECTOR_SECRET_KEY", KEY);
+    await expect(saveAiKey(SESSION, business, { provider: "openrouter", apiKey: KEY_TEXT }, works)).rejects.toMatchObject({ status: 400, message: "OpenRouter needs a model name. Copy the exact name from OpenRouter." });
+    await saveAiKey(SESSION, business, { provider: "anthropic", apiKey: KEY_TEXT }, works);
+    expect((await stored("ai"))?.settings).toEqual({ provider: "anthropic", lastFour: "1234" });
+  });
+
+  it("is unavailable when the server can't store credentials, and removing the key leaves no trace", async () => {
+    vi.stubEnv("CONNECTOR_SECRET_KEY", "");
+    expect((await connectionViews(SESSION, business, BASE)).ai.unavailable).toMatch(/^Not available yet/);
+    await expect(saveAiKey(SESSION, business, { provider: "anthropic", apiKey: KEY_TEXT }, works)).rejects.toMatchObject({ status: 409 });
+
+    vi.stubEnv("CONNECTOR_SECRET_KEY", KEY);
+    await saveAiKey(SESSION, business, { provider: "anthropic", apiKey: KEY_TEXT }, works);
+    await disconnect(SESSION, business.id, "ai");
+    expect(await stored("ai")).toBeUndefined();
+    expect((await connectionViews(SESSION, business, BASE)).ai.provider).toBeNull();
   });
 });
 

@@ -6,10 +6,11 @@ import styles from "./inspection.module.css";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// A shadcn Progress composition reports actual facts reviewed during setup.
-// Skipped facts count as reviewed, never as facts Anchored learned.
+// The onboarding progress bar: how many business facts the owner has reviewed
+// out of the total. A skipped fact counts as reviewed, not as one Anchored
+// learned. Built on the Radix progress primitive.
 
-/** Report the count of reviewed business facts without guessing completion. */
+/** Render a bar of `reviewed` out of `total` facts, or nothing when there are no facts. */
 export function FactProgress({
   reviewed,
   total,

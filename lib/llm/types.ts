@@ -71,14 +71,19 @@ export class LlmResponseError extends Error {
   override readonly name = "LlmResponseError";
 }
 
-/** Raised when the HTTP call to the provider fails. `status` is `null` for network errors and timeouts. */
+/**
+ * Raised when the HTTP call to the provider fails. `status` is `null` for network errors and timeouts.
+ * `reason` is "credit" when the provider said the account is out of credit, whatever status it used for it.
+ */
 export class LlmRequestError extends Error {
-  override readonly name = "LlmRequestError";
+  override name = "LlmRequestError";
+  readonly reason: "credit" | null;
   constructor(
     message: string,
     readonly status: number | null,
-    options?: { cause?: unknown },
+    options?: { cause?: unknown; reason?: "credit" },
   ) {
-    super(message, options);
+    super(message, { cause: options?.cause });
+    this.reason = options?.reason ?? null;
   }
 }

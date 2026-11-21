@@ -13,11 +13,11 @@ import { BriefRunButton, type BriefRunResult } from "./BriefRunButton";
 // another returns the last finished brief, so the owner never sees a blank one.
 
 /** Turn the server's brief into what the button shows, or `null` before the first one. */
-export function briefResult(brief: BriefResponse): BriefRunResult | null {
+function briefResult(brief: BriefResponse): BriefRunResult | null {
   return brief.lastRunAt === null ? null : { text: brief.lines.join("\n"), generatedAt: brief.lastRunAt };
 }
 
-/** The brief and its Run now button, wired to the server. */
+/** Render the brief with a Run now button that asks the brief route for a new one. */
 export function BriefRun({ businessId, brief }: { readonly businessId: string; readonly brief: BriefResponse }) {
   const router = useRouter();
   async function run(): Promise<BriefRunResult> {

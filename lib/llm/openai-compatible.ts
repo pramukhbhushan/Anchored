@@ -104,8 +104,11 @@ export class OpenAICompatibleProvider implements LlmProvider {
     }
     if (!response.ok) {
       // Keep the provider's error text short; it can echo the owner's words into server logs.
-      const detail = (await response.text().catch(() => "")).slice(0, 120);
-      throw new LlmRequestError(`${this.label} returned HTTP ${response.status}. ${detail}`.trim(), response.status);
+      const text = await response.text().catch(() => "");
+      const detail = text.slice(0, 120);
+      // OpenAI reports a spent balance as a 429 with this code; OpenRouter uses 402.
+      const credit = response.status === 402 || text.includes("insufficient_quota");
+      throw new LlmRequestError(`${this.label} returned HTTP ${response.status}. ${detail}`.trim(), response.status, credit ? { reason: "credit" } : undefined);
     }
 
     const parsed = completionSchema.safeParse(await response.json().catch(() => null));

@@ -12,7 +12,9 @@ import { SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from "@/lib/session-cookie";
 // Module Overview
 // =============================================================================
 // Refuses cross-site and oversized API mutations, ties every visitor to a
-// session, then rate-limits API mutations per session and per IP. With accounts
+// session, then rate-limits API mutations per session and per IP. The IP comes
+// from proxy headers only on Vercel or with `TRUST_PROXY_HEADERS=1`; elsewhere a
+// request with a session counts under it alone. With accounts
 // on, the session is the Supabase user and signed-out visitors bound for `/app`
 // go to `/login`; with accounts off, it is an anonymous `anchored_session` cookie.
 
@@ -40,6 +42,8 @@ const LIMITS = {
   // onboardings plus chat. The daily model budget in `lib/server/ai-budget.ts` caps the spend.
   chat: { bucket: "chat", windowMs: WINDOW_MS, perSession: 90, perIp: 450 },
   newEvent: { bucket: "new-event", windowMs: WINDOW_MS, perSession: 60, perIp: 300 },
+  // Saving an AI key calls the owner's provider once to check it; ten tries covers a few typos.
+  aiKey: { bucket: "ai-key", windowMs: WINDOW_MS, perSession: 10, perIp: 50 },
   // Connecting a service and adding a contact create rows, so they get their own bucket.
   connect: { bucket: "connect", windowMs: WINDOW_MS, perSession: 60, perIp: 300 },
   // Each photo is its own request, and a post holds up to 10.
@@ -75,13 +79,20 @@ export const MAX_HOOK_BODY_BYTES = 4 * 1024 * 1024;
 // Module scope lives as long as the server instance, so counts carry across requests.
 const limiter = createRateLimiter();
 
-/** Return the caller's IP: `x-real-ip`, then the first `x-forwarded-for` entry, then "unknown". */
-export function clientIp(headers: Headers): string {
+/** Report whether a proxy in front of this server sets the client IP headers: on Vercel, or with `TRUST_PROXY_HEADERS=1`. */
+export function trustsProxyHeaders(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
+  return env.VERCEL === "1" || env.TRUST_PROXY_HEADERS === "1";
+}
+
+/** Return the caller's IP from `x-real-ip`, then the first `x-forwarded-for` entry, or `null` when neither is set or trusted. */
+export function clientIp(headers: Headers, env: Readonly<Record<string, string | undefined>> = process.env): string | null {
+  // With no proxy to set them, a client writes these headers itself and could pick a fresh bucket per request.
+  if (!trustsProxyHeaders(env)) return null;
   // Vercel sets `x-real-ip` to the address that connected, so a client can't choose its bucket there.
   // A client can prepend its own entries to `x-forwarded-for`, so that header is only the fallback.
   const real = headers.get("x-real-ip")?.trim();
   if (real) return real;
-  return headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  return headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
 }
 
 const HEXTET = /^[0-9a-f]{1,4}$/;
@@ -119,6 +130,7 @@ export function clientKey(ip: string): string {
 /** Return the rate limits for a `method` request to `pathname`, an API mutation. */
 export function limitFor(method: string, pathname: string): ApiLimit {
   if (pathname.startsWith("/api/hooks/")) return LIMITS.hook;
+  if (/^\/api\/businesses\/[^/]+\/ai-key\/?$/.test(pathname)) return LIMITS.aiKey;
   if (/^\/api\/businesses\/[^/]+\/(?:connections|contacts)(?:\/[^/]+)?\/?$/.test(pathname)) return LIMITS.connect;
   if (/^\/api\/businesses\/[^/]+\/automations\/?$/.test(pathname)) return LIMITS.automation;
   if (method === "POST" && /^\/api\/businesses\/[^/]+\/outbox\/[^/]+\/delete\/?$/.test(pathname)) return LIMITS.telegramDelete;
@@ -174,16 +186,30 @@ function refuseUnsafeMutation(request: NextRequest): NextResponse<ApiError> | nu
   return null;
 }
 
-/** Count an API mutation against its session and its IP, and return the refusal when either is over its limit. */
-function refuseOverLimit(request: NextRequest, sessionKey: string | null): NextResponse<ApiError> | null {
-  const rule = limitFor(request.method, request.nextUrl.pathname);
+/**
+ * Return the rate-limit counters one API mutation counts against, in order: its session, then its IP. `carried` says
+ * the request arrived with `sessionKey` rather than having one minted for it, and `ip` is `null` when it isn't trusted.
+ */
+export function limitChecks(rule: ApiLimit, sessionKey: string | null, carried: boolean, ip: string | null): [key: string, limit: number][] {
   // Session first: a refused check counts nothing, so one busy session can't spend the budget its whole room shares.
   // A client that drops its cookie gets a new session each time, which leaves only the per-IP limit to hold it.
   const checks: [key: string, limit: number][] = [];
   if (sessionKey !== null) checks.push([`session:${rule.bucket}:${sessionKey}`, rule.perSession]);
-  checks.push([`ip:${rule.bucket}:${clientKey(clientIp(request.headers))}`, rule.perIp]);
+  if (ip !== null) {
+    checks.push([`ip:${rule.bucket}:${clientKey(ip)}`, rule.perIp]);
+  } else if (!carried) {
+    // With no trusted IP, a request that brought its session is held by the session limit alone. One that brought
+    // none, such as a dropped cookie, a signed-out visitor or a webhook, could mint a new session every time, so
+    // all of those share one bucket at the per-IP limit.
+    checks.push([`ip:${rule.bucket}:no-session`, rule.perIp]);
+  }
+  return checks;
+}
 
-  for (const [key, limit] of checks) {
+/** Count an API mutation against its session and its IP, and return the refusal when either is over its limit. */
+function refuseOverLimit(request: NextRequest, visit: Visit): NextResponse<ApiError> | null {
+  const rule = limitFor(request.method, request.nextUrl.pathname);
+  for (const [key, limit] of limitChecks(rule, visit.sessionKey, visit.carried, clientIp(request.headers))) {
     const decision = limiter.check(key, { limit, windowMs: rule.windowMs });
     if (!decision.allowed) {
       return refuse(429, `Too many requests. Wait ${minutesText(decision.retryAfterSeconds)} and try again.`, {
@@ -203,6 +229,8 @@ interface Visit {
   readonly response: NextResponse;
   /** The anonymous session id or the Supabase user id, or `null` when nobody is signed in. */
   readonly sessionKey: string | null;
+  /** Whether the request arrived with that session, rather than having it minted on this request. */
+  readonly carried: boolean;
 }
 
 /** Copy the cookies `from` sets onto `to`, so a session change survives a redirect or a refusal. */
@@ -215,7 +243,7 @@ function carryCookies<T extends NextResponse>(from: NextResponse, to: T): T {
 function withSession(request: NextRequest): Visit {
   const current = request.cookies.get(SESSION_COOKIE)?.value;
   // A missing, empty, oversized or hand-edited value gets replaced, so the server only ever reads a UUID.
-  if (isSessionId(current)) return { response: NextResponse.next(), sessionKey: current };
+  if (isSessionId(current)) return { response: NextResponse.next(), sessionKey: current, carried: true };
   const sessionId = crypto.randomUUID();
   // Setting it on the request lets server components in this same request read it.
   request.cookies.set(SESSION_COOKIE, sessionId);
@@ -227,7 +255,7 @@ function withSession(request: NextRequest): Visit {
     path: "/",
     maxAge: SESSION_MAX_AGE_SECONDS,
   });
-  return { response, sessionKey: sessionId };
+  return { response, sessionKey: sessionId, carried: false };
 }
 
 /** Refresh the visitor's Supabase session, and return the id of the verified user who holds it. */
@@ -256,10 +284,10 @@ async function refreshAccount(request: NextRequest, config: AuthConfig): Promise
 async function withAccount(request: NextRequest, config: AuthConfig): Promise<Visit> {
   const { response, userId } = await refreshAccount(request, config);
   const { pathname, search } = request.nextUrl;
-  if (userId !== null || !needsSignIn(pathname)) return { response, sessionKey: userId };
+  if (userId !== null || !needsSignIn(pathname)) return { response, sessionKey: userId, carried: userId !== null };
   const redirect = NextResponse.redirect(new URL(loginHref(`${pathname}${search}`), request.url));
   // A refresh that failed clears the dead session cookies; the redirect must carry that too.
-  return { response: carryCookies(response, redirect), sessionKey: null };
+  return { response: carryCookies(response, redirect), sessionKey: null, carried: false };
 }
 
 // =============================================================================
@@ -275,7 +303,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   const config = authConfig();
   const visit = config === null ? withSession(request) : await withAccount(request, config);
-  const overLimit = mutation ? refuseOverLimit(request, visit.sessionKey) : null;
+  const overLimit = mutation ? refuseOverLimit(request, visit) : null;
   // A refreshed Supabase token must still reach the browser, or its next request replays a spent refresh token.
   return overLimit ? carryCookies(visit.response, overLimit) : visit.response;
 }

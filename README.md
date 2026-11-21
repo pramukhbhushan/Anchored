@@ -77,10 +77,10 @@ To change a setting, copy `.env.example` to `.env.local`, fill in the values you
 | To turn on | Set | Guide |
 | --- | --- | --- |
 | Sign-in and saved data | The Supabase variables | [Set up a Supabase project](docs/deploy.md#set-up-a-supabase-project) |
-| AI drafts for every business | `AI_PROVIDER` and `AI_API_KEY` | [Turn on AI](docs/deploy.md#turn-on-ai) |
-| Real texts, email and invoices | The connected service variables | [Connect real services](docs/deploy.md#connect-real-services) |
+| AI drafts on the server's key | `AI_PROVIDER` and `AI_API_KEY` | [Turn on AI](docs/deploy.md#turn-on-ai) |
+| Real texts, email and invoices | `CONNECTOR_SECRET_KEY` and the connected service variables | [Connect real services](docs/deploy.md#connect-real-services) |
 
-Each owner can also add their own AI key on a business's **Connections** page, signed in with email or Google. Anchored then uses the owner's key for that business, with Anthropic, OpenAI, OpenRouter or Featherless. If you host Anchored for others, you can leave `AI_PROVIDER` and `AI_API_KEY` unset so you pay for no model calls.
+Each owner can also add their own Anthropic, OpenAI, OpenRouter or Featherless key on a business's **Connections** page, signed in with email or Google. Every model call for that business then runs on the owner's key. Onboarding runs before a business exists, so it uses only the server's key. If you host Anchored for others, you can leave `AI_PROVIDER` and `AI_API_KEY` unset so you pay for no model calls.
 
 [`docs/deploy.md`](docs/deploy.md) covers every variable and the steps to deploy on Vercel.
 

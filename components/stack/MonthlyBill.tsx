@@ -62,7 +62,7 @@ export function MonthlyBill({ bill }: { readonly bill: Bill }) {
         </p>
       }
     >
-      <CostPicture bill={bill} onSelect={setSelected} />
+      <CostPicture bill={bill} selected={selected} onSelect={setSelected} />
       <ul className={styles.groups}>
         {bill.groups.map((group) => (
           <Group
@@ -99,11 +99,7 @@ function Group({
     <li
       className={styles.group}
       data-group={group.id}
-      style={
-        highlighted
-          ? { outline: "2px solid var(--ink)", outlineOffset: "8px" }
-          : undefined
-      }
+      data-highlighted={highlighted ? "" : undefined}
     >
       <h3 className={styles.groupHead}>
         {copy.title}

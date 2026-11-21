@@ -49,7 +49,7 @@ A few behaviors follow from this setup:
 
 - A magic link works only in the browser that asked for it. That browser holds the one-time verifier that `/auth/callback` needs to finish the sign-in.
 - A guest who adds an email under **Save your work** keeps the same user id. Their businesses, choices and cards carry over once they confirm the address.
-- The server reads and writes with the service role key, which bypasses row-level security. `supabase/migrations/20261107000200_auth_policies.sql` adds policies as a second layer: a signed-in user's own token reaches only the rows whose `session_id` is that user's id, and the anon key alone reaches nothing.
+- The server reads and writes with the service role key, which bypasses row-level security. `supabase/migrations/20261120000000_read_only_browser_access.sql` leaves the browser's token, guests included, able to read only its own cards, for live updates, and the shared post playbook. It can write nothing, and the anon key alone reaches no owner's row.
 
 ## Deploy to Vercel
 
@@ -66,9 +66,11 @@ A few behaviors follow from this setup:
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | The anon or publishable key, from **Project Settings > API Keys** |
    | `SUPABASE_SERVICE_ROLE_KEY` | The service role or secret key, from the same page |
 
-   Leave `ANCHORED_ALLOW_MEMORY_STORE` unset in production.
+   Leave `ANCHORED_ALLOW_MEMORY_STORE` unset in production. Vercel needs no `TRUST_PROXY_HEADERS`, since it sets `VERCEL=1` and rate limits then count per client IP.
 5. Deploy. Next.js copies every `NEXT_PUBLIC_` value into the browser bundle at build time, so redeploy after you change one.
 6. Open your domain, sign in, set up a business, sign out, and sign back in. The business is still there if the store works.
+
+To deploy somewhere other than Vercel behind a proxy that sets `x-real-ip` or replaces `x-forwarded-for`, set `TRUST_PROXY_HEADERS=1`. Without either setting, a client could write those headers itself, so `middleware.ts` counts a request with a session under its session alone, and all requests with no session share one bucket.
 
 `vercel.json` deploys only the `main` branch. To deploy from other branches, change `git.deploymentEnabled` in that file.
 
@@ -80,27 +82,32 @@ Without AI, Anchored's rules write every profile and card. With AI, a model writ
 
 Anchored can get a model key in two ways:
 
-- **Each owner adds their own key.** On a business's **Connections** page, an owner signed in with email or Google picks Anthropic, OpenAI, OpenRouter or Featherless and pastes a key. That business's model calls run on the owner's key and bill the owner's account. The deployment needs `CONNECTOR_SECRET_KEY` set, which encrypts the key.
-- **You set one key for everyone.** If you host Anchored for yourself, set `AI_PROVIDER` and `AI_API_KEY`, plus `AI_MODEL` for every provider except `anthropic`. Every business without its own key uses this one.
+- **Each owner adds their own key.** On a business's **Connections** page, an owner signed in with email or Google picks Anthropic, OpenAI, OpenRouter or Featherless and pastes a key. OpenAI, OpenRouter and Featherless also need a model name. Anchored checks the key with one short call before it saves it, and the page shows only the key's last four characters. Every model call for that business then runs on the owner's key and bills the owner's account. Guests and the example business can't save a key.
+- **You set one key for the server.** Set `AI_PROVIDER` and `AI_API_KEY`. Every business without its own key uses this one. Onboarding runs before a business exists, and `npm run discover` serves no business, so both use only the server's key.
 
-An owner's key wins over the environment key. To pay for no model calls on a public deployment, leave `AI_PROVIDER` and `AI_API_KEY` unset.
+An owner's key wins over the server's key. To pay for no model calls on a public deployment, leave `AI_PROVIDER` and `AI_API_KEY` unset. Onboarding then uses the rules, and owners who add a key get AI for their own business.
 
-To set one key for everyone:
+### Let owners add their own key
+
+1. Set `CONNECTOR_SECRET_KEY`, which encrypts each owner's key. [Connect real services](#connect-real-services) shows how to make one.
+2. Apply `supabase/migrations/20261120010000_owner_ai_key.sql`, or every migration if you set up the database after it landed. Owners can't save a key until it is applied.
+
+### Set one key for the server
 
 1. Set `AI_PROVIDER` to `anthropic`, `openai`, `openrouter`, `featherless` or `openai-compatible`.
 2. Set `AI_API_KEY` to that provider's key.
 3. For every provider except `anthropic`, set `AI_MODEL`. To use a different model for one tier, set `AI_MODEL_QUICK`, `AI_MODEL_DEFAULT` or `AI_MODEL_COMPLEX`.
-4. For `openai-compatible`, set `AI_BASE_URL` to the endpoint root, the part before `/chat/completions`. It must use https, except for a model on `localhost`.
-5. Set `AI_DAILY_CALL_CAP` to the number of calls the environment key may make each UTC day. The default is 2000, and `0` turns those calls off.
+4. For `openai-compatible`, set `AI_BASE_URL` to the endpoint root, the part before `/chat/completions`. It must use https, except for a model on `localhost`. Owners can't use `openai-compatible` or a base URL.
+5. Set the two daily caps on the server's key. `AI_SESSION_DAILY_CALL_CAP` limits one visitor or account per UTC day, default 150, and Anchored checks it first. `AI_DAILY_CALL_CAP` limits every visitor together per UTC day, default 2000. A cap of `0` turns off calls on the server's key and leaves owners' keys working.
 6. In your AI provider's billing settings, set a hard spend cap as a backstop.
 
-Past the daily cap, chats and onboarding fall back to the rules, and **Rewrite in my voice** answers 429 until the next UTC day. The cap counts only calls on the environment key. Calls on an owner's key spend the owner's money.
+Only calls on the server's key count against the caps, since an owner's calls spend the owner's money. Past a cap, chats and onboarding fall back to the rules, and **Rewrite in my voice** answers 429 until the next UTC day.
 
 With `anthropic` and no model variables, the `quick`, `default` and `complex` tiers run `claude-haiku-5-5`, `claude-sonnet-5-5` and `claude-opus-5-5`. On `featherless`, `AI_MODEL=Qwen/Qwen3.6-35B-A3B` answered a chat turn in 1.4 to 2.8 seconds in November 2026 tests. Anchored turns off thinking on every Featherless request, since Qwen otherwise spends its whole token budget thinking and returns no text.
 
 ## Connect real services
 
-An owner connects Twilio and Stripe with their own accounts on a business's **Connections** page, signed in with email or Google. Resend, Postmark and Google Sheets run on accounts the deployment holds. Each service stays off until its variables are set, and Anchored never sends without the owner's approval.
+An owner connects Twilio, Stripe and Resend with their own accounts on a business's **Connections** page, signed in with email or Google. Postmark and Google Sheets run on accounts the deployment holds. Each service stays off until its variables are set, and Anchored never sends without the owner's approval.
 
 Before you connect any service, set these on the server:
 
@@ -120,9 +127,12 @@ Each business uses its own Twilio account, so the deployment needs no Twilio var
 
 ### Email out with Resend
 
-1. Verify a sending domain in Resend.
-2. Set `RESEND_API_KEY` to a Resend API key.
-3. Set `EMAIL_FROM_ADDRESS` to an address on the verified domain. Each email shows the business's name and sets the owner as reply-to.
+Each owner sends approved email through their own Resend account, so the deployment needs only `CONNECTOR_SECRET_KEY`, which encrypts the owner's key.
+
+1. The owner verifies a sending domain in their Resend account.
+2. On the Connections page, the owner pastes a Resend API key and a from-address on that domain. Each email shows the business's name and sets the owner as reply-to.
+
+For a self-hosted server with one business, you can set `RESEND_API_KEY` and `EMAIL_FROM_ADDRESS` instead, as one shared sender. Leave them unset on a public deployment: with a shared sender, anyone who signs up can email any address from your domain.
 
 ### Email in with Postmark
 
@@ -192,7 +202,7 @@ Only a reply the owner approves sends. The bot also sends a fixed acknowledgment
 
 Every variable is optional for a local run. `.env.example` lists them all.
 
-### Accounts and storage
+### Accounts, storage and rate limits
 
 | Variable | What it does |
 | --- | --- |
@@ -201,6 +211,7 @@ Every variable is optional for a local run. `.env.example` lists them all.
 | `SUPABASE_URL` | The project URL for the store. Optional when `NEXT_PUBLIC_SUPABASE_URL` names the same project |
 | `SUPABASE_SERVICE_ROLE_KEY` | The server's key for the store. It never reaches the browser |
 | `ANCHORED_ALLOW_MEMORY_STORE` | Set to `1` to let a production build run on the in-memory store, for example to test `next start` on your machine |
+| `TRUST_PROXY_HEADERS` | Set to `1` only behind a proxy that sets `x-real-ip` or replaces `x-forwarded-for`, so rate limits count per client IP. Vercel needs nothing, since it sets `VERCEL=1` |
 
 With the two `NEXT_PUBLIC_SUPABASE_*` variables unset, accounts are off. Each visitor gets an anonymous session cookie instead, and the account menu says "This browser".
 
@@ -208,23 +219,24 @@ With the two `NEXT_PUBLIC_SUPABASE_*` variables unset, accounts are off. Each vi
 
 | Variable | What it does |
 | --- | --- |
-| `AI_PROVIDER` | One of `anthropic`, `openai`, `openrouter`, `featherless` or `openai-compatible` |
-| `AI_API_KEY` | The API key for the provider in `AI_PROVIDER` |
+| `AI_PROVIDER` | The server's provider: one of `anthropic`, `openai`, `openrouter`, `featherless` or `openai-compatible`. Businesses without their own key use it |
+| `AI_API_KEY` | The server's API key for the provider in `AI_PROVIDER` |
 | `AI_BASE_URL` | The endpoint root, before `/chat/completions`. Optional for the named providers, which each have a default. Required for `openai-compatible`. Must use https, except for a model on `localhost` |
 | `AI_MODEL` | The model for every tier. Every provider except `anthropic` needs it, unless all three tier variables are set |
 | `AI_MODEL_QUICK`, `AI_MODEL_DEFAULT`, `AI_MODEL_COMPLEX` | The model for one tier. Each one overrides `AI_MODEL` |
-| `AI_DAILY_CALL_CAP` | Calls the environment key may make per UTC day, counted in the store. Default 2000. `0` turns those calls off |
+| `AI_SESSION_DAILY_CALL_CAP` | Calls on the server's key per UTC day for one visitor or account, checked before `AI_DAILY_CALL_CAP`. Default 150. `0` turns off calls on the server's key |
+| `AI_DAILY_CALL_CAP` | Calls on the server's key per UTC day across every visitor, counted in the store. Default 2000. `0` turns off calls on the server's key |
 | `APP_URL` | This deployment's public URL. Anchored sends it as the `HTTP-Referer` header to providers that ask for attribution, such as OpenRouter |
 
 ### Connected services
 
 | Variable | What it does |
 | --- | --- |
-| `CONNECTOR_SECRET_KEY` | 32 random bytes in base64 that encrypt every credential an owner connects. Without it, no service that needs a secret can be connected |
+| `CONNECTOR_SECRET_KEY` | 32 random bytes in base64 that encrypt every credential an owner connects, AI keys included. Without it, no service that needs a secret can be connected |
 | `PUBLIC_APP_URL` | This deployment's public https address. Webhook URLs start with it |
 | `ANCHORED_ALLOW_GUEST_CONNECTIONS` | Set to `1` to let a guest connect services in a local run |
-| `RESEND_API_KEY` | The Resend API key that sends approved emails |
-| `EMAIL_FROM_ADDRESS` | The address approved emails come from, on a domain verified in Resend |
+| `RESEND_API_KEY` | Optional shared sender for a self-hosted server with one business. Owners otherwise paste their own Resend key on the Connections page. Leave it unset on a public deployment |
+| `EMAIL_FROM_ADDRESS` | The shared sender's address, on a domain verified in Resend |
 | `INBOUND_EMAIL_ADDRESS` | The Postmark inbound address |
 | `INBOUND_EMAIL_SECRET` | The secret that Postmark's webhook URL carries as `?key=` |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | The JSON key of the Google service account that reads invoice sheets |
