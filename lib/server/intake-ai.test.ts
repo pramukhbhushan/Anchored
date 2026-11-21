@@ -34,7 +34,7 @@ describe("takeIntakeTurn with a model", () => {
   it("asks the model's follow-up where the owner answers in their own words", async () => {
     models.current = modelAsking({ field: "what", question: "What jobs do you take most?" });
 
-    const turn = await takeIntakeTurn(draft, first!, { text: "Rivera Plumbing in Hyattsville" }, []);
+    const turn = await takeIntakeTurn("session-1", draft, first!, { text: "Rivera Plumbing in Hyattsville" }, []);
 
     expect(nextQuestion(turn.draft)?.text).toBe("What jobs do you take most?");
   });
@@ -42,7 +42,7 @@ describe("takeIntakeTurn with a model", () => {
   it("never puts the model's question above chips that answer something else", async () => {
     models.current = modelAsking({ field: "kind", question: "Do you do commercial work too?" });
 
-    const turn = await takeIntakeTurn(draft, first!, { text: "Rivera Plumbing in Hyattsville" }, []);
+    const turn = await takeIntakeTurn("session-1", draft, first!, { text: "Rivera Plumbing in Hyattsville" }, []);
 
     expect(nextQuestion(turn.draft)?.text).not.toBe("Do you do commercial work too?");
   });
@@ -62,12 +62,12 @@ describe("takeIntakeTurn with the Google lookup", () => {
       return new Response("<html><body><p>Emergency plumbing. Minimum charge $95.</p></body></html>", { status: 200, headers: { "content-type": "text/html" } });
     });
 
-    const named = await takeIntakeTurn(newDraft(), nextQuestion(newDraft())!, { text: "Rivera Plumbing, Hyattsville, MD" }, []);
+    const named = await takeIntakeTurn("session-1", newDraft(), nextQuestion(newDraft())!, { text: "Rivera Plumbing, Hyattsville, MD" }, []);
     const listing = nextQuestion(named.draft);
     expect(listing?.field).toBe("listing");
     expect(named.reply).toContain("Is this you?");
 
-    const picked = await takeIntakeTurn(named.draft, listing!, { picks: ["place-a"] }, []);
+    const picked = await takeIntakeTurn("session-1", named.draft, listing!, { picks: ["place-a"] }, []);
 
     expect(picked.draft.placeId).toBe("place-a");
     expect(picked.draft.details?.hours).toBe("Monday: 7:00 AM to 4:00 PM");
