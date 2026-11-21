@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { deferred, json, sentJson, stubFetch } from "@/test/http";
 import { router } from "@/test/next";
 import type { RecordedFollowup } from "@/lib/domain/followups";
@@ -135,6 +135,38 @@ describe("FollowupSchedule", () => {
     expect(screen.queryByText("Closer: Sam")).not.toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Customer" })).toHaveValue("another");
     expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("asks for a date and time when the due value doesn't parse, and sends nothing", async () => {
+    const fetch = stubFetch(() => json({ records: [record] }));
+    render(<FollowupSchedule businessId="shop" records={[]} contacts={contacts} skills={["closer"]} />);
+    const user = await openSchedule();
+    await fillSchedule(user);
+    const due = screen.getByLabelText("Draft due (your device's local time)");
+    fireEvent.change(due, { target: { value: "" } });
+    // Submit the form directly: a browser's `required` check would stop an empty value first, but an old browser that shows a text box lets a malformed one through.
+    fireEvent.submit(due.closest("form")!);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Pick a date and a time for the draft.");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  describe("in a time zone with daylight saving", () => {
+    const zone = process.env.TZ;
+    beforeEach(() => { process.env.TZ = "America/New_York"; });
+    afterEach(() => { if (zone === undefined) delete process.env.TZ; else process.env.TZ = zone; });
+
+    it("refuses a time the clocks skip, and sends nothing", async () => {
+      // Clocks in New York jump from 2:00 to 3:00 on March 14, 2027, so 2:30 never happens.
+      expect(new Date("2027-03-14T02:30").getHours()).toBe(3);
+      const fetch = stubFetch(() => json({ records: [record] }));
+      render(<FollowupSchedule businessId="shop" records={[]} contacts={contacts} skills={["closer"]} />);
+      const user = await openSchedule();
+      await fillSchedule(user);
+      fireEvent.change(screen.getByLabelText("Draft due (your device's local time)"), { target: { value: "2027-03-14T02:30" } });
+      await user.click(screen.getByRole("button", { name: "Record follow-up" }));
+      expect(await screen.findByRole("alert")).toHaveTextContent("That time is skipped or happens twice when the clocks change.");
+      expect(fetch).not.toHaveBeenCalled();
+    });
   });
 
   it("keeps the saved notice when the refreshed page brings the new record", async () => {
