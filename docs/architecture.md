@@ -13,14 +13,14 @@ The table lists the layers from the bottom up. A file may always import its own 
 | `lib/domain/` | Workflows, agents and skills, the tool catalog, ratings, the rules engine, the example business, card templates, and the executor's `checkSend` | `zod` only |
 | `lib/api/` | `contract.ts`, the request and response types of every API route, and `schemas.ts`, the Zod schema for every request body | `lib/domain` and `zod` only |
 | `lib/llm/` | The model layer: the `LlmProvider` interface and one adapter per provider | Anything except `lib/server`, `lib/store`, `lib/api`, `lib/auth`, `next` and `react` |
-| `lib/connectors/` | One adapter per connected service: Twilio texts and calls, Resend email out, Postmark email in, Stripe invoices. Each turns one send or one webhook into plain values | Anything except `lib/server`, `lib/store`, `lib/api`, `lib/auth`, `lib/llm`, `next` and `react` |
+| `lib/connectors/` | One adapter per connected service: Twilio texts and calls, Resend email out, Postmark email in, Stripe invoices, Google Sheets invoice sheets, and the shared Telegram bot. Each turns one send, one read or one webhook into plain values | Anything except `lib/server`, `lib/store`, `lib/api`, `lib/auth`, `lib/llm`, `next` and `react` |
 | `lib/store/` | The `Store` interface, with `SupabaseStore` for Postgres and `MemoryStore` for local runs | Anything except `lib/server`, `lib/llm`, `lib/auth`, `next` and `react` |
 | `lib/auth/` | Supabase Auth clients, the sign-in paths, and the `Viewer` type | Anything except `lib/server`, `lib/store` and `lib/llm` |
 | `lib/server/` | Server-only orchestration: the session, data reads, model calls under a daily budget, card decisions, the scheduled sender, turning events into cards, and request parsing | Any `lib` layer |
 | `components/` | React components, grouped by feature | Anything except `app/` and `middleware.ts` |
-| `app/` | Pages under `app/app/`, the marketing site, and API routes under `app/api/` | Anything except `middleware.ts` |
+| `app/` | Pages under `app/app/`, the marketing site, and API routes under `app/api/` | Anything except `middleware.ts` and `lib/store` |
 
-No file under `lib/` imports `app/`, `components/` or `middleware.ts`. Three more rules cut across the layers:
+No file under `lib/` imports `app/`, `components/` or `middleware.ts`. Routes and pages parse, call `lib/server` and answer, so `lib/server` gets the store and runs every multi-step flow against it. Three more rules cut across the layers:
 
 - A file marked `"use client"` never imports `lib/server`, `lib/store`, `lib/llm`, `lib/connectors`, `lib/auth/server` or `server-only`. Client files ship to the browser, and the service-role store must never reach it.
 - The modules that `middleware.ts` shares with the server and the browser import nothing at all: `lib/session-cookie.ts`, `lib/auth/config.ts`, `lib/auth/paths.ts`, `lib/auth/session-id.ts`, `lib/auth/viewer.ts`, `lib/server/origin.ts` and `lib/server/rate-limit.ts`. Middleware runs on the edge runtime, where most server code can't load.
@@ -37,8 +37,25 @@ When the test fails, move the code to the layer that owns it. If the design itse
 - `ui/` holds the primitives that both the site and the app use, such as `Button`, `Card`, `Badge`, `Toast` and `PageSkeleton`.
 - `site/` holds the marketing pages' pieces, and `shell/` holds the app's sidebar, top bar and command palette.
 - `business/` holds the pieces of the business pages under `/app/b/[id]`, and `stack/` holds the Stack page's.
+- `workflows/` holds the Workflows graph, the map and the plan controls, and `connections/` holds the Connections page, the contact list and the Telegram setup.
 - `chat/`, `account/`, `onboarding/` and `resize/` each hold one feature.
 - The root holds four shared modules and nothing else. `api.ts` wraps `fetch` for client components, `routes.ts` builds URLs, and `view-helpers.ts` and `agent-labels.ts` hold pure helpers for the views.
+
+## What `lib/domain` holds
+
+`lib/domain/` holds pure TypeScript that imports only `zod`. The table groups its files by the job they do. `lib/domain/types.ts` holds the types the groups share.
+
+| Job | Files |
+| --- | --- |
+| Map a business to workflows and paths | `workflows.ts` lists the workflows; `engine.ts` picks the ones a business needs; `paths.ts` holds each workflow's three paths and the owner's picks; `stages.ts` lays them out by the stages of a day; `new-jobs.ts` offers jobs beyond the ones onboarding found; `plan.ts` holds the owner's yes to the whole plan; `crew.ts` writes the decisions shown after onboarding |
+| Learn about the business | `intake.ts` runs chat onboarding; `fields.ts` registers every profile detail and the agents that need it; `details.ts` reads and prints each detail; `cases.ts` holds the example business and its fact sets |
+| Rate tools | `catalog.ts` is the tool catalog; `rating.ts` scores a tool for one business; `discovery.ts` vets a tool the discovery agent found; `discovered.ts` reads `discovered.json` |
+| Agents and skills | `agents.ts` holds every skill; `agent-config.ts` assembles each active agent's settings; `starters.ts` picks the starter drafts; `requests.ts` reads an owner's chat message for a request for work |
+| Cards and sends | `cards.ts` holds a card template per skill; `executor.ts` holds `checkSend`; `rules.ts` holds the standing rules and protocol notices that send without a tap; `contacts.ts` holds customers and their consent; `connections.ts` names the services a business can connect |
+| Customer conversations | `threads.ts` keeps one thread per contact; `conversation.ts` allows the ownership changes for a thread; `customer-routing.ts` picks the Customer skill that answers a Telegram message; `followups.ts` runs follow-up timers from recorded facts |
+| Bookkeeping | `invoices.ts` holds the payment reminder rules; `invoice-sheet.ts` reads the owner's invoice sheet |
+| Marketing | `posts.ts` turns photos and a line into a post; `photos.ts` holds the upload rules; `playbook.ts` and `playbook-seed.ts` hold the post formats, hooks and hashtags |
+| Internal Communications | `brief.ts` writes the morning brief; `triage.ts` sorts forwarded email; `renewals.ts` warns about license dates |
 
 ## How a request moves through the layers
 
@@ -60,6 +77,8 @@ flowchart LR
 
 Approving a card shows the whole path. `POST /api/cards/[id]` parses the body with `readBody` and `decideCardSchema`, then calls `decideCard` in `lib/server/decide.ts`. `decideCard` runs `checkSend` from `lib/domain/executor.ts`, writes the decision through `Store.updatePendingCard`, and writes the outbox row through `Store.addOutbox`.
 
+Creating a business goes through `saveNewBusiness` in `lib/server/create-business.ts`, the one save path for the onboarding form and the onboarding chat.
+
 Business pages read the same way. `app/app/b/[id]/layout.tsx` looks up the business before any `loading.tsx` boundary streams, so an unknown id returns a real 404. Each page then calls `getBusinessOrNotFound`, `getChoices` and `getFeed` from `lib/server/data.ts`, and React `cache` makes the layout and the page share one lookup.
 
 ## The invariants
@@ -68,11 +87,20 @@ These hold everywhere in the code. A change that breaks one is a design change, 
 
 **The model writes text, and code decides.** `planWorkflows` in `lib/domain/engine.ts` picks the workflows, `pathOptions` and `defaultChoice` in `lib/domain/paths.ts` pick the paths, `rateTool` in `lib/domain/rating.ts` computes every score, and `readRequest` in `lib/domain/requests.ts` decides whether a business chat message asks for work and which chosen skill drafts it. `starterSkills` in `lib/domain/starters.ts` picks which skills get a written starter draft. The model features in `lib/server/ai.ts`, `lib/server/intake-ai.ts`, `lib/server/business-chat.ts` and `lib/server/starters.ts` only write or rewrite text or read chat answers, and code validates each reply against the allowed values. With no provider configured, or past the daily budget in `lib/server/ai-budget.ts`, the rules run instead.
 
-**`checkSend` gates every send.** `decideCard` is the only caller of `Store.addOutbox`, and it runs `checkSend` before every write. `checkSend` refuses a locked thread, an allergy answer, an unfilled `[placeholder]`, and a text with no opt-out line, no consent, or a send time in quiet hours. When quiet hours are the only problem, `decideCard` queues the text for the first hour that passes.
+**`checkSend` gates every send.** `lib/server/decide.ts` is the one module that writes to the outbox. `decideCard` runs `checkSend` before it writes an approved card. The two entries that need no card follow their own checks: `queueAcknowledgment` runs `checkSend` on the fixed acknowledgment, and `queueProtocolNotice` runs `checkProtocolNotice` on the bot's fixed answer to a customer's own /start or /stop. `checkSend` refuses a locked thread, an allergy answer, an unfilled `[placeholder]`, and a text with no opt-out line, no consent, or a send time in quiet hours. When quiet hours are the only problem, `decideCard` queues the text for the first hour that passes.
 
 Each outbox row carries a `delivery`: `yours` when the owner sends it from their own phone or email, or `queued`, `sending`, `sent` and `failed` when Anchored sends it. `deliveryFor` in `lib/domain/contacts.ts` picks Anchored only when the business has connected the service, and then texts only a number with a consent record and no STOP reply, and emails only a real address. The dispatcher in `lib/server/dispatch.ts` sends queued rows through the adapters in `lib/connectors/` and runs `checkSend` again at send time, since a queued text can cross into quiet hours and a customer can text STOP after the owner approves.
 
-**Every `Store` query filters by session.** Every `Store` method takes the session id first, and `SupabaseStore` filters each query on `session_id`. Three methods work across the deployment on purpose: `useAiCall` counts model calls, `listDueOutbox` gives the scheduled sender every queued row that is due, and `findConnection` lets a webhook find its business by hook id. The shared Telegram bot adds narrowly scoped methods, since its webhook knows only a chat id, an update id or the hook id in a customer link: `findTelegramHook` and `findTelegramChat` return the owning session with the business or chat, `setTelegramChatBlocked` records a customer blocking the bot, and `claimTelegramUpdate`, `telegramUpdateDone` and `finishTelegramUpdate` distinguish completed updates from busy or recoverable work. `listBriefTargets` supplies bounded business/session pairs to the brief and recorded-work schedulers. Every lookup that returns a row returns its session id, and the caller uses that id for every later call. `docs/security.md` covers the row-level security that backs this up.
+**Every `Store` query filters by session.** Every `Store` method takes the session id first, and `SupabaseStore` filters each query on `session_id`. Callers get the id from `getSessionId` in `lib/server/session.ts`, never from request input. These methods work across the deployment on purpose, and this is the one list of them:
+
+- `useAiCall` counts model calls against the daily cap.
+- `listDueOutbox` gives the scheduled sender every queued row that is due.
+- `findConnection` lets a webhook find its business by hook id.
+- `listPostPlaybook` reads the shared, read-only post formats, hooks and hashtags.
+- `listBriefTargets` gives the brief and recorded-work schedulers a bounded list of business and session pairs.
+- The shared Telegram bot's webhook knows only a chat id, an update id or the hook id in a customer link, so it adds `findTelegramHook` and `findTelegramChat`, which return the owning session with the business or chat; `setTelegramChatBlocked`, which records a customer blocking the bot; and `claimTelegramUpdate`, `telegramUpdateDone` and `finishTelegramUpdate`, which tell completed updates from busy or failed ones. `telegramUpdateDone` returns only whether an update finished, so a busy update is retried.
+
+Every lookup that returns an owner's row returns its session id, and the caller uses that id for every later call. `docs/security.md` covers the row-level security that backs this up.
 
 **Migrations are append-only.** A file in `supabase/migrations/` never changes after it merges. A schema change is a new file with a later timestamp, as `20261107000400_retention_keeps_accounts.sql` shows by replacing a function that an earlier migration created.
 
@@ -92,15 +120,13 @@ TypeScript does much of the bookkeeping. Most catalogs are `Record` types keyed 
 | A model provider that speaks the OpenAI API | Add its name to `ProviderName` in `lib/llm/types.ts` and to `PROVIDERS` in `lib/llm/config.ts`. | Fill `LABELS` and `BASE_URLS` in `lib/llm/config.ts` and `DIALECTS` in `lib/llm/openai-compatible.ts`. |
 | A model provider with its own API | Write an adapter that implements `LlmProvider`, as `lib/llm/anthropic.ts` does. | Choose it in `build` in `lib/llm/index.ts`. Features keep calling `getBudgetedLlm` and never import a vendor SDK. |
 | A business page | Add a folder under `app/app/b/[id]/` with `page.tsx`, `loading.tsx` and `error.tsx`. | Add the section to `Section` and `SECTIONS` in `components/routes.ts`, then fill `SECTION_ICON` in `components/shell/nav.ts`. Put the page's components in a feature folder under `components/`. |
-| An API route | Add the request and response types to `lib/api/contract.ts` and a schema that `satisfies` the request type to `lib/api/schemas.ts`. | Write `app/api/.../route.ts` to parse with `readBody` and call `lib/server`. Give it a rate limit in `limitFor` in `middleware.ts` if it calls a model or creates rows. |
+| An API route | Add the request and response types to `lib/api/contract.ts` and a schema that `satisfies` the request type to `lib/api/schemas.ts`. | Write `app/api/.../route.ts` to parse with `readBody` and call `lib/server`. Put any store work in a `lib/server` function that calls `getStore()` itself, as `lib/server/intake.ts`, `followups.ts` and `plan.ts` do. Give the route a rate limit in `limitFor` in `middleware.ts` if it calls a model or creates rows. |
 | A connector | Add the adapter under `lib/connectors/` with a test that hands it a fake `fetch`, and a kind to `ConnectionKind` in `lib/domain/connections.ts`. | Add a webhook route under `app/api/hooks/` that verifies the provider's signature and finds the business with `Store.findConnection`, and the delivery branch in `lib/server/dispatch.ts`. |
+| A post playbook row | Edit `PLAYBOOK_SEED` in `lib/domain/playbook-seed.ts`. | Run `npm run playbook:sql`, save its output as a new migration, and check that its timestamp is the newest. The memory store reads the seed directly, so the database needs the migration to match. |
 | A migration | Add `supabase/migrations/<timestamp>_<what>.sql` with a later timestamp than every other file. | Turn on row-level security for a new table. Add any new query to the `Store` interface in `lib/store/types.ts` and to both `MemoryStore` and `SupabaseStore`, with a test in `memory.test.ts`. |
 
 ## Known gaps
 
-The rules describe the code as it is, and two places sit below the bar the layers set.
-
-- Several API routes call `getStore()` directly for one read or write, such as `setChoice` or `recordEvent`. The intake route in `app/api/intake/[id]/route.ts` goes further and runs a multi-step flow that belongs in `lib/server`. Moving it there would leave every route as parse, call and answer, as the ingest flow already is: it lives in `lib/server/ingest.ts`, which the simulator route and the webhooks share.
-- `components/shell/shell-data.ts` is a server module that lives in `components/`, because it reads the data only the app shell shows.
+`components/shell/shell-data.ts` is a server module that lives in `components/`, because it reads the data only the app shell shows.
 
 The four agent workspaces, what each drafts and what starts it are in [agents.md](agents.md).
