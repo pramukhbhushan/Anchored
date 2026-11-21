@@ -14,9 +14,9 @@ Either way, a visitor sees only the businesses, choices, cards, outbox entries, 
 
 ## Database access
 
-Every table has row-level security on: `businesses`, `workflow_choices`, `cards`, `outbox`, `events`, `intake_drafts`, `chat_messages`, `ai_usage`, `contacts`, `connections` and `profile_versions`. The anon key alone reaches no row.
+Every table has row-level security on. `20261120000000_read_only_browser_access.sql` revokes every table privilege from the `anon` and `authenticated` roles, and from tables made later. The browser's token, guests included, can read only its own `cards` rows, which Realtime needs, and the shared post playbook. It can write nothing.
 
-`SupabaseStore` in `lib/store/supabase.ts` connects from the server with `SUPABASE_SERVICE_ROLE_KEY`, which bypasses row-level security. The `session_id` filter in each query is what keeps one session's rows from another. As a second layer, `20261107000200_auth_policies.sql`, `20261107000500_ai_budget_and_chat_policies.sql`, `20261108000000_connectors.sql` and `20261108000100_profile_versions.sql` let a signed-in user's own token reach only rows whose `session_id` is that user's id. `ai_usage` has no policy, so only the service role reads it.
+`SupabaseStore` in `lib/store/supabase.ts` connects from the server with `SUPABASE_SERVICE_ROLE_KEY`, which bypasses row-level security. The `session_id` filter in each query is what keeps one session's rows from another. Earlier migrations let a signed-in token, guests included, write its own rows directly, which skipped approval and every other server check; the read-only migration replaced those policies.
 
 With no store variables, `getStore` in `lib/store/index.ts` uses `MemoryStore`, which keeps data in process memory and holds at most 2,000 sessions, dropping the oldest. A production build throws on its first data read instead, unless `ANCHORED_ALLOW_MEMORY_STORE=1`, so a public deploy can't lose visitors' work in memory unnoticed.
 
@@ -161,6 +161,9 @@ An owner can connect a Twilio number for texts and missed calls, email in and ou
 - **STOP and START replies update the contact.** A STOP reply marks the contact opted out and a START reply clears it. `deliveryFor` and the dispatcher never text an opted-out number.
 - **Calls are never recorded.** Maryland requires every party's consent to record a call, so the voice webhook answers with `twimlSayAndHangUp`, which at most says a short message before it hangs up, and nothing records or transcribes the call.
 - **The scheduled sender needs a secret.** `GET /api/cron/dispatch` sends due rows only for a request with `Authorization: Bearer <CRON_SECRET>`.
+- **The sender sends only what was approved.** `dispatchEntry` refuses an outbox row whose card isn't approved, and a row with no card unless it is a Telegram rule's fixed message.
+- **Owners send email with their own Resend key.** An owner pastes a Resend API key and a from-address on a domain they verified in Resend; the key is encrypted like other credentials. `RESEND_API_KEY` and `EMAIL_FROM_ADDRESS` set one shared sender as a fallback for a self-hosted server with one business. Leave them unset on a public deployment: with a shared sender, anyone who signs up can email any address from your domain.
+- **Photos stay in the owner's folder.** The photo route finds the business in the caller's session before it reads, `SupabaseStore` refuses any path part that isn't a plain id, and each business keeps at most 60 photos.
 
 ## Recorded work and Telegram
 
