@@ -5,12 +5,12 @@ import { ConnectorError, PROVIDER_TIMEOUT_MS, type FetchLike } from "./errors";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Email both ways. `sendEmail` sends one approved email through Resend from
-// Anchored's sending address, under the business's name, with the owner as
-// reply-to so answers reach their own inbox. `readInboundEmail` reads the JSON
+// Email both ways. `sendEmail` sends one approved email through Resend, from
+// the owner's own verified address or the server's shared one, under the
+// business's name, with the owner as reply-to so answers reach their inbox. `readInboundEmail` reads the JSON
 // Postmark posts when an email arrives at a forwarding address.
 
-/** Anchored's sending account: a Resend API key and a verified from-address. */
+/** A Resend sending account: an API key and a from-address on a domain verified in that account. */
 export interface EmailAccount {
   readonly apiKey: string;
   readonly fromAddress: string;

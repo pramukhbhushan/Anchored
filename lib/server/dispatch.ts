@@ -2,7 +2,7 @@ import "server-only";
 import { customerLocked, followupStillAllowed } from "@/lib/server/agent-work";
 import type { CardRecord, OutboxEntry } from "@/lib/api/contract";
 import { ConnectorError, type FetchLike } from "@/lib/connectors/errors";
-import { emailAccountFromEnv, sendEmail } from "@/lib/connectors/email";
+import { emailAccountFromEnv, sendEmail, type EmailAccount } from "@/lib/connectors/email";
 import { deleteTelegramMessage, sendTelegramMessage, TelegramBlockedError, telegramBotFromEnv } from "@/lib/connectors/telegram";
 import { sendTwilioText } from "@/lib/connectors/twilio";
 import { deliveryFor, type Delivery, type PlannedMessage, type SendingSetup } from "@/lib/domain/contacts";
@@ -19,9 +19,9 @@ import { canStoreSecrets, decryptSecret } from "@/lib/server/secrets";
 // The one place Anchored sends. `planDelivery` decides, when the owner
 // approves, whether Anchored sends a message itself or leaves it to the owner.
 // `dispatchEntry` sends one queued outbox entry: it claims the entry so no
-// other sender takes it, runs `checkSend` again, since quiet hours or a STOP
-// may have arrived since approval, then sends through the connected service
-// and records what happened. `dispatchDue` runs every due entry for the cron.
+// other sender takes it, refuses one no approval or Telegram rule authorized,
+// runs `checkSend` again, since quiet hours or a STOP may have arrived since
+// approval, then sends through the connected service and records what happened. `dispatchDue` runs every due entry for the cron.
 // A Telegram message also checks that the customer's chat still talks to this
 // business and hasn't blocked the bot, and joins the customer's thread once sent.
 
@@ -30,7 +30,8 @@ const HOUR_MS = 60 * 60 * 1000;
 /** What a business has connected for sending, read from its connections and the server's settings. */
 function sendingSetup(connections: readonly StoredConnection[], env: Readonly<Record<string, string | undefined>>): SendingSetup {
   const texting = connections.some((connection) => connection.kind === "texting" && connection.secret !== null) && canStoreSecrets(env);
-  const email = connections.some((connection) => connection.kind === "email-out") && emailAccountFromEnv(env) !== null;
+  const emailOut = connections.find((connection) => connection.kind === "email-out");
+  const email = emailOut !== undefined && (emailOut.secret !== null ? canStoreSecrets(env) : emailAccountFromEnv(env) !== null);
   return { texting, email, telegram: telegramBotFromEnv(env) !== null };
 }
 
@@ -44,6 +45,15 @@ export async function planDelivery(
 ): Promise<Delivery> {
   const [connections, contacts] = await Promise.all([store.listConnections(session, businessId), store.listContacts(session, businessId)]);
   return deliveryFor(message, sendingSetup(connections, env), contacts);
+}
+
+/** The account an email-out connection sends with: the owner's own Resend key, else the server's shared sender, else `null`. */
+function emailAccountFor(connection: StoredConnection, env: Readonly<Record<string, string | undefined>>): EmailAccount | null {
+  const fromAddress = connection.settings.fromAddress;
+  if (connection.secret === null || fromAddress === undefined) return emailAccountFromEnv(env);
+  const parsed = JSON.parse(decryptSecret(connection.secret, env)) as { apiKey?: unknown };
+  if (typeof parsed.apiKey !== "string") throw new ConnectorError("The stored Resend key is incomplete. Reconnect email sending.", false);
+  return { apiKey: parsed.apiKey, fromAddress };
 }
 
 /** What one dispatch did with an entry. */
@@ -87,6 +97,11 @@ export async function dispatchEntry(
     // An entry a rule authorized has no card; any other entry without one lost it to a deletion.
     if (business === null || (card === null && entry.rule === undefined)) {
       await settle("failed", "The card or business behind this message was deleted, so it wasn't sent.");
+      return "failed";
+    }
+    // Only an owner's approval or a Telegram rule puts an entry here, so anything else was never authorized.
+    if ((card !== null && card.status !== "approved") || (card === null && entry.channel !== "telegram")) {
+      await settle("failed", "This message was never approved, so it wasn't sent.");
       return "failed";
     }
     // An acknowledgment goes out only while the owner's rule is still on, whenever it was queued.
@@ -207,8 +222,9 @@ async function send(
     if (texting === undefined || from === undefined || accountSid === undefined) throw new ConnectorError("Texting isn't connected anymore. Reconnect it, or send this one yourself.", false);
     return (await sendTwilioText({ accountSid, authToken: twilioToken(texting, env), from }, to, entry.body, fetchImpl)).id;
   }
-  const account = emailAccountFromEnv(env);
-  const replyTo = connections.find((connection) => connection.kind === "email-out")?.settings.replyTo;
+  const emailOut = connections.find((connection) => connection.kind === "email-out");
+  const account = emailOut === undefined ? null : emailAccountFor(emailOut, env);
+  const replyTo = emailOut?.settings.replyTo;
   if (account === null || replyTo === undefined) throw new ConnectorError("Email sending isn't connected anymore. Send this one yourself.", false);
   return (await sendEmail(account, { to, replyTo, fromName: businessName, subject: `A note from ${businessName}`, text: entry.body }, fetchImpl)).id;
 }
