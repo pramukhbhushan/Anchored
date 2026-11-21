@@ -243,8 +243,8 @@ describe("matchPaidInvoice", () => {
   });
 
   it("finds a number-keyed reminder from a message that names the customer and amount", () => {
-    const sheet = [reminder("n:1042", "pending", { number: "1042" })];
-    expect(matchPaidInvoice(sheet, { name: "Maya Chen", amount: 450 })).toEqual({ kind: "match", key: "n:1042" });
+    const open = [reminder("n:1042", "pending", { number: "1042" })];
+    expect(matchPaidInvoice(open, { name: "Maya Chen", amount: 450 })).toEqual({ kind: "match", key: "n:1042" });
   });
 
   it("keeps a direct key that an open reminder carries", () => {

@@ -63,20 +63,6 @@ It's just me plus one part-time coach. We work weekdays 9 a.m. to 6 p.m. Eastern
 Following up on late invoices, replying to new leads faster, and reminding clients about upcoming sessions.
 ```
 
-## The invoice sheet
-
-Make a Google Sheet named "Brightpath Coaching invoices" with the rows below, and share it as a Viewer with the `client_email` of the service account in `GOOGLE_SERVICE_ACCOUNT_JSON`. The due dates suit a test run in early November 2026. Move them so invoice 1044 is still in the future and the others are past due.
-
-| Invoice # | Customer | Email | Amount | Due date | Status | What it tests |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1042 | Maya Chen | maya.chen@example.com | $450 | 2026-10-20 | Unpaid | Overdue, gets a reminder |
-| 1043 | Jordan Ellis | jordan.ellis@example.com | $1,200 | 2026-10-28 | Unpaid | Overdue. Change to "Paid" during the test to show the cancel |
-| 1044 | Priya Patel | priya.patel@example.com | $300 | 2026-11-20 | Unpaid | Not due yet, no reminder |
-| 1045 | Sam Lee | sam.lee@example.com | $240 | 2026-10-15 | Paid | Already paid, no reminder |
-| (blank) | Dev Rao | dev.rao@example.com | $175 | 2026-10-30 | Unpaid | No invoice number, matched by email and amount |
-| 1046 | Maya Chen | maya.chen@example.com | $90 | 2026-11-01 | Unpaid | Second invoice for the same client, counted separately |
-| 1047 | Alex Romero | alex.romero@example.com | $600 | 2026-10-25 | Unpaid | The opted-out contact: a reminder is drafted but never emailed |
-
 ## Test steps
 
 ### 1. Start the app with sign-in off
@@ -89,7 +75,7 @@ Open http://localhost:3102. Data is kept in memory and resets when the server re
 
 ### 2. Onboard
 
-Use the onboarding answers above. To answer them for you, open the browser console on the app and paste [`scripts/onboard-brightpath.js`](../../scripts/onboard-brightpath.js), with your sheet's link in place of `YOUR_SHEET_ID`.
+Use the onboarding answers above. To answer them for you, open the browser console on the app and paste [`scripts/onboard-brightpath.js`](../../scripts/onboard-brightpath.js).
 
 ### 3. Turn on Bookkeeping
 
@@ -107,17 +93,6 @@ Type each line into the business Chat, one at a time.
 | `Maya paid 1042` | "Marked invoice 1042 from Maya paid. I stopped ... reminders that were waiting." |
 | `We paid $300 for new ads last month` | A normal profile reply. Not treated as an invoice |
 
-### 5. Google Sheet
+### 5. Approvals
 
-Restart the server first if you want a clean slate, then onboard again.
-
-| Do | Expected |
-| --- | --- |
-| Paste `here's my invoice sheet https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit` | "Connected your invoice sheet. I checked your invoice sheet: 7 invoices. I drafted 5 reminders for overdue invoices. They're waiting in Approvals. 1 isn't due yet." |
-| Type `check my invoice sheet` | "5 overdue invoices already have a reminder." Nothing drafted twice |
-| In the sheet, change 1043's Status to `Paid`, then type `check my invoice sheet` | "I stopped 1 reminder for invoices now marked paid." |
-| Change 1043 back to `Unpaid` afterward | Resets the sheet for the next test |
-
-### 6. Approvals
-
-Every reminder shows the exact amount, invoice number and due date from the sheet or chat, with no late fee. Invoice 1047 (Alex Romero) only stays unsent if Alex is saved as a contact who opted out. Otherwise it behaves like the others.
+Every reminder shows the exact amount, invoice number and due date from the chat, with no late fee. A reminder to a contact who opted out is drafted but never emailed.

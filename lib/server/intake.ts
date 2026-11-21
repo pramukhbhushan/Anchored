@@ -5,7 +5,6 @@ import { withCrewDecisions } from "@/lib/domain/crew";
 import { answerText, draftDetails, draftToAnswers, newDraft, nextQuestion, openingMessages, planReadyText, type IntakeAnswer } from "@/lib/domain/intake";
 import { buildProfileFromAnswers, saveNewBusiness } from "@/lib/server/create-business";
 import { intakeState, intakeThread, takeIntakeTurn } from "@/lib/server/intake-ai";
-import { connectInvoiceSheet } from "@/lib/server/invoice-sheet";
 import { getStore } from "@/lib/store";
 import type { IntakeRecord, NewChatMessage } from "@/lib/store/types";
 
@@ -63,9 +62,6 @@ export async function answerIntake(session: string, id: string, answer: IntakeAn
     await saveNewBusiness(session, business, raw, { seedExample: false });
     businessId = business.id;
     reply = planReadyText(business);
-    // An invoice sheet pasted during onboarding is read now, so its reminders wait in Approvals with the plan.
-    const sheetId = turn.draft.invoiceSheet?.id;
-    if (sheetId) reply = `${reply}\n\n${await connectInvoiceSheet(session, business, sheetId)}`;
   }
 
   const saved: IntakeRecord = { id, draft: turn.draft, businessId };

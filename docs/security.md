@@ -109,7 +109,6 @@ Secrets come only from environment variables:
 - `SUPABASE_SERVICE_ROLE_KEY`, read in `lib/store/index.ts`.
 - `AI_API_KEY`, the key for the configured `AI_PROVIDER`, read in `lib/llm/config.ts`.
 - `CONNECTOR_SECRET_KEY`, `RESEND_API_KEY`, `INBOUND_EMAIL_SECRET` and `CRON_SECRET`, which [Connected services](#connected-services) covers.
-- `GOOGLE_SERVICE_ACCOUNT_JSON`, the service account that reads invoice sheets.
 - `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET`, when the optional Telegram bot is on.
 
 None of these names has the `NEXT_PUBLIC_` prefix, so Next.js never puts them in the browser bundle. `NEXT_PUBLIC_SUPABASE_ANON_KEY` is public by design, and row-level security limits what it reaches. `.gitignore` excludes `.env` and `.env*.local`, and `.env.example` lists the names with empty values. Each module in `lib/server/`, `lib/llm/` and `lib/connectors/` that reads a secret or calls the store or a provider imports `server-only`, so a client component that imports one fails the build. The helpers that the edge middleware shares with the server and the browser import nothing, `server-only` included: `lib/server/origin.ts`, `lib/server/rate-limit.ts`, `lib/session-cookie.ts`, and `config.ts`, `paths.ts`, `session-id.ts` and `viewer.ts` in `lib/auth/`. `lib/architecture.test.ts` enforces that list, and also fails any `"use client"` file that imports `lib/server`, `lib/store`, `lib/llm`, `lib/connectors` or `server-only`.

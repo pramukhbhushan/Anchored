@@ -14,10 +14,9 @@ Each adapter lives in `lib/connectors/`. The README's "Connect real services" se
 | Inbound email through Postmark | `email.ts` | Reads email the owner forwards to their business's address | Internal Communications triage |
 | Twilio | `twilio.ts` | Sends approved texts from the owner's Twilio number, receives replies and STOP, and answers missed calls. Calls are never recorded or transcribed | Callback and the other texting skills |
 | Stripe | `stripe.ts` | Reads `invoice.overdue` and `invoice.payment_failed` events from the owner's Stripe account. Never charges a card | Payment Nudger |
-| Google Sheets | `google-sheets.ts` | Reads the first tab of an invoice sheet the owner shares with Anchored's service account. Never writes | Payment Nudger |
 | Telegram, optional | `telegram.ts` | One shared bot: customers message a business through its link, and approved replies go back. Off unless the server sets `TELEGRAM_BOT_TOKEN`, and not verified in production | Customer |
 
-Twilio, Resend, Postmark and Stripe are connected per business on the Connections page, stored as one row per business in the `connections` table with the credentials encrypted. The Google Sheet link and the Telegram link are set up from chat and the Customer page.
+Twilio, Resend, Postmark and Stripe are connected per business on the Connections page, stored as one row per business in the `connections` table with the credentials encrypted. The Telegram link is set up from the Customer page.
 
 ## Rules every connector follows
 

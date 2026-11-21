@@ -24,19 +24,8 @@ vi.mock("@/lib/store", () => ({ getStore: () => stores.current }));
 const models = vi.hoisted(() => ({ current: null as LlmProvider | null }));
 vi.mock("@/lib/server/ai-budget", () => ({ getBudgetedLlm: () => models.current }));
 
-// Google Sheets is replaced by fixed rows, an error to throw, or no robot account at all.
-const sheets = vi.hoisted(() => ({ rows: [] as string[][], error: null as Error | null, account: { clientEmail: "robot@test.iam.gserviceaccount.com", privateKey: "unused" } as { clientEmail: string; privateKey: string } | null }));
-vi.mock("@/lib/connectors/google-sheets", () => ({
-  serviceAccountFrom: () => sheets.account,
-  readSheetValues: async () => {
-    if (sheets.error) throw sheets.error;
-    return sheets.rows;
-  },
-}));
-
 const { askInChat, listBusinessChat, sendBusinessChat } = await import("./business-chat");
 const { setAutomation } = await import("./automations");
-const { ConnectorError } = await import("@/lib/connectors/errors");
 
 beforeEach(() => {
   stores.current = new MemoryStore();
@@ -257,56 +246,6 @@ describe("Bookkeeping in an owner's chat", () => {
     await store().setChoice(SESSION, shop.id, "books", { path: "skip" });
     await say("Maya Chen owes $450 on invoice 1042");
     expect(await reminders()).toEqual([]);
-  });
-});
-
-describe("connecting an invoice sheet in chat", () => {
-  const shop = hvacShop();
-  const store = () => stores.current!;
-  const LINK = "https://docs.google.com/spreadsheets/d/1KDNvHILs3ENgxrsMhGjdjjzpMbH6DR5sBFcFEYXAmUM/edit";
-  const say = async (text: string) => (await sendBusinessChat(SESSION, (await store().getBusiness(SESSION, shop.id)) ?? shop, text)).messages.at(-1)?.text;
-
-  beforeEach(async () => {
-    await store().saveBusiness(SESSION, shop);
-    await store().setChoice(SESSION, shop.id, "books", { path: "build", skills: ["nudger"] });
-    sheets.error = null;
-    sheets.account = { clientEmail: "robot@test.iam.gserviceaccount.com", privateKey: "unused" };
-    // Due dates far in the past, so the rows are overdue whatever day the test runs.
-    sheets.rows = [
-      ["Invoice #", "Customer", "Email", "Amount", "Due date", "Status"],
-      ["1042", "Maya Chen", "maya.chen@example.com", "450", "2020-10-20", "Unpaid"],
-      ["1045", "Sam Lee", "sam.lee@example.com", "240", "2020-10-15", "Paid"],
-    ];
-  });
-
-  it("connects the sheet from a pasted link, drafts reminders, and saves the sheet on the profile", async () => {
-    expect(await say(`here's my invoice sheet ${LINK}`)).toBe(
-      'Connected your invoice sheet. I checked your invoice sheet: 2 invoices. I drafted 1 reminder for overdue invoices. It\'s waiting in Approvals. Say "check my invoice sheet" any time to read it again.',
-    );
-    expect((await store().getBusiness(SESSION, shop.id))?.invoiceSheet?.id).toBe("1KDNvHILs3ENgxrsMhGjdjjzpMbH6DR5sBFcFEYXAmUM");
-    expect((await store().listCards(SESSION, shop.id)).filter((card) => card.skill === "nudger")).toHaveLength(1);
-  });
-
-  it("reads the connected sheet again on request, drafting nothing twice", async () => {
-    await say(`here's my invoice sheet ${LINK}`);
-    expect(await say("check my invoice sheet")).toBe("I checked your invoice sheet: 2 invoices. 1 overdue invoice already has a reminder.");
-  });
-
-  it("explains how to share a sheet the robot can't open, and connects nothing", async () => {
-    sheets.error = new ConnectorError("I can't open that sheet yet. In Google Sheets, click Share, add robot@test.iam.gserviceaccount.com as a Viewer, then send me the link again.", false);
-    expect(await say(`connect ${LINK}`)).toContain("click Share, add robot@test.iam.gserviceaccount.com as a Viewer");
-    expect((await store().getBusiness(SESSION, shop.id))?.invoiceSheet).toBeUndefined();
-  });
-
-  it("says when this server has no Google key", async () => {
-    sheets.account = null;
-    expect(await say(`connect ${LINK}`)).toContain("Google Sheets isn't set up on this server yet");
-  });
-
-  it("keeps the sheet connected when the owner later changes the profile", async () => {
-    await say(`here's my invoice sheet ${LINK}`);
-    await say("We started doing catering");
-    expect((await store().getBusiness(SESSION, shop.id))?.invoiceSheet?.id).toBe("1KDNvHILs3ENgxrsMhGjdjjzpMbH6DR5sBFcFEYXAmUM");
   });
 });
 

@@ -137,8 +137,7 @@ export function limitFor(method: string, pathname: string): ApiLimit {
   if (/^\/api\/businesses\/?$/.test(pathname)) return LIMITS.createBusiness;
   if (/^\/api\/cards\/[^/]+\/rewrite\/?$/.test(pathname)) return LIMITS.rewrite;
   if (/^\/api\/intake(\/[^/]+)?\/?$/.test(pathname) || /^\/api\/businesses\/[^/]+\/chat\/?$/.test(pathname)) return LIMITS.chat;
-  // Reading the invoice sheet drafts cards the way an arriving event does, so it shares their bucket.
-  if (/^\/api\/businesses\/[^/]+\/(?:cards|invoice-sheet)\/?$/.test(pathname) || /^\/api\/ingest\/[^/]+\/?$/.test(pathname)) return LIMITS.newEvent;
+  if (/^\/api\/businesses\/[^/]+\/cards\/?$/.test(pathname) || /^\/api\/ingest\/[^/]+\/?$/.test(pathname)) return LIMITS.newEvent;
   if (/^\/api\/businesses\/[^/]+\/brief\/?$/.test(pathname)) return LIMITS.brief;
   if (/^\/api\/businesses\/[^/]+\/workflows\/?$/.test(pathname)) return LIMITS.profile;
   return LIMITS.mutation;

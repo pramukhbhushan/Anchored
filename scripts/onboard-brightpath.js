@@ -3,7 +3,7 @@
 // How to use:
 //   1. Open http://localhost:3102/app in your browser.
 //   2. Open DevTools (Cmd+Option+J in Chrome), go to the Console tab.
-//   3. Paste this whole file, with your own sheet in place of YOUR_SHEET_ID, and press Enter.
+//   3. Paste this whole file and press Enter.
 //
 // It starts an onboarding chat in your own browser session, answers every
 // question from docs/testing/brightpath-persona.md, logs each question and answer,
@@ -11,9 +11,6 @@
 // answer for are skipped. Only for local testing.
 
 (async () => {
-  const SHEET =
-    "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit";
-
   // One answer per question. `picks` are used when the question offers those chips; `text` otherwise.
   const ANSWERS = {
     name: { text: "Brightpath Coaching, College Park" },
@@ -37,7 +34,6 @@
     voice: {
       text: "Hi Maya, thanks for reaching out! I'd love to help you get ready for your interviews. I have openings Tuesday at 10 a.m. or Thursday at 2 p.m. this week. Let me know which works best and I'll send a Calendly link. Looking forward to working with you! Best, Priya at Brightpath Coaching",
     },
-    sheet: { text: `Here's my invoice sheet ${SHEET}` },
     confirm: { picks: ["yes"] },
     "gap:ownerName": { text: "Priya" },
     "gap:vocabulary": { text: "Clients, and a coaching session" },
