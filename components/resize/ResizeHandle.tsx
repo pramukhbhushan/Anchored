@@ -26,7 +26,7 @@ interface DragSession {
 }
 
 /** Props for `ResizeHandle`: the `handleProps` from `useResizableWidth` plus a label. */
-export interface ResizeHandleProps extends ResizeControl {
+interface ResizeHandleProps extends ResizeControl {
   /** Names the handle for screen readers, such as "Resize sidebar". */
   readonly label: string;
   /** The `id` of the panel this handle resizes. */

@@ -24,11 +24,13 @@ interface Wave {
 }
 
 /** Return the wave's height at `x` and time `t` seconds. */
-export function waveY(x: number, t: number, w: Wave): number {
+function waveY(x: number, t: number, w: Wave): number {
   return w.base + Math.sin(x / w.len + t * w.sp + w.ph) * w.amp + Math.sin(x / (w.len * 0.47) - t * w.sp * 1.3 + w.ph * 2) * w.amp * 0.45;
 }
 
+/** Ease in and out over 0 to 1, so the scroll-driven moves start and stop gently. */
 const ease = (x: number) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
+/** Hold `x` between 0 and 1. */
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 
 /** Render the hero scene; `children` is the headline block on the left. */

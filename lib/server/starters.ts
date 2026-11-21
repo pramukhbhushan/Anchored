@@ -5,6 +5,7 @@ import { CALENDAR_CHECK, customerNames, draftFeed, standingKey } from "@/lib/dom
 import { ownerFirstName, voiceSample } from "@/lib/domain/details";
 import { ensureOptOut, mentionsAllergen } from "@/lib/domain/executor";
 import { resolveChoices } from "@/lib/domain/paths";
+import { isService } from "@/lib/domain/connections";
 import { STARTER_LIMIT, STARTER_RECIPIENT, starterSkills, startersDue, type WritableSkill } from "@/lib/domain/starters";
 import type { BusinessProfile, KeyedCard } from "@/lib/domain/types";
 import type { LlmProvider } from "@/lib/llm";
@@ -198,7 +199,7 @@ async function writtenWords(llm: LlmProvider, business: BusinessProfile, skills:
  * feed already shows the templates; once stored, a starter is never written again, even when the call failed.
  */
 export async function writeStarters(session: string, business: BusinessProfile): Promise<void> {
-  const llm = getBudgetedLlm(session);
+  const llm = await getBudgetedLlm(session, business.id);
   if (llm === null) return;
   const store = getStore();
   const [saved, stored, connections] = await Promise.all([
@@ -207,7 +208,8 @@ export async function writeStarters(session: string, business: BusinessProfile):
     store.listConnections(session, business.id),
   ]);
   const choices = resolveChoices(business, saved);
-  if (!startersDue(business, choices, stored, connections.length > 0)) return;
+  // An AI key moves no messages, so it doesn't count as a connected channel.
+  if (!startersDue(business, choices, stored, connections.some((connection) => isService(connection.kind)))) return;
 
   const storedKeys = new Set(stored.map((card) => card.key));
   const feed = draftFeed(business, choices);

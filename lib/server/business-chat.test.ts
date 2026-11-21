@@ -22,10 +22,11 @@ const SESSION = "visitor-session";
 const stores = vi.hoisted(() => ({ current: null as Store | null }));
 vi.mock("@/lib/store", () => ({ getStore: () => stores.current }));
 const models = vi.hoisted(() => ({ current: null as LlmProvider | null }));
-vi.mock("@/lib/server/ai-budget", () => ({ getBudgetedLlm: () => models.current }));
+vi.mock("@/lib/server/ai-budget", async (original) => ({ ...(await original<object>()), getBudgetedLlm: () => models.current }));
 
 const { askInChat, listBusinessChat, sendBusinessChat } = await import("./business-chat");
 const { setAutomation } = await import("./automations");
+const { OwnerKeyRequestError } = await import("./ai-budget");
 
 beforeEach(() => {
   stores.current = new MemoryStore();
@@ -130,6 +131,16 @@ describe("an owner's own chat", () => {
 
     expect(sent.changes).toEqual([]);
     expect(sent.messages.at(-1)?.text).not.toContain("Updated your profile");
+  });
+
+  it("says what went wrong with the owner's own AI key, but keeps the server's failures generic", async () => {
+    const failing = (error: Error) => ({ generateText: async () => { throw error; }, generateObject: async () => { throw error; } }) as unknown as LlmProvider;
+
+    models.current = failing(new OwnerKeyRequestError("OpenAI didn't answer. Try again in a minute.", 503));
+    expect((await sendBusinessChat(SESSION, shop, "What should I focus on next?")).messages.at(-1)?.text).toMatch(/^OpenAI didn't answer\. Try again in a minute\. /);
+
+    models.current = failing(new Error("Claude request failed: overloaded"));
+    expect((await sendBusinessChat(SESSION, shop, "What should I focus on next?")).messages.at(-1)?.text).toMatch(/^AI couldn't reply right now\. /);
   });
 
   it("keeps a change the owner's own words state", async () => {

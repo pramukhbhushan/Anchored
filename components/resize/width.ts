@@ -15,7 +15,7 @@ export interface WidthState {
 }
 
 /** The limits a caller passes in, in CSS pixels. */
-export interface BoundsInput {
+interface BoundsInput {
   readonly defaultWidth: number;
   readonly min: number;
   readonly max: number;
@@ -40,6 +40,7 @@ export const KEY_STEP = 16;
 /** Pixels one arrow press moves the handle with Shift held. */
 export const KEY_STEP_LARGE = 64;
 
+/** Every panel's saved width sits under this `localStorage` prefix. */
 const STORAGE_PREFIX = "anchored.layout.";
 
 // =============================================================================

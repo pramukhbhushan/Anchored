@@ -17,12 +17,12 @@ import { getBudgetedLlm } from "@/lib/server/ai-budget";
 // words, and `rewriteInVoice` redrafts a card. The model never sets a workflow,
 // path or score; code owns those decisions and checks every reply.
 
-export { aiLabel, aiSetup, isAiConfigured } from "@/lib/llm";
+export { aiLabel, aiSetup, isAiConfigured } from "@/lib/server/ai-budget";
 
-/** Return the configured provider under `session`'s budget, or throw when AI is off. */
-function requireLlm(session: string) {
-  const llm = getBudgetedLlm(session);
-  if (!llm) throw new LlmConfigError("No AI provider is set up on this server. Set `AI_PROVIDER` and `AI_API_KEY`.");
+/** Return the provider for `session`'s work on `businessId`, or before a business exists, or throw when it has none. */
+async function requireLlm(session: string, businessId?: string) {
+  const llm = await getBudgetedLlm(session, businessId);
+  if (!llm) throw new LlmConfigError("No AI key: the business has none on Connections, and the server sets no `AI_PROVIDER` and `AI_API_KEY`.");
   return llm;
 }
 
@@ -68,7 +68,8 @@ What eats their week: ${answers.week}
 A reply in their voice: ${answers.voice}
 </owner_answers>`;
 
-  const out = await requireLlm(session).generateObject({ tier: tierForTask("draft"), schema: enrichmentSchema, schemaName: "profile_text", prompt, maxTokens: 4000 });
+  // The business doesn't exist yet, so only the server's key can write it.
+  const out = await (await requireLlm(session)).generateObject({ tier: tierForTask("draft"), schema: enrichmentSchema, schemaName: "profile_text", prompt, maxTokens: 4000 });
 
   const reasons = new Map(out.reasons.map((reason) => [reason.workflow, reason.why]));
   const merged: Partial<Record<WorkflowId, WorkflowPlan>> = {};
@@ -95,7 +96,7 @@ A reply in their voice: ${answers.voice}
 // Cards: redraft a message in the owner's voice
 // =============================================================================
 
-/** Return `body` rewritten in the owner's voice, keeping every fact and the opt-out line. */
+/** Return `body` rewritten in the owner's voice, on the business's own AI key when it has one, keeping every fact and the opt-out line. */
 export async function rewriteInVoice(session: string, business: BusinessProfile, body: string): Promise<string> {
   const prompt = `Rewrite the message inside <message> so it sounds like the owner of ${business.name}, a ${business.trade}. Their voice sample is inside <voice>. Keep every fact, name, time and amount exactly. Do not add prices, offers or promises. Keep it under 60 words. Reply with only the rewritten message.
 
@@ -103,7 +104,7 @@ export async function rewriteInVoice(session: string, business: BusinessProfile,
 
 <message>${body}</message>`;
 
-  const text = plainPunctuation(await requireLlm(session).generateText({ tier: tierForTask("short_reword"), prompt, maxTokens: 1000 })).slice(0, 600);
+  const text = plainPunctuation(await (await requireLlm(session, business.id)).generateText({ tier: tierForTask("short_reword"), prompt, maxTokens: 1000 })).slice(0, 600);
   const added = newFacts(body, text);
   if (added.length > 0) throw new LlmResponseError(`The rewrite added details that weren't in the draft: ${added.join(", ")}.`);
   // The opt-out line is a texting rule, so code restores it if the rewrite dropped it.

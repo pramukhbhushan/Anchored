@@ -18,6 +18,7 @@ import type { CardRecord, OutboxEntry } from "@/lib/api/contract";
 import { sendTimeText } from "@/lib/domain/executor";
 import { activeAgents, agentName, chosenSkills } from "@/lib/domain/paths";
 import { isAiConfigured } from "@/lib/server/ai";
+import { getSessionId } from "@/lib/server/session";
 import { getBusinessOrNotFound, getChoices, getFeed } from "@/lib/server/data";
 
 // =============================================================================
@@ -135,12 +136,12 @@ function OutboxItem({
 export default async function ApprovalsPage({ params }: { readonly params: Promise<{ id: string }> }) {
   const { id } = await params;
   const business = await getBusinessOrNotFound(id);
-  const [choices, feed] = await Promise.all([getChoices(business), getFeed(business)]);
+  const session = await getSessionId();
+  const [choices, feed, canRewrite] = await Promise.all([getChoices(business), getFeed(business), isAiConfigured(session, business.id)]);
   const agents = activeAgents(business, choices);
   const agentNames = Object.fromEntries(agents.map((a) => [a.id, a.name]));
   // Example events show a visitor how an agent drafts; an owner's own cards come from real events.
   const canSimulate = business.kind === "case" && chosenSkills(business, choices).length > 0;
-  const canRewrite = isAiConfigured();
   const handOffBusiness: HandOffBusiness = { name: business.name, reach: business.reach, tools: business.tools };
   const waiting = feed.cards.filter((c) => c.status === "pending");
   // The subtitle calls the drafts examples only while an example still waits; once they're cleared it would be false.

@@ -50,7 +50,7 @@ export interface ResizeControl {
 }
 
 /** One panel's live size, its setters and the props for its `ResizeHandle`. */
-export interface ResizableWidth {
+interface ResizableWidth {
   /** The expanded width, kept while collapsed. */
   readonly width: number;
   /** The width the panel takes now: `collapsedWidth` while collapsed, else `width`. */

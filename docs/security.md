@@ -49,6 +49,7 @@ Routes also check path parameters against data the session owns:
 | --- | --- | --- | --- |
 | `POST /api/businesses` | 10 | 60 | Builds a profile, with a model call when AI is on |
 | `POST /api/cards/[id]/rewrite` | 20 | 120 | Calls the model |
+| `PUT` and `DELETE /api/businesses/[id]/ai-key` | 10 | 50 | Saving checks the owner's AI key with one call to their provider |
 | `POST /api/intake`, `POST /api/intake/[id]` and `POST /api/businesses/[id]/chat` | 40, shared | 200, shared | Takes a chat turn, with a model call when AI is on |
 | `POST /api/businesses/[id]/cards` and `POST /api/ingest/[source]` | 60, shared | 300, shared | Creates a card |
 | Any other API request except GET and HEAD | 120 | 600 | Writes to the database |
@@ -59,9 +60,18 @@ Each server instance keeps its own counts in memory. On Vercel, a client whose r
 
 ## AI call budget
 
-`getBudgetedLlm` in `lib/server/ai-budget.ts` wraps the configured provider for one session. Before each model call it runs `use_session_ai_call`, a SQL function from `20261120000100_ai_session_budget.sql` that adds one to the session's row for today in `ai_session_usage` and reports whether the count is still under `AI_SESSION_DAILY_CALL_CAP` (default 150), so one visitor can't spend the whole day's budget. Routes pass the session from `getSessionId`; webhooks and schedulers pass the session their store lookup returned. "Delete my businesses" keeps today's count, so it can't refill the budget. A call within the session's cap then runs `use_ai_call`, a SQL function from `20261107000500_ai_budget_and_chat_policies.sql` that adds one to today's row in `ai_usage` and reports whether the count is still under `AI_DAILY_CALL_CAP` (default 2,000, and 0 turns model calls off). The increment and the comparison are one statement, so concurrent calls can't overshoot, and every server instance shares the count. The day is UTC.
+`getBudgetedLlm` in `lib/server/ai-budget.ts` picks the provider for each model call: the business's own key when it has one, as [Owner AI keys](#owner-ai-keys) describes, else the server's key from `AI_PROVIDER` and `AI_API_KEY`, else none, and the rules write instead. Only calls on the server's key count against the caps below, since an owner's calls spend the owner's money. Before each such call it runs `use_session_ai_call`, a SQL function from `20261120000100_ai_session_budget.sql` that adds one to the session's row for today in `ai_session_usage` and reports whether the count is still under `AI_SESSION_DAILY_CALL_CAP` (default 150), so one visitor can't spend the whole day's budget. Routes pass the session from `getSessionId`; webhooks and schedulers pass the session their store lookup returned. "Delete my businesses" keeps today's count, so it can't refill the budget. A call within the session's cap then runs `use_ai_call`, a SQL function from `20261107000500_ai_budget_and_chat_policies.sql` that adds one to today's row in `ai_usage` and reports whether the count is still under `AI_DAILY_CALL_CAP` (default 2,000, and 0 turns model calls off). The increment and the comparison are one statement, so concurrent calls can't overshoot, and every server instance shares the count. The day is UTC.
 
 Past the cap, onboarding, the intake chat and the business chat fall back to the rules, and a rewrite returns 429. The provider's own spend cap stays the backstop.
+
+## Owner AI keys
+
+An owner can save their own AI key on the Connections page, and every model call for that business then runs on it. Onboarding runs before the business exists, so it uses only the server's key.
+
+- **Only named providers.** The owner picks Anthropic, OpenAI, OpenRouter or Featherless, the list in `AI_PROVIDERS` in `lib/domain/connections.ts`, and `ownerProviderConfig` in `lib/llm/config.ts` always sends the key to that provider's own endpoint. An owner never types an address. `AI_BASE_URL` allows plain http to localhost, so an address from a stranger could aim the server's requests at machines inside its network. `openai-compatible` and `AI_BASE_URL` stay environment-only.
+- **The key is encrypted like any connected secret.** `saveAiKey` in `lib/server/connections.ts` stores it as an `ai` connection, sealed by `encryptSecret` under `CONNECTOR_SECRET_KEY`. `settings` holds the provider, the optional model and the key's last four characters, which is all the Connections page shows. The account rule from [Connected services](#connected-services) applies: guests and the example business can't save a key, and "Delete my businesses" removes it with the other connections.
+- **Saving checks the key first.** `checkOwnerKey` in `lib/server/ai-budget.ts` makes one short quick-tier call. A key the provider turns down is not saved, and the owner sees why in plain words. `PUT /api/businesses/[id]/ai-key` has its own rate limit, since each try calls a model. The request schema allows only printable characters in the key, so a header error can't quote it.
+- **No key text reaches a log or a page.** A provider's error can quote part of the key it refused. `withOwnerErrors` replaces every failure on an owner's key with Anchored's own words, with no provider text and no cause attached, such as "OpenAI turned down your AI key. Check it on Connections." A refused key or an account with no credit raises `AiKeyError`, which the rewrite route and the business chat show the owner. A key that can't be decrypted, for example after `CONNECTOR_SECRET_KEY` changed, logs a line with no key in it, and the business falls back to the server's key or the rules.
 
 ## Discovery agent
 
@@ -107,7 +117,7 @@ The migrations revoke `EXECUTE` on the function from `public`, `anon` and `authe
 Secrets come only from environment variables:
 
 - `SUPABASE_SERVICE_ROLE_KEY`, read in `lib/store/index.ts`.
-- `AI_API_KEY`, the key for the configured `AI_PROVIDER`, read in `lib/llm/config.ts`.
+- `AI_API_KEY`, the server's own key for `AI_PROVIDER`, read in `lib/llm/config.ts`. Businesses without their own key fall back to it. Owners' keys live encrypted in the database, as [Owner AI keys](#owner-ai-keys) describes.
 - `CONNECTOR_SECRET_KEY`, `INBOUND_EMAIL_SECRET` and `CRON_SECRET`, which [Connected services](#connected-services) covers.
 - `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET`, when the optional Telegram bot is on.
 

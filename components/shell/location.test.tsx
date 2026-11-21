@@ -6,9 +6,8 @@ import { useShellLocation } from "./location";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Distinguishes the agent landing URL from the existing automation detail
-// URL at a different depth. The sidebar can identify one current destination
-// without treating an agent id that is also a workflow id as an automation.
+// `useShellLocation` under Workflows: one segment is an agent, two are an
+// automation, so an agent id that is also a workflow id still reads right.
 
 describe("agent shell locations", () => {
   it("identifies an agent at the one-segment Workflows depth", () => {
@@ -16,22 +15,22 @@ describe("agent shell locations", () => {
     expect(renderHook(useShellLocation).result.current).toEqual({ page: "business", businessId: "rosa", section: "workflows", agent: "books" });
   });
 
-  it("retains main's automation identity at the nested Workflows depth", () => {
+  it("reads an automation page as Workflows with no agent open", () => {
     setLocation({ segments: ["b", "rosa", "workflows", "books", "nudger"] });
-    expect(renderHook(useShellLocation).result.current).toEqual({ page: "business", businessId: "rosa", section: "workflows", automation: "nudger" });
+    expect(renderHook(useShellLocation).result.current).toEqual({ page: "business", businessId: "rosa", section: "workflows" });
   });
 
-  it("retains a niche agent identity supplied by Next's decoded segments", () => {
+  it("reads a niche agent id that Next already decoded", () => {
     setLocation({ segments: ["b", "rosa", "workflows", "niche:stock-check"] });
     expect(renderHook(useShellLocation).result.current).toMatchObject({ agent: "niche:stock-check" });
   });
 
-  it("decodes an encoded niche agent segment for matching the navigation identity", () => {
+  it("decodes a percent-encoded niche agent id", () => {
     setLocation({ segments: ["b", "rosa", "workflows", "niche%3Astock-check"] });
     expect(renderHook(useShellLocation).result.current).toMatchObject({ agent: "niche:stock-check" });
   });
 
-  it("retains a malformed route token rather than crashing the shell", () => {
+  it("keeps a malformed segment as is rather than crashing the shell", () => {
     setLocation({ segments: ["b", "rosa", "workflows", "niche%broken"] });
     expect(renderHook(useShellLocation).result.current).toMatchObject({ agent: "niche%broken" });
   });
@@ -41,7 +40,7 @@ describe("agent shell locations", () => {
     expect(renderHook(useShellLocation).result.current).toEqual({ page: "business", businessId: "rosa", section: "connections" });
   });
 
-  it("retains the Workflows map location without an agent or automation", () => {
+  it("reads the Workflows map with no agent open", () => {
     setLocation({ segments: ["b", "rosa", "workflows"] });
     expect(renderHook(useShellLocation).result.current).toEqual({ page: "business", businessId: "rosa", section: "workflows" });
   });

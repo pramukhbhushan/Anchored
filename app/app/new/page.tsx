@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { isAuthEnabled } from "@/lib/auth/config";
 import { aiLabel } from "@/lib/server/ai";
+import { getSessionId } from "@/lib/server/session";
 
 // =============================================================================
 // Module Overview
@@ -44,7 +45,8 @@ export default async function NewBusinessPage({
   readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { form } = await searchParams;
-  const aiName = aiLabel();
+  // No business exists yet, so only the server's own key can read the answers.
+  const aiName = await aiLabel(await getSessionId());
   const privacy = privacyLine(aiName, isAuthEnabled());
 
   if (form === "1") {

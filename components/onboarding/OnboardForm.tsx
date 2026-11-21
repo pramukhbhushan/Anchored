@@ -257,7 +257,7 @@ export function OnboardForm({ aiName }: { readonly aiName: string | null }) {
       <p className="tiny muted">
         {aiName
           ? `${aiName} reads your answers and writes your profile in your words.`
-          : "No AI provider is set up here, so Anchored maps your answers with its own rules."}
+          : "Anchored maps your answers with its own rules. Once your business is set up, add your AI key on Connections and AI writes your drafts."}
       </p>
     </form>
   );

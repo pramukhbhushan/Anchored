@@ -13,10 +13,11 @@ import styles from "./followup-schedule.module.css";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Records the facts and due time for a Customer follow-up. The server decides
-// whether a draft is due, and every customer message still needs approval.
-// The saved list always comes from the API. Failed writes keep both the form
-// and saved records, and late replies cannot change another business's form.
+// "Scheduled follow-ups" on the Customer agent page: the owner records a fact,
+// such as an open quote, and when its draft is due. The server decides when a
+// draft is due, and every message still waits for approval. The saved list
+// shows only what the server returns. A failed save keeps the form and the
+// list, and a late reply never lands in another business's form.
 
 interface FollowupScheduleProps {
   readonly businessId: string;
@@ -37,25 +38,26 @@ const STATE_LABEL: Readonly<Record<FollowupSkill, string>> = {
   reviewer: "The job has finished",
 };
 
-/** Render a follow-up record form and its saved schedule inside the existing Customer page. */
+/** Render the follow-up form and the saved follow-ups for one business. */
 export function FollowupSchedule(props: FollowupScheduleProps) {
   return <SchedulePanel key={props.businessId} {...props} />;
 }
 
+/** Keep the disclosure in place and start the form over when the jobs or customers it offers change. */
 function SchedulePanel(props: FollowupScheduleProps) {
-  const savedKey = JSON.stringify(props.records);
-  // Refresh saved facts inside the disclosure, leaving the owner's open panel in place.
   return (
     <details className={styles.schedule}>
       <summary>Scheduled follow-ups</summary>
-      <ScheduleControl key={`${savedKey}:${props.skills.join(",")}:${props.contacts.map((contact) => contact.id).join(",")}`} {...props} />
+      <ScheduleControl key={`${props.skills.join(",")}:${props.contacts.map((contact) => contact.id).join(",")}`} {...props} />
     </details>
   );
 }
 
-/** Convert an explicit device-local time to an instant, refusing impossible local clock times. */
+const LOCAL_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+
+/** Return the instant for a `datetime-local` value, or `null` when the clocks skip or repeat that time. */
 function dueInstant(value: string): Date | null {
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return null;
+  if (!LOCAL_TIME.test(value)) return null;
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return null;
   const local = `${String(date.getFullYear()).padStart(4, "0")}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}T${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
@@ -68,6 +70,7 @@ function dueInstant(value: string): Date | null {
   return date;
 }
 
+/** Render the follow-up form and the saved list, writing through the follow-ups route. */
 function ScheduleControl({ businessId, records, contacts, skills }: FollowupScheduleProps) {
   const id = useId();
   const router = useRouter();
@@ -87,6 +90,8 @@ function ScheduleControl({ businessId, records, contacts, skills }: FollowupSche
   const pending = useRef(false);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone); return () => { mounted.current = false; }; }, []);
+  // The refreshed page's records replace the list without remounting, so the form and the saved notice stay.
+  useEffect(() => { setSaved(records); }, [records]);
   const instant = dueInstant(dueAt);
   const endpoint = `/api/businesses/${encodeURIComponent(businessId)}/followups`;
 
@@ -119,7 +124,7 @@ function ScheduleControl({ businessId, records, contacts, skills }: FollowupSche
     event.preventDefault();
     if (pending.current) return;
     if (instant === null) {
-      setError("Choose a real date and time on your device's clock. Choose a time that is neither skipped nor repeated when the clocks change.");
+      setError(LOCAL_TIME.test(dueAt) ? "That time is skipped or happens twice when the clocks change. Pick another time." : "Pick a date and a time for the draft.");
       return;
     }
     if (!confirmed || !available.includes(skill) || !contacts.some((contact) => contact.id === contactId)) return;
@@ -129,7 +134,7 @@ function ScheduleControl({ businessId, records, contacts, skills }: FollowupSche
   return (
     <>
       <p>Record the job or customer fact and when its draft is due. Anchored never chooses a date for you. Every message waits in Approvals for your OK.</p>
-      <p>The scheduled sender must be running to check future dates. Customer drafts use Telegram. Debrief creates an owner note and contacts nobody.</p>
+      <p>Customer drafts go out on Telegram. A debrief writes a note for you and contacts nobody.</p>
       {available.length === 0 ? <p>Choose a follow-up job on Workflows before recording its schedule.</p> : contacts.length === 0 ? <p>No customers are recorded yet. Open your Telegram link with a customer first.</p> : (
         <form onSubmit={submit}>
           <fieldset className={styles.fields} disabled={busy !== null}>

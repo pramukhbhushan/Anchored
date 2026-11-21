@@ -78,7 +78,8 @@ export async function takeIntakeTurn(session: string, draft: IntakeDraft, questi
   const step = question.field;
   const rules = readAnswer(answer.text ?? "", step);
   if (isGapStep(step)) return gapTurn(session, draft, step, answer, rules);
-  const llm = getBudgetedLlm(session);
+  // Onboarding runs before the business exists, so only the server's key can read answers.
+  const llm = await getBudgetedLlm(session);
   // Chips, skips and the review are exact already; a voice sample is kept whole, so there is nothing to read.
   if (llm === null || !isPlanField(step) || step === "voice" || rules.intent !== "answer" || rules.text === "") {
     return rulesTurn(session, draft, step, answer, rules);

@@ -7,12 +7,13 @@ import type { CardRecord, ChatMessage, EventCardResponse, OutboxEntry } from "@/
 import { STANDING_SKILLS } from "@/lib/domain/agents";
 import { draftFeed } from "@/lib/domain/cards";
 import { isSampleBusinessId, SAMPLE_BUSINESS } from "@/lib/domain/cases";
+import { isService } from "@/lib/domain/connections";
 import { chosenSkills, resolveChoices, workflowIdsOf } from "@/lib/domain/paths";
 import { examplesHidden, startersDue } from "@/lib/domain/starters";
 import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, SkillId, WorkflowId } from "@/lib/domain/types";
-import { isAiConfigured } from "@/lib/llm";
 import { getStore } from "@/lib/store";
 import type { ProfileVersion } from "@/lib/store/types";
+import { llmFromConnections } from "./ai-budget";
 import { getSessionId } from "./session";
 import { isWritingStarters, scheduleStarters } from "./starters";
 
@@ -180,7 +181,8 @@ export async function getFeed(business: BusinessProfile): Promise<Feed> {
     store.listOutbox(session, business.id),
     store.listConnections(session, business.id),
   ]);
-  const connected = connections.length > 0;
+  // An AI key moves no messages, so it doesn't count as a connected channel.
+  const connected = connections.some((connection) => isService(connection.kind));
   const hidden = examplesHidden(stored, connected);
   const storedKeys = new Set(stored.map((card) => card.key));
   const virtual: CardRecord[] = draftFeed(business, choices)
@@ -192,7 +194,7 @@ export async function getFeed(business: BusinessProfile): Promise<Feed> {
   const cards = [...stored, ...virtual].filter(
     (card) => card.status !== "pending" || (card.skill !== null && live.has(card.skill) && !(hidden && card.example === true)),
   );
-  const due = isAiConfigured() && startersDue(business, choices, stored, connected);
+  const due = llmFromConnections(session, connections) !== null && startersDue(business, choices, stored, connected);
   if (due) scheduleStarters(session, business);
   return { cards: cards.sort(feedOrder), outbox: outbox.map((entry) => { const { providerId: _provider, ...publicEntry } = entry; return { ...publicEntry, canDeleteTelegram: business.kind === "custom" && canDeleteTelegram(entry, new Date()) }; }), connected, examplesHidden: hidden, writingStarters: due || isWritingStarters(session, business.id) };
 }

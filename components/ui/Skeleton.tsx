@@ -6,7 +6,7 @@
 // real content lands where the placeholder was and nothing jumps.
 
 /** The page shapes a `loading.tsx` can ask for. */
-export type SkeletonLayout = "overview" | "graph" | "feed" | "rows" | "list" | "stack" | "chat" | "profile";
+type SkeletonLayout = "overview" | "graph" | "feed" | "rows" | "list" | "stack" | "chat" | "profile";
 
 /** Render one placeholder block of `width` by `height`. */
 function Skeleton({
@@ -43,7 +43,7 @@ function CardGrid({ count, height }: { readonly count: number; readonly height: 
   );
 }
 
-/** Render `count` ruled rows of text, the shape of a work order's lines or the tools ranking. */
+/** Render `count` ruled rows of text, the shape of the Workflows graph's rows. */
 function SkeletonRows({ count }: { readonly count: number }) {
   return (
     <div className="skel-rows">

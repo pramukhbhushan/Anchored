@@ -13,19 +13,20 @@ import type { BusinessProfile, ChoiceMap, CoreAgentId } from "@/lib/domain/types
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The crew screen at the top of Workflows. Every core agent says whether it is
-// working, why the plan made that choice, which owner answer led to it, and how
-// many required profile facts are ready. An off agent can be turned on in one
-// tap through the same saved workflow choice used everywhere else.
+// The crew screen at the top of Workflows. Each core agent says whether it is
+// working, why the plan made that choice, the owner's words that led to it, and
+// how many of its required profile facts are filled in. An agent that is off
+// joins the plan in one tap, through the same workflow choice the rest of the
+// app saves.
 
-/** The owner-facing readiness and next step for one agent. */
+/** Return how many of an agent's required details are filled in, and the next one it needs, if any. */
 function readinessLine(business: BusinessProfile, agent: CoreAgentId): { readonly count: string; readonly next: string | null } {
   const ready = readinessFor({ details: business.details, evidence: business.evidence }, agent);
   const next = ready.next === null ? null : `${CORE_AGENTS[agent].name} still needs ${FIELDS[ready.next].label.toLowerCase()}.`;
   return { count: `${ready.filled} of ${ready.required} required details ready`, next };
 }
 
-/** Render the five core agents with reasons, readiness and one-tap turn-on controls. */
+/** Render the five core agents with their reasons, readiness and a one-tap way to add each one that is off. */
 export function CrewPanel({ business, choices }: { readonly business: BusinessProfile; readonly choices: ChoiceMap }) {
   const running = new Set(
     activeAgents(business, choices).flatMap((agent) => (agent.id.startsWith("niche:") ? [] : [agent.id as CoreAgentId])),
@@ -66,10 +67,10 @@ export function CrewPanel({ business, choices }: { readonly business: BusinessPr
                   businessId={business.id}
                   request={{ workflow: turnOn.workflow, path: "build" }}
                   className={buttonClass("secondary", "sm")}
-                  label={`Turn on ${agent.name}`}
+                  label={`Add ${agent.name} to your plan`}
                   runner={`${agent.name} agent`}
                 >
-                  Turn on
+                  Add to plan
                 </ChooseButton>
               )}
             </article>
