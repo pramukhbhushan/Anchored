@@ -172,9 +172,9 @@ function ownerNote(business: BusinessProfile, name: string, skill: SkillId, titl
 // The reply's words
 // =============================================================================
 
-/** Write the reply with the model when one is set up, and from the template otherwise or when its reply fails a check. */
+/** Write the reply with the business's AI key or the server's when either is set up, and from the template otherwise or when its reply fails a check. */
 async function replyWords(session: string, business: BusinessProfile, contact: Contact, skill: ThreadSkill, text: string, thread: readonly ThreadMessage[]): Promise<{ body: string; byModel: boolean }> {
-  const llm = getBudgetedLlm(session);
+  const llm = await getBudgetedLlm(session, business.id);
   if (llm !== null) {
     try {
       return { body: await wordsFromModel(llm, business, contact, skill, text, thread), byModel: true };

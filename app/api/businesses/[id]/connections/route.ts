@@ -1,5 +1,5 @@
 import { connectSchema } from "@/lib/api/schemas";
-import { CONNECTION_KINDS, type ConnectionKind } from "@/lib/domain/connections";
+import { SERVICE_KINDS, type ServiceKind } from "@/lib/domain/connections";
 import { answerConnections, connect, disconnect } from "@/lib/server/connections";
 import { fail, readBody } from "@/lib/server/http";
 
@@ -13,9 +13,9 @@ import { fail, readBody } from "@/lib/server/http";
 
 type Params = { params: Promise<{ id: string }> };
 
-/** Narrow the `?kind=` value to a `ConnectionKind`. */
-function isConnectionKind(value: string | null): value is ConnectionKind {
-  return CONNECTION_KINDS.some((kind) => kind === value);
+/** Narrow the `?kind=` value to a service. The AI key has its own route. */
+function isServiceKind(value: string | null): value is ServiceKind {
+  return SERVICE_KINDS.some((kind) => kind === value);
 }
 
 /** Return whether the visitor may connect, every service and every contact. */
@@ -40,7 +40,7 @@ export async function PUT(request: Request, { params }: Params) {
 /** Disconnect the service named by `?kind=`. */
 export async function DELETE(request: Request, { params }: Params) {
   const kind = new URL(request.url).searchParams.get("kind");
-  if (!isConnectionKind(kind)) return fail(400, `\`kind\` must be ${CONNECTION_KINDS.join(", ")}.`);
+  if (!isServiceKind(kind)) return fail(400, `\`kind\` must be ${SERVICE_KINDS.join(", ")}.`);
   const { id } = await params;
   return answerConnections({
     request,

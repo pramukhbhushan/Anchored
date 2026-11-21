@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { ContactsList } from "@/components/connections/ContactsList";
-import type { ConnectionsResponse } from "@/lib/api/contract";
+import type { AiKeyView, ConnectionsResponse } from "@/lib/api/contract";
 import type { Contact } from "@/lib/domain/contacts";
 import { json, sentJson, stubFetch } from "@/test/http";
 
@@ -12,6 +12,8 @@ import { json, sentJson, stubFetch } from "@/test/http";
 // The customer list on the Connections page: each customer shows where their
 // texting OK came from, or that there is none, and a STOP on file. Adding a
 // customer sends their details and shows them in the list; Remove deletes one.
+
+const NO_AI: AiKeyView = { provider: null, lastFour: null, model: null, fallback: "rules", unavailable: null };
 
 const DANA: Contact = {
   id: "c1",
@@ -27,7 +29,7 @@ const SAM: Contact = { id: "c2", businessId: "b1", name: "Sam Ortiz", phone: "+1
 
 /** The route's answer with `contacts`. */
 function answer(contacts: readonly Contact[]): Response {
-  return json({ blocked: null, connections: [], contacts } satisfies ConnectionsResponse);
+  return json({ blocked: null, ai: NO_AI, connections: [], contacts } satisfies ConnectionsResponse);
 }
 
 describe("ContactsList", () => {

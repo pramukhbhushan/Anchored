@@ -16,7 +16,7 @@ const SESSION = "owner-session";
 
 const state = vi.hoisted(() => ({ store: null as MemoryStore | null, scheduleStarters: vi.fn() }));
 vi.mock("@/lib/store", async (original) => ({ ...(await original<object>()), getStore: () => state.store }));
-vi.mock("@/lib/server/ai-budget", () => ({ getBudgetedLlm: () => null }));
+vi.mock("@/lib/server/ai-budget", () => ({ getBudgetedLlm: () => null, isAiConfigured: async () => false }));
 vi.mock("@/lib/server/starters", () => ({ scheduleStarters: state.scheduleStarters }));
 
 const { answerIntake, readIntake, startIntake } = await import("./intake");

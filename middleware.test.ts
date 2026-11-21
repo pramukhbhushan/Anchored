@@ -224,6 +224,11 @@ describe("limitFor", () => {
     }
   });
 
+  it("gives saving an AI key, which calls the owner's provider to check it, its own tight bucket", () => {
+    expect(limitFor("PUT", "/api/businesses/b_1/ai-key")).toMatchObject({ bucket: "ai-key", perSession: 10, perIp: 50 });
+    expect(limitFor("DELETE", "/api/businesses/b_1/ai-key").bucket).toBe("ai-key");
+  });
+
   it("gives plan approval and adding a job, which each save a profile version, their own bucket", () => {
     expect(limitFor("PUT", "/api/businesses/b_1/plan")).toMatchObject({ bucket: "profile", perSession: 30, perIp: 150 });
     expect(limitFor("POST", "/api/businesses/b_1/workflows").bucket).toBe("profile");

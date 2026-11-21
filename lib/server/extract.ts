@@ -115,7 +115,8 @@ export function validFacts(raw: z.infer<typeof extractionSchema>, sourceType: So
 export async function extractDetails(session: string, sourceType: SourceType, text: string, focus: readonly FieldKey[] = EXTRACTABLE): Promise<DetailCandidate[]> {
   const fields = focus.filter((key) => EXTRACTABLE.includes(key));
   if (text.trim() === "" || fields.length === 0 || looksLikeSessionNotes(text)) return [];
-  const llm = getBudgetedLlm(session);
+  // Onboarding reads these before the business exists, so only the server's key can.
+  const llm = await getBudgetedLlm(session);
   if (llm === null) return [];
   try {
     return validFacts(await ask(llm, sourceType, text, fields), sourceType, text, fields);

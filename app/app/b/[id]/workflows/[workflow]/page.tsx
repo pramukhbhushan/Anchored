@@ -31,6 +31,13 @@ import { telegramSetup } from "@/lib/server/telegram-setup";
 // own, from the server; nothing here uses fixtures.
 
 type Params = Promise<{ id: string; workflow: string }>;
+
+/** The line above the agent's chat that says whether AI writes its replies, and how to turn it on. */
+function aiReplyNote(aiOn: boolean, isExample: boolean): string {
+  if (aiOn) return "AI replies are on. Drafts still wait for your OK.";
+  if (isExample) return "AI replies are off for the example business. Supported draft requests still work.";
+  return "AI replies are off. Add your AI key on Connections to turn them on. Supported draft requests still work.";
+}
 type SearchParams = Promise<{ contact?: string | string[] }>;
 
 const findWorkspace = cache(async (id: string, agentSegment: string) => {
@@ -53,6 +60,7 @@ export default async function AgentPage({ params, searchParams }: { readonly par
   const { id, workflow: agentSegment } = await params;
   const { business, agent, choices } = await findWorkspace(id, agentSegment);
   const [feed, session] = await Promise.all([getFeed(business), getSessionId()]);
+  const aiOn = await isAiConfigured(session, business.id);
   const contact = (await searchParams).contact;
   const selected = typeof contact === "string" && contact !== "" ? contact.slice(0, 64) : null;
   const [threads, telegram, rules, brief, schedule] = await Promise.all([
@@ -63,7 +71,7 @@ export default async function AgentPage({ params, searchParams }: { readonly par
     agent.id === "customer" && business.kind === "custom" ? followupSchedule(session, business) : null,
   ]);
   return (
-    <AgentWorkspace businessId={business.id} agent={agent} cards={cardsForAgent(feed.cards, agent.id)} outbox={feed.outbox} ask={<><p className="fine">{isAiConfigured() ? "AI replies are on. Drafts still wait for your OK." : "AI replies are off. Supported draft requests still work."}</p><ChatWindow mode="business" businessId={business.id} agent={agent.id} agentName={agent.name} starters={["What can you help me with?", "What should I focus on next?"]} /></>}>
+    <AgentWorkspace businessId={business.id} agent={agent} cards={cardsForAgent(feed.cards, agent.id)} outbox={feed.outbox} ask={<><p className="fine">{aiReplyNote(aiOn, business.kind === "case")}</p><ChatWindow mode="business" businessId={business.id} agent={agent.id} agentName={agent.name} starters={["What can you help me with?", "What should I focus on next?"]} /></>}>
       {threads !== null && <CustomerThreads businessId={business.id} data={threads} />}
       {telegram !== null && rules !== null && (
         <details className="agent-details">
