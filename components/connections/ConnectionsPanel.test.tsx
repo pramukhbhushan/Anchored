@@ -15,7 +15,7 @@ import { deferred, json, sentJson, stubFetch } from "@/test/http";
 // refused request shows the route's reason. Each service waits on its own
 // change, so one answering never frees another's buttons early.
 
-const NO_AI: AiKeyView = { provider: null, lastFour: null, model: null, fallback: "rules", unavailable: null };
+const NO_AI: AiKeyView = { provider: null, lastFour: null, model: null, unavailable: null };
 
 const SID = `AC${"a".repeat(32)}`;
 

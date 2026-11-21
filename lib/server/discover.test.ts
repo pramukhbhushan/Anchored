@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LlmProvider, ObjectRequest, WebFindings, WebSearchRequest } from "@/lib/llm";
-import { DiscoveryUnavailableError, discoverTools } from "./discover";
+import { discoverTools } from "./discover";
 
 // =============================================================================
 // Module Overview
@@ -94,10 +94,6 @@ describe("discoverTools", () => {
 
     expect(run).toEqual({ listings: [], skipped: [], method: "search", pagesRead: 0 });
     expect(extractions()).toBe(0);
-  });
-
-  it("refuses to run when AI is off", async () => {
-    await expect(discoverTools({ workflow: "calls", business: "dental office", llm: null })).rejects.toThrow(DiscoveryUnavailableError);
   });
 });
 

@@ -13,7 +13,7 @@ import { json, sentJson, stubFetch } from "@/test/http";
 // texting OK came from, or that there is none, and a STOP on file. Adding a
 // customer sends their details and shows them in the list; Remove deletes one.
 
-const NO_AI: AiKeyView = { provider: null, lastFour: null, model: null, fallback: "rules", unavailable: null };
+const NO_AI: AiKeyView = { provider: null, lastFour: null, model: null, unavailable: null };
 
 const DANA: Contact = {
   id: "c1",

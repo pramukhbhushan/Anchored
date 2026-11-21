@@ -90,7 +90,7 @@ describe("PUT and DELETE /api/businesses/[id]/ai-key", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("removes the key, so the business goes back to the server's AI or the rules", async () => {
+  it("removes the key, so the business goes back to the rules", async () => {
     provider(200);
     await call(PUT, business.id, { provider: "anthropic", apiKey: KEY });
     const answer = await call(DELETE, business.id);

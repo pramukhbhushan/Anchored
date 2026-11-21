@@ -13,7 +13,7 @@ import { examplesHidden, startersDue } from "@/lib/domain/starters";
 import type { BusinessProfile, Choice, ChoiceMap, KeyedCard, SkillId, WorkflowId } from "@/lib/domain/types";
 import { getStore } from "@/lib/store";
 import type { ProfileVersion } from "@/lib/store/types";
-import { llmFromConnections } from "./ai-budget";
+import { llmFromConnections } from "./business-llm";
 import { getSessionId } from "./session";
 import { isWritingStarters, scheduleStarters } from "./starters";
 
@@ -194,7 +194,7 @@ export async function getFeed(business: BusinessProfile): Promise<Feed> {
   const cards = [...stored, ...virtual].filter(
     (card) => card.status !== "pending" || (card.skill !== null && live.has(card.skill) && !(hidden && card.example === true)),
   );
-  const due = llmFromConnections(session, connections) !== null && startersDue(business, choices, stored, connected);
+  const due = llmFromConnections(connections) !== null && startersDue(business, choices, stored, connected);
   if (due) scheduleStarters(session, business);
   return { cards: cards.sort(feedOrder), outbox: outbox.map((entry) => { const { providerId: _provider, ...publicEntry } = entry; return { ...publicEntry, canDeleteTelegram: business.kind === "custom" && canDeleteTelegram(entry, new Date()) }; }), connected, examplesHidden: hidden, writingStarters: due || isWritingStarters(session, business.id) };
 }

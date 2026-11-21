@@ -24,7 +24,7 @@ const SESSION = "owner-session";
 const stores = vi.hoisted(() => ({ current: null as Store | null }));
 vi.mock("@/lib/store", () => ({ getStore: () => stores.current }));
 const models = vi.hoisted(() => ({ current: null as LlmProvider | null }));
-vi.mock("@/lib/server/ai-budget", () => ({ getBudgetedLlm: () => models.current }));
+vi.mock("@/lib/server/business-llm", () => ({ getBusinessLlm: () => models.current }));
 
 const { writeStarters } = await import("./starters");
 

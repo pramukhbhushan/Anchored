@@ -1,7 +1,7 @@
 import type { RewriteResponse } from "@/lib/api/contract";
 import { LlmRefusalError, LlmResponseError } from "@/lib/llm";
 import { isAiConfigured, rewriteInVoice } from "@/lib/server/ai";
-import { AiBudgetError, AiKeyError, OwnerKeyRequestError } from "@/lib/server/ai-budget";
+import { AiKeyError, OwnerKeyRequestError } from "@/lib/server/business-llm";
 import { findBusiness, isCardId, isCardLive, materializeCard } from "@/lib/server/data";
 import { saveRewrite } from "@/lib/server/decide";
 import { fail, handleError, json } from "@/lib/server/http";
@@ -11,7 +11,7 @@ import { getSessionId } from "@/lib/server/session";
 // Module Overview
 // =============================================================================
 // POST /api/cards/[id]/rewrite redrafts a pending text or email in the owner's
-// voice, on the business's own AI key or the server's. The rewrite marks the card as edited,
+// voice, on the business's own AI key. The rewrite marks the card as edited,
 // so the edit rate counts it like an owner's own change.
 
 const AI_OFF = "Add your AI key on Connections to rewrite drafts. Until then, edit the draft yourself.";
@@ -41,10 +41,6 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     // Both carry owner words with no provider text: a refused key is the owner's to fix, the rest came from upstream.
     if (error instanceof AiKeyError) return fail(422, error.message);
     if (error instanceof OwnerKeyRequestError) return fail(502, error.message);
-    if (error instanceof AiBudgetError) {
-      const who = error.scope === "session" ? "You've" : "Anchored has";
-      return fail(429, `${who} used today's AI rewrites. Edit the draft yourself, or try again tomorrow.`);
-    }
     if (error instanceof LlmRefusalError) return fail(422, "The AI model couldn't rewrite this one. Edit it yourself instead.");
     if (error instanceof LlmResponseError) return fail(422, "The rewrite changed facts in the draft, so it was thrown away. Edit it yourself instead.");
     return handleError(error, "POST /api/cards/[id]/rewrite");

@@ -76,7 +76,7 @@ Follow-up records live in the `customer_followups` table, filtered by session an
 
 Each workspace has its own chat. The chat route accepts an optional `agent` token, and the server checks it against the business's active agents and limits drafts to their chosen skills. Each workspace keeps its own history in the business's thread, under the id `<business id>:agent:<agent id>`. General chat keeps its own thread.
 
-Chat answers go through `getBudgetedLlm` and have no tools, so the model cannot change data or send anything. Code still reads requests, records business changes and prepares cards. When AI is off or a call fails, the chat says so. Visitors can chat with the example business, but their messages cannot change its facts, create cards or send anything.
+Chat answers run on the business's own AI key through `getBusinessLlm` and have no tools, so the model cannot change data or send anything. Code still reads requests, records business changes and prepares cards. When the business has no AI key or a call fails, the chat says so. Visitors can chat with the example business, but their messages cannot change its facts, create cards or send anything.
 
 ## Not built
 

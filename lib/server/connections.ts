@@ -9,7 +9,7 @@ import type { BusinessProfile } from "@/lib/domain/types";
 import type { OwnerAiSettings } from "@/lib/llm";
 import { getStore } from "@/lib/store";
 import type { StoredConnection } from "@/lib/store/types";
-import { checkOwnerKey, serverHasAi } from "./ai-budget";
+import { checkOwnerKey } from "./business-llm";
 import { findBusiness } from "./data";
 import { fail, handleError, json } from "./http";
 import { canStoreSecrets, encryptSecret, newHookId } from "./secrets";
@@ -162,10 +162,9 @@ function viewOf(kind: ServiceKind, stored: StoredConnection | undefined, base: s
 /** Build the view of the business's AI key from its stored connection, if any. Never holds the key. */
 function aiViewOf(stored: StoredConnection | undefined, env: Env): AiKeyView {
   const provider = stored?.settings.provider;
-  const fallback = serverHasAi() ? "server" : "rules";
   const unavailable = unavailableReason("ai", env);
-  if (stored === undefined || !isAiProvider(provider)) return { provider: null, lastFour: null, model: null, fallback, unavailable };
-  return { provider, lastFour: stored.settings.lastFour ?? null, model: stored.settings.model ?? null, fallback, unavailable };
+  if (stored === undefined || !isAiProvider(provider)) return { provider: null, lastFour: null, model: null, unavailable };
+  return { provider, lastFour: stored.settings.lastFour ?? null, model: stored.settings.model ?? null, unavailable };
 }
 
 /** Return the business's AI key view and every service's view, in page order. `base` is where webhooks point. Views never hold a secret. */

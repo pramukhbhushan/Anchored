@@ -9,8 +9,8 @@ import { LlmRefusalError, LlmRequestError, LlmResponseError, type LlmProvider, t
 // Module Overview
 // =============================================================================
 // `OpenAICompatibleProvider` calls any endpoint that speaks the OpenAI chat
-// completions API: OpenAI, OpenRouter, Featherless or a custom base URL. Each
-// provider's quirks live in one `Dialect` row; replies are validated with Zod.
+// completions API: OpenAI, OpenRouter and Featherless. Each provider's quirks
+// live in one `Dialect` row; replies are validated with Zod.
 
 type CompatibleName = Exclude<ProviderName, "anthropic">;
 
@@ -51,7 +51,6 @@ const DIALECTS: Readonly<Record<CompatibleName, Dialect>> = {
     structuredBody: {},
     titleHeader: "X-Title",
   },
-  "openai-compatible": { tokenParam: "max_tokens", structured: "prompt", baseBody: {}, structuredBody: {}, titleHeader: null },
 };
 
 const APP_TITLE = "Anchored";

@@ -21,8 +21,8 @@ const state = vi.hoisted(() => ({
   prompts: [] as string[],
 }));
 vi.mock("@/lib/store", async (original) => ({ ...(await original<object>()), getStore: () => state.store }));
-vi.mock("@/lib/server/ai-budget", () => ({
-  getBudgetedLlm: () => ({
+vi.mock("@/lib/server/business-llm", () => ({
+  getBusinessLlm: () => ({
     name: "fake",
     label: "Fake",
     modelFor: () => "fake",

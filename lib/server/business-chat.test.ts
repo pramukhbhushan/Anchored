@@ -22,11 +22,11 @@ const SESSION = "visitor-session";
 const stores = vi.hoisted(() => ({ current: null as Store | null }));
 vi.mock("@/lib/store", () => ({ getStore: () => stores.current }));
 const models = vi.hoisted(() => ({ current: null as LlmProvider | null }));
-vi.mock("@/lib/server/ai-budget", async (original) => ({ ...(await original<object>()), getBudgetedLlm: () => models.current }));
+vi.mock("@/lib/server/business-llm", async (original) => ({ ...(await original<object>()), getBusinessLlm: () => models.current }));
 
 const { askInChat, listBusinessChat, sendBusinessChat } = await import("./business-chat");
 const { setAutomation } = await import("./automations");
-const { OwnerKeyRequestError } = await import("./ai-budget");
+const { OwnerKeyRequestError } = await import("./business-llm");
 
 beforeEach(() => {
   stores.current = new MemoryStore();

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { AnthropicProvider } from "./anthropic";
-import { readProviderConfig } from "./config";
+import { keyProviderConfig } from "./config";
 import { LlmRefusalError, LlmRequestError, LlmResponseError, type ObjectRequest, type TextRequest, type WebSearchRequest } from "./types";
 
 // =============================================================================
@@ -58,11 +58,9 @@ function recordingFetch(reply: () => Response) {
   return { fetchImpl, sent };
 }
 
-/** Build Claude from an environment, wired to `fetchImpl`. */
-function claudeFor(env: Record<string, string>, fetchImpl: typeof fetch): AnthropicProvider {
-  const config = readProviderConfig({ AI_PROVIDER: "anthropic", AI_API_KEY: "test-anthropic-key", ...env });
-  if (!config) throw new Error("test environment selects no provider");
-  return new AnthropicProvider(config, fetchImpl);
+/** Build Claude on a test key with `models` in place of its defaults, wired to `fetchImpl`. */
+function claudeFor(models: Partial<Record<TextRequest["tier"], string>>, fetchImpl: typeof fetch): AnthropicProvider {
+  return new AnthropicProvider(keyProviderConfig({ provider: "anthropic", apiKey: "test-anthropic-key", models }, null), fetchImpl);
 }
 
 /** Return what `promise` rejects with, so a test can check its type and fields. */
@@ -76,9 +74,9 @@ async function rejectionOf(promise: Promise<unknown>): Promise<unknown> {
 }
 
 /** Send one text request at `tier` and return what reached `fetch`. */
-async function sentForTier(tier: TextRequest["tier"], env: Record<string, string> = {}): Promise<SentRequest | undefined> {
+async function sentForTier(tier: TextRequest["tier"], models: Partial<Record<TextRequest["tier"], string>> = {}): Promise<SentRequest | undefined> {
   const { fetchImpl, sent } = recordingFetch(() => claudeMessage([{ type: "text", text: "Welcome!" }]));
-  await claudeFor(env, fetchImpl).generateText({ ...TEXT_REQUEST, tier });
+  await claudeFor(models, fetchImpl).generateText({ ...TEXT_REQUEST, tier });
   return sent[0];
 }
 
@@ -118,7 +116,7 @@ describe("AnthropicProvider requests", () => {
   });
 
   it("sends neither effort nor fallbacks for a model outside the 5.5 family", async () => {
-    const request = await sentForTier("quick", { AI_MODEL_QUICK: "claude-haiku-4-5" });
+    const request = await sentForTier("quick", { quick: "claude-haiku-4-5" });
     expect(request?.body.model).toBe("claude-haiku-4-5");
     expect(request?.body).not.toHaveProperty("output_config");
     expect(request?.body).not.toHaveProperty("fallbacks");

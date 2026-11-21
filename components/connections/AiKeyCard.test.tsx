@@ -16,8 +16,8 @@ import { json, sentJson, stubFetch } from "@/test/http";
 // sends the removal; and a visitor who can't connect sees no form.
 
 const KEY = "sk-owner-test-key-abcd1234";
-const NO_KEY: AiKeyView = { provider: null, lastFour: null, model: null, fallback: "rules", unavailable: null };
-const SAVED: AiKeyView = { provider: "openai", lastFour: "1234", model: "gpt-test", fallback: "rules", unavailable: null };
+const NO_KEY: AiKeyView = { provider: null, lastFour: null, model: null, unavailable: null };
+const SAVED: AiKeyView = { provider: "openai", lastFour: "1234", model: "gpt-test", unavailable: null };
 
 /** The route's answer carrying `ai`. */
 function answer(ai: AiKeyView): ConnectionsResponse {
@@ -30,14 +30,10 @@ function card() {
 }
 
 describe("AiKeyCard", () => {
-  it("says the rules write drafts until a key is added, or the server's AI when it has one", () => {
-    const { unmount } = render(<AiKeyCard businessId="b1" view={NO_KEY} canChange />);
+  it("says the rules write drafts until a key is added", () => {
+    render(<AiKeyCard businessId="b1" view={NO_KEY} canChange />);
     expect(card().getByText("No key yet")).toBeInTheDocument();
     expect(card().getByText("Until you add one, Anchored writes drafts from its own templates.")).toBeInTheDocument();
-    unmount();
-
-    render(<AiKeyCard businessId="b1" view={{ ...NO_KEY, fallback: "server" }} canChange />);
-    expect(card().getByText("Until you add one, Anchored writes drafts with this server's AI.")).toBeInTheDocument();
   });
 
   it("checks and saves an OpenAI key with its model, then shows the provider and key end but not the key", async () => {

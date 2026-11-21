@@ -8,14 +8,14 @@ import { hvacShop } from "@/test/trades";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The Stack page's "Under the hood": each skill names the model this server
+// The Stack page's "Under the hood": each skill names the model the business's key
 // actually runs, or says the rules write the drafts when no model is set up.
 
 const SHOP = hvacShop();
 const AGENTS = activeAgents(SHOP, resolveChoices(SHOP, {}));
 
 describe("UnderTheHood", () => {
-  it("names the model this server runs for each skill, with its provider", () => {
+  it("names the model the business's own key runs for each skill, with its provider", () => {
     const ai = { label: "Featherless", models: { quick: "qwen-small", default: "qwen-large", complex: "qwen-xl" } };
     render(<UnderTheHood business={SHOP} agents={AGENTS} tools={[]} ai={ai} />);
 

@@ -16,7 +16,7 @@ Either way, a visitor sees only the businesses, choices, cards, outbox entries, 
 
 Every table has row-level security on. `20261120000000_read_only_browser_access.sql` revokes every table privilege from the `anon` and `authenticated` roles, and from tables made later. The browser's token, guests included, can read only its own `cards` rows, which Realtime needs, and the shared post playbook. It can write nothing.
 
-`SupabaseStore` in `lib/store/supabase.ts` connects from the server with `SUPABASE_SERVICE_ROLE_KEY`, which bypasses row-level security. The `session_id` filter in each query is what keeps one session's rows from another. Earlier migrations let a signed-in token, guests included, write its own rows directly, which skipped approval and every other server check; the read-only migration replaced those policies. `ai_usage` and `ai_session_usage` have no policy, so only the service role reads them.
+`SupabaseStore` in `lib/store/supabase.ts` connects from the server with `SUPABASE_SERVICE_ROLE_KEY`, which bypasses row-level security. The `session_id` filter in each query is what keeps one session's rows from another. Earlier migrations let a signed-in token, guests included, write its own rows directly, which skipped approval and every other server check; the read-only migration replaced those policies. `ai_usage` and `ai_session_usage`, unused since the deployment stopped holding an AI key, have no policy, so only the service role reads them.
 
 With no store variables, `getStore` in `lib/store/index.ts` uses `MemoryStore`, which keeps data in process memory and holds at most 2,000 sessions, dropping the oldest. A production build throws on its first data read instead, unless `ANCHORED_ALLOW_MEMORY_STORE=1`, so a public deploy can't lose visitors' work in memory unnoticed.
 
@@ -58,20 +58,14 @@ All limits use a 10-minute window. Per-IP limits are five to six times looser th
 
 Each server instance keeps its own counts in memory. On Vercel, a client whose requests spread over several instances gets each limit once per instance.
 
-## AI call budget
-
-`getBudgetedLlm` in `lib/server/ai-budget.ts` picks the provider for each model call: the business's own key when it has one, as [Owner AI keys](#owner-ai-keys) describes, else the server's key from `AI_PROVIDER` and `AI_API_KEY`, else none, and the rules write instead. Only calls on the server's key count against the caps below, since an owner's calls spend the owner's money. Before each such call it runs `use_session_ai_call`, a SQL function from `20261120000100_ai_session_budget.sql` that adds one to the session's row for today in `ai_session_usage` and reports whether the count is still under `AI_SESSION_DAILY_CALL_CAP` (default 150), so one visitor can't spend the whole day's budget. Routes pass the session from `getSessionId`; webhooks and schedulers pass the session their store lookup returned. "Delete my businesses" keeps today's count, so it can't refill the budget. A call within the session's cap then runs `use_ai_call`, a SQL function from `20261107000500_ai_budget_and_chat_policies.sql` that adds one to today's row in `ai_usage` and reports whether the count is still under `AI_DAILY_CALL_CAP` (default 2,000, and 0 turns model calls off). The increment and the comparison are one statement, so concurrent calls can't overshoot, and every server instance shares the count. The day is UTC.
-
-Past the cap, onboarding, the intake chat and the business chat fall back to the rules, and a rewrite returns 429. The provider's own spend cap stays the backstop.
-
 ## Owner AI keys
 
-An owner can save their own AI key on the Connections page, and every model call for that business then runs on it. Onboarding runs before the business exists, so it uses only the server's key.
+An owner can save their own AI key on the Connections page, and every model call for that business then runs on it. The deployment holds no AI key of its own: `getBusinessLlm` in `lib/server/business-llm.ts` returns the business's key or none, and with none the rules write. Onboarding runs before the business exists, so the rules read it. AI settings in the environment, such as `AI_PROVIDER` and `AI_API_KEY`, do nothing; only `npm run discover` reads them, on an operator's own machine. No daily call cap applies, since every call spends the owner's money.
 
-- **Only named providers.** The owner picks Anthropic, OpenAI, OpenRouter or Featherless, the list in `AI_PROVIDERS` in `lib/domain/connections.ts`, and `ownerProviderConfig` in `lib/llm/config.ts` always sends the key to that provider's own endpoint. An owner never types an address. `AI_BASE_URL` allows plain http to localhost, so an address from a stranger could aim the server's requests at machines inside its network. `openai-compatible` and `AI_BASE_URL` stay environment-only.
+- **Only named providers.** The owner picks Anthropic, OpenAI, OpenRouter or Featherless, the list in `AI_PROVIDERS` in `lib/domain/connections.ts`, and `ownerProviderConfig` in `lib/llm/config.ts` always sends the key to that provider's own endpoint. An owner never types an address, since an address from a stranger could aim the server's requests at machines inside its network.
 - **The key is encrypted like any connected secret.** `saveAiKey` in `lib/server/connections.ts` stores it as an `ai` connection, sealed by `encryptSecret` under `CONNECTOR_SECRET_KEY`. `settings` holds the provider, the optional model and the key's last four characters, which is all the Connections page shows. The account rule from [Connected services](#connected-services) applies: guests and the example business can't save a key, and "Delete my businesses" removes it with the other connections.
-- **Saving checks the key first.** `checkOwnerKey` in `lib/server/ai-budget.ts` makes one short quick-tier call. A key the provider turns down is not saved, and the owner sees why in plain words. `PUT /api/businesses/[id]/ai-key` has its own rate limit, since each try calls a model. The request schema allows only printable characters in the key, so a header error can't quote it.
-- **No key text reaches a log or a page.** A provider's error can quote part of the key it refused. `withOwnerErrors` replaces every failure on an owner's key with Anchored's own words, with no provider text and no cause attached, such as "OpenAI turned down your AI key. Check it on Connections." A refused key or an account with no credit raises `AiKeyError`, which the rewrite route and the business chat show the owner. A key that can't be decrypted, for example after `CONNECTOR_SECRET_KEY` changed, logs a line with no key in it, and the business falls back to the server's key or the rules.
+- **Saving checks the key first.** `checkOwnerKey` in `lib/server/business-llm.ts` makes one short quick-tier call. A key the provider turns down is not saved, and the owner sees why in plain words. `PUT /api/businesses/[id]/ai-key` has its own rate limit, since each try calls a model. The request schema allows only printable characters in the key, so a header error can't quote it.
+- **No key text reaches a log or a page.** A provider's error can quote part of the key it refused. `withOwnerErrors` replaces every failure on an owner's key with Anchored's own words, with no provider text and no cause attached, such as "OpenAI turned down your AI key. Check it on Connections." A refused key or an account with no credit raises `AiKeyError`, which the rewrite route and the business chat show the owner. A key that can't be decrypted, for example after `CONNECTOR_SECRET_KEY` changed, logs a line with no key in it, and the rules write for the business.
 
 ## Discovery agent
 
@@ -117,20 +111,17 @@ The migrations revoke `EXECUTE` on the function from `public`, `anon` and `authe
 Secrets come only from environment variables:
 
 - `SUPABASE_SERVICE_ROLE_KEY`, read in `lib/store/index.ts`.
-- `AI_API_KEY`, the server's own key for `AI_PROVIDER`, read in `lib/llm/config.ts`. Businesses without their own key fall back to it. Owners' keys live encrypted in the database, as [Owner AI keys](#owner-ai-keys) describes.
 - `CONNECTOR_SECRET_KEY`, `INBOUND_EMAIL_SECRET` and `CRON_SECRET`, which [Connected services](#connected-services) covers.
 - `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET`, when the optional Telegram bot is on.
 
-None of these names has the `NEXT_PUBLIC_` prefix, so Next.js never puts them in the browser bundle. `NEXT_PUBLIC_SUPABASE_ANON_KEY` is public by design, and row-level security limits what it reaches. `.gitignore` excludes `.env` and `.env*.local`, and `.env.example` lists the names with empty values. Each module in `lib/server/`, `lib/llm/` and `lib/connectors/` that reads a secret or calls the store or a provider imports `server-only`, so a client component that imports one fails the build. The helpers that the edge middleware shares with the server and the browser import nothing, `server-only` included: `lib/server/origin.ts`, `lib/server/rate-limit.ts`, `lib/session-cookie.ts`, and `config.ts`, `paths.ts`, `session-id.ts` and `viewer.ts` in `lib/auth/`. `lib/architecture.test.ts` enforces that list, and also fails any `"use client"` file that imports `lib/server`, `lib/store`, `lib/llm`, `lib/connectors` or `server-only`.
+Owners' AI keys live encrypted in the database, as [Owner AI keys](#owner-ai-keys) describes. None of these names has the `NEXT_PUBLIC_` prefix, so Next.js never puts them in the browser bundle. `NEXT_PUBLIC_SUPABASE_ANON_KEY` is public by design, and row-level security limits what it reaches. `.gitignore` excludes `.env` and `.env*.local`, and `.env.example` lists the names with empty values. Each module in `lib/server/`, `lib/llm/` and `lib/connectors/` that reads a secret or calls the store or a provider imports `server-only`, so a client component that imports one fails the build. The helpers that the edge middleware shares with the server and the browser import nothing, `server-only` included: `lib/server/origin.ts`, `lib/server/rate-limit.ts`, `lib/session-cookie.ts`, and `config.ts`, `paths.ts`, `session-id.ts` and `viewer.ts` in `lib/auth/`. `lib/architecture.test.ts` enforces that list, and also fails any `"use client"` file that imports `lib/server`, `lib/store`, `lib/llm`, `lib/connectors` or `server-only`.
 
 ## Model calls
 
 The model writes text only. Code sets every workflow, path, score and send decision, and checks every reply:
 
-- `enrichProfile` in `lib/server/ai.ts` rewrites a rules-built profile's text during onboarding. Code trims and caps each field, and a failure keeps the rules-built profile. The prompt wraps the owner's answers in `<owner_answers>` tags and tells the model to treat them as information, not instructions.
-- `rewriteInVoice` redrafts a card. `newFacts` throws away a rewrite that adds a URL, email address, phone number, dollar amount or other number the draft did not have, and the route returns 422. Code adds back the "Reply STOP to opt out." line if the rewrite dropped it. The rewrite is saved only if the card is still pending when the model answers.
-- `lib/server/intake-ai.ts` and `lib/server/business-chat.ts` read chat answers into profile changes. Code validates each change against the allowed lists, and any model failure falls back to the rules for that turn.
-- `extractDetails` in `lib/server/extract.ts` reads profile details from an owner's answer or a website. The source sits in `<source_data>` tags marked as data. Code parses each value with the same rules as the gap questions, drops any fact whose quote isn't in the source, and retries once when the reply has the wrong shape. Text that `looksLikeSessionNotes` flags, such as coaching notes or a call transcript, is never sent.
+- `rewriteInVoice` in `lib/server/ai.ts` redrafts a card. `newFacts` throws away a rewrite that adds a URL, email address, phone number, dollar amount or other number the draft did not have, and the route returns 422. Code adds back the "Reply STOP to opt out." line if the rewrite dropped it. The rewrite is saved only if the card is still pending when the model answers.
+- `lib/server/business-chat.ts` reads chat answers into profile changes. Code validates each change against the allowed lists, and any model failure falls back to the rules for that turn.
 - A detail from a source never overrules the owner. `mergeCandidate` in `lib/domain/details.ts` ranks the owner's words first, then documents, then the listing or website, then reviews. A disagreeing source is kept as a conflict for the owner to settle.
 
 ## Executor rules and the simulated outbox
@@ -187,7 +178,7 @@ Telegram is optional. It stays off unless the server sets `TELEGRAM_BOT_TOKEN`, 
 
 ## Known limits
 
-- Rate limits apply per server instance, not across the deployment. The AI call budget is the one deployment-wide limit.
+- Rate limits apply per server instance, not across the deployment.
 - With accounts off, the session cookie is the only credential.
 - `POST /api/ingest/[source]`, the event simulator, still trusts the session. Real events arrive only through the signed webhooks under `/api/hooks/`.
 - Anchored sends a text only with a consent record, but the owner's own-phone hand-off still passes `hasConsent: true`, so the owner is trusted to have consent for what they send themselves.

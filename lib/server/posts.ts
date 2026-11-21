@@ -6,7 +6,7 @@ import { aiTells, hasBlanks, planPost, readBrief, ruleCaption, unbackedClaims, t
 import type { BusinessProfile } from "@/lib/domain/types";
 import type { LlmProvider } from "@/lib/llm";
 import { newFacts } from "@/lib/server/ai";
-import { getBudgetedLlm } from "@/lib/server/ai-budget";
+import { getBusinessLlm } from "@/lib/server/business-llm";
 import { getStore } from "@/lib/store";
 
 // =============================================================================
@@ -76,7 +76,7 @@ function checkedSlides(slides: readonly string[], photoCount: number, source: st
 
 /** Draft a post from the owner's photos and description, with the business's AI key or the server's when either is set up. */
 export async function draftPhotoPost(session: string, business: BusinessProfile, description: string, photos: readonly PostPhoto[]): Promise<PostDraft> {
-  const [playbook, llm] = await Promise.all([getStore().listPostPlaybook(business.tradeKey), getBudgetedLlm(session, business.id)]);
+  const [playbook, llm] = await Promise.all([getStore().listPostPlaybook(business.tradeKey), getBusinessLlm(session, business.id)]);
   return writePost(llm, playbook, business, description, photos);
 }
 

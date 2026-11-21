@@ -89,7 +89,7 @@ export function AiKeyCard({ businessId, view: initial, canChange }: AiKeyCardPro
       <p className={connected ? styles.on : styles.off}>{statusOf(view)}</p>
       {!connected && (
         <p className={styles.does}>
-          {view.fallback === "server" ? "Until you add one, Anchored writes drafts with this server's AI." : "Until you add one, Anchored writes drafts from its own templates."}
+          Until you add one, Anchored writes drafts from its own templates.
         </p>
       )}
 

@@ -14,7 +14,6 @@ import type { WorkflowId } from "@/lib/domain/types";
 import { WORKFLOWS } from "@/lib/domain/workflows";
 import type { LlmProvider } from "@/lib/llm";
 import { tierForTask } from "@/lib/llm/task-tier";
-import { getBudgetedLlm } from "@/lib/server/ai-budget";
 import { fetchPage, type ResolveHost } from "@/lib/server/fetch-page";
 
 // =============================================================================
@@ -28,11 +27,8 @@ import { fetchPage, type ResolveHost } from "@/lib/server/fetch-page";
 // Either way the model then lists each tool with the number of the page it came
 // from, and `vetCandidates` checks every entry and sets the workflow and date.
 // Web pages are untrusted, so nothing here scores a tool or acts on a page.
-
-/** Raised when AI is off, so there is no model to run discovery with. */
-export class DiscoveryUnavailableError extends Error {
-  override readonly name = "DiscoveryUnavailableError";
-}
+// The caller passes the model: `npm run discover` builds it from the operator's
+// own key, and the web app never runs discovery.
 
 /** One discovery run: the workflow to cover and the kind of business, in plain words. */
 interface DiscoveryRequest {
@@ -40,8 +36,8 @@ interface DiscoveryRequest {
   readonly business: string;
   /** Names to skip besides the catalog and the queue, such as ones an earlier run added this session. */
   readonly alsoKnown?: readonly string[];
-  /** Defaults to the configured provider under the daily budget. */
-  readonly llm?: LlmProvider | null;
+  /** The operator's model, built from their own key. */
+  readonly llm: LlmProvider;
   /** Replaces `fetch` for loading vendor sites. */
   readonly fetchImpl?: typeof fetch;
   /** Replaces DNS for checking each vendor site's addresses. */
@@ -67,8 +63,6 @@ interface Gathered {
   readonly toolPerPage?: readonly string[];
 }
 
-// The discovery CLI runs for the team, not a visitor, so its calls count under one fixed session of their own.
-const DISCOVERY_SESSION = "operator:discover";
 // Searches per run. Each one costs a little, and six covers a job's main vendors and one or two roundups.
 const MAX_SEARCHES = 6;
 // Tools the model may name when it can't search. A few more than a run may add, since some sites won't load.
@@ -227,8 +221,7 @@ function leftOut(gathered: Gathered, result: DiscoveryResult): SkippedCandidate[
 
 /** Find tools that do `workflow` for `business`, and return the ones that pass every rule. */
 export async function discoverTools(request: DiscoveryRequest): Promise<DiscoveryRun> {
-  const llm = request.llm === undefined ? await getBudgetedLlm(DISCOVERY_SESSION) : request.llm;
-  if (!llm) throw new DiscoveryUnavailableError("AI is off. Set AI_PROVIDER and AI_API_KEY in .env.local to run discovery.");
+  const { llm } = request;
 
   const known = [...knownToolNames(), ...(request.alsoKnown ?? [])];
   const method: DiscoveryMethod = llm.searchWeb ? "search" : "sites";

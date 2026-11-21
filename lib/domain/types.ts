@@ -79,7 +79,7 @@ export type SignalId =
   | "memberships"
   | "marketing";
 
-/** The model tier an agent runs on, picked by task complexity. The server's AI settings map each tier to a model. */
+/** The model tier an agent runs on, picked by task complexity. The business's own AI key maps each tier to a model. */
 export type ModelTier = "quick" | "default" | "complex";
 
 /**

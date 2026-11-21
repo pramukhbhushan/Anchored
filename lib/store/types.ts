@@ -187,10 +187,6 @@ export interface Store {
   saveIntake(session: string, intake: IntakeRecord): Promise<void>;
   /** The onboarding chat that built `businessId`, or `null` when the business came from the form or an example. */
   findIntakeByBusiness(session: string, businessId: string): Promise<IntakeRecord | null>;
-  /** Count one model call against the day's cap for every visitor together; `false` once the cap is reached. Deployment-wide. */
-  useAiCall(day: string, cap: number): Promise<boolean>;
-  /** Count one model call against the session's own cap for the day; `false` once the cap is reached. */
-  useSessionAiCall(session: string, day: string, cap: number): Promise<boolean>;
   /** Claim deletion of a sent Telegram message once, scoped to its business and session. */
   claimTelegramDeletion(session: string, businessId: string, entryId: string): Promise<OutboxEntry | null>;
   /** Mark a queued entry as sending and return it; `null` when it isn't queued, so two senders can't both send it. */

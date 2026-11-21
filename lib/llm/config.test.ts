@@ -1,28 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { readProviderConfig } from "./config";
+import { keyProviderConfig, ownerProviderConfig } from "./config";
 import { LlmConfigError } from "./types";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Behavior of `readProviderConfig`: which provider, key, endpoint and models an
-// environment resolves to, and that each bad setting raises `LlmConfigError`
-// naming the variable the operator has to fix.
+// Behavior of `keyProviderConfig` and `ownerProviderConfig`: which endpoint and
+// models a key resolves to, that a provider needing a model without one raises
+// `LlmConfigError`, and that nothing in the environment but the deployment's
+// public URL changes the result.
 
 const CLAUDE_DEFAULTS = { quick: "claude-haiku-5-5", default: "claude-sonnet-5-5", complex: "claude-opus-5-5" };
 const ONE_MODEL = { quick: "test-model", default: "test-model", complex: "test-model" };
 
-describe("readProviderConfig", () => {
-  it("returns `null` when no provider is set up", () => {
-    expect(readProviderConfig({})).toBeNull();
-  });
-
-  it("treats blank variables as unset", () => {
-    expect(readProviderConfig({ AI_PROVIDER: "  ", AI_API_KEY: "" })).toBeNull();
-  });
-
-  it("turns on Claude with its default models and the SDK's own endpoint", () => {
-    expect(readProviderConfig({ AI_PROVIDER: "anthropic", AI_API_KEY: "test-anthropic-key" })).toEqual({
+describe("keyProviderConfig", () => {
+  it("uses Claude's default models and the SDK's own endpoint", () => {
+    expect(keyProviderConfig({ provider: "anthropic", apiKey: "test-anthropic-key", models: {} }, null)).toEqual({
       name: "anthropic",
       label: "Claude",
       apiKey: "test-anthropic-key",
@@ -36,65 +29,45 @@ describe("readProviderConfig", () => {
     { provider: "openai", label: "OpenAI", baseUrl: "https://api.openai.com/v1" },
     { provider: "openrouter", label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1" },
     { provider: "featherless", label: "Featherless", baseUrl: "https://api.featherless.ai/v1" },
-  ])("reads $provider's key from `AI_API_KEY` and uses its documented base URL", ({ provider, label, baseUrl }) => {
-    const config = readProviderConfig({ AI_PROVIDER: provider, AI_API_KEY: "test-key", AI_MODEL: "test-model" });
+  ] as const)("sends $provider's key to its documented base URL", ({ provider, label, baseUrl }) => {
+    const config = keyProviderConfig({ provider, apiKey: "test-key", models: ONE_MODEL }, null);
     expect(config).toEqual({ name: provider, label, apiKey: "test-key", baseUrl, models: ONE_MODEL, appUrl: null });
   });
 
-  it.each([
-    { provider: "featherless", baseUrl: "https://api.featherless.ai/v1/" },
-    { provider: "anthropic", baseUrl: "https://gateway.example.com" },
-  ])("lets `AI_BASE_URL` replace $provider's endpoint, dropping the trailing slash", ({ provider, baseUrl }) => {
-    const config = readProviderConfig({ AI_PROVIDER: provider, AI_API_KEY: "test-key", AI_BASE_URL: baseUrl, AI_MODEL: "test-model" });
-    expect(config?.baseUrl).toBe(baseUrl.replace(/\/$/, ""));
+  it("lets one tier's model replace one of Claude's defaults and keeps the others", () => {
+    const config = keyProviderConfig({ provider: "anthropic", apiKey: "test-anthropic-key", models: { quick: "claude-haiku-4-5" } }, null);
+    expect(config.models).toEqual({ ...CLAUDE_DEFAULTS, quick: "claude-haiku-4-5" });
   });
 
-  it("resolves a custom endpoint from `AI_API_KEY` and `AI_BASE_URL`", () => {
-    const config = readProviderConfig({ AI_PROVIDER: "openai-compatible", AI_API_KEY: "test-key", AI_BASE_URL: "https://models.example.com/v1/", AI_MODEL: "test-model" });
-    expect(config).toMatchObject({ name: "openai-compatible", apiKey: "test-key", baseUrl: "https://models.example.com/v1" });
+  it("raises `LlmConfigError` naming the tier when a provider without defaults has no model for it", () => {
+    const key = { provider: "openai", apiKey: "test-key", models: { quick: "a", default: "b" } } as const;
+    expect(() => keyProviderConfig(key, null)).toThrow(LlmConfigError);
+    expect(() => keyProviderConfig(key, null)).toThrow("complex");
+  });
+});
+
+describe("ownerProviderConfig", () => {
+  it("uses the owner's one model for every tier", () => {
+    const config = ownerProviderConfig({ provider: "openrouter", apiKey: "test-key", model: "test-model" }, {});
+    expect(config.models).toEqual(ONE_MODEL);
   });
 
-  it.each(["http://localhost:11434/v1", "http://127.0.0.1:8080/v1"])("accepts plain http for a model on this machine: %s", (baseUrl) => {
-    const config = readProviderConfig({ AI_PROVIDER: "openai-compatible", AI_API_KEY: "test-key", AI_BASE_URL: baseUrl, AI_MODEL: "test-model" });
-    expect(config?.baseUrl).toBe(baseUrl);
+  it("uses Claude's defaults when the owner named no model", () => {
+    expect(ownerProviderConfig({ provider: "anthropic", apiKey: "test-key", model: null }, {}).models).toEqual(CLAUDE_DEFAULTS);
   });
 
-  it("reads `AI_PROVIDER` without regard to case", () => {
-    const config = readProviderConfig({ AI_PROVIDER: "OpenRouter", AI_API_KEY: "test-key", AI_MODEL: "test-model" });
-    expect(config?.name).toBe("openrouter");
+  it("raises `LlmConfigError` when a provider without defaults has no model", () => {
+    expect(() => ownerProviderConfig({ provider: "featherless", apiKey: "test-key", model: null }, {})).toThrow(LlmConfigError);
   });
 
-  it("uses a tier's own model variable first, then `AI_MODEL` for the rest", () => {
-    const config = readProviderConfig({ AI_PROVIDER: "openrouter", AI_API_KEY: "test-key", AI_MODEL: "shared-model", AI_MODEL_COMPLEX: "big-model" });
-    expect(config?.models).toEqual({ quick: "shared-model", default: "shared-model", complex: "big-model" });
+  it("ignores the old server AI settings, so a team key left in the environment does nothing", () => {
+    const env = { AI_PROVIDER: "openai", AI_API_KEY: "team-key", AI_BASE_URL: "https://gateway.example.com", AI_MODEL: "team-model" };
+    const config = ownerProviderConfig({ provider: "anthropic", apiKey: "owner-key", model: null }, env);
+    expect(config).toMatchObject({ name: "anthropic", apiKey: "owner-key", baseUrl: null, models: CLAUDE_DEFAULTS });
   });
 
-  it("lets a tier variable replace one of Claude's defaults and keeps the others", () => {
-    const config = readProviderConfig({ AI_PROVIDER: "anthropic", AI_API_KEY: "test-anthropic-key", AI_MODEL_QUICK: "claude-haiku-4-5" });
-    expect(config?.models).toEqual({ ...CLAUDE_DEFAULTS, quick: "claude-haiku-4-5" });
-  });
-
-  it("keeps `APP_URL` for attribution headers", () => {
-    const config = readProviderConfig({ AI_PROVIDER: "anthropic", AI_API_KEY: "test-anthropic-key", APP_URL: "https://anchored.example.com" });
-    expect(config?.appUrl).toBe("https://anchored.example.com");
-  });
-
-  describe("raises `LlmConfigError` naming the variable to fix", () => {
-    const customEndpoint = { AI_PROVIDER: "openai-compatible", AI_API_KEY: "test-key", AI_MODEL: "test-model" };
-
-    it.each([
-      { problem: "a key with no provider", env: { AI_API_KEY: "test-key" }, variable: "`AI_PROVIDER`" },
-      { problem: "an unknown provider", env: { AI_PROVIDER: "gemini", AI_API_KEY: "test-key" }, variable: "`AI_PROVIDER`" },
-      { problem: "a missing key", env: { AI_PROVIDER: "featherless", AI_MODEL: "test-model" }, variable: "`AI_API_KEY`" },
-      { problem: "a missing Claude key", env: { AI_PROVIDER: "anthropic" }, variable: "`AI_API_KEY`" },
-      { problem: "a missing model", env: { AI_PROVIDER: "openai", AI_API_KEY: "test-key" }, variable: "`AI_MODEL`" },
-      { problem: "a missing model for one tier", env: { AI_PROVIDER: "openai", AI_API_KEY: "test-key", AI_MODEL_QUICK: "a", AI_MODEL_DEFAULT: "b" }, variable: "`AI_MODEL_COMPLEX`" },
-      { problem: "a custom endpoint without a base URL", env: customEndpoint, variable: "`AI_BASE_URL`" },
-      { problem: "a remote base URL over plain http", env: { ...customEndpoint, AI_BASE_URL: "http://models.example.com/v1" }, variable: "`AI_BASE_URL`" },
-      { problem: "a base URL that is not a URL", env: { ...customEndpoint, AI_BASE_URL: "models.example.com" }, variable: "`AI_BASE_URL`" },
-    ])("for $problem", ({ env, variable }) => {
-      expect(() => readProviderConfig(env)).toThrow(LlmConfigError);
-      expect(() => readProviderConfig(env)).toThrow(variable);
-    });
+  it("sends the deployment's public URL for attribution headers", () => {
+    const config = ownerProviderConfig({ provider: "anthropic", apiKey: "test-key", model: null }, { PUBLIC_APP_URL: "https://anchored.example.com" });
+    expect(config.appUrl).toBe("https://anchored.example.com");
   });
 });

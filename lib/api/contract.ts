@@ -334,8 +334,6 @@ export interface AiKeyView {
   readonly lastFour: string | null;
   /** The model the owner named, or `null` for the provider's own choice. */
   readonly model: string | null;
-  /** Who writes drafts while the business has no key: this server's own AI, or Anchored's rules. */
-  readonly fallback: "server" | "rules";
   /** Why this server can't keep AI keys, or `null` when it can. */
   readonly unavailable: string | null;
 }

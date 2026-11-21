@@ -15,12 +15,12 @@ import { NOT_GIVEN } from "@/lib/domain/workflows";
 // =============================================================================
 // The Stack page's closed "Under the hood" disclosure, for owners who want the
 // detail: what Anchored knows and reads, each agent's skills with what they
-// read, may do and never do, the model this server runs for each, and how each
+// read, may do and never do, the model the business's own AI key runs for each, and how each
 // chosen tool scored. A native `details`, so it needs no client code.
 
 const VOICE_PREVIEW = 60;
 
-/** Render the disclosure with the profile, data sources, agent skills and tool checks; `ai` is this server's model setup, `null` when AI is off. */
+/** Render the disclosure with the profile, data sources, agent skills and tool checks; `ai` is the business's own AI key setup, `null` when it has none. */
 export function UnderTheHood({
   business,
   agents,

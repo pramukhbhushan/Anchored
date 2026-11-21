@@ -11,7 +11,7 @@ import type { BusinessProfile, KeyedCard } from "@/lib/domain/types";
 import type { LlmProvider } from "@/lib/llm";
 import { tierForTask } from "@/lib/llm/task-tier";
 import { newFacts, plainPunctuation } from "@/lib/server/ai";
-import { getBudgetedLlm } from "@/lib/server/ai-budget";
+import { getBusinessLlm } from "@/lib/server/business-llm";
 import { getStore } from "@/lib/store";
 
 // =============================================================================
@@ -199,7 +199,7 @@ async function writtenWords(llm: LlmProvider, business: BusinessProfile, skills:
  * feed already shows the templates; once stored, a starter is never written again, even when the call failed.
  */
 export async function writeStarters(session: string, business: BusinessProfile): Promise<void> {
-  const llm = await getBudgetedLlm(session, business.id);
+  const llm = await getBusinessLlm(session, business.id);
   if (llm === null) return;
   const store = getStore();
   const [saved, stored, connections] = await Promise.all([

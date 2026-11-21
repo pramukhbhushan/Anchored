@@ -77,16 +77,16 @@ To change a setting, copy `.env.example` to `.env.local`, fill in the values you
 | To turn on | Set | Guide |
 | --- | --- | --- |
 | Sign-in and saved data | The Supabase variables | [Set up a Supabase project](docs/deploy.md#set-up-a-supabase-project) |
-| AI drafts on the server's key | `AI_PROVIDER` and `AI_API_KEY` | [Turn on AI](docs/deploy.md#turn-on-ai) |
+| Owners' own AI keys | `CONNECTOR_SECRET_KEY` | [Turn on AI](docs/deploy.md#turn-on-ai) |
 | Real texts, email and invoices | `CONNECTOR_SECRET_KEY` and the connected service variables | [Connect real services](docs/deploy.md#connect-real-services) |
 
-Each owner can also add their own Anthropic, OpenAI, OpenRouter or Featherless key on a business's **Connections** page, signed in with email or Google. Every model call for that business then runs on the owner's key. Onboarding runs before a business exists, so it uses only the server's key. If you host Anchored for others, you can leave `AI_PROVIDER` and `AI_API_KEY` unset so you pay for no model calls.
+The deployment holds no AI key. Each owner adds their own Anthropic, OpenAI, OpenRouter or Featherless key on a business's **Connections** page, signed in with email or Google, and every model call for that business runs on it. A business with no key, and onboarding, which runs before a business exists, use Anchored's rules.
 
 [`docs/deploy.md`](docs/deploy.md) covers every variable and the steps to deploy on Vercel.
 
 ### Find new tools
 
-The discovery agent needs an AI provider in `.env.local`. Run it for one workflow and one kind of business:
+The discovery agent runs on your own machine with your own AI key. Set `AI_PROVIDER` to `anthropic`, `openai`, `openrouter` or `featherless` and `AI_API_KEY` to your key in `.env.local`, and `AI_MODEL` for every provider but `anthropic`. Only the script reads these settings; the web app ignores them. Run it for one workflow and one kind of business:
 
 ```bash
 npm run discover -- --workflow calls --business "dental office"

@@ -38,7 +38,7 @@ const LIMITS = {
   createBusiness: { bucket: "create-business", windowMs: WINDOW_MS, perSession: 10, perIp: 60 },
   rewrite: { bucket: "rewrite", windowMs: WINDOW_MS, perSession: 20, perIp: 120 },
   // One onboarding runs 11 to 14 turns and an owner may map several businesses, so 90 fits three
-  // onboardings plus chat. The daily model budget in `lib/server/ai-budget.ts` caps the spend.
+  // onboardings plus chat. Model calls in chat run on the business's own AI key, so the owner pays.
   chat: { bucket: "chat", windowMs: WINDOW_MS, perSession: 90, perIp: 450 },
   newEvent: { bucket: "new-event", windowMs: WINDOW_MS, perSession: 60, perIp: 300 },
   // Saving an AI key calls the owner's provider once to check it; ten tries covers a few typos.

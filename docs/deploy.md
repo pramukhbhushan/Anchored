@@ -74,36 +74,22 @@ To deploy somewhere other than Vercel behind a proxy that sets `x-real-ip` or re
 
 `vercel.json` deploys only the `main` branch. To deploy from other branches, change `git.deploymentEnabled` in that file.
 
-To turn on AI for every business, follow [Turn on AI](#turn-on-ai). To send and receive through real services, follow [Connect real services](#connect-real-services).
+To let owners add their own AI keys, follow [Turn on AI](#turn-on-ai). To send and receive through real services, follow [Connect real services](#connect-real-services).
 
 ## Turn on AI
 
 Without AI, Anchored's rules write every profile and card. With AI, a model writes the words, and code still decides every workflow, score and send.
 
-Anchored can get a model key in two ways:
+The deployment holds no AI key, and pays for no model calls. Each owner adds their own: on a business's **Connections** page, an owner signed in with email or Google picks Anthropic, OpenAI, OpenRouter or Featherless and pastes a key. OpenAI, OpenRouter and Featherless also need a model name. Anchored checks the key with one short call before it saves it, and the page shows only the key's last four characters. Every model call for that business then runs on the owner's key and bills the owner's account. Guests and the example business can't save a key. A business with no key, and onboarding, which runs before a business exists, use the rules. AI settings left in the environment, such as `AI_PROVIDER` and `AI_API_KEY`, do nothing.
 
-- **Each owner adds their own key.** On a business's **Connections** page, an owner signed in with email or Google picks Anthropic, OpenAI, OpenRouter or Featherless and pastes a key. OpenAI, OpenRouter and Featherless also need a model name. Anchored checks the key with one short call before it saves it, and the page shows only the key's last four characters. Every model call for that business then runs on the owner's key and bills the owner's account. Guests and the example business can't save a key.
-- **You set one key for the server.** Set `AI_PROVIDER` and `AI_API_KEY`. Every business without its own key uses this one. Onboarding runs before a business exists, and `npm run discover` serves no business, so both use only the server's key.
-
-An owner's key wins over the server's key. To pay for no model calls on a public deployment, leave `AI_PROVIDER` and `AI_API_KEY` unset. Onboarding then uses the rules, and owners who add a key get AI for their own business.
-
-### Let owners add their own key
+To let owners add their own key:
 
 1. Set `CONNECTOR_SECRET_KEY`, which encrypts each owner's key. [Connect real services](#connect-real-services) shows how to make one.
 2. Apply `supabase/migrations/20261120010000_owner_ai_key.sql`, or every migration if you set up the database after it landed. Owners can't save a key until it is applied.
 
-### Set one key for the server
+With an Anthropic key and no model name, the `quick`, `default` and `complex` tiers run `claude-haiku-5-5`, `claude-sonnet-5-5` and `claude-opus-5-5`. On Featherless, the model `Qwen/Qwen3.6-35B-A3B` answered a chat turn in 1.4 to 2.8 seconds in November 2026 tests. Anchored turns off thinking on every Featherless request, since Qwen otherwise spends its whole token budget thinking and returns no text.
 
-1. Set `AI_PROVIDER` to `anthropic`, `openai`, `openrouter`, `featherless` or `openai-compatible`.
-2. Set `AI_API_KEY` to that provider's key.
-3. For every provider except `anthropic`, set `AI_MODEL`. To use a different model for one tier, set `AI_MODEL_QUICK`, `AI_MODEL_DEFAULT` or `AI_MODEL_COMPLEX`.
-4. For `openai-compatible`, set `AI_BASE_URL` to the endpoint root, the part before `/chat/completions`. It must use https, except for a model on `localhost`. Owners can't use `openai-compatible` or a base URL.
-5. Set the two daily caps on the server's key. `AI_SESSION_DAILY_CALL_CAP` limits one visitor or account per UTC day, default 150, and Anchored checks it first. `AI_DAILY_CALL_CAP` limits every visitor together per UTC day, default 2000. A cap of `0` turns off calls on the server's key and leaves owners' keys working.
-6. In your AI provider's billing settings, set a hard spend cap as a backstop.
-
-Only calls on the server's key count against the caps, since an owner's calls spend the owner's money. Past a cap, chats and onboarding fall back to the rules, and **Rewrite in my voice** answers 429 until the next UTC day.
-
-With `anthropic` and no model variables, the `quick`, `default` and `complex` tiers run `claude-haiku-5-5`, `claude-sonnet-5-5` and `claude-opus-5-5`. On `featherless`, `AI_MODEL=Qwen/Qwen3.6-35B-A3B` answered a chat turn in 1.4 to 2.8 seconds in November 2026 tests. Anchored turns off thinking on every Featherless request, since Qwen otherwise spends its whole token budget thinking and returns no text.
+The tables `ai_usage` and `ai_session_usage` and their functions `use_ai_call` and `use_session_ai_call` counted calls on a server key that no longer exists. Migrations are append-only, so they stay in the database unused.
 
 ## Connect real services
 
@@ -201,25 +187,14 @@ Every variable is optional for a local run. `.env.example` lists them all.
 
 With the two `NEXT_PUBLIC_SUPABASE_*` variables unset, accounts are off. Each visitor gets an anonymous session cookie instead, and the account menu says "This browser".
 
-### AI
-
-| Variable | What it does |
-| --- | --- |
-| `AI_PROVIDER` | The server's provider: one of `anthropic`, `openai`, `openrouter`, `featherless` or `openai-compatible`. Businesses without their own key use it |
-| `AI_API_KEY` | The server's API key for the provider in `AI_PROVIDER` |
-| `AI_BASE_URL` | The endpoint root, before `/chat/completions`. Optional for the named providers, which each have a default. Required for `openai-compatible`. Must use https, except for a model on `localhost` |
-| `AI_MODEL` | The model for every tier. Every provider except `anthropic` needs it, unless all three tier variables are set |
-| `AI_MODEL_QUICK`, `AI_MODEL_DEFAULT`, `AI_MODEL_COMPLEX` | The model for one tier. Each one overrides `AI_MODEL` |
-| `AI_SESSION_DAILY_CALL_CAP` | Calls on the server's key per UTC day for one visitor or account, checked before `AI_DAILY_CALL_CAP`. Default 150. `0` turns off calls on the server's key |
-| `AI_DAILY_CALL_CAP` | Calls on the server's key per UTC day across every visitor, counted in the store. Default 2000. `0` turns off calls on the server's key |
-| `APP_URL` | This deployment's public URL. Anchored sends it as the `HTTP-Referer` header to providers that ask for attribution, such as OpenRouter |
+No variable turns on AI. Each owner adds their own key on the Connections page, as [Turn on AI](#turn-on-ai) describes.
 
 ### Connected services
 
 | Variable | What it does |
 | --- | --- |
 | `CONNECTOR_SECRET_KEY` | 32 random bytes in base64 that encrypt every credential an owner connects, AI keys included. Without it, no service that needs a secret can be connected |
-| `PUBLIC_APP_URL` | This deployment's public https address. Webhook URLs start with it |
+| `PUBLIC_APP_URL` | This deployment's public https address. Webhook URLs start with it, and Anchored sends it as the `HTTP-Referer` header to AI providers that ask for attribution, such as OpenRouter |
 | `ANCHORED_ALLOW_GUEST_CONNECTIONS` | Set to `1` to let a guest connect services in a local run |
 | `INBOUND_EMAIL_ADDRESS` | The Postmark inbound address |
 | `INBOUND_EMAIL_SECRET` | The secret that Postmark's webhook URL carries as `?key=` |
