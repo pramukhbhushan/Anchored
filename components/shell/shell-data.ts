@@ -1,33 +1,18 @@
 import "server-only";
 import { cache } from "react";
-import { automationHref } from "@/components/routes";
-import { automationsOf } from "@/components/workflows/automations";
-import { workflowFlow } from "@/components/workflows/flow";
 import { presentAgents, type AgentView } from "@/components/business/agents/view-model";
-import { activeAgents, workflowIdsOf } from "@/lib/domain/paths";
-import { groupByStage } from "@/lib/domain/stages";
+import { activeAgents } from "@/lib/domain/paths";
 import { getChoices, getFeed, listBusinesses } from "@/lib/server/data";
-import type { CardRecord } from "@/lib/api/contract";
 import type { BusinessProfile } from "@/lib/domain/types";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
 // Server reads for the app shell. `businessSummaries` lists every business with
-// its count of approvals waiting and its automations, once per request, so the
-// shell layout and the business list page share one read. The sidebar lists a
-// business's automations under Workflows, like threads under a project.
+// its count of approvals waiting and its active agents, once per request, so
+// the shell layout and the business list page share one read.
 
-/** One automation in the sidebar, under its stage, with its drafts waiting. */
-export interface SideAutomation {
-  readonly key: string;
-  readonly name: string;
-  readonly stage: string;
-  readonly href: string;
-  readonly waiting: number;
-}
-
-/** What the shell shows for one business: its name, kind and approvals waiting. */
+/** What the shell shows for one business: its name, kind, approvals waiting and agents. */
 export interface BusinessSummary {
   readonly id: string;
   readonly name: string;
@@ -35,67 +20,46 @@ export interface BusinessSummary {
   readonly kind: BusinessProfile["kind"];
   /** Approvals waiting, or `null` when the count couldn't be read. */
   readonly pending: number | null;
-  /** The business's automations, in stage order; left out where they couldn't be read. */
-  readonly automations?: readonly SideAutomation[];
+  /** The agents the sidebar links to under Workflows; left out where they couldn't be read. */
   readonly agents?: readonly Pick<AgentView, "id" | "name">[];
 }
 
-/** Return the pending cards for `business`, or `null` when the feed can't be read. */
-async function pendingCards(business: BusinessProfile): Promise<CardRecord[] | null> {
+/** Return why `error` happened, for a log line. */
+function reasonOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** Return how many cards wait on the owner for `business`, or `null` when the feed can't be read. */
+async function pendingCount(business: BusinessProfile): Promise<number | null> {
   try {
     const { cards } = await getFeed(business);
-    return cards.filter((card) => card.status === "pending");
+    return cards.filter((card) => card.status === "pending").length;
   } catch (error) {
     // A badge is a nicety; one unreadable feed shouldn't take down the whole shell.
-    const reason = error instanceof Error ? error.message : String(error);
-    console.warn(`[Shell] Couldn't count approvals for \`${business.id}\`; showing no badge. Reason: ${reason}`);
+    console.warn(`[Shell] Couldn't count approvals for \`${business.id}\`; showing no badge. Reason: ${reasonOf(error)}`);
     return null;
   }
 }
 
-/** Return the automations of `business` for the sidebar, with no counts yet. */
-async function sideAutomations(business: BusinessProfile): Promise<SideAutomation[] | undefined> {
+/** Return the active agents of `business` for the sidebar, or `undefined` when the choices can't be read. */
+async function sideAgents(business: BusinessProfile): Promise<Pick<AgentView, "id" | "name">[] | undefined> {
   try {
     const choices = await getChoices(business);
-    return groupByStage(workflowIdsOf(business)).flatMap(({ stage, workflows }) =>
-      workflows.flatMap((id) =>
-        automationsOf(workflowFlow(business, choices, id), stage).map((a) => ({
-          key: a.key,
-          name: a.name,
-          stage: stage.name,
-          href: automationHref(business.id, a.workflow, a.key),
-          waiting: 0,
-        })),
-      ),
-    );
+    return presentAgents(activeAgents(business, choices)).map(({ id, name }) => ({ id, name }));
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    console.warn(`[Shell] Couldn't list automations for \`${business.id}\`; the sidebar leaves them out. Reason: ${reason}`);
+    console.warn(`[Shell] Couldn't list agents for \`${business.id}\`; the sidebar leaves them out. Reason: ${reasonOf(error)}`);
     return undefined;
   }
 }
 
-/** Return every business the viewer can open, the example first, each with its approvals count. */
 // `cache` dedupes the read within one request: the layout and the `/app` page both call this.
+/** Return every business the viewer can open, the example first, each with its approvals count and agents. */
 export const businessSummaries = cache(async (): Promise<BusinessSummary[]> => {
   const businesses = await listBusinesses();
   return Promise.all(
     businesses.map(async (business) => {
-      // The choices read is cached and runs beside the feed's, so the automations cost no extra round trip.
-      const [pending, automations, agents] = await Promise.all([
-        pendingCards(business),
-        sideAutomations(business),
-        getChoices(business).then((choices) => presentAgents(activeAgents(business, choices)).map(({id,name}) => ({id,name}))).catch(() => undefined),
-      ]);
-      return {
-        id: business.id,
-        name: business.name,
-        trade: business.trade,
-        kind: business.kind,
-        agents,
-        pending: pending === null ? null : pending.length,
-        automations: automations?.map((a) => ({ ...a, waiting: pending?.filter((card) => card.skill === a.key).length ?? 0 })),
-      };
+      const [pending, agents] = await Promise.all([pendingCount(business), sideAgents(business)]);
+      return { id: business.id, name: business.name, trade: business.trade, kind: business.kind, pending, agents };
     }),
   );
 });

@@ -36,10 +36,10 @@ export const SECTION_SHORTCUT: Readonly<Partial<Record<PageKey, readonly [string
 /** The cookie that remembers a collapsed sidebar; the `/app` layout reads it so the first paint is right. */
 export const SIDEBAR_COOKIE = "anchored_sidebar";
 
-/** The page each second key opens after `g`. */
-export const SHORTCUT_SECTION: Readonly<Record<string, Section | null>> = {
-  o: null,
-  w: "workflows",
-  t: "tools",
-  a: "approvals",
-};
+/** The page each second key opens after `g`, read off `SECTION_SHORTCUT`; the overview is `null`. */
+export const SHORTCUT_SECTION: Readonly<Record<string, Section | null>> = Object.fromEntries(
+  (Object.entries(SECTION_SHORTCUT) as [PageKey, readonly [string, string]][]).map(([page, [, key]]) => [
+    key,
+    page === "overview" ? null : page,
+  ]),
+);
