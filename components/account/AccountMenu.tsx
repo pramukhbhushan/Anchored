@@ -149,7 +149,7 @@ const START_FRESH: DeleteAction = {
   icon: RotateCcw,
   label: "Start fresh",
   confirmLabel: "Confirm starting fresh",
-  warning: "This clears this account's businesses, approvals and messages, then starts a new onboarding. It can't be undone.",
+  warning: "This clears your businesses, approvals and messages, then starts a new onboarding. It can't be undone.",
   goLabel: "Clear and start",
   busyLabel: "Clearing...",
   toast: "Ready for a fresh business",

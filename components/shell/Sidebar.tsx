@@ -1,13 +1,13 @@
 "use client";
 
-import { BookOpen, ClipboardList, LayoutGrid, Megaphone, ReceiptText, Users, Wrench, PanelLeftClose, PanelLeftOpen, Plus, X, type LucideIcon } from "lucide-react";
+import { BookOpen, LayoutGrid, PanelLeftClose, PanelLeftOpen, Plus, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, type ReactNode, type Ref } from "react";
 import { AnchorMark } from "@/components/ui/AnchorMark";
 import { initialOf, WaitingCount } from "@/components/shell/business-bits";
 import { APP_HREF, NEW_BUSINESS_HREF, SECTIONS, businessHref, agentHref } from "@/components/routes";
 import type { ShellLocation } from "@/components/shell/location";
-import { SECTION_ICON } from "@/components/shell/nav";
+import { SECTION_ICON, agentIcon } from "@/components/shell/nav";
 import type { BusinessSummary } from "@/components/shell/shell-data";
 
 // =============================================================================
@@ -23,14 +23,6 @@ import type { BusinessSummary } from "@/components/shell/shell-data";
 
 // Breathing room left above or below the active link after it is scrolled into view.
 const REVEAL_MARGIN = 12;
-
-/** The icon for each core agent's link; any other agent gets a wrench. */
-const AGENT_ICON: Readonly<Record<string, LucideIcon>> = {
-  customer: Users,
-  books: ReceiptText,
-  content: Megaphone,
-  internal: ClipboardList,
-};
 
 /** Render one sidebar link with its icon; `current` marks it as the open page, `tip` names it when collapsed. */
 function SideLink({
@@ -186,7 +178,7 @@ export function Sidebar({
                           <li key={agent.id}>
                             <SideLink
                               href={agentHref(current.id, agent.id)}
-                              icon={AGENT_ICON[agent.id] ?? Wrench}
+                              icon={agentIcon(agent.id)}
                               label={agent.name}
                               current={openAgent === agent.id}
                               tip={collapsed}
