@@ -5,18 +5,16 @@ import { MemoryStore } from "@/lib/store/memory";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Creating a business from the onboarding form reads the website the owner
-// pasted and merges its sourced facts into the profile before starter work begins.
+// Creating a business from the onboarding form saves it and starts its starter
+// work. A website the owner pasted is kept as typed and never fetched.
 
 const SESSION = "owner-session";
 const state = vi.hoisted(() => ({
   store: null as MemoryStore | null,
-  fetchPage: vi.fn(),
   scheduleStarters: vi.fn(),
 }));
 vi.mock("@/lib/store", async (original) => ({ ...(await original<object>()), getStore: () => state.store }));
 vi.mock("@/lib/server/session", () => ({ getSessionId: async () => SESSION }));
-vi.mock("@/lib/server/fetch-page", () => ({ fetchPage: state.fetchPage }));
 vi.mock("@/lib/server/starters", () => ({ scheduleStarters: state.scheduleStarters }));
 
 const { POST } = await import("./route");
@@ -46,8 +44,6 @@ function create(body: unknown): Promise<Response> {
 
 beforeEach(() => {
   state.store = new MemoryStore();
-  state.fetchPage.mockReset();
-  state.fetchPage.mockResolvedValue(null);
   state.scheduleStarters.mockReset();
 });
 
@@ -59,16 +55,17 @@ describe("POST /api/businesses", () => {
     expect(response.status).toBe(201);
     expect(result.business.name).toBe("Apex Heating");
     expect(await state.store?.getBusiness(SESSION, result.id)).toMatchObject({ name: "Apex Heating" });
-    expect(state.fetchPage).not.toHaveBeenCalled();
     expect(state.scheduleStarters).toHaveBeenCalledWith(SESSION, expect.objectContaining({ id: result.id }));
   });
 
-  it("reads the website the owner pasted", async () => {
-    state.fetchPage.mockResolvedValue({ url: "https://apex.example/", title: "Apex Heating", text: "Emergency heating repairs in Laurel." });
+  it("never fetches the website the owner pasted", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
 
-    const response = await create({ from: "answers", answers: { ...ANSWERS, website: "https://apex.example" } });
+    const response = await create({ from: "answers", answers: { ...ANSWERS, website: "http://169.254.169.254/latest" } });
 
     expect(response.status).toBe(201);
-    expect(state.fetchPage).toHaveBeenCalledWith("https://apex.example");
+    expect(fetchSpy).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 });

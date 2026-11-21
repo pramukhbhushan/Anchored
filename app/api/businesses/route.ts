@@ -7,7 +7,6 @@ import { profileFromAnswers, profileFromSentence } from "@/lib/domain/engine";
 import type { BusinessProfile } from "@/lib/domain/types";
 import { saveNewBusiness } from "@/lib/server/create-business";
 import { resetSession } from "@/lib/server/data";
-import { fetchPage } from "@/lib/server/fetch-page";
 import { fail, handleError, json, readBody } from "@/lib/server/http";
 import { getSessionId } from "@/lib/server/session";
 
@@ -16,7 +15,7 @@ import { getSessionId } from "@/lib/server/session";
 // =============================================================================
 // POST /api/businesses builds a business from onboarding answers, an example
 // or one sentence, and saves it to the visitor's session. The rules engine maps
-// it, and a website the owner pasted is kept with the raw onboarding input.
+// it, and the raw onboarding input is kept with it. The server fetches nothing.
 // DELETE removes everything the visitor saved: their businesses and every choice,
 // card and outbox message, including what they changed on the example business.
 
@@ -40,14 +39,7 @@ export async function POST(request: Request) {
     const built = buildProfile(parsed.data);
     if (!built) return fail(400, "That example doesn't exist. Pick one from the list.");
     const business = withCrewDecisions(built);
-    let website: { readonly url: string; readonly title: string; readonly text: string } | undefined;
-    const sourceWebsite = parsed.data.from === "answers" ? parsed.data.answers.website : undefined;
-    if (sourceWebsite !== undefined) {
-      const page = await fetchPage(sourceWebsite);
-      if (page !== null) website = { url: page.url, title: page.title, text: page.text };
-    }
-    const raw = { request: parsed.data, ...(website === undefined ? {} : { website }) };
-    await saveNewBusiness(session, business, raw, { seedExample: parsed.data.from === "example" });
+    await saveNewBusiness(session, business, { request: parsed.data }, { seedExample: parsed.data.from === "example" });
     return json<CreateBusinessResponse>({ id: business.id, business }, 201);
   } catch (error) {
     return handleError(error, "POST /api/businesses");

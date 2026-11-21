@@ -48,7 +48,7 @@ const RULES: readonly (readonly [rule: string, why: string])[] = [
 ];
 
 const FAQ: readonly (readonly [question: string, answer: string])[] = [
-  ["How does Anchored learn about my business?", "You tell it in a short chat: what you do, who your customers are and the tools you use. It can also read your website to fill in the gaps. Skip anything you don't know."],
+  ["How does Anchored learn about my business?", "You tell it in a short chat: what you do, who your customers are and the tools you use. Skip anything you don't know."],
   ["How does it find the right tools?", "It matches each job in your business to tools checked by hand for price, what they do and whether they act without you. Scouts keep finding new ones, and a person reviews each before it shows up."],
   ["What will it actually do for me?", "It writes the messages that slip: replies to new requests, follow-ups, payment reminders and review replies. You approve each one. Where a tool you have or could buy does a job better, it points you there instead."],
   ["Will it text my customers without me?", "No. Every message waits for your tap."],

@@ -5,11 +5,10 @@ import { BlockList, isIP } from "node:net";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Loads one public web page and returns its title and readable text. A public
-// route reaches it: `POST /api/businesses` with `from: "answers"` loads the
-// owner's website. `npm run discover` also uses it to confirm that a tool's
-// own site exists and names it. A visitor can pick the
-// address, so every request passes a guard first: an http or https URL on the
+// Loads one public web page and returns its title and readable text, for
+// `npm run discover` to confirm that a tool's own site exists and names it. No
+// route calls it. The addresses come from model output, so every request
+// passes a guard first: an http or https URL on the
 // default port with no credentials, a host name that isn't local, single-label or
 // an IPv6 literal, and a DNS answer whose every address is public. It follows at
 // most three redirects by hand, and each hop passes the same guard before it is
