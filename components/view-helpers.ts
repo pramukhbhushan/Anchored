@@ -7,19 +7,18 @@ import { NOT_GIVEN } from "@/lib/domain/workflows";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Small pure helpers the views share: `plannedWorkflows` pairs each of a
-// business's workflows with its plan, `topWorkflows` picks the ones worth acting
-// on, `feedStats` counts the approvals feed, `fitLine` explains a tool score,
+// Small pure helpers the views share: `topWorkflows` picks the workflows worth
+// acting on, `feedStats` counts the approvals feed, `fitLine` explains a tool score,
 // `placeOf` reads the town, and `money` formats dollars.
 
 /** One of a business's workflows with Anchored's plan for it. */
-export interface PlannedWorkflow {
+interface PlannedWorkflow {
   readonly id: WorkflowId;
   readonly plan: WorkflowPlan;
 }
 
 /** What the views read from each card in a feed. */
-export interface FeedCard {
+interface FeedCard {
   readonly example?: true;
   readonly title: string;
   readonly status: CardStatus;
@@ -29,7 +28,7 @@ export interface FeedCard {
 }
 
 /** Counts behind the morning brief and the Stack page's approval step. */
-export interface FeedStats {
+interface FeedStats {
   readonly pending: number;
   /** Drafts the owner approved; "I'll handle it" on a locked card is not an approval. */
   readonly approved: number;
@@ -42,7 +41,7 @@ export interface FeedStats {
 }
 
 /** Return the business's workflows with their plans, in the catalog's workflow order. */
-export function plannedWorkflows(business: BusinessProfile): PlannedWorkflow[] {
+function plannedWorkflows(business: BusinessProfile): PlannedWorkflow[] {
   return workflowIdsOf(business).flatMap((id) => {
     const plan = business.workflows[id];
     return plan === undefined ? [] : [{ id, plan }];

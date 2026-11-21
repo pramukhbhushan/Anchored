@@ -1,9 +1,9 @@
 import Link from "next/link";
+import { ownerTime } from "@/components/business/owner-time";
 import { businessHref } from "@/components/routes";
 import { conflictLine, detailText, gapsFor, SOURCE_NAME } from "@/lib/domain/details";
 import { FIELD_KEYS, FIELDS, isFilled } from "@/lib/domain/fields";
 import type { BusinessProfile, CoreAgentId, ProfileChangeSource } from "@/lib/domain/types";
-import { OWNER_TIME_ZONE } from "@/lib/domain/executor";
 import type { ProfileVersion } from "@/lib/store/types";
 
 // =============================================================================
@@ -13,8 +13,6 @@ import type { ProfileVersion } from "@/lib/store/types";
 // page: each one with where it came from, any source that disagrees, then the
 // must-have facts the business's agents still lack, and the profile's saved
 // versions behind a closed disclosure. Server-rendered; it needs no client code.
-
-const SAVED_AT = new Intl.DateTimeFormat("en-US", { timeZone: OWNER_TIME_ZONE, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
 const CHANGED_BY: Readonly<Record<ProfileChangeSource, string>> = {
   onboarding: "Onboarding",
@@ -94,7 +92,7 @@ export function ProfileDetails({
           <ol>
             {versions.map((version) => (
               <li key={version.version}>
-                Version {version.version}: {CHANGED_BY[version.changedBy]}, {SAVED_AT.format(new Date(version.savedAt))}
+                Version {version.version}: {CHANGED_BY[version.changedBy]}, {ownerTime(new Date(version.savedAt))}
               </li>
             ))}
           </ol>

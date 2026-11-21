@@ -3,7 +3,8 @@
 import { Check, ChevronsUpDown, LayoutGrid, Plus } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { APP_HREF, NEW_BUSINESS_HREF, businessHref } from "@/components/routes";
+import { APP_HREF, NEW_BUSINESS_HREF, businessHref, type Section } from "@/components/routes";
+import { initialOf, WaitingCount } from "@/components/shell/business-bits";
 import type { ShellLocation } from "@/components/shell/location";
 import type { BusinessSummary } from "@/components/shell/shell-data";
 
@@ -22,11 +23,6 @@ import type { BusinessSummary } from "@/components/shell/shell-data";
 /** Which link takes focus when the panel opens from the keyboard. */
 type OpenFocus = "current" | "last";
 
-/** Return the first letter of `name` for its tile. */
-function initialOf(name: string): string {
-  return name.trim().charAt(0).toUpperCase();
-}
-
 /** Return the panel's links in order. */
 function linksIn(panel: HTMLElement | null): HTMLAnchorElement[] {
   return [...(panel?.querySelectorAll<HTMLAnchorElement>("a.switcher-item") ?? [])];
@@ -37,18 +33,6 @@ function focusIn(panel: HTMLElement | null, target: OpenFocus) {
   const items = linksIn(panel);
   const pick = target === "last" ? items.at(-1) : (items.find((a) => a.hasAttribute("aria-current")) ?? items[0]);
   pick?.focus();
-}
-
-/** Render the count beside a business, read as ", 3 waiting" by screen readers. */
-function Waiting({ value }: { readonly value: number | null }) {
-  if (value === null || value === 0) return null;
-  return (
-    <span className="switcher-count">
-      <span className="sr">, </span>
-      {value}
-      <span className="sr"> waiting</span>
-    </span>
-  );
 }
 
 /** Render one row of the panel; `current` marks where the owner is with a check. */
@@ -92,12 +76,52 @@ function Row({
             </span>
           )}
         </span>
-        <Waiting value={count} />
+        <WaitingCount value={count} className="switcher-count" />
         <span className="switcher-check" aria-hidden="true">
           {current && <Check size={16} />}
         </span>
       </Link>
     </li>
+  );
+}
+
+/** Render one labelled group of businesses, each linking to the open `section` of that business; nothing when empty. */
+function Group({
+  label,
+  businesses,
+  openId,
+  section,
+  onPick,
+}: {
+  readonly label: string;
+  readonly businesses: readonly BusinessSummary[];
+  readonly openId: string | null;
+  readonly section: Section | null;
+  readonly onPick: () => void;
+}) {
+  const labelId = useId();
+  if (businesses.length === 0) return null;
+  return (
+    <>
+      <p className="switcher-group" id={labelId}>
+        {label}
+      </p>
+      <ul className="switcher-list" aria-labelledby={labelId}>
+        {businesses.map((b) => (
+          <Row
+            key={b.id}
+            href={businessHref(b.id, section)}
+            tile={initialOf(b.name)}
+            name={b.name}
+            detail={b.trade}
+            count={b.pending}
+            current={b.id === openId}
+            page={false}
+            onPick={onPick}
+          />
+        ))}
+      </ul>
+    </>
   );
 }
 
@@ -115,8 +139,6 @@ export function BusinessSwitcher({
   const panelRef = useRef<HTMLDivElement>(null);
   const focusOnOpen = useRef<OpenFocus | null>(null);
   const panelId = useId();
-  const ownId = useId();
-  const samplesId = useId();
 
   const own = businesses.filter((b) => b.kind === "custom");
   const samples = businesses.filter((b) => b.kind === "case");
@@ -226,51 +248,8 @@ export function BusinessSwitcher({
           />
         </ul>
 
-        {own.length > 0 && (
-          <>
-            <p className="switcher-group" id={ownId}>
-              Your businesses
-            </p>
-            <ul className="switcher-list" aria-labelledby={ownId}>
-              {own.map((b) => (
-                <Row
-                  key={b.id}
-                  href={businessHref(b.id, section)}
-                  tile={initialOf(b.name)}
-                  name={b.name}
-                  detail={b.trade}
-                  count={b.pending}
-                  current={b.id === openId}
-                  page={false}
-                  onPick={close}
-                />
-              ))}
-            </ul>
-          </>
-        )}
-
-        {samples.length > 0 && (
-          <>
-            <p className="switcher-group" id={samplesId}>
-              Example
-            </p>
-            <ul className="switcher-list" aria-labelledby={samplesId}>
-              {samples.map((b) => (
-                <Row
-                  key={b.id}
-                  href={businessHref(b.id, section)}
-                  tile={initialOf(b.name)}
-                  name={b.name}
-                  detail={b.trade}
-                  count={b.pending}
-                  current={b.id === openId}
-                  page={false}
-                  onPick={close}
-                />
-              ))}
-            </ul>
-          </>
-        )}
+        <Group label="Your businesses" businesses={own} openId={openId} section={section} onPick={close} />
+        <Group label="Example" businesses={samples} openId={openId} section={section} onPick={close} />
 
         <ul className="switcher-list switcher-foot">
           <Row

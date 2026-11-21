@@ -13,8 +13,8 @@ import { NOT_GIVEN } from "@/lib/domain/workflows";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The Stack page's closed "Under the hood" disclosure, for judges and the
-// curious: what Anchored knows and reads, each agent's skills with what they
+// The Stack page's closed "Under the hood" disclosure, for owners who want the
+// detail: what Anchored knows and reads, each agent's skills with what they
 // read, may do and never do, the model this server runs for each, and how each
 // chosen tool scored. A native `details`, so it needs no client code.
 
@@ -238,12 +238,12 @@ function spawnReason(business: BusinessProfile, agent: ActiveAgent): string | nu
   return niche === undefined ? null : asSentence(niche.spawnedBecause);
 }
 
-/** Return the three setup steps for a chosen tool, which differ for turning on versus buying. */
+/** Return the three setup steps for a chosen tool: one the owner already has, or one they sign up for. */
 function toolSetup(business: BusinessProfile, tool: Tool, path: "turnon" | "buy"): string[] {
   if (path === "turnon") {
     return [
       `Open your ${tool.platform ?? tool.maker} account`,
-      `Turn on ${tool.name} in its settings or app store`,
+      `Switch on ${tool.name} in its settings or app store`,
       "Run it for a week, then check what it did",
     ];
   }

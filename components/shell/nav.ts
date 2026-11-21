@@ -1,11 +1,11 @@
-import { Inbox, Layers, LayoutDashboard, MessageSquare, Plug, Store, ToggleRight, Workflow, Wrench, type LucideIcon } from "lucide-react";
+import { ClipboardList, Inbox, Layers, Megaphone, ReceiptText, Users, LayoutDashboard, MessageSquare, Plug, Store, ToggleRight, Workflow, Wrench, type LucideIcon } from "lucide-react";
 import type { Section } from "@/components/routes";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
 // What the sidebar, the command palette and the keyboard shortcuts share
-// about each business page: its icon and its `g` shortcut. `SHORTCUT_SECTION`
+// about each business page: its icon and its `g` shortcut, plus each agent's icon. `SHORTCUT_SECTION`
 // is the reverse map the shortcut handler reads; `SIDEBAR_COOKIE` is shared
 // by the shell that writes it and the layout that reads it.
 
@@ -25,6 +25,19 @@ export const SECTION_ICON: Readonly<Record<PageKey, LucideIcon>> = {
   profile: Store,
 };
 
+/** The icon for each core agent's link. */
+const AGENT_ICON: Readonly<Record<string, LucideIcon>> = {
+  customer: Users,
+  books: ReceiptText,
+  content: Megaphone,
+  internal: ClipboardList,
+};
+
+/** Return the icon for an agent's link: its own for a core agent, a wrench for any other. */
+export function agentIcon(id: string): LucideIcon {
+  return AGENT_ICON[id] ?? Wrench;
+}
+
 /** The two-key shortcut for the pages that have one, such as `g` then `w` for Workflows. */
 export const SECTION_SHORTCUT: Readonly<Partial<Record<PageKey, readonly [string, string]>>> = {
   overview: ["g", "o"],
@@ -36,10 +49,10 @@ export const SECTION_SHORTCUT: Readonly<Partial<Record<PageKey, readonly [string
 /** The cookie that remembers a collapsed sidebar; the `/app` layout reads it so the first paint is right. */
 export const SIDEBAR_COOKIE = "anchored_sidebar";
 
-/** The page each second key opens after `g`. */
-export const SHORTCUT_SECTION: Readonly<Record<string, Section | null>> = {
-  o: null,
-  w: "workflows",
-  t: "tools",
-  a: "approvals",
-};
+/** The page each second key opens after `g`, read off `SECTION_SHORTCUT`; the overview is `null`. */
+export const SHORTCUT_SECTION: Readonly<Record<string, Section | null>> = Object.fromEntries(
+  (Object.entries(SECTION_SHORTCUT) as [PageKey, readonly [string, string]][]).map(([page, [, key]]) => [
+    key,
+    page === "overview" ? null : page,
+  ]),
+);

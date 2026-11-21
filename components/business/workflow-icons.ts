@@ -27,7 +27,7 @@ import type { WorkflowId } from "@/lib/domain/types";
 // `WORKFLOW_ICONS` is exhaustive over `WorkflowId`; `workflowIcon` reads it.
 
 /** The icon for each workflow, picked for what the owner sees, not how the agent works. */
-export const WORKFLOW_ICONS: Readonly<Record<WorkflowId, LucideIcon>> = {
+const WORKFLOW_ICONS: Readonly<Record<WorkflowId, LucideIcon>> = {
   calls: PhoneCall,
   books: Calculator,
   leads: UserPlus,

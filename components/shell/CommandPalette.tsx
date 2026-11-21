@@ -19,7 +19,7 @@ import {
   businessHref,
   agentHref,
 } from "@/components/routes";
-import { SECTION_ICON, SECTION_SHORTCUT } from "@/components/shell/nav";
+import { SECTION_ICON, SECTION_SHORTCUT, agentIcon } from "@/components/shell/nav";
 import type { ShellLocation } from "@/components/shell/location";
 import type { BusinessSummary } from "@/components/shell/shell-data";
 
@@ -105,7 +105,7 @@ function commandsFor(
           group: `${current.name} agents`,
           label: agent.name,
           href: agentHref(current.id, agent.id),
-          icon: SECTION_ICON.workflows,
+          icon: agentIcon(agent.id),
         }));
   return [...pages, ...agents, ...places, ...app];
 }

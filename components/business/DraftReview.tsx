@@ -12,11 +12,12 @@ import styles from "./draft-review.module.css";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The morning brief opens the existing approval card without losing the
-// owner's place. Decisions still use AgentCard's exact-text approval and
-// server checks. A full-page link keeps the outbox one step away.
+// One draft row in the overview's morning brief. It opens the same `AgentCard`
+// the Approvals page shows, in a sheet, so the owner can decide it without
+// leaving the overview. A link opens the card on the Approvals page, beside the
+// outbox.
 
-/** Open one brief draft in an accessible inspection sheet. */
+/** Render a brief row that opens `card` in a sheet for review. */
 export function DraftReview({
   card,
   business,

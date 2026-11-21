@@ -5,8 +5,9 @@ import type { SkillId } from "@/lib/domain/types";
 // Module Overview
 // =============================================================================
 // How the views name agents and skills in prose: `skillList` for "Closer and
-// Debrief skills", `cardSource` for "Customer agent", and
-// `asSentence` for agent text written elsewhere that may lack a full stop.
+// Debrief skills", `displayAgentName` for an agent's current name,
+// `cardSource` for "Customer agent", and `asSentence` for agent text written
+// elsewhere that may lack a full stop.
 
 /** Join names as English prose: "A", "A and B", "A, B and C". */
 function joinAnd(names: readonly string[]): string {
@@ -20,7 +21,7 @@ export function skillList(skills: readonly SkillId[]): string {
   return `${joinAnd(names)} skill${names.length === 1 ? "" : "s"}`;
 }
 
-/** Use the current owner-facing agent name while older domain records remain readable. */
+/** Return the name owners see now for an agent saved under an older name, such as "Customer" for "Front Desk". */
 export function displayAgentName(name: string): string {
   if (name === "Front Desk" || name === "Follow-up") return "Customer";
   if (name === "Bookkeeping and Invoicing") return "Bookkeeping";

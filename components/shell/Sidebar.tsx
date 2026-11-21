@@ -1,45 +1,28 @@
 "use client";
 
-import { BookOpen, ClipboardList, LayoutGrid, Megaphone, ReceiptText, Users, Wrench, PanelLeftClose, PanelLeftOpen, Plus, X, type LucideIcon } from "lucide-react";
+import { BookOpen, LayoutGrid, PanelLeftClose, PanelLeftOpen, Plus, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, type ReactNode, type Ref } from "react";
 import { AnchorMark } from "@/components/ui/AnchorMark";
+import { initialOf, WaitingCount } from "@/components/shell/business-bits";
 import { APP_HREF, NEW_BUSINESS_HREF, SECTIONS, businessHref, agentHref } from "@/components/routes";
 import type { ShellLocation } from "@/components/shell/location";
-import { SECTION_ICON } from "@/components/shell/nav";
+import { SECTION_ICON, agentIcon } from "@/components/shell/nav";
 import type { BusinessSummary } from "@/components/shell/shell-data";
 
 // =============================================================================
 // Module Overview
 // =============================================================================
-// The app sidebar: inside a business, that business's pages with the
-// approvals count and direct agent links. Business-area groups stay on
-// the Workflows map; elsewhere, the viewer's businesses and the example. Then
-// "How it's built" and the collapse toggle, with a drag handle on its
-// right edge. Collapsed, it is a 64px icon rail whose names move into
-// tooltips. At phone width `AppShell` slides it in as a drawer instead.
+// The app sidebar. Inside a business it lists that business's pages, with the
+// approvals count, and links to each active agent under Workflows; the
+// automations themselves stay on the Workflows map. Elsewhere it lists the
+// viewer's businesses and the example. The foot holds "How it's built" and the
+// collapse toggle, and a drag handle sits on the right edge. Collapsed, it is a
+// 64px icon rail whose names move into tooltips. At phone width `AppShell`
+// slides it in as a drawer instead.
 
 // Breathing room left above or below the active link after it is scrolled into view.
 const REVEAL_MARGIN = 12;
-
-const AGENT_ICON: Readonly<Record<string, LucideIcon>> = {
-  customer: Users,
-  books: ReceiptText,
-  content: Megaphone,
-  internal: ClipboardList,
-};
-
-/** Render the count beside a nav item, read as ", 3 waiting" by screen readers. */
-function Count({ value }: { readonly value: number | null }) {
-  if (value === null || value === 0) return null;
-  return (
-    <span className="side-count">
-      <span className="sr">, </span>
-      {value}
-      <span className="sr"> waiting</span>
-    </span>
-  );
-}
 
 /** Render one sidebar link with its icon; `current` marks it as the open page, `tip` names it when collapsed. */
 function SideLink({
@@ -61,7 +44,7 @@ function SideLink({
     <Link href={href} className="side-link" aria-current={current ? "page" : undefined} title={tip ? label : undefined}>
       <Icon aria-hidden="true" size={18} />
       <span className="side-text">{label}</span>
-      <Count value={count} />
+      <WaitingCount value={count} className="side-count" />
     </Link>
   );
 }
@@ -91,10 +74,10 @@ function BusinessGroup({
               aria-current={b.id === openId ? "true" : undefined}
             >
               <span className="side-initial" aria-hidden="true">
-                {b.name.trim().charAt(0).toUpperCase()}
+                {initialOf(b.name)}
               </span>
               <span className="side-text">{b.name}</span>
-              <Count value={b.pending} />
+              <WaitingCount value={b.pending} className="side-count" />
             </Link>
           </li>
         ))}
@@ -195,7 +178,7 @@ export function Sidebar({
                           <li key={agent.id}>
                             <SideLink
                               href={agentHref(current.id, agent.id)}
-                              icon={AGENT_ICON[agent.id] ?? Wrench}
+                              icon={agentIcon(agent.id)}
                               label={agent.name}
                               current={openAgent === agent.id}
                               tip={collapsed}

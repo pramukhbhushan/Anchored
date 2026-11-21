@@ -4,9 +4,8 @@ import type { ActiveAgent } from "@/lib/domain/types";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Synthetic examples for presentation tests only. Application pages never
-// import these records, so failed reads cannot turn into fictional customer
-// messages, approvals or financial results.
+// Made-up agents and cards for the agent page tests. No app page imports this
+// file, so a failed read can never show these as real customers or approvals.
 
 export const FRONT_DESK_FIXTURE: ActiveAgent = {
   id: "frontdesk",

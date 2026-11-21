@@ -9,8 +9,8 @@ import { json, sentJson, stubFetch } from "@/test/http";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// A brief draft stays read-only until opened and deliberately approved. These
-// checks exercise the actual card request, editing and keyboard dismissal.
+// A brief draft opens in a sheet and is decided only by an Approve tap there.
+// The tests cover the card request it sends, editing, and closing by keyboard.
 
 const card: CardRecord = {
   id: "draft-1",
@@ -59,7 +59,7 @@ describe("Morning draft review", () => {
     );
     expect(trigger).toHaveFocus();
   });
-  it("sends only the edited words through the existing approval route", async () => {
+  it("sends only the edited words through the card route", async () => {
     const fetch = stubFetch(() =>
       json({ card: { ...card, status: "approved" }, outbox: null }),
     );

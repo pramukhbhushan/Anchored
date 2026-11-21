@@ -4,8 +4,8 @@ import { cardSource, displayAgentName } from "./agent-labels";
 // =============================================================================
 // Module Overview
 // =============================================================================
-// Owner-facing agent names remain consistent while legacy domain and card
-// records coexist with the four canonical presentation identities.
+// Agents saved under an older name show under the name owners see now, and a
+// card names the agent that drafted it, or Anchored.
 
 describe("displayAgentName", () => {
   it.each([
@@ -20,7 +20,7 @@ describe("displayAgentName", () => {
     expect(displayAgentName(source)).toBe(expected);
   });
 
-  it("keeps agentless cards distinct and uses the canonical source name", () => {
+  it("names Anchored for a card no agent drafted, else the agent by its current name", () => {
     expect(cardSource(null)).toBe("Anchored");
     expect(cardSource("Follow-up")).toBe("Customer agent");
     expect(cardSource("Content and Social")).toBe("Marketing agent");

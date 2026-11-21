@@ -11,7 +11,7 @@ import type { BusinessProfile } from "@/lib/domain/types";
 // places to paste it. The owner presses send there, so Anchored sends nothing itself.
 
 /** A place the owner pastes copied text, such as their Instagram. */
-export interface PastePlace {
+interface PastePlace {
   readonly label: string;
   readonly href: string;
 }
@@ -52,7 +52,7 @@ export function copiedThing(action: string): string | null {
 }
 
 /** Return the words to post from a post card's body, without the "Draft post for ...:" lead-in or the quotes. */
-export function postText(body: string): string {
+function postText(body: string): string {
   const trimmed = body.trim();
   return /^Draft post\b[^"]*"([\s\S]+)"$/.exec(trimmed)?.[1] ?? trimmed;
 }
@@ -63,14 +63,14 @@ export function copyTextFor(action: string, body: string): string {
 }
 
 /** Return an `sms:` link that opens the texting app with `body` typed out, to `to` when it is a phone number. */
-export function smsHref(to: string, body: string): string {
+function smsHref(to: string, body: string): string {
   const number = PHONE.test(to.trim()) ? to.replace(/[^0-9+]/g, "") : "";
   // `?&body=` is the one form both iPhone and Android read; each ignores the separator it doesn't use.
   return `sms:${number}?&body=${encodeURIComponent(body)}`;
 }
 
 /** Return a `mailto:` link that opens the email app with `body` typed out, addressed when `to` is an address. */
-export function mailtoHref(to: string, businessName: string, body: string): string {
+function mailtoHref(to: string, businessName: string, body: string): string {
   const address = EMAIL.test(to.trim()) ? encodeURIComponent(to.trim()) : "";
   return `mailto:${address}?subject=${encodeURIComponent(`A note from ${businessName}`)}&body=${encodeURIComponent(body)}`;
 }
