@@ -93,7 +93,7 @@ The tables `ai_usage` and `ai_session_usage` and their functions `use_ai_call` a
 
 ## Connect real services
 
-An owner connects Twilio, Stripe and Resend with their own accounts on a business's **Connections** page, signed in with email or Google. Postmark runs on an account the deployment holds. Each service stays off until its variables are set, and Anchored never sends without the owner's approval.
+An owner connects Twilio, Stripe and Resend with their own accounts on a business's **Connections** page, signed in with email or Google. The deployment holds no account with any of them. Each service stays off until its variables are set, and Anchored never sends without the owner's approval.
 
 Before you connect any service, set these on the server:
 
@@ -119,13 +119,6 @@ Each owner sends approved email through their own Resend account, so the deploym
 2. On the Connections page, the owner pastes a Resend API key and a from-address on that domain. Each email shows the business's name and sets the owner as reply-to.
 
 The server has no Resend key of its own, so email goes out only from an owner's own account and domain.
-
-### Email in with Postmark
-
-1. Create a Postmark inbound server.
-2. Set `INBOUND_EMAIL_ADDRESS` to its inbound address. Each business forwards to that address with its own hook id after a `+`.
-3. Set `INBOUND_EMAIL_SECRET` to a random string.
-4. Set the server's inbound webhook to `<PUBLIC_APP_URL>/api/hooks/email?key=<INBOUND_EMAIL_SECRET>`.
 
 ### Invoices with Stripe
 
@@ -196,8 +189,6 @@ No variable turns on AI. Each owner adds their own key on the Connections page, 
 | `CONNECTOR_SECRET_KEY` | 32 random bytes in base64 that encrypt every credential an owner connects, AI keys included. Without it, no service that needs a secret can be connected |
 | `PUBLIC_APP_URL` | This deployment's public https address. Webhook URLs start with it, and Anchored sends it as the `HTTP-Referer` header to AI providers that ask for attribution, such as OpenRouter |
 | `ANCHORED_ALLOW_GUEST_CONNECTIONS` | Set to `1` to let a guest connect services in a local run |
-| `INBOUND_EMAIL_ADDRESS` | The Postmark inbound address |
-| `INBOUND_EMAIL_SECRET` | The secret that Postmark's webhook URL carries as `?key=` |
 | `CRON_SECRET` | The bearer token the scheduled routes require |
 | `TELEGRAM_BOT_TOKEN` | The shared bot's token from BotFather. Server only |
 | `TELEGRAM_BOT_USERNAME` | The bot's username, without the `@` |

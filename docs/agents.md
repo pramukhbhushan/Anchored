@@ -60,10 +60,9 @@ Marketing drafts social posts from the owner's photos and drafts review replies.
 
 ## Internal Communications
 
-Internal Communications runs for every business. It writes the daily brief, sorts forwarded email and watches license dates.
+Internal Communications runs for every business. It writes the daily brief and watches license dates. Inbox Triage, which sorted forwarded email, has no way to receive email: the forwarding address ran on a Postmark account the original team held, and it was removed.
 
 - **Daily brief.** `runBrief` in `lib/server/brief.ts` writes the brief, and `briefSnapshot` in `lib/domain/brief.ts` computes every number in code. `GET /api/cron/brief` runs hourly and writes at most one brief per business a day, from 7 a.m. Eastern. The Run now button (`BriefRun`) runs it on demand, and Overview shows the latest one. A failed run keeps the last good brief.
-- **Forwarded email.** The Postmark inbound hook calls `triageEmail`. `classifyEmail` and `routeEmail` in `lib/domain/triage.ts` sort each email to a skill or to the owner with fixed rules, and file one card per message. Anchored sends no email reply.
 - **License dates.** The owner records each license's expiry date, source and status through `LicenseDates`, which calls `GET` and `PUT /api/businesses/[id]/licenses`. The dates live in `ProfileDetails.licenses`, in the versioned profile, and the model never fills them in. `renewalNotice` in `lib/domain/renewals.ts` leaves a note for the owner 30 days and 7 days before expiry, on the day, and once overdue, using Eastern dates across clock changes. Marking a license handled, removing it or changing its date replaces the old notes. Anchored never renews or files anything.
 
 ## Recorded work on a schedule

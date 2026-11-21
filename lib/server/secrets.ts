@@ -52,7 +52,7 @@ export function sameSecret(a: string, b: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-/** Return a random id for webhook URLs and forwarding addresses: 24 lower-case letters and digits. */
+/** Return a random id for webhook URLs: 24 lower-case letters and digits. */
 export function newHookId(): string {
   const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
   return Array.from(randomBytes(24), (byte) => alphabet[byte % alphabet.length]).join("");

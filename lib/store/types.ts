@@ -48,7 +48,7 @@ export interface StoredConnection {
   readonly id: string;
   readonly businessId: string;
   readonly kind: ConnectionKind;
-  /** A random id that names this connection in webhook URLs and the forwarding address. Unique across every session. */
+  /** A random id that names this connection in webhook URLs. Unique across every session. */
   readonly hookId: string;
   /** Settings safe to show, such as the texting number or the reply-to address. */
   readonly settings: Readonly<Record<string, string>>;

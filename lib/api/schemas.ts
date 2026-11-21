@@ -143,7 +143,6 @@ export const connectSchema = z.discriminatedUnion("kind", [
     apiKey: z.string().trim().regex(/^re_[A-Za-z0-9_]{8,200}$/, "A Resend API key starts with re_."),
     fromAddress: z.string().trim().email("Enter the address emails should come from.").max(200),
   }),
-  z.object({ kind: z.literal("email-in") }),
   z.object({ kind: z.literal("stripe"), signingSecret: z.string().trim().regex(/^whsec_[A-Za-z0-9]{8,120}$/, "A Stripe signing secret starts with whsec_.") }),
 ]) satisfies z.ZodType<ConnectRequest>;
 

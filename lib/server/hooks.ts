@@ -4,7 +4,6 @@ import type { ConnectionKind } from "@/lib/domain/connections";
 import { applyOptOut, contactByPhone, normalizePhone, optOutKeyword } from "@/lib/domain/contacts";
 import type { BusinessProfile } from "@/lib/domain/types";
 import { ingestEvent, type IngestResult } from "@/lib/server/ingest";
-import { triageEmail, type TriageEmail } from "@/lib/server/triage";
 import { getStore } from "@/lib/store";
 import type { StoredConnection } from "@/lib/store/types";
 
@@ -15,9 +14,8 @@ import type { StoredConnection } from "@/lib/store/types";
 // signature checks out. `connectionFor` finds the business a hook id names,
 // across sessions. A customer's text updates their contact: STOP and START
 // change whether Anchored may text them, and anything else becomes a reply
-// draft. A missed call, an unpaid Stripe invoice and a forwarded email each
-// become a draft through `ingestEvent`, except the email, which Inbox Triage in
-// `lib/server/triage.ts` files under the agent whose work it is.
+// draft. A missed call and an unpaid Stripe invoice each become a draft
+// through `ingestEvent`.
 
 /** The connection, business and owning session a webhook's hook id names. */
 interface HookTarget {
@@ -107,12 +105,6 @@ export async function receiveUnpaidInvoice(
     ...(invoice.number ? { number: invoice.number } : {}),
   };
   return logged(await ingestEvent(target.session, target.business, "invoice-late", payload, "live", key === undefined ? {} : { key }), "invoice-late");
-}
-
-/** Hand a forwarded email to Inbox Triage, which files it under the agent whose work it is. */
-export async function receiveEmail(target: HookTarget, email: TriageEmail): Promise<boolean> {
-  await triageEmail(target.session, target.business, email);
-  return true;
 }
 
 /** Whether a card was drafted; a refusal is logged, since the provider only needs to know the webhook arrived. */

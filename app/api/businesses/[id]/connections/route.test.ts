@@ -30,6 +30,7 @@ const contacts = await import("../contacts/route");
 const oneContact = await import("../contacts/[contactId]/route");
 
 const business = hvacShop();
+const STRIPE = { kind: "stripe", signingSecret: "whsec_routetest123" };
 
 /** Build a JSON request to `path` with `method` and `body`. */
 function call(path: string, method: string, body?: unknown): Request {
@@ -76,25 +77,25 @@ describe("/api/businesses/[id]/connections", () => {
     const read = (await (await connections.GET(call(`/api/businesses/${business.id}/connections`, "GET"), params(business.id))).json()) as ConnectionsResponse;
     expect(read.blocked).toMatch(/^Save your work/);
 
-    const response = await connections.PUT(call(`/api/businesses/${business.id}/connections`, "PUT", { kind: "email-in" }), params(business.id));
+    const response = await connections.PUT(call(`/api/businesses/${business.id}/connections`, "PUT", STRIPE), params(business.id));
     expect(response.status).toBe(403);
     expect(await state.store?.listConnections(SESSION, business.id)).toEqual([]);
   });
 
   it("refuses to connect anything to the example business", async () => {
-    const response = await connections.PUT(call(`/api/businesses/${SAMPLE_BUSINESS.id}/connections`, "PUT", { kind: "email-in" }), params(SAMPLE_BUSINESS.id));
+    const response = await connections.PUT(call(`/api/businesses/${SAMPLE_BUSINESS.id}/connections`, "PUT", STRIPE), params(SAMPLE_BUSINESS.id));
     expect(response.status).toBe(409);
     expect(((await response.json()) as { error: string }).error).toBe("The example business can't connect services. Set up your business first.");
   });
 
   it("disconnects the kind named in the query, and refuses an unknown one", async () => {
-    vi.stubEnv("INBOUND_EMAIL_ADDRESS", "abc123@inbound.postmarkapp.com");
-    await connections.PUT(call(`/api/businesses/${business.id}/connections`, "PUT", { kind: "email-in" }), params(business.id));
+    await connections.PUT(call(`/api/businesses/${business.id}/connections`, "PUT", STRIPE), params(business.id));
 
     expect((await connections.DELETE(call(`/api/businesses/${business.id}/connections?kind=fax`, "DELETE"), params(business.id))).status).toBe(400);
-    const response = await connections.DELETE(call(`/api/businesses/${business.id}/connections?kind=email-in`, "DELETE"), params(business.id));
+    expect((await connections.DELETE(call(`/api/businesses/${business.id}/connections?kind=email-in`, "DELETE"), params(business.id))).status).toBe(400);
+    const response = await connections.DELETE(call(`/api/businesses/${business.id}/connections?kind=stripe`, "DELETE"), params(business.id));
     const data = (await response.json()) as ConnectionsResponse;
-    expect(data.connections.find((c) => c.kind === "email-in")?.connected).toBe(false);
+    expect(data.connections.find((c) => c.kind === "stripe")?.connected).toBe(false);
   });
 });
 

@@ -43,7 +43,7 @@ const LAYERS: readonly Pair[] = [
   ],
   [
     "Data",
-    "Connectors: missed calls and texts on the owner's own Twilio number, forwarded email and unpaid Stripe invoices, and later Jobber, Square, Clover and QuickBooks.",
+    "Connectors: missed calls and texts on the owner's own Twilio number, email from the owner's own Resend account and unpaid Stripe invoices, and later Jobber, Square, Clover and QuickBooks.",
   ],
   ["Intelligence", "The morning brief: what waits for the owner today and what it's worth."],
   [
@@ -98,7 +98,7 @@ const STATUS: readonly Pair[] = [
   ],
   [
     "Connectors",
-    "Built: texting and missed calls on the owner's Twilio number, sending email, forwarded email and unpaid Stripe invoices. Each works once the server has its keys and the owner connects it. Calendars, quotes and invoice images aren't connected yet.",
+    "Built: texting and missed calls on the owner's Twilio number, sending email and unpaid Stripe invoices. Each works once the owner connects their own account. Forwarded email, calendars, quotes and invoice images aren't connected yet.",
   ],
 ];
 

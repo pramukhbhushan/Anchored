@@ -2,21 +2,29 @@
 // Module Overview
 // =============================================================================
 // The outside services a business can connect, named once. Texting and calls
-// run on the owner's own Twilio number; email goes out from Anchored with the
-// owner as reply-to and comes in through a forwarding address; Stripe tells
-// Anchored when an invoice goes unpaid. The `ai` connection is the owner's own
+// run on the owner's own Twilio number; email goes out through the owner's own
+// Resend account with the owner as reply-to; Stripe tells Anchored when an
+// invoice goes unpaid. The `ai` connection is the owner's own
 // AI key: it moves no messages, it only decides whose account pays for the
 // drafts. Owners pick one of `AI_PROVIDERS` and never type an address, so a key
 // can only ever be sent to that provider's own servers.
 
 /** A service that sends or brings in the business's messages. */
-export type ServiceKind = "texting" | "email-out" | "email-in" | "stripe";
+export type ServiceKind = "texting" | "email-out" | "stripe";
 
 /** Anything a business can connect: a service, or its own AI key. */
 export type ConnectionKind = ServiceKind | "ai";
 
 /** Every service, in the order the Connections page shows them. */
-export const SERVICE_KINDS: readonly ServiceKind[] = ["texting", "email-out", "email-in", "stripe"];
+export const SERVICE_KINDS: readonly ServiceKind[] = ["texting", "email-out", "stripe"];
+
+/**
+ * Report whether `value` is a kind Anchored still offers. A stored row can name a kind that was removed, such as
+ * `email-in` from the old forwarded email service, and readers skip it.
+ */
+export function isConnectionKind(value: string): value is ConnectionKind {
+  return value === "ai" || (SERVICE_KINDS as readonly string[]).includes(value);
+}
 
 /** Report whether `kind` is a service that moves messages, as opposed to the AI key. */
 export function isService(kind: ConnectionKind): kind is ServiceKind {
@@ -53,11 +61,6 @@ export const CONNECTION_COPY: Readonly<Record<ServiceKind, { readonly name: stri
     name: "Sending email",
     does: "Anchored sends the emails you approve. Replies come straight to your own address.",
     until: "Until it is, Anchored sends no email. Each email you approve opens your own email app to send.",
-  },
-  "email-in": {
-    name: "Forwarded email",
-    does: "Forward an email to your Anchored address and it lands in Approvals as a card for you.",
-    until: "Until it is, Anchored reads none of your email.",
   },
   stripe: {
     name: "Stripe invoices",

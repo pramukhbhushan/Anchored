@@ -3,7 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { CardRecord, CardStatus, ChatMessage, OutboxEntry } from "@/lib/api/contract";
-import type { ConnectionKind } from "@/lib/domain/connections";
+import { isConnectionKind, type ConnectionKind } from "@/lib/domain/connections";
 import type { ConsentSource, Contact } from "@/lib/domain/contacts";
 import type { BriefSnapshot } from "@/lib/domain/brief";
 import type { IntakeDraft, ProfileChange } from "@/lib/domain/intake";
@@ -119,7 +119,8 @@ interface ConnectionRow {
   id: string;
   session_id: string;
   business_id: string;
-  kind: ConnectionKind;
+  /** A `ConnectionKind`, or a kind Anchored no longer offers, such as `email-in`. */
+  kind: string;
   hook_id: string;
   settings: Record<string, string>;
   secret: string | null;
@@ -252,7 +253,9 @@ function toRule(row: StandingRuleRow): StandingRuleState {
   return { rule: row.rule, enabled: row.enabled, approvedAt: row.approved_at, changedAt: row.changed_at };
 }
 
-function toConnection(row: ConnectionRow): StoredConnection {
+/** Read a connection row, or `null` for a kind Anchored no longer offers, so an old row is skipped rather than shown. */
+function toConnection(row: ConnectionRow): StoredConnection | null {
+  if (!isConnectionKind(row.kind)) return null;
   return { id: row.id, businessId: row.business_id, kind: row.kind, hookId: row.hook_id, settings: row.settings, secret: row.secret, createdAt: row.created_at };
 }
 
@@ -569,7 +572,7 @@ export class SupabaseStore implements Store {
   async listConnections(session: string, businessId: string): Promise<StoredConnection[]> {
     const { data, error } = await this.db.from("connections").select(CONNECTION_COLUMNS).eq("session_id", session).eq("business_id", businessId);
     if (error) fail("listConnections", error);
-    return (data ?? []).map((row) => toConnection(row as ConnectionRow));
+    return (data ?? []).flatMap((row) => toConnection(row as ConnectionRow) ?? []);
   }
 
   async saveConnection(session: string, connection: NewConnection): Promise<StoredConnection> {
@@ -577,7 +580,9 @@ export class SupabaseStore implements Store {
     // A new hook id replaces the old one, so the old webhook URLs stop working once the owner reconnects.
     const { data, error } = await this.db.from("connections").upsert(row, { onConflict: "session_id,business_id,kind" }).select(CONNECTION_COLUMNS).single();
     if (error) fail("saveConnection", error);
-    return toConnection(data as ConnectionRow);
+    const saved = toConnection(data as ConnectionRow);
+    if (saved === null) throw new Error(`saveConnection: the database returned a kind other than ${connection.kind}.`);
+    return saved;
   }
 
   async deleteConnection(session: string, businessId: string, kind: ConnectionKind): Promise<void> {
@@ -588,8 +593,8 @@ export class SupabaseStore implements Store {
   async findConnection(hookId: string): Promise<{ readonly session: string; readonly connection: StoredConnection } | null> {
     const { data, error } = await this.db.from("connections").select(CONNECTION_COLUMNS).eq("hook_id", hookId).maybeSingle();
     if (error) fail("findConnection", error);
-    const row = data as ConnectionRow | null;
-    return row === null ? null : { session: row.session_id, connection: toConnection(row) };
+    const connection = data === null ? null : toConnection(data as ConnectionRow);
+    return connection === null ? null : { session: (data as ConnectionRow).session_id, connection };
   }
 
   async recordEvent(session: string, businessId: string, source: string, payload: Readonly<Record<string, unknown>>): Promise<void> {

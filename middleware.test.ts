@@ -229,7 +229,7 @@ describe("limitFor", () => {
 
   it("lets provider webhooks through on a loose per-IP limit", () => {
     expect(limitFor("POST", "/api/hooks/twilio/abc/sms")).toMatchObject({ bucket: "hook", perIp: 3000 });
-    expect(limitFor("POST", "/api/hooks/email")).toMatchObject({ bucket: "hook" });
+    expect(limitFor("POST", "/api/hooks/stripe/abc")).toMatchObject({ bucket: "hook" });
   });
 
   it("puts every other mutation under the general limits", () => {

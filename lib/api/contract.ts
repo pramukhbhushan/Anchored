@@ -318,7 +318,7 @@ export interface BusinessChatResponse {
 export interface ConnectionView {
   readonly kind: ServiceKind;
   readonly connected: boolean;
-  /** What it is connected to: the texting number, the reply-to address or the forwarding address. */
+  /** What it is connected to: the texting number or the reply-to address. */
   readonly detail: string | null;
   /** Addresses the owner pastes into the service's own settings, such as Twilio's webhook URLs. */
   readonly setup: readonly { readonly label: string; readonly value: string }[];
@@ -358,7 +358,6 @@ export type ConnectRequest =
       /** The address emails come from, on a domain verified in the owner's Resend account. */
       readonly fromAddress: string;
     }
-  | { readonly kind: "email-in" }
   | { readonly kind: "stripe"; readonly signingSecret: string };
 
 /** PUT /api/businesses/[id]/ai-key: check the owner's own AI key with one short call, then save it. */

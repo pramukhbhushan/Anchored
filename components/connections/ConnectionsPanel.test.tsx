@@ -24,7 +24,7 @@ function off(kind: ConnectionView["kind"]): ConnectionView {
   return { kind, connected: false, detail: null, setup: [], unavailable: null };
 }
 
-const ALL_OFF: readonly ConnectionView[] = [off("texting"), off("email-out"), off("email-in"), off("stripe")];
+const ALL_OFF: readonly ConnectionView[] = [off("texting"), off("email-out"), off("stripe")];
 
 /** Return the block for the service named `name`. */
 function service(name: string) {
@@ -79,11 +79,10 @@ describe("ConnectionsPanel", () => {
 
   it("says what happens to approved messages until each service is connected, and drops it once connected", () => {
     const email: ConnectionView = { kind: "email-out", connected: true, detail: "me@shop.com", setup: [], unavailable: null };
-    render(<ConnectionsPanel businessId="b1" ai={NO_AI} blocked={null} connections={[off("texting"), email, off("email-in"), off("stripe")]} />);
+    render(<ConnectionsPanel businessId="b1" ai={NO_AI} blocked={null} connections={[off("texting"), email, off("stripe")]} />);
 
     expect(service("Texting and missed calls").getByText(/Until it is, Anchored sends no texts/)).toBeInTheDocument();
     expect(service("Sending email").queryByText(/Until it is/)).not.toBeInTheDocument();
-    expect(service("Forwarded email").getByText(/Until it is/)).toBeInTheDocument();
     expect(service("Stripe invoices").getByText(/Until it is/)).toBeInTheDocument();
   });
 
@@ -122,29 +121,21 @@ describe("ConnectionsPanel", () => {
   });
 
   it("keeps a service's button off while its own change is still saving", async () => {
-    const forwarding = deferred<Response>();
+    const email = deferred<Response>();
     const stripe = deferred<Response>();
-    stubFetch((_url, init) => (JSON.parse(String(init?.body)).kind === "email-in" ? forwarding.promise : stripe.promise));
+    stubFetch((_url, init) => (JSON.parse(String(init?.body)).kind === "email-out" ? email.promise : stripe.promise));
     render(<ConnectionsPanel businessId="b1" ai={NO_AI} blocked={null} connections={ALL_OFF} />);
 
-    await userEvent.click(service("Forwarded email").getByRole("button", { name: "Get my forwarding address" }));
+    const sending = service("Sending email");
+    await userEvent.type(sending.getByLabelText("Resend API key"), "re_owner_key_123");
+    await userEvent.type(sending.getByLabelText("Send from"), "hello@shop.com");
+    await userEvent.type(sending.getByLabelText("Reply-to address"), "me@shop.com");
+    await userEvent.click(sending.getByRole("button", { name: "Connect" }));
     await userEvent.type(service("Stripe invoices").getByLabelText("Signing secret"), "whsec_123");
     await userEvent.click(service("Stripe invoices").getByRole("button", { name: "Connect" }));
-    forwarding.resolve(json({ blocked: null, ai: NO_AI, connections: ALL_OFF, contacts: [] } satisfies ConnectionsResponse));
+    email.resolve(json({ blocked: null, ai: NO_AI, connections: ALL_OFF, contacts: [] } satisfies ConnectionsResponse));
 
-    await waitFor(() => expect(service("Forwarded email").getByRole("button", { name: "Get my forwarding address" })).toBeEnabled());
+    await waitFor(() => expect(service("Sending email").getByRole("button", { name: "Connect" })).toBeEnabled());
     expect(service("Stripe invoices").getByRole("button", { name: "Connect" })).toBeDisabled();
-  });
-
-  it("gets a forwarding address with one tap", async () => {
-    const address = "abc123+h2@inbound.postmarkapp.com";
-    const emailIn: ConnectionView = { kind: "email-in", connected: true, detail: address, setup: [{ label: "Forward customer emails to", value: address }], unavailable: null };
-    const fetchSpy = stubFetch(() => json({ blocked: null, ai: NO_AI, connections: [off("texting"), off("email-out"), emailIn, off("stripe")], contacts: [] } satisfies ConnectionsResponse));
-    render(<ConnectionsPanel businessId="b1" ai={NO_AI} blocked={null} connections={ALL_OFF} />);
-
-    await userEvent.click(service("Forwarded email").getByRole("button", { name: "Get my forwarding address" }));
-
-    expect(sentJson(fetchSpy, 0).body).toEqual({ kind: "email-in" });
-    expect(await service("Forwarded email").findByLabelText("Forward customer emails to")).toHaveValue(address);
   });
 });

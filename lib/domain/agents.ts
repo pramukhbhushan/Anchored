@@ -242,7 +242,7 @@ export const SKILLS: Readonly<Record<SkillId, SkillDef>> = {
     does: ["Shows each forwarded email as a card"],
     never: ["Replies to anyone on its own", "Reads your inbox directly"],
     tier: "quick",
-    setup: ["Get your forwarding address on the Connections page", "Forward emails to it"],
+    setup: ["Not built yet: forwarded email can't reach Anchored today"],
   },
   license: {
     id: "license",

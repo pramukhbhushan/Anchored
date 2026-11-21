@@ -49,7 +49,7 @@ const LIMITS = {
   photo: { bucket: "photo", windowMs: WINDOW_MS, perSession: 100, perIp: 500 },
   // Turning a job on can add a question to the chat, so the switch gets its own bucket.
   automation: { bucket: "automation", windowMs: WINDOW_MS, perSession: 60, perIp: 300 },
-  // Twilio, Stripe and Postmark post from shared addresses with no session, so only the per-IP limit holds them.
+  // Twilio and Stripe post from shared addresses with no session, so only the per-IP limit holds them.
   hook: { bucket: "hook", windowMs: WINDOW_MS, perSession: 600, perIp: 3000 },
   // Recorded follow-ups and license dates create rows and can draft a card.
   agentWork: { bucket: "agent-work", windowMs: WINDOW_MS, perSession: 30, perIp: 150 },
@@ -72,7 +72,7 @@ function isPhotoUpload(pathname: string): boolean {
   return /^\/api\/businesses\/[^/]+\/photos\/?$/.test(pathname);
 }
 
-/** Largest webhook body accepted. A forwarded email arrives with its attachments, which Anchored ignores. */
+/** Largest webhook body accepted. */
 export const MAX_HOOK_BODY_BYTES = 4 * 1024 * 1024;
 
 // Module scope lives as long as the server instance, so counts carry across requests.

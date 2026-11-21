@@ -55,7 +55,6 @@ Write down the version, date, test business and result of each check. Keep secre
 - Save a test follow-up and a test license date, then run dispatch or Run now. Cards are not duplicated, canceling works, customer drafts wait for approval, and license notes go to the owner only.
 - Run the brief twice quickly. Only one run happens at a time, and a failed run keeps the last good brief.
 - Reload the deployment and sign in again. Everything persisted. Check the server logs for store errors without logging customer text.
-- Forward an email to a test Postmark inbound address. The right card appears, and no reply is sent.
 - Call both cron routes without the secret and get 404, then confirm the scheduler calls them. A Run now press does not prove the schedule is installed.
 
 ## Screenshots
