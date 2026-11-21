@@ -361,10 +361,10 @@ export type ConnectRequest =
   | {
       readonly kind: "email-out";
       readonly replyTo: string;
-      /** The owner's own Resend API key. Required unless the server has one shared sender. */
-      readonly apiKey?: string;
-      /** The address emails come from, on a domain verified in the owner's Resend account. Sent with `apiKey`. */
-      readonly fromAddress?: string;
+      /** The owner's own Resend API key. */
+      readonly apiKey: string;
+      /** The address emails come from, on a domain verified in the owner's Resend account. */
+      readonly fromAddress: string;
     }
   | { readonly kind: "email-in" }
   | { readonly kind: "stripe"; readonly signingSecret: string };

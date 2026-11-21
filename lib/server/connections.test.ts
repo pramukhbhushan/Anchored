@@ -149,21 +149,14 @@ describe("connecting texting", () => {
 });
 
 describe("connecting email and Stripe", () => {
-  it("offers sending email only when owners can store a key or the server has a shared sender", async () => {
+  it("offers sending email only when the server can store the owner's key, whatever server keys are set", async () => {
     vi.stubEnv("CONNECTOR_SECRET_KEY", "");
-    vi.stubEnv("RESEND_API_KEY", "");
-    vi.stubEnv("EMAIL_FROM_ADDRESS", "");
-    expect((await view("email-out"))?.unavailable).toBe("Sending email from Anchored isn't available yet.");
-
-    vi.stubEnv("RESEND_API_KEY", "re_test");
+    vi.stubEnv("RESEND_API_KEY", "re_team_key");
     vi.stubEnv("EMAIL_FROM_ADDRESS", "drafts@anchored.example");
-    await connect(SESSION, business, { kind: "email-out", replyTo: "owner@hvac.example" });
-    expect(await view("email-out")).toEqual({ kind: "email-out", connected: true, detail: "owner@hvac.example", setup: [], unavailable: null });
+    expect((await view("email-out"))?.unavailable).toBe("Sending email from Anchored isn't available yet.");
   });
 
   it("stores the owner's own Resend key encrypted and never shows it", async () => {
-    vi.stubEnv("RESEND_API_KEY", "");
-    vi.stubEnv("EMAIL_FROM_ADDRESS", "");
     vi.stubEnv("CONNECTOR_SECRET_KEY", KEY);
     expect((await view("email-out"))?.unavailable).toBeNull();
 
@@ -173,13 +166,6 @@ describe("connecting email and Stripe", () => {
     const shown = await view("email-out");
     expect(shown?.detail).toBe("hello@hvac.example, replies go to owner@hvac.example");
     expect(JSON.stringify(shown)).not.toContain("re_owner");
-  });
-
-  it("asks for the owner's own Resend key when the server has no shared sender", async () => {
-    vi.stubEnv("RESEND_API_KEY", "");
-    vi.stubEnv("EMAIL_FROM_ADDRESS", "");
-    vi.stubEnv("CONNECTOR_SECRET_KEY", KEY);
-    await expect(connect(SESSION, business, { kind: "email-out", replyTo: "owner@hvac.example" })).rejects.toMatchObject({ status: 400 });
   });
 
   it("gives a forwarding address made from the inbound address and the connection's id", async () => {

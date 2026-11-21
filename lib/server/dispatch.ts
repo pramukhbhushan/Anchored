@@ -2,7 +2,7 @@ import "server-only";
 import { customerLocked, followupStillAllowed } from "@/lib/server/agent-work";
 import type { CardRecord, OutboxEntry } from "@/lib/api/contract";
 import { ConnectorError, type FetchLike } from "@/lib/connectors/errors";
-import { emailAccountFromEnv, sendEmail, type EmailAccount } from "@/lib/connectors/email";
+import { sendEmail, type EmailAccount } from "@/lib/connectors/email";
 import { deleteTelegramMessage, sendTelegramMessage, TelegramBlockedError, telegramBotFromEnv } from "@/lib/connectors/telegram";
 import { sendTwilioText } from "@/lib/connectors/twilio";
 import { deliveryFor, type Delivery, type PlannedMessage, type SendingSetup } from "@/lib/domain/contacts";
@@ -31,7 +31,7 @@ const HOUR_MS = 60 * 60 * 1000;
 function sendingSetup(connections: readonly StoredConnection[], env: Readonly<Record<string, string | undefined>>): SendingSetup {
   const texting = connections.some((connection) => connection.kind === "texting" && connection.secret !== null) && canStoreSecrets(env);
   const emailOut = connections.find((connection) => connection.kind === "email-out");
-  const email = emailOut !== undefined && (emailOut.secret !== null ? canStoreSecrets(env) : emailAccountFromEnv(env) !== null);
+  const email = emailOut?.secret != null && emailOut.settings.fromAddress !== undefined && canStoreSecrets(env);
   return { texting, email, telegram: telegramBotFromEnv(env) !== null };
 }
 
@@ -47,10 +47,10 @@ export async function planDelivery(
   return deliveryFor(message, sendingSetup(connections, env), contacts);
 }
 
-/** The account an email-out connection sends with: the owner's own Resend key, else the server's shared sender, else `null`. */
+/** The owner's own Resend account an email-out connection sends with, or `null` when it has none. */
 function emailAccountFor(connection: StoredConnection, env: Readonly<Record<string, string | undefined>>): EmailAccount | null {
   const fromAddress = connection.settings.fromAddress;
-  if (connection.secret === null || fromAddress === undefined) return emailAccountFromEnv(env);
+  if (connection.secret === null || fromAddress === undefined) return null;
   const parsed = JSON.parse(decryptSecret(connection.secret, env)) as { apiKey?: unknown };
   if (typeof parsed.apiKey !== "string") throw new ConnectorError("The stored Resend key is incomplete. Reconnect email sending.", false);
   return { apiKey: parsed.apiKey, fromAddress };

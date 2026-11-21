@@ -52,11 +52,8 @@ function requestFrom(kind: ConnectionKind, data: FormData): ConnectRequest {
         ...(forwardTo === "" ? {} : { forwardTo }),
       };
     }
-    case "email-out": {
-      const apiKey = field(data, "apiKey");
-      const fromAddress = field(data, "fromAddress");
-      return { kind, replyTo: field(data, "replyTo"), ...(apiKey === "" ? {} : { apiKey }), ...(fromAddress === "" ? {} : { fromAddress }) };
-    }
+    case "email-out":
+      return { kind, replyTo: field(data, "replyTo"), apiKey: field(data, "apiKey"), fromAddress: field(data, "fromAddress") };
     case "email-in":
       return { kind };
     case "stripe":
@@ -238,8 +235,8 @@ function ConnectForm({
         )}
         {kind === "email-out" && (
           <>
-            <TextField name="apiKey" label="Resend API key" type="password" placeholder="re_..." hint="From your Resend account, under API Keys. Anchored stores it encrypted." required={false} />
-            <TextField name="fromAddress" label="Send from" type="email" placeholder="hello@yourbusiness.com" hint="An address on a domain you verified in Resend." required={false} />
+            <TextField name="apiKey" label="Resend API key" type="password" placeholder="re_..." hint="From your Resend account, under API Keys. Anchored stores it encrypted." />
+            <TextField name="fromAddress" label="Send from" type="email" placeholder="hello@yourbusiness.com" hint="An address on a domain you verified in Resend." />
             <TextField name="replyTo" label="Reply-to address" type="email" placeholder="you@yourbusiness.com" hint="Customer replies come here." />
           </>
         )}
