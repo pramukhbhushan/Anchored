@@ -16,15 +16,7 @@ Anchored is a finished project from the University of Maryland AI for Small Busi
 - **Drafts work for your approval.** Anchored's agents write texts, emails and replies as cards. You approve, edit or skip each card.
 - **Shows the monthly bill.** One page lists what each piece costs and does. Tools you already pay for count as $0.
 
-```mermaid
-flowchart LR
-	describe["Describe your business"] --> jobs["See the jobs AI can do"]
-	jobs --> choose{"Choose a way<br>for each job"}
-	choose -->|"Use a tool you<br>already pay for"| bill["See the<br>monthly bill"]
-	choose -->|"Buy a scored<br>new tool"| bill
-	choose -->|"Let an Anchored<br>agent do it"| approve["Approve the<br>agent's drafts"]
-	approve --> bill
-```
+![How an owner uses Anchored: describe the business, see the jobs AI can do, choose a way for each job, approve an agent's drafts, and see the monthly bill](docs/diagrams/owner-flow.svg)
 
 <details>
 <summary>Screenshots of each step</summary>
@@ -40,40 +32,11 @@ flowchart LR
 
 Anchored is a website. The owner uses it in a browser, and a server behind it keeps each business's data and talks to outside services.
 
-```mermaid
-flowchart LR
-	owner(["Owner in a browser"]) <--> server
-	subgraph server["Anchored server"]
-		rules["Rules: jobs, scores,<br>message checks"]
-		agents["Agents"]
-	end
-	server <--> db[("Supabase:<br>sign-in and data")]
-	server <--> ai["Owner's AI provider:<br>writes the words"]
-	server <--> services["Twilio, Resend, Stripe"]
-	services <--> customers(["Customers"])
-```
+![The parts of Anchored: the owner's browser, the Anchored server with its rules, agents and approvals, and the optional services it talks to](docs/diagrams/system.svg)
 
 The AI writes words and nothing else. Plain code makes every decision that matters, and the owner approves every message before it goes out. This is the path every text and email takes:
 
-```mermaid
-flowchart LR
-	subgraph triggers["Something happens"]
-		t1["A customer texts"]
-		t2["A call is missed"]
-		t3["An invoice is overdue"]
-		t4["The owner asks in chat"]
-		t5["A scheduled job runs"]
-	end
-	triggers --> pick["Code picks the job and the facts"]
-	pick --> write["The AI writes the words"]
-	write --> card["A draft card waits for the owner"]
-	card -->|"Skip"| stop["Nothing is sent"]
-	card -->|"Approve"| check["Code checks the message"]
-	check -->|"Fails"| why["The owner sees why"]
-	check -->|"Passes"| outbox["Outbox: checked again at send time"]
-	outbox -->|"Connected"| sent["Twilio or Resend sends it"]
-	outbox -->|"Not connected"| own["The owner sends it from their own app"]
-```
+![How a message goes out: something happens, code picks the job, the AI writes the words, the owner approves, code checks it twice, and then it is sent](docs/diagrams/message-path.svg)
 
 When there is no AI key, or the AI's reply fails a check, a template writes the words instead. The code checks hold texts between 8 p.m. and 8 a.m. They block a message that still has a blank to fill in. They text only customers who agreed to get texts, and never anyone who replied STOP. Code also computes every tool score, so the AI never picks a number.
 

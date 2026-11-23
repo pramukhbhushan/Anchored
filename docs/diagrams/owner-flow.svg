@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" width="1200" height="300" role="img" aria-labelledby="title desc">
+	<title id="title">How an owner uses Anchored</title>
+	<desc id="desc">The owner describes the business, sees the jobs AI can do, and chooses a way for each job: a tool they already pay for, a new tool, or an Anchored agent whose drafts they approve. Every path ends at the monthly bill.</desc>
+	<defs>
+		<style>
+			text { font-family: "Avenir Next", Avenir, "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #17233B; }
+			.bg { fill: #F3F5F4; }
+			.dot { fill: #D2D8DB; }
+			.code { fill: #FFFFFF; stroke: #17233B; stroke-width: 1.5; }
+			.ai { fill: #E4F3F5; stroke: #1C8A9B; stroke-width: 1.5; stroke-dasharray: 6 4; }
+			.you { fill: #F4CF48; stroke: #C9A21F; stroke-width: 1.5; }
+			.pill { fill: #FFFFFF; stroke: #C9D1D6; stroke-width: 1; }
+			.panel { fill: #E7ECEB; stroke: #C9D1D6; stroke-width: 1; }
+			.quiet { fill: none; stroke: #97A3B6; stroke-width: 1.25; stroke-dasharray: 4 4; }
+			.h { font-size: 15px; font-weight: 600; }
+			.b { font-size: 15px; }
+			.m { font-size: 13px; fill: #5F6A7C; }
+			.on-you { fill: #2A2300; }
+			.on-ai { fill: #0F5966; }
+			.line { stroke: #17233B; stroke-width: 1.75; fill: none; }
+			.line-q { stroke: #97A3B6; stroke-width: 1.5; fill: none; stroke-dasharray: 4 4; }
+			.ah { fill: #17233B; }
+			.ahq { fill: #97A3B6; }
+			@media (prefers-color-scheme: dark) {
+				text { fill: #E6EBF3; }
+				.bg { fill: #0E131B; }
+				.dot { fill: #1E2836; }
+				.code { fill: #151C27; stroke: #C2CAD7; }
+				.ai { fill: #0E2A30; stroke: #2ED3E0; }
+				.you { fill: #E7C33F; stroke: #E7C33F; }
+				.pill { fill: #151C27; stroke: #283345; }
+				.panel { fill: #121924; stroke: #283345; }
+				.quiet { stroke: #5F6A7C; }
+				.m { fill: #97A3B6; }
+				.on-you { fill: #221C00; }
+				.on-ai { fill: #8FE6EF; }
+				.line { stroke: #C2CAD7; }
+				.line-q { stroke: #5F6A7C; }
+				.ah { fill: #C2CAD7; }
+				.ahq { fill: #5F6A7C; }
+			}
+		</style>
+		<pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><circle class="dot" cx="2" cy="2" r="1"/></pattern>
+		<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0L10 5L0 10z"/></marker>
+		<marker id="arrow-q" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ahq" d="M0 0L10 5L0 10z"/></marker>
+	</defs>
+	<rect class="bg" width="1200" height="300" rx="16"/>
+	<rect fill="url(#grid)" width="1200" height="300" rx="16"/>
+
+	<rect class="code" x="32" y="114" width="160" height="72" rx="10"/>
+	<text class="h" x="112" y="146" text-anchor="middle">Describe</text>
+	<text class="h" x="112" y="165" text-anchor="middle">your business</text>
+	<path class="line" d="M192 150H220" marker-end="url(#arrow)"/>
+
+	<rect class="code" x="222" y="114" width="160" height="72" rx="10"/>
+	<text class="h" x="302" y="146" text-anchor="middle">See the jobs</text>
+	<text class="h" x="302" y="165" text-anchor="middle">AI can do</text>
+	<path class="line" d="M382 150H410" marker-end="url(#arrow)"/>
+
+	<rect class="code" x="412" y="114" width="160" height="72" rx="10"/>
+	<text class="h" x="492" y="146" text-anchor="middle">Choose a way</text>
+	<text class="h" x="492" y="165" text-anchor="middle">for each job</text>
+
+	<path class="line" d="M572 150H592M592 70V230"/>
+	<path class="line" d="M592 70H610" marker-end="url(#arrow)"/>
+	<path class="line" d="M592 150H610" marker-end="url(#arrow)"/>
+	<path class="line" d="M592 230H610" marker-end="url(#arrow)"/>
+
+	<rect class="pill" x="612" y="42" width="190" height="56" rx="28"/>
+	<text class="b" x="707" y="66" text-anchor="middle">Use a tool you</text>
+	<text class="b" x="707" y="84" text-anchor="middle">already pay for</text>
+	<rect class="pill" x="612" y="122" width="190" height="56" rx="28"/>
+	<text class="b" x="707" y="146" text-anchor="middle">Buy a new tool,</text>
+	<text class="b" x="707" y="164" text-anchor="middle">scored for you</text>
+	<rect class="pill" x="612" y="202" width="190" height="56" rx="28"/>
+	<text class="b" x="707" y="226" text-anchor="middle">Let an Anchored</text>
+	<text class="b" x="707" y="244" text-anchor="middle">agent do it</text>
+
+	<path class="line" d="M802 230H830" marker-end="url(#arrow)"/>
+	<rect class="you" x="832" y="202" width="140" height="56" rx="10"/>
+	<text class="h on-you" x="902" y="226" text-anchor="middle">Approve</text>
+	<text class="h on-you" x="902" y="244" text-anchor="middle">its drafts</text>
+
+	<path class="line" d="M802 70H996M802 150H996M972 230H996M996 70V230"/>
+	<path class="line" d="M996 150H1018" marker-end="url(#arrow)"/>
+
+	<rect class="code" x="1020" y="114" width="150" height="72" rx="10"/>
+	<text class="h" x="1095" y="146" text-anchor="middle">See your</text>
+	<text class="h" x="1095" y="165" text-anchor="middle">monthly bill</text>
+</svg>
