@@ -1,119 +1,118 @@
 # Anchored
 
-Anchored shows a small business owner, such as an HVAC contractor or a corner store owner, which jobs AI can take off their plate, which tools fit their business, and what the whole setup costs a month. Where no tool fits a job, an Anchored agent drafts the work as a card, and nothing reaches a customer until the owner approves it.
+Anchored helps a small business owner, such as an HVAC contractor or a corner store owner, use AI. You describe your business. Anchored lists the jobs AI can take on, scores the tools that fit, and shows what the setup costs a month. Where no tool fits a job, an Anchored agent drafts the work, and nothing reaches a customer until you approve it.
 
-Anchored is a finished hackathon project, built for the University of Maryland AI for Small Business Hack-a-thon in Fall 2026. Issues and pull requests are welcome, but nobody promises a review. The research behind the product is in [`docs/research/`](docs/research/).
+Try the live app at [anchored-pi.vercel.app](https://anchored-pi.vercel.app). It opens with a sample restaurant, Linden Street Kitchen, so you can look around before you set up your own business.
+
+![Workflows page that lists each job and the recommended way to handle it](docs/screenshots/2-workflows.png)
+
+Anchored is a finished project from the University of Maryland AI for Small Business Hack-a-thon, Fall 2026. Issues and pull requests are welcome, but nobody promises a review.
+
+## What it does
+
+- **Finds the jobs AI can do.** Anchored asks about your business one question at a time, then lists jobs such as returning missed calls or chasing unpaid invoices.
+- **Offers three ways to handle each job.** Use a tool you already pay for, buy a new one, or let an Anchored agent do it. Anchored marks the option it recommends.
+- **Scores the tools.** Each tool gets a score out of 100 for your business from seven checks, such as price and setup effort.
+- **Drafts work for your approval.** Anchored's agents write texts, emails and replies as cards. You approve, edit or skip each card.
+- **Shows the monthly bill.** One page lists what each piece costs and does. Tools you already pay for count as $0.
+
+<details>
+<summary>Screenshots of each step</summary>
+
+![Chat that asks about the business](docs/screenshots/1-describe.png)
+![Tools page with scored tool cards](docs/screenshots/3-tools.png)
+![Approvals page with draft cards and the outbox](docs/screenshots/4-approve.png)
+![Stack page with the monthly bill](docs/screenshots/5-stack.png)
+
+</details>
 
 ## How it works
 
-The app opens with an example business, Linden Street Kitchen, a restaurant built from the team's research. Explore it first, then set up your own business.
+Anchored is a website. The owner uses it in a browser, and a server behind it keeps each business's data and talks to outside services.
 
-### 1. Describe your business
+The AI writes words and nothing else. Plain code makes every decision that matters:
 
-Anchored asks one question at a time: what you sell, how customers reach you, and what software you already use. You can skip any question.
+- **Code scores the tools.** The AI never picks a number.
+- **Code picks the job.** When an owner asks an agent for something, code decides which job it is. The AI only drafts the message.
+- **Code checks every message before it goes out.** It holds texts between 8 p.m. and 8 a.m. It blocks a message that still has a blank to fill in. It texts only customers who agreed to get texts and never texts anyone who replied STOP.
+- **The owner approves every message.** A message goes out only after the owner taps approve on its card.
 
-![Chat that asks about the business, with a checklist of what Anchored knows so far](docs/screenshots/1-describe.png)
+Anchored can run with no outside services at all. Each one you connect adds a feature:
 
-### 2. See where AI can help
+| Service | What it adds |
+| --- | --- |
+| Supabase | Sign-in, and saved data that survives a restart |
+| The owner's own AI key | Drafts written by a model instead of fill-in-the-blank templates. Anthropic, OpenAI, OpenRouter and Featherless work |
+| Twilio | Sends approved texts from the owner's number, gets replies, and answers missed calls |
+| Resend | Sends approved emails under the business's name |
+| Stripe | Spots overdue or failed invoices so an agent can draft a reminder. Anchored never charges a card |
 
-Anchored lists the jobs AI can take on, such as returning missed calls or chasing quotes. Each job has three options: turn on a tool you already pay for, buy a new one, or let an Anchored agent do it. Anchored marks the option it recommends.
+Without Twilio or Resend, an approved message waits in the outbox with a button. The button opens the owner's own texting or email app with the words filled in.
 
-![Workflows page with the three options for each job](docs/screenshots/2-workflows.png)
+## What's in this repo
 
-### 3. Compare tools
+| Folder | Holds |
+| --- | --- |
+| [`app/`](app/) | The pages and the server endpoints. The product lives under `app/app/`, at `/app` on the site |
+| [`components/`](components/) | The building blocks each page is made from |
+| [`lib/domain/`](lib/domain/) | The rules: the jobs, the agents, the tool catalog, the scores, and the checks every message passes |
+| [`lib/connectors/`](lib/connectors/) | The code that talks to Twilio, Resend and Stripe |
+| [`lib/llm/`](lib/llm/) | The code that talks to each AI provider |
+| [`lib/store/`](lib/store/) | Where data is saved, in Supabase or in memory |
+| [`supabase/migrations/`](supabase/migrations/) | The database tables, one file per change |
+| [`docs/`](docs/) | Guides, the research behind the product, and screenshots |
 
-Each tool gets a score out of 100 for your business, from seven checks such as price, setup effort and whether it works with your software. Code computes every score. The model never picks a number.
+[`docs/architecture.md`](docs/architecture.md) explains how these parts depend on each other.
 
-![Tools page with scored tool cards](docs/screenshots/3-tools.png)
+## Run it on your computer
 
-A discovery agent finds new tools, and code keeps a tool only when a real web page names it. Each find waits on the Tools page until a person checks its price, contract and data terms. [Find new tools](#find-new-tools) shows how to run it.
-
-### 4. Approve before anything goes out
-
-Agents write each text, email or reply as a card. You approve, edit or skip it. Anchored holds texts during quiet hours, from 8 p.m. to 8 a.m., and texts only customers who agreed to get them. With Twilio or email connected, Anchored sends each approved message itself. Without a connection, the approved message waits in the outbox with a button that opens your own texting or email app with the words filled in, and you press send there.
-
-Four agents draft the cards: Customer, Bookkeeping, Marketing and Internal Communications. [`docs/agents.md`](docs/agents.md) explains what each one drafts and what starts it.
-
-![Approvals page with draft cards and the outbox](docs/screenshots/4-approve.png)
-
-### 5. See what it costs
-
-One page shows the monthly bill and what each piece does. Tools you already pay for count as $0.
-
-![Stack page with the monthly bill](docs/screenshots/5-stack.png)
-
-## Quick start
-
-You need Node.js 26, the version in `.nvmrc`. No keys and no accounts are needed.
-
-1. Install the dependencies:
-
-   ```bash
-   npm ci
-   ```
-
-2. Start the dev server:
-
-   ```bash
-   npm run dev
-   ```
-
-3. Open http://localhost:3000/app.
-4. Under **Example business**, open **Linden Street Kitchen**.
-
-With no `.env.local`, accounts and AI are off, and Anchored keeps data in memory, so it resets when the server stops. Anchored's own rules draft every profile and card.
-
-To run a production build instead, build it and start it on the in-memory store:
+You need Node.js 26, the version in `.nvmrc`. You need no keys and no accounts.
 
 ```bash
-npm run build
-ANCHORED_ALLOW_MEMORY_STORE=1 npx next start -p 3000
+npm ci
+npm run dev
 ```
 
-## Configuration
+Open http://localhost:3000/app and choose **Linden Street Kitchen** under **Example business**.
 
-To change a setting, copy `.env.example` to `.env.local`, fill in the values you need, and restart the server. Every value is optional for a local run.
+With no settings file, sign-in and AI are off. Anchored keeps data in memory, so it resets when the server stops, and templates draft every card.
+
+### Turn on more
+
+Copy `.env.example` to `.env.local`, fill in what you need, and restart the server.
 
 | To turn on | Set | Guide |
 | --- | --- | --- |
 | Sign-in and saved data | The Supabase variables | [Set up a Supabase project](docs/deploy.md#set-up-a-supabase-project) |
 | Owners' own AI keys | `CONNECTOR_SECRET_KEY` | [Turn on AI](docs/deploy.md#turn-on-ai) |
-| Real texts, email and invoices | `CONNECTOR_SECRET_KEY` and the connected service variables | [Connect real services](docs/deploy.md#connect-real-services) |
+| Real texts, email and invoices | `CONNECTOR_SECRET_KEY` and the service variables | [Connect real services](docs/deploy.md#connect-real-services) |
 
-The deployment holds no AI key. Each owner adds their own Anthropic, OpenAI, OpenRouter or Featherless key on a business's **Connections** page, signed in with email or Google, and every model call for that business runs on it. A business with no key, and onboarding, which runs before a business exists, use Anchored's rules.
-
-[`docs/deploy.md`](docs/deploy.md) covers every variable and the steps to deploy on Vercel.
+The server holds no AI key. Each owner adds their own key on a business's **Connections** page. [`docs/deploy.md`](docs/deploy.md) covers every variable and how to deploy on Vercel.
 
 ### Find new tools
 
-The discovery agent runs on your own machine with your own AI key. Set `AI_PROVIDER` to `anthropic`, `openai`, `openrouter` or `featherless` and `AI_API_KEY` to your key in `.env.local`, and `AI_MODEL` for every provider but `anthropic`. Only the script reads these settings; the web app ignores them. Run it for one workflow and one kind of business:
+The discovery agent looks for tools that do one job and saves each find to `lib/domain/discovered.json` for a person to check. It runs on your computer with your own AI key. Set `AI_PROVIDER`, `AI_API_KEY` and, for any provider but `anthropic`, `AI_MODEL` in `.env.local`, then run:
 
 ```bash
 npm run discover -- --workflow calls --business "dental office"
 ```
 
-`--workflow base` covers the five workflows every business gets, and `--dry-run` prints the finds without saving them. The agent appends each new tool to `lib/domain/discovered.json`. Review that diff before you commit it.
-
-With `AI_PROVIDER=anthropic`, the agent uses Claude's web search. Other providers name tools from what the model remembers, and code loads each tool's website to check it. For those, set `AI_MODEL_COMPLEX` to a large model, since a small model names the wrong products.
+Add `--dry-run` to print the finds without saving them.
 
 ## Documentation
 
 | Doc | Covers |
 | --- | --- |
-| [`docs/deploy.md`](docs/deploy.md) | Supabase, Vercel, AI, connected services and every environment variable |
-| [`docs/architecture.md`](docs/architecture.md) | The layers, the rules that keep owners' customers safe, and where to add a workflow, tool, route or connector |
-| [`docs/agents.md`](docs/agents.md) | The four agents, what each drafts and what starts it |
+| [`docs/deploy.md`](docs/deploy.md) | Supabase, Vercel, AI, connected services and every setting |
+| [`docs/architecture.md`](docs/architecture.md) | The code layers, the rules that protect owners' customers, and where to add things |
+| [`docs/agents.md`](docs/agents.md) | The agents, what each drafts and what starts it |
 | [`docs/connectors.md`](docs/connectors.md) | The connected services, the rules they follow, and the ones not built |
 | [`docs/security.md`](docs/security.md) | Each security control and the file that holds it |
-| [`docs/testing/`](docs/testing/) | A manual test runbook for the agents and a test business |
-| [`docs/research/`](docs/research/) | The research by trade that the catalog and workflows come from |
-| [`docs/brand.md`](docs/brand.md) | Colors, type and voice |
+| [`docs/research/`](docs/research/) | The research by trade behind the tool catalog and the jobs |
 
 ## Contribute
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before you open an issue or a pull request, and [AGENTS.md](AGENTS.md) before you change code, whether you or a coding agent writes it. Everyone who takes part follows the [code of conduct](CODE_OF_CONDUCT.md). To report a security problem, follow [SECURITY.md](SECURITY.md) instead of opening an issue.
-
-`npm run check` runs the type check, the tests and the production build, the same steps as CI. It needs no keys.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before you open an issue or a pull request, and [AGENTS.md](AGENTS.md) before you change code. `npm run check` runs the type check, the tests and the build, the same steps as CI, with no keys. To report a security problem, follow [SECURITY.md](SECURITY.md) instead of opening an issue.
 
 ## License
 
