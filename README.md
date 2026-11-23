@@ -16,6 +16,16 @@ Anchored is a finished project from the University of Maryland AI for Small Busi
 - **Drafts work for your approval.** Anchored's agents write texts, emails and replies as cards. You approve, edit or skip each card.
 - **Shows the monthly bill.** One page lists what each piece costs and does. Tools you already pay for count as $0.
 
+```mermaid
+flowchart LR
+	describe["Describe your business"] --> jobs["See the jobs AI can do"]
+	jobs --> choose{"Choose a way<br>for each job"}
+	choose -->|"Use a tool you<br>already pay for"| bill["See the<br>monthly bill"]
+	choose -->|"Buy a scored<br>new tool"| bill
+	choose -->|"Let an Anchored<br>agent do it"| approve["Approve the<br>agent's drafts"]
+	approve --> bill
+```
+
 <details>
 <summary>Screenshots of each step</summary>
 
@@ -30,12 +40,39 @@ Anchored is a finished project from the University of Maryland AI for Small Busi
 
 Anchored is a website. The owner uses it in a browser, and a server behind it keeps each business's data and talks to outside services.
 
-The AI writes words and nothing else. Plain code makes every decision that matters:
+```mermaid
+flowchart LR
+	owner(["Owner in a browser"]) <--> server
+	subgraph server["Anchored server"]
+		rules["Rules: jobs, scores,<br>message checks"]
+		agents["Agents"]
+	end
+	server <--> db[("Supabase:<br>sign-in and data")]
+	server <--> ai["Owner's AI provider:<br>writes the words"]
+	server <--> services["Twilio, Resend, Stripe"]
+	services <--> customers(["Customers"])
+```
 
-- **Code scores the tools.** The AI never picks a number.
-- **Code picks the job.** When an owner asks an agent for something, code decides which job it is. The AI only drafts the message.
-- **Code checks every message before it goes out.** It holds texts between 8 p.m. and 8 a.m. It blocks a message that still has a blank to fill in. It texts only customers who agreed to get texts and never texts anyone who replied STOP.
-- **The owner approves every message.** A message goes out only after the owner taps approve on its card.
+The AI writes words and nothing else. Plain code makes every decision that matters, and the owner approves every message before it goes out. This is the path every text and email takes:
+
+```mermaid
+flowchart TD
+	start["A customer texts, a call is missed, an invoice goes overdue,<br>the owner asks in chat, or a scheduled job finds due work"]
+	start --> pick["Code picks the job, the customer and the facts"]
+	pick --> write["The AI writes the words.<br>A template writes them if there is no AI key<br>or the AI's reply fails a check"]
+	write --> card["A draft card waits on the Approvals page"]
+	card --> owner{"The owner decides"}
+	owner -->|"Skip"| stop["Nothing is sent"]
+	owner -->|"Approve, or edit and approve"| check["Code checks the message"]
+	check -->|"Fails a check"| why["The owner sees why, such as<br>Quiet hours: texts wait until 8 a.m."]
+	check -->|"Passes"| outbox["The message waits in the outbox"]
+	outbox --> recheck["Code checks it again at send time"]
+	recheck --> connected{"Is Twilio or Resend<br>connected?"}
+	connected -->|"Yes"| sent["Anchored sends it"]
+	connected -->|"No"| own["A button opens the owner's own<br>texting or email app with the words filled in"]
+```
+
+The code checks hold texts between 8 p.m. and 8 a.m. They block a message that still has a blank to fill in. They text only customers who agreed to get texts, and never anyone who replied STOP. Code also computes every tool score, so the AI never picks a number.
 
 Anchored can run with no outside services at all. Each one you connect adds a feature:
 
@@ -46,8 +83,6 @@ Anchored can run with no outside services at all. Each one you connect adds a fe
 | Twilio | Sends approved texts from the owner's number, gets replies, and answers missed calls |
 | Resend | Sends approved emails under the business's name |
 | Stripe | Spots overdue or failed invoices so an agent can draft a reminder. Anchored never charges a card |
-
-Without Twilio or Resend, an approved message waits in the outbox with a button. The button opens the owner's own texting or email app with the words filled in.
 
 ## What's in this repo
 
