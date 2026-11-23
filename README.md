@@ -56,23 +56,26 @@ flowchart LR
 The AI writes words and nothing else. Plain code makes every decision that matters, and the owner approves every message before it goes out. This is the path every text and email takes:
 
 ```mermaid
-flowchart TD
-	start["A customer texts, a call is missed, an invoice goes overdue,<br>the owner asks in chat, or a scheduled job finds due work"]
-	start --> pick["Code picks the job, the customer and the facts"]
-	pick --> write["The AI writes the words.<br>A template writes them if there is no AI key<br>or the AI's reply fails a check"]
-	write --> card["A draft card waits on the Approvals page"]
-	card --> owner{"The owner decides"}
-	owner -->|"Skip"| stop["Nothing is sent"]
-	owner -->|"Approve, or edit and approve"| check["Code checks the message"]
-	check -->|"Fails a check"| why["The owner sees why, such as<br>Quiet hours: texts wait until 8 a.m."]
-	check -->|"Passes"| outbox["The message waits in the outbox"]
-	outbox --> recheck["Code checks it again at send time"]
-	recheck --> connected{"Is Twilio or Resend<br>connected?"}
-	connected -->|"Yes"| sent["Anchored sends it"]
-	connected -->|"No"| own["A button opens the owner's own<br>texting or email app with the words filled in"]
+flowchart LR
+	subgraph triggers["Something happens"]
+		t1["A customer texts"]
+		t2["A call is missed"]
+		t3["An invoice is overdue"]
+		t4["The owner asks in chat"]
+		t5["A scheduled job runs"]
+	end
+	triggers --> pick["Code picks the job and the facts"]
+	pick --> write["The AI writes the words"]
+	write --> card["A draft card waits for the owner"]
+	card -->|"Skip"| stop["Nothing is sent"]
+	card -->|"Approve"| check["Code checks the message"]
+	check -->|"Fails"| why["The owner sees why"]
+	check -->|"Passes"| outbox["Outbox: checked again at send time"]
+	outbox -->|"Connected"| sent["Twilio or Resend sends it"]
+	outbox -->|"Not connected"| own["The owner sends it from their own app"]
 ```
 
-The code checks hold texts between 8 p.m. and 8 a.m. They block a message that still has a blank to fill in. They text only customers who agreed to get texts, and never anyone who replied STOP. Code also computes every tool score, so the AI never picks a number.
+When there is no AI key, or the AI's reply fails a check, a template writes the words instead. The code checks hold texts between 8 p.m. and 8 a.m. They block a message that still has a blank to fill in. They text only customers who agreed to get texts, and never anyone who replied STOP. Code also computes every tool score, so the AI never picks a number.
 
 Anchored can run with no outside services at all. Each one you connect adds a feature:
 
