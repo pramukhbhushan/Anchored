@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 440" width="1200" height="440" role="img" aria-labelledby="title desc">
+	<title id="title">How a message goes out</title>
+	<desc id="desc">A customer text, a missed call, an overdue invoice, the owner's chat or a scheduled job starts a draft. Code picks the job and the facts. The AI writes the words, or a template does. The owner approves or skips. Code checks the message now and again at send time. Twilio or Resend sends it, or the owner sends it from their own app.</desc>
+	<defs>
+		<style>
+			text { font-family: "Avenir Next", Avenir, "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #17233B; }
+			.bg { fill: #F3F5F4; }
+			.dot { fill: #D2D8DB; }
+			.code { fill: #FFFFFF; stroke: #17233B; stroke-width: 1.5; }
+			.ai { fill: #E4F3F5; stroke: #1C8A9B; stroke-width: 1.5; stroke-dasharray: 6 4; }
+			.you { fill: #F4CF48; stroke: #C9A21F; stroke-width: 1.5; }
+			.pill { fill: #FFFFFF; stroke: #C9D1D6; stroke-width: 1; }
+			.panel { fill: #E7ECEB; stroke: #C9D1D6; stroke-width: 1; }
+			.quiet { fill: none; stroke: #97A3B6; stroke-width: 1.25; stroke-dasharray: 4 4; }
+			.h { font-size: 15px; font-weight: 600; }
+			.b { font-size: 15px; }
+			.m { font-size: 13px; fill: #5F6A7C; }
+			.on-you { fill: #2A2300; }
+			.on-ai { fill: #0F5966; }
+			.line { stroke: #17233B; stroke-width: 1.75; fill: none; }
+			.line-q { stroke: #97A3B6; stroke-width: 1.5; fill: none; stroke-dasharray: 4 4; }
+			.ah { fill: #17233B; }
+			.ahq { fill: #97A3B6; }
+			@media (prefers-color-scheme: dark) {
+				text { fill: #E6EBF3; }
+				.bg { fill: #0E131B; }
+				.dot { fill: #1E2836; }
+				.code { fill: #151C27; stroke: #C2CAD7; }
+				.ai { fill: #0E2A30; stroke: #2ED3E0; }
+				.you { fill: #E7C33F; stroke: #E7C33F; }
+				.pill { fill: #151C27; stroke: #283345; }
+				.panel { fill: #121924; stroke: #283345; }
+				.quiet { stroke: #5F6A7C; }
+				.m { fill: #97A3B6; }
+				.on-you { fill: #221C00; }
+				.on-ai { fill: #8FE6EF; }
+				.line { stroke: #C2CAD7; }
+				.line-q { stroke: #5F6A7C; }
+				.ah { fill: #C2CAD7; }
+				.ahq { fill: #5F6A7C; }
+			}
+		</style>
+		<pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><circle class="dot" cx="2" cy="2" r="1"/></pattern>
+		<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0L10 5L0 10z"/></marker>
+		<marker id="arrow-q" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ahq" d="M0 0L10 5L0 10z"/></marker>
+	</defs>
+	<rect class="bg" width="1200" height="440" rx="16"/>
+	<rect fill="url(#grid)" width="1200" height="440" rx="16"/>
+
+	<text class="m" x="32" y="70">Something happens</text>
+	<rect class="pill" x="32" y="86" width="190" height="38" rx="19"/><text class="b" x="127" y="110" text-anchor="middle">A customer texts</text>
+	<rect class="pill" x="32" y="134" width="190" height="38" rx="19"/><text class="b" x="127" y="158" text-anchor="middle">A call is missed</text>
+	<rect class="pill" x="32" y="182" width="190" height="38" rx="19"/><text class="b" x="127" y="206" text-anchor="middle">An invoice is overdue</text>
+	<rect class="pill" x="32" y="230" width="190" height="38" rx="19"/><text class="b" x="127" y="254" text-anchor="middle">The owner asks in chat</text>
+	<rect class="pill" x="32" y="278" width="190" height="38" rx="19"/><text class="b" x="127" y="302" text-anchor="middle">A scheduled job runs</text>
+	<path class="line" d="M222 105H246M222 153H246M222 201H246M222 249H246M222 297H246M246 105V297"/>
+	<path class="line" d="M246 201H268" marker-end="url(#arrow)"/>
+
+	<rect class="code" x="270" y="159" width="150" height="84" rx="10"/>
+	<text class="h" x="345" y="188" text-anchor="middle">Code picks</text>
+	<text class="h" x="345" y="207" text-anchor="middle">the job and</text>
+	<text class="h" x="345" y="226" text-anchor="middle">the facts</text>
+	<path class="line" d="M420 201H454" marker-end="url(#arrow)"/>
+
+	<rect class="ai" x="456" y="159" width="150" height="84" rx="10"/>
+	<text class="h on-ai" x="531" y="197" text-anchor="middle">The AI writes</text>
+	<text class="h on-ai" x="531" y="216" text-anchor="middle">the words</text>
+	<text class="m" x="531" y="268" text-anchor="middle">A template writes them</text>
+	<text class="m" x="531" y="285" text-anchor="middle">when there is no AI key</text>
+	<path class="line" d="M606 201H640" marker-end="url(#arrow)"/>
+
+	<rect class="you" x="642" y="159" width="150" height="84" rx="10"/>
+	<text class="h on-you" x="717" y="197" text-anchor="middle">The owner</text>
+	<text class="h on-you" x="717" y="216" text-anchor="middle">approves</text>
+	<path class="line-q" d="M717 243V326" marker-end="url(#arrow-q)"/>
+	<text class="m" x="727" y="290">Skip</text>
+	<rect class="quiet" x="652" y="328" width="130" height="40" rx="8"/>
+	<text class="m" x="717" y="353" text-anchor="middle">Nothing is sent</text>
+	<path class="line" d="M792 201H826" marker-end="url(#arrow)"/>
+
+	<rect class="code" x="828" y="159" width="150" height="84" rx="10"/>
+	<text class="h" x="903" y="188" text-anchor="middle">Code checks it</text>
+	<text class="h" x="903" y="207" text-anchor="middle">now, and again</text>
+	<text class="h" x="903" y="226" text-anchor="middle">at send time</text>
+	<path class="line-q" d="M903 243V326" marker-end="url(#arrow-q)"/>
+	<text class="m" x="913" y="290">Fails a check</text>
+	<rect class="quiet" x="838" y="328" width="130" height="40" rx="8"/>
+	<text class="m" x="903" y="353" text-anchor="middle">The owner sees why</text>
+	<text class="m" x="903" y="392" text-anchor="middle" font-style="italic">"Quiet hours: texts wait until 8 a.m."</text>
+
+	<path class="line" d="M978 201H1004M1004 150V252"/>
+	<path class="line" d="M1004 150H1026" marker-end="url(#arrow)"/>
+	<path class="line" d="M1004 252H1026" marker-end="url(#arrow)"/>
+	<text class="m" x="1102" y="108" text-anchor="middle">If connected</text>
+	<rect class="code" x="1028" y="118" width="148" height="64" rx="10"/>
+	<text class="h" x="1102" y="146" text-anchor="middle">Twilio or Resend</text>
+	<text class="h" x="1102" y="165" text-anchor="middle">sends it</text>
+	<text class="m" x="1102" y="210" text-anchor="middle">If not</text>
+	<rect class="code" x="1028" y="220" width="148" height="64" rx="10"/>
+	<text class="h" x="1102" y="248" text-anchor="middle">The owner sends</text>
+	<text class="h" x="1102" y="267" text-anchor="middle">it from their app</text>
+
+	<rect class="code" x="32" y="399" width="14" height="14" rx="3"/><text class="m" x="54" y="411">Code decides</text>
+	<rect class="ai" x="168" y="399" width="14" height="14" rx="3"/><text class="m" x="190" y="411">The AI writes words</text>
+	<rect class="you" x="340" y="399" width="14" height="14" rx="3"/><text class="m" x="362" y="411">The owner decides</text>
+</svg>

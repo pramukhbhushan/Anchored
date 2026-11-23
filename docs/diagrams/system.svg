@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 380" width="1200" height="380" role="img" aria-labelledby="title desc">
+	<title id="title">The parts of Anchored</title>
+	<desc id="desc">The owner uses Anchored in a browser. Anchored holds the rules, the agents and the approvals. It talks to Supabase for sign-in and data, to the owner's AI provider for the words, and to Twilio, Resend and Stripe, which reach customers. Each service is optional.</desc>
+	<defs>
+		<style>
+			text { font-family: "Avenir Next", Avenir, "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #17233B; }
+			.bg { fill: #F3F5F4; }
+			.dot { fill: #D2D8DB; }
+			.code { fill: #FFFFFF; stroke: #17233B; stroke-width: 1.5; }
+			.ai { fill: #E4F3F5; stroke: #1C8A9B; stroke-width: 1.5; stroke-dasharray: 6 4; }
+			.you { fill: #F4CF48; stroke: #C9A21F; stroke-width: 1.5; }
+			.pill { fill: #FFFFFF; stroke: #C9D1D6; stroke-width: 1; }
+			.panel { fill: #E7ECEB; stroke: #C9D1D6; stroke-width: 1; }
+			.quiet { fill: none; stroke: #97A3B6; stroke-width: 1.25; stroke-dasharray: 4 4; }
+			.h { font-size: 15px; font-weight: 600; }
+			.b { font-size: 15px; }
+			.m { font-size: 13px; fill: #5F6A7C; }
+			.on-you { fill: #2A2300; }
+			.on-ai { fill: #0F5966; }
+			.line { stroke: #17233B; stroke-width: 1.75; fill: none; }
+			.line-q { stroke: #97A3B6; stroke-width: 1.5; fill: none; stroke-dasharray: 4 4; }
+			.ah { fill: #17233B; }
+			.ahq { fill: #97A3B6; }
+			@media (prefers-color-scheme: dark) {
+				text { fill: #E6EBF3; }
+				.bg { fill: #0E131B; }
+				.dot { fill: #1E2836; }
+				.code { fill: #151C27; stroke: #C2CAD7; }
+				.ai { fill: #0E2A30; stroke: #2ED3E0; }
+				.you { fill: #E7C33F; stroke: #E7C33F; }
+				.pill { fill: #151C27; stroke: #283345; }
+				.panel { fill: #121924; stroke: #283345; }
+				.quiet { stroke: #5F6A7C; }
+				.m { fill: #97A3B6; }
+				.on-you { fill: #221C00; }
+				.on-ai { fill: #8FE6EF; }
+				.line { stroke: #C2CAD7; }
+				.line-q { stroke: #5F6A7C; }
+				.ah { fill: #C2CAD7; }
+				.ahq { fill: #5F6A7C; }
+			}
+		</style>
+		<pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><circle class="dot" cx="2" cy="2" r="1"/></pattern>
+		<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0L10 5L0 10z"/></marker>
+		<marker id="arrow-q" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ahq" d="M0 0L10 5L0 10z"/></marker>
+	</defs>
+	<rect class="bg" width="1200" height="380" rx="16"/>
+	<rect fill="url(#grid)" width="1200" height="380" rx="16"/>
+
+	<rect class="pill" x="32" y="150" width="180" height="80" rx="40"/>
+	<text class="h" x="122" y="186" text-anchor="middle">The owner</text>
+	<text class="m" x="122" y="205" text-anchor="middle">in a browser</text>
+	<path class="line" d="M214 190H268" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+
+	<rect class="panel" x="270" y="40" width="360" height="300" rx="14"/>
+	<text class="h" x="294" y="72">Anchored</text>
+	<text class="m" x="374" y="72">the website and its server</text>
+	<rect class="code" x="294" y="88" width="312" height="64" rx="10"/>
+	<text class="h" x="314" y="115">Rules</text>
+	<text class="m" x="314" y="135">Jobs, tool scores and message checks</text>
+	<rect class="code" x="294" y="168" width="312" height="64" rx="10"/>
+	<text class="h" x="314" y="195">Agents</text>
+	<text class="m" x="314" y="215">Draft texts, emails and replies</text>
+	<rect class="you" x="294" y="248" width="312" height="64" rx="10"/>
+	<text class="h on-you" x="314" y="275">Approvals</text>
+	<text class="m on-you" x="314" y="295">Nothing goes out without the owner's OK</text>
+
+	<path class="line" d="M632 90H710" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+	<path class="line" d="M632 190H710" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+	<path class="line" d="M632 290H710" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+
+	<rect class="code" x="712" y="56" width="236" height="68" rx="10"/>
+	<text class="h" x="732" y="85">Supabase</text>
+	<text class="m" x="732" y="105">Sign-in and saved data</text>
+	<rect class="ai" x="712" y="156" width="236" height="68" rx="10"/>
+	<text class="h on-ai" x="732" y="185">The owner's AI provider</text>
+	<text class="m" x="732" y="205">Writes the words</text>
+	<rect class="code" x="712" y="256" width="236" height="68" rx="10"/>
+	<text class="h" x="732" y="285">Twilio, Resend, Stripe</text>
+	<text class="m" x="732" y="305">Texts, email and invoices</text>
+	<text class="m" x="830" y="354" text-anchor="middle">Each service is optional</text>
+
+	<path class="line" d="M950 290H1008" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+	<rect class="pill" x="1010" y="256" width="160" height="68" rx="34"/>
+	<text class="h" x="1090" y="295" text-anchor="middle">Customers</text>
+</svg>
